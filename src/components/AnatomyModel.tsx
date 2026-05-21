@@ -19,6 +19,7 @@ import * as THREE from 'three';
 import type { AnatomyEntry } from '../types/anatomy';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { colorForMaterial, colorForMaterialMesh } from '../lib/materialColors';
+import type { MuscleResolution } from '../lib/muscleResolver';
 
 const MODEL_URL = '/modelo-opt.glb';
 useGLTF.preload(MODEL_URL);
@@ -44,6 +45,8 @@ interface AnatomyModelProps {
   regionMeshes?: Set<string> | null;
   /** Called whenever the set of visible meshes changes, for camera framing. */
   onVisibleChange?: (meshes: THREE.Mesh[]) => void;
+  /** Muscle resolution maps, for muscle-level highlighting. */
+  resolution: MuscleResolution;
 }
 
 /** Cached per-mesh original material state so we can restore after highlight. */
@@ -56,6 +59,7 @@ export function AnatomyModel({
   byMesh,
   regionMeshes,
   onVisibleChange,
+  resolution,
 }: AnatomyModelProps) {
   const { scene } = useGLTF(MODEL_URL) as unknown as { scene: THREE.Group };
 // TEMP DEBUG: expone la escena y THREE en la consola para diagnóstico.
@@ -70,6 +74,7 @@ export function AnatomyModel({
   const hoveredMeshName = useAnatomyStore((s) => s.hoveredMeshName);
   const selectMesh = useAnatomyStore((s) => s.selectMesh);
   const setHovered = useAnatomyStore((s) => s.setHovered);
+  const selectedMuscleId = useAnatomyStore((s) => s.selectedMuscleId);
 
   // Collect all meshes once.
   const meshes = useMemo(() => {
@@ -251,7 +256,13 @@ export function AnatomyModel({
       const orig = map.get(mesh.uuid);
       if (!orig) continue;
 
-      if (mesh.name === selectedMeshName) {
+      // A mesh is "selected" if it's the directly-clicked mesh OR it belongs
+      // to the currently selected muscle (so all of a muscle's pieces light up).
+      const muscleOfMesh = resolution.muscleByMeshName.get(mesh.name);
+      const isSelectedMuscle =
+        selectedMuscleId != null && muscleOfMesh?.id === selectedMuscleId;
+
+      if (mesh.name === selectedMeshName || isSelectedMuscle) {
         mat.emissive.setHex(HIGHLIGHT);
         mat.emissiveIntensity = 0.9;
       } else if (mesh.name === hoveredMeshName) {
@@ -262,7 +273,7 @@ export function AnatomyModel({
         mat.emissiveIntensity = orig.emissiveIntensity;
       }
     }
-  }, [meshes, byMesh, selectedMeshName, hoveredMeshName]);
+  }, [meshes, byMesh, selectedMeshName, hoveredMeshName, selectedMuscleId, resolution]);
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
@@ -279,6 +290,8 @@ export function AnatomyModel({
       if (entry.layer === 'skin') continue;
       if (entry.layer === 'reference') continue;
       selectMesh(mesh.name);
+      const muscle = resolution.muscleByMeshName.get(mesh.name);
+      useAnatomyStore.getState().selectMuscle(muscle ? muscle.id : null);
       return;
     }
   };

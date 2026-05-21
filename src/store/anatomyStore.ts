@@ -2,7 +2,8 @@
 //
 // Global UI/state store (Zustand). Owns: which anatomical layers are visible,
 // the side filter, the current region restriction, the selected/hovered mesh,
-// the command-palette open state, and pending camera-view requests.
+// the selected MUSCLE (a clinical entity spanning many meshes), the command-
+// palette open state, and pending camera-view requests.
 //
 // IMPORTANT — default layers:
 // Skin is a CONTEXT layer that occludes everything behind it, so it is OFF by
@@ -28,6 +29,15 @@ export interface CameraRequest {
   nonce: number;
 }
 
+/**
+ * A request to frame the camera on a specific set of meshes (e.g. the meshes
+ * of a selected muscle). Nonce works the same way as CameraRequest.
+ */
+export interface FocusRequest {
+  meshNames: string[];
+  nonce: number;
+}
+
 interface AnatomyState {
   /* ----- layers ----- */
   activeLayers: Set<AnatomyLayer>;
@@ -49,6 +59,10 @@ interface AnatomyState {
   clearSelection: () => void;
   setHovered: (meshName: string | null) => void;
 
+  /* ----- muscle selection (clinical entity, spans many meshes) ----- */
+  selectedMuscleId: string | null;
+  selectMuscle: (muscleId: string | null) => void;
+
   /* ----- command palette ----- */
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
@@ -56,6 +70,9 @@ interface AnatomyState {
   /* ----- camera ----- */
   cameraRequest: CameraRequest | null;
   requestView: (view: CameraView) => void;
+
+  focusRequest: FocusRequest | null;
+  requestFocus: (meshNames: string[]) => void;
 }
 
 export const useAnatomyStore = create<AnatomyState>((set) => ({
@@ -91,8 +108,12 @@ export const useAnatomyStore = create<AnatomyState>((set) => ({
   selectedMeshName: null,
   hoveredMeshName: null,
   selectMesh: (meshName) => set({ selectedMeshName: meshName }),
-  clearSelection: () => set({ selectedMeshName: null }),
+  clearSelection: () => set({ selectedMeshName: null, selectedMuscleId: null }),
   setHovered: (meshName) => set({ hoveredMeshName: meshName }),
+
+  /* ----- muscle selection ----- */
+  selectedMuscleId: null,
+  selectMuscle: (muscleId) => set({ selectedMuscleId: muscleId }),
 
   /* ----- command palette ----- */
   paletteOpen: false,
@@ -105,6 +126,15 @@ export const useAnatomyStore = create<AnatomyState>((set) => ({
       cameraRequest: {
         view,
         nonce: (s.cameraRequest?.nonce ?? 0) + 1,
+      },
+    })),
+
+  focusRequest: null,
+  requestFocus: (meshNames) =>
+    set((s) => ({
+      focusRequest: {
+        meshNames,
+        nonce: (s.focusRequest?.nonce ?? 0) + 1,
       },
     })),
 }));

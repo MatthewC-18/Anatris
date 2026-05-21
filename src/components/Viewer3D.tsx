@@ -15,10 +15,13 @@ import { CanvasLoader } from './CanvasLoader';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { VIEW_META } from '../lib/anatomyMeta';
 import type { AnatomyEntry } from '../types/anatomy';
+import type { MuscleResolution } from '../lib/muscleResolver';
+import { useThree } from '@react-three/fiber';
 
 interface Viewer3DProps {
   byMesh: Map<string, AnatomyEntry>;
   regionMeshes?: Set<string> | null;
+  resolution: MuscleResolution;
 }
 
 /**
@@ -26,12 +29,14 @@ interface Viewer3DProps {
  * recomputes framing when the visible mesh set changes, and reacts to camera
  * view requests from the store.
  */
-function SceneContents({ byMesh, regionMeshes }: Viewer3DProps) {
+function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
+  const { scene } = useThree();
   const controlsRef = useRef<CameraControls | null>(null);
   const boundsRef = useRef<{ box: THREE.Box3; radius: number } | null>(null);
   const hasFramedRef = useRef(false);
 
-  const cameraRequest = useAnatomyStore((s) => s.cameraRequest);
+  const focusRequest = useAnatomyStore((s) => s.focusRequest);
+  const cameraRequest = useAnatomyStore((s) => s.cameraRequest); //
 
   // Recompute the bounding box of visible meshes, then frame the camera.
   const handleVisibleChange = useCallback((meshes: THREE.Mesh[]) => {
@@ -40,6 +45,9 @@ function SceneContents({ byMesh, regionMeshes }: Viewer3DProps) {
     const tmp = new THREE.Box3();
     for (const m of meshes) {
       tmp.setFromObject(m);
+
+
+      
       if (isFinite(tmp.min.x)) box.union(tmp);
     }
     if (!isFinite(box.min.x)) return;
@@ -83,6 +91,30 @@ function SceneContents({ byMesh, regionMeshes }: Viewer3DProps) {
       true, // animate
     );
   }, [cameraRequest]);
+  // Frame the camera onto a requested set of meshes (e.g. a selected muscle).
+  useEffect(() => {
+    if (!focusRequest || !controlsRef.current) return;
+    const box = new THREE.Box3();
+    const tmp = new THREE.Box3();
+    let found = false;
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      if (!focusRequest.meshNames.includes(m.name)) return;
+      tmp.setFromObject(m);
+      if (isFinite(tmp.min.x)) {
+        box.union(tmp);
+        found = true;
+      }
+    });
+    if (!found || !isFinite(box.min.x)) return;
+    void controlsRef.current.fitToBox(box, true, {
+      paddingTop: 0.5,
+      paddingBottom: 0.5,
+      paddingLeft: 0.5,
+      paddingRight: 0.5,
+    });
+  }, [focusRequest]);
 
   return (
     <>
@@ -94,10 +126,11 @@ function SceneContents({ byMesh, regionMeshes }: Viewer3DProps) {
       <directionalLight position={[0, -3, 2]} intensity={0.3} />
       <ambientLight intensity={0.2} />
 
-      <AnatomyModel
+     <AnatomyModel
         byMesh={byMesh}
         regionMeshes={regionMeshes}
         onVisibleChange={handleVisibleChange}
+        resolution={resolution}
       />
 
       <CameraControls
@@ -120,7 +153,7 @@ function ProgressReporter({ onProgress }: { onProgress: (p: number) => void }) {
   return null;
 }
 
-export function Viewer3D({ byMesh, regionMeshes }: Viewer3DProps) {
+export function Viewer3D({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
   const [progress, setProgress] = useState(0);
   const [ready, setReady] = useState(false);
 
@@ -152,7 +185,7 @@ export function Viewer3D({ byMesh, regionMeshes }: Viewer3DProps) {
       >
         <Suspense fallback={null}>
           <ProgressReporter onProgress={setProgress} />
-          <SceneContents byMesh={byMesh} regionMeshes={regionMeshes} />
+          <SceneContents byMesh={byMesh} regionMeshes={regionMeshes} resolution={resolution} />
         </Suspense>
       </Canvas>
 

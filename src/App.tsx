@@ -23,7 +23,7 @@ export default function App() {
       <TopBar />
 
       <div className="flex min-h-0 flex-1">
-        <Sidebar index={index} />
+        <Sidebar index={index} resolution={resolution} />
 
         {/* Viewer column */}
         <main className="relative min-w-0 flex-1">
@@ -33,7 +33,7 @@ export default function App() {
             <IndexLoading />
           ) : (
             <>
-              <Viewer3D byMesh={byMesh} />
+              <Viewer3D byMesh={byMesh} resolution={resolution} />
               <ViewToolbar />
             </>
           )}

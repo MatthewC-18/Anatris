@@ -2,8 +2,9 @@
 //
 // Left navigation rail. Shows the active module with a progress placeholder,
 // the seven pedagogical phases (display-only until the content phase wires
-// them up), the layer toggles with live visible-count badges, and the side
-// filter.
+// them up), the layer toggles with live visible-count badges, the side
+// filter, and the per-muscle list (grouped by function) for reaching deep
+// muscles that can't be clicked directly in the 3D view.
 
 import { useAnatomyStore, type SideFilter } from '../store/anatomyStore';
 import {
@@ -11,10 +12,13 @@ import {
   ANATOMICAL_LAYERS,
   SECONDARY_LAYERS,
 } from '../lib/anatomyMeta';
+import { MuscleList } from './MuscleList';
 import type { AnatomyLayer, AnatomyIndex } from '../types/anatomy';
+import type { MuscleResolution } from '../lib/muscleResolver';
 
 interface SidebarProps {
   index: AnatomyIndex | null;
+  resolution: MuscleResolution;
 }
 
 // Placeholder phases for the shoulder module. Wired up in a later phase.
@@ -28,7 +32,7 @@ const PHASES = [
   'Razonamiento y tratamiento',
 ];
 
-export function Sidebar({ index }: SidebarProps) {
+export function Sidebar({ index, resolution }: SidebarProps) {
   return (
     <nav className="flex h-full w-[260px] shrink-0 flex-col border-r border-slate-800/60 bg-ink-950/80">
       <div className="flex-1 overflow-y-auto px-4 py-5">
@@ -38,6 +42,8 @@ export function Sidebar({ index }: SidebarProps) {
         <LayerControls index={index} />
         <div className="my-5 h-px bg-slate-800/60" />
         <SideControls />
+        <div className="my-5 h-px bg-slate-800/60" />
+        <MuscleList resolution={resolution} />
       </div>
 
       <footer className="border-t border-slate-800/60 px-4 py-3">
