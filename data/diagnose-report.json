@@ -1,0 +1,259 @@
+{
+  "glb": "C:\\Users\\Matthew\\Documents\\Fisio\\public\\modelo-opt.glb",
+  "gltfTransform": {
+    "meshes": 3390,
+    "totalPrimitives": 3882,
+    "nodes": 9267,
+    "nodesWithMesh": 5406,
+    "nodesWithoutMesh": 3861,
+    "meshNamesWithDot": 1578,
+    "nodeNamesWithDot": 6678,
+    "sampleMeshNamesWithDot": [
+      "Colors.st",
+      "Cross-sections.st",
+      "Display.st",
+      "Layers.st",
+      "Manipulation.st",
+      "Navigation.st",
+      "Outliner.st",
+      "Selection.st",
+      "Stored views.st",
+      "HOW TO ...",
+      "Pelvic girdle.g",
+      "Skeleton of free lower limb.g",
+      "Skeleton of lower limbs.g",
+      "Pectoral girdle.g",
+      "Skeleton of free upper limb.g",
+      "Skeleton of upper limbs.g",
+      "Appendicular skeleton.g",
+      "Articular facet for malleus.t",
+      "Articular facet for stapes.t",
+      "Body of incus.t",
+      "Lenticular process of incus.t",
+      "Long limb of incus.t",
+      "Anterior process of malleus.t",
+      "Articular facet of head of malleus.t",
+      "Handle of malleus.t",
+      "Head of malleus.t",
+      "Lateral process of malleus.t",
+      "Neck of malleus.t",
+      "Anterior limb of stapes.t",
+      "Articular facet of head of stapes.t"
+    ],
+    "sampleNodeNamesWithDot": [
+      "Colors.st",
+      "Cross-sections.st",
+      "Display.st",
+      "Layers.st",
+      "Manipulation.st",
+      "Navigation.st",
+      "Outliner.st",
+      "Selection.st",
+      "Stored views.st",
+      "HOW TO ...",
+      "Appendicular skeleton.j",
+      "Pelvic girdle.j",
+      "Pelvic girdle.g",
+      "Skeleton of free lower limb.j",
+      "Skeleton of free lower limb.g",
+      "Skeleton of lower limbs.j",
+      "Skeleton of lower limbs.g",
+      "Pectoral girdle.j",
+      "Pectoral girdle.g",
+      "Skeleton of free upper limb.j",
+      "Skeleton of free upper limb.g",
+      "Skeleton of upper limbs.j",
+      "Skeleton of upper limbs.g",
+      "Appendicular skeleton.g",
+      "Auditory ossicles.j",
+      "Articular facet for malleus.i",
+      "Articular facet for malleus.s",
+      "Articular facet for stapes.i",
+      "Articular facet for stapes.s",
+      "Body of incus.i"
+    ],
+    "primitiveDistribution": {
+      "1": 3008,
+      "2": 328,
+      "3": 24,
+      "4": 13,
+      "5": 12,
+      "6": 2,
+      "7": 2,
+      "8": 1
+    }
+  },
+  "threeJs": {
+    "objects": 10902,
+    "meshes": 6316,
+    "meshNamesWithDot": 0,
+    "meshNamesWithUnderscore": 6146,
+    "sampleNamesWithUnderscore": [
+      "Stored_viewsst",
+      "HOW_TO__1",
+      "Pelvic_girdleg_1",
+      "Skeleton_of_free_lower_limbg_1",
+      "Skeleton_of_lower_limbsg_1",
+      "Pectoral_girdleg_1",
+      "Skeleton_of_free_upper_limbg_1",
+      "Skeleton_of_upper_limbsg_1",
+      "Appendicular_skeletong_1",
+      "Articular_facet_for_malleust_1_instance_0",
+      "Articular_facet_for_stapest_1_instance_0",
+      "Body_of_incust_1_instance_0",
+      "Lenticular_process_of_incust_1_instance_0",
+      "Long_limb_of_incust_1_instance_0",
+      "Incus_1",
+      "Articular_facet_for_malleust_1_instance_1",
+      "Articular_facet_for_stapest_1_instance_1",
+      "Body_of_incust_1_instance_1",
+      "Lenticular_process_of_incust_1_instance_1",
+      "Long_limb_of_incust_1_instance_1",
+      "Incus_1",
+      "Anterior_process_of_malleust_1_instance_0",
+      "Articular_facet_of_head_of_malleust_1_instance_0",
+      "Handle_of_malleust_1_instance_0",
+      "Head_of_malleust_1_instance_0",
+      "Lateral_process_of_malleust_1_instance_0",
+      "Neck_of_malleust_1_instance_0",
+      "Malleus_1",
+      "Anterior_process_of_malleust_1_instance_1",
+      "Articular_facet_of_head_of_malleust_1_instance_1"
+    ],
+    "sampleNamesWithDot": [],
+    "firstTwentyNames": [
+      "Colorsst",
+      "Cross-sectionsst",
+      "Displayst",
+      "Layersst",
+      "Manipulationst",
+      "Navigationst",
+      "Outlinerst",
+      "Selectionst",
+      "Stored_viewsst",
+      "HOW_TO__1",
+      "Pelvic_girdleg_1",
+      "Skeleton_of_free_lower_limbg_1",
+      "Skeleton_of_lower_limbsg_1",
+      "Pectoral_girdleg_1",
+      "Skeleton_of_free_upper_limbg_1",
+      "Skeleton_of_upper_limbsg_1",
+      "Appendicular_skeletong_1",
+      "Articular_facet_for_malleust_1_instance_0",
+      "Articular_facet_for_stapest_1_instance_0",
+      "Body_of_incust_1_instance_0"
+    ],
+    "duplicateNames": 760,
+    "topDuplicates": [
+      [
+        "Incus",
+        2
+      ],
+      [
+        "Incus_1",
+        2
+      ],
+      [
+        "Malleus",
+        2
+      ],
+      [
+        "Malleus_1",
+        2
+      ],
+      [
+        "Stapes",
+        2
+      ],
+      [
+        "Stapes_1",
+        2
+      ],
+      [
+        "Fifth_metatarsal_bone",
+        2
+      ],
+      [
+        "Fifth_metatarsal_bone_1",
+        2
+      ],
+      [
+        "First_metatarsal_bone",
+        2
+      ],
+      [
+        "First_metatarsal_bone_1",
+        2
+      ],
+      [
+        "Fourth_metatarsal_bone",
+        2
+      ],
+      [
+        "Fourth_metatarsal_bone_1",
+        2
+      ],
+      [
+        "Second_metatarsal_bone",
+        2
+      ],
+      [
+        "Second_metatarsal_bone_1",
+        2
+      ],
+      [
+        "Third_metatarsal_bone",
+        2
+      ],
+      [
+        "Third_metatarsal_bone_1",
+        2
+      ],
+      [
+        "Sesamoid_bones_of_foot",
+        2
+      ],
+      [
+        "Sesamoid_bones_of_foot_1",
+        2
+      ],
+      [
+        "Distal_phalanx_of_fifth_finger_of_foot",
+        2
+      ],
+      [
+        "Distal_phalanx_of_fifth_finger_of_foot_1",
+        2
+      ]
+    ]
+  },
+  "crossCheck": {
+    "exactMatch": 59,
+    "sanitizedMatch": 714
+  },
+  "spatial": {
+    "center": [
+      2.543773040175438,
+      0.8647403992439532,
+      -0.17465629795336987
+    ],
+    "size": [
+      7.096453934907913,
+      1.8313274463368339,
+      1.0328007372507806
+    ],
+    "bboxMin": [
+      -1.0044539272785187,
+      -0.050923323924463845,
+      -0.6910566665787602
+    ],
+    "bboxMax": [
+      6.0920000076293945,
+      1.7804041224123701,
+      0.34174407067202045
+    ],
+    "rightMeshes": 1,
+    "leftMeshes": 6315,
+    "centerMeshes": 0
+  }
+}

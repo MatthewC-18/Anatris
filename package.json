@@ -1,0 +1,36 @@
+{
+  "name": "fisio",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "build-anatomy": "tsx --tsconfig tsconfig.scripts.json scripts/build-anatomy-index.ts"
+  },
+  "dependencies": {
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.169.0",
+    "zustand": "^5.0.13"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.3.0",
+    "@gltf-transform/extensions": "^4.3.0",
+    "@types/node": "^25.9.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.169.0",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "meshoptimizer": "^1.1.1",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.14",
+    "tsx": "^4.22.3",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

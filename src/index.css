@@ -1,0 +1,114 @@
+/* src/index.css */
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: #070b14;
+    color: #e2e8f0;
+    font-family: '"IBM Plex Sans"', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow: hidden; /* the app manages its own scroll regions */
+  }
+
+  /* Thin, dark scrollbars that match the theme. */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.18);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.32);
+  }
+}
+
+@layer components {
+  /* Frosted-glass panel surface used by floating UI. */
+  .glass {
+    background: linear-gradient(
+      to bottom,
+      rgba(20, 29, 48, 0.72),
+      rgba(11, 17, 32, 0.72)
+    );
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .glass-strong {
+    background: linear-gradient(
+      to bottom,
+      rgba(20, 29, 48, 0.88),
+      rgba(11, 17, 32, 0.9)
+    );
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  /* Subtle radial atmosphere behind the 3D canvas. */
+  .viewer-bg {
+    background:
+      radial-gradient(
+        ellipse 80% 80% at 50% 35%,
+        rgba(34, 211, 238, 0.05),
+        transparent 60%
+      ),
+      radial-gradient(ellipse 120% 120% at 50% 120%, #0b1120, #070b14 70%);
+  }
+
+  /* Keyboard hint chip. */
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.35rem;
+    font-family: '"IBM Plex Mono"', monospace;
+    font-size: 0.6875rem;
+    line-height: 1;
+    color: rgba(226, 232, 240, 0.75);
+    background: rgba(148, 163, 184, 0.1);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 0.3rem;
+  }
+}
+
+/* Loading bar shimmer used by the canvas loader. */
+.shimmer-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(34, 211, 238, 0.2) 0%,
+    rgba(34, 211, 238, 0.9) 50%,
+    rgba(34, 211, 238, 0.2) 100%
+  );
+  background-size: 200% 100%;
+}
