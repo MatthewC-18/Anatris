@@ -58,7 +58,12 @@ export function AnatomyModel({
   onVisibleChange,
 }: AnatomyModelProps) {
   const { scene } = useGLTF(MODEL_URL) as unknown as { scene: THREE.Group };
-
+// TEMP DEBUG: expone la escena y THREE en la consola para diagnóstico.
+  // Quitar cuando terminemos de arreglar la lateralidad.
+  if (typeof window !== 'undefined') {
+    (window as unknown as Record<string, unknown>).__scene = scene;
+    (window as unknown as Record<string, unknown>).THREE = THREE;
+  }
   const activeLayers = useAnatomyStore((s) => s.activeLayers);
   const sideFilter = useAnatomyStore((s) => s.sideFilter);
   const selectedMeshName = useAnatomyStore((s) => s.selectedMeshName);
@@ -74,6 +79,28 @@ export function AnatomyModel({
     });
     return list;
   }, [scene]);
+
+  // Per-instance laterality, computed from world-space X position.
+  //
+  // The index can't carry side reliably: 760 mesh names are duplicated
+  // (a bone's left and right instances share one runtime name), so the
+  // name→entry map collapses them to a single `side`. Position is unique
+  // per instance, so we resolve side here instead.
+  //   +X = body's LEFT, -X = body's RIGHT (verified visually).
+  // Midline structures (|x| < threshold) are 'center' and always shown.
+  const sideByUuid = useMemo(() => {
+    const SIDE_X_THRESHOLD = 0.02;
+    const map = new Map<string, 'right' | 'left' | 'center'>();
+    const v = new THREE.Vector3();
+    scene.updateWorldMatrix(true, true);
+    for (const mesh of meshes) {
+      mesh.getWorldPosition(v);
+      const side =
+        v.x > SIDE_X_THRESHOLD ? 'left' : v.x < -SIDE_X_THRESHOLD ? 'right' : 'center';
+      map.set(mesh.uuid, side);
+    }
+    return map;
+  }, [scene, meshes]);
 
   // One-time material setup: clone each material (so meshes are independent)
   // and make skin meshes translucent. Runs once per loaded scene.
@@ -195,11 +222,12 @@ export function AnatomyModel({
         continue;
       }
 
+      const meshSide = sideByUuid.get(mesh.uuid) ?? 'center';
       const layerOn = activeLayers.has(entry.layer);
       const sideOn =
         sideFilter === 'both' ||
-        entry.side === 'center' ||
-        entry.side === sideFilter;
+        meshSide === 'center' ||
+        meshSide === sideFilter;
       const regionOn = !regionMeshes || regionMeshes.has(mesh.name);
       const notHidden = !entry.hiddenByDefault || activeLayers.has('reference');
 
@@ -208,7 +236,7 @@ export function AnatomyModel({
       if (show) visible.push(mesh);
     }
     onVisibleChange?.(visible);
-  }, [meshes, byMesh, activeLayers, sideFilter, regionMeshes, onVisibleChange]);
+ }, [meshes, byMesh, activeLayers, sideFilter, regionMeshes, onVisibleChange, sideByUuid]);
 
   // Apply highlight (selected = strong, hovered = soft). Skin is never
   // highlighted — it's a passive reference layer.
@@ -238,20 +266,36 @@ export function AnatomyModel({
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    const mesh = e.object as THREE.Mesh;
-    if (!mesh.visible) return;
-    // Don't select skin — clicking through it should hit what's underneath.
-    if (byMesh.get(mesh.name)?.layer === 'skin') return;
-    selectMesh(mesh.name);
+
+    // R3F gives ALL ray hits in `intersections`, sorted near→far. Invisible
+    // reference planes / movement arrows / skin sit in front of the muscles,
+    // so we must skip them and pick the first genuinely selectable mesh
+    // behind them, instead of just taking the closest hit.
+    for (const hit of e.intersections) {
+      const mesh = hit.object as THREE.Mesh;
+      if (!mesh.visible) continue;
+      const entry = byMesh.get(mesh.name);
+      if (!entry) continue;
+      if (entry.layer === 'skin') continue;
+      if (entry.layer === 'reference') continue;
+      selectMesh(mesh.name);
+      return;
+    }
   };
 
   const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
-    const mesh = e.object as THREE.Mesh;
-    if (!mesh.visible) return;
-    if (byMesh.get(mesh.name)?.layer === 'skin') return;
-    setHovered(mesh.name);
-    document.body.style.cursor = 'pointer';
+    for (const hit of e.intersections) {
+      const mesh = hit.object as THREE.Mesh;
+      if (!mesh.visible) continue;
+      const entry = byMesh.get(mesh.name);
+      if (!entry) continue;
+      if (entry.layer === 'skin') continue;
+      if (entry.layer === 'reference') continue;
+      setHovered(mesh.name);
+      document.body.style.cursor = 'pointer';
+      return;
+    }
   };
 
   const handlePointerOut = () => {

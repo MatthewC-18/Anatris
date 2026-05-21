@@ -271,24 +271,25 @@ function classifyLayer(canonicalName: string, materialName: string): AnatomyLaye
 }
 
 /**
- * Classify laterality by walking up ancestor names and looking for the
- * Z-Anatomy `.r` / `.l` suffix. Falls back to substring "right"/"left".
+ * Classify laterality by the mesh's world-space X position.
  *
- * We walk *up* so that a parent like "Femur.r" classifies all of its
- * descendant primitive meshes as right-side, even though those descendants
- * have lost the suffix during Three.js sanitization.
+ * The Z-Anatomy `.r` / `.l` suffixes are lost when Three.js sanitizes node
+ * names (every dot is stripped), so we can't read laterality from names.
+ * Instead we use geometry: the model is symmetric about the X axis, centered
+ * on the origin. Verified against bilateral bone pairs in the browser:
+ *   Clavicle  +0.08 / -0.08    Femur  +0.09 / -0.09
+ *   Humerus   +0.20 / -0.20    Radius +0.26 / -0.26
+ * Midline structures (sternum, vertebrae) sit at |x| < threshold.
+ *
+ * Convention (to be verified visually): +X = body's LEFT, -X = body's RIGHT,
+ * matching standard anatomical orientation when viewing the model from front.
+ * If selection shows the wrong side, swap 'left' and 'right' below.
  */
-function classifySideFromAncestors(ancestorNames: string[]): Side {
-  for (const name of ancestorNames) {
-    // .r at end of token (followed by ., space, end, or another dot)
-    if (/\.r(\b|$|\.|\s)/.test(name)) return 'right';
-    if (/\.l(\b|$|\.|\s)/.test(name)) return 'left';
-  }
-  // Word-level fallback (rarely useful but cheap)
-  for (const name of ancestorNames) {
-    if (/\bright\b/i.test(name)) return 'right';
-    if (/\bleft\b/i.test(name)) return 'left';
-  }
+const SIDE_X_THRESHOLD = 0.02;
+
+function classifySideFromX(worldX: number): Side {
+  if (worldX > SIDE_X_THRESHOLD) return 'left';
+  if (worldX < -SIDE_X_THRESHOLD) return 'right';
   return 'center';
 }
 
@@ -420,7 +421,10 @@ async function main(): Promise<void> {
   // Track duplicate runtime mesh names — should be the same number the
   // diagnostic reported (~760 dups).
   const seenMeshNames = new Map<string, number>();
-
+// Ensure world matrices are computed so mesh.matrixWorld is valid; otherwise
+  // every position reads as the origin. parse() doesn't update them for us.
+  scene.updateMatrixWorld(true);
+  const tmpVec = new THREE.Vector3();
   for (const mesh of meshes) {
     const runtimeName = mesh.name || '(unnamed)';
     const ancestorNames = collectAncestorNames(mesh);
@@ -428,7 +432,8 @@ async function main(): Promise<void> {
     const materialName = getMaterialName(mesh);
 
     const layer = classifyLayer(canonicalName, materialName);
-    const side = classifySideFromAncestors([canonicalName, ...ancestorNames]);
+    mesh.getWorldPosition(tmpVec);
+    const side = classifySideFromX(tmpVec.x);
     const hidden = isHiddenByDefault(canonicalName, materialName);
 
     entries.push({

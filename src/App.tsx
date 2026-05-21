@@ -2,9 +2,11 @@
 //
 // Top-level layout: TopBar across the top, then a three-column body of
 // Sidebar | Viewer (with floating toolbar) | SelectionPanel. Loads the
-// anatomy index once and passes the lookup map down.
+// anatomy index once, builds the muscle resolution from it, and passes the
+// lookup maps down.
 
 import { useAnatomyIndex } from './hooks/useAnatomyIndex';
+import { useMuscleResolution } from './hooks/useMuscleResolution';
 import { TopBar } from './components/TopBar';
 import { Sidebar } from './components/Sidebar';
 import { Viewer3D } from './components/Viewer3D';
@@ -14,6 +16,7 @@ import { CommandPalette } from './components/CommandPalette';
 
 export default function App() {
   const { index, byMesh, status, error } = useAnatomyIndex();
+  const resolution = useMuscleResolution(index);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
@@ -36,7 +39,7 @@ export default function App() {
           )}
         </main>
 
-        <SelectionPanel byMesh={byMesh} />
+        <SelectionPanel byMesh={byMesh} resolution={resolution} />
       </div>
 
       <CommandPalette index={index} />
