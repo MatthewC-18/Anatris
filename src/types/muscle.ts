@@ -94,7 +94,15 @@ export interface Muscle {
 
   /** Functional groups this muscle participates in. */
   groups: FunctionalGroup[];
-
+/**
+   * Anatomical depth, used to "isolate" a muscle in 3D: 1 = most superficial,
+   * higher = deeper. When a muscle is selected, muscles with a SMALLER depth
+   * (more superficial, i.e. physically in front of it) are turned into a
+   * translucent ghost so you can see through them to the selected structure.
+   * Camera-independent, unlike a geometric occlusion test.
+   * Optional so muscles in other regions don't break until they're assigned.
+   */
+  depth?: number;
   /* ---- Clinical attachments (VERIFY before publishing) ---- */
   /** Proximal/origin attachment, Spanish prose. */
   origin: string;

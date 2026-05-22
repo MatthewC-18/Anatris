@@ -13,6 +13,7 @@ import {
   SECONDARY_LAYERS,
 } from '../lib/anatomyMeta';
 import { MuscleList } from './MuscleList';
+import { DepthPeeler } from './DepthPeeler';
 import type { AnatomyLayer, AnatomyIndex } from '../types/anatomy';
 import type { MuscleResolution } from '../lib/muscleResolver';
 
@@ -38,6 +39,8 @@ export function Sidebar({ index, resolution }: SidebarProps) {
       <div className="flex-1 overflow-y-auto px-4 py-5">
         <ModuleHeader />
         <PhaseList />
+        <div className="my-5 h-px bg-slate-800/60" />
+       <DepthPeeler />
         <div className="my-5 h-px bg-slate-800/60" />
         <LayerControls index={index} />
         <div className="my-5 h-px bg-slate-800/60" />

@@ -2,15 +2,28 @@
 //
 // Loads the optimized GLB, applies per-mesh visibility based on active layers,
 // side filter and current region, and handles hover + click selection with a
-// cyan emissive highlight. Restores original material properties on deselect.
+// strong emissive highlight. Restores original material on deselect.
 //
 // IMPORTANT — material handling:
 // Z-Anatomy shares a single material instance across many meshes (e.g. every
 // "Skin-2" mesh points at the same THREE material). If we mutated those shared
-// materials directly, highlighting one mesh would tint every sibling, and
-// making skin transparent would also affect anything sharing that material.
-// To avoid that, we CLONE each mesh's material once on load so every mesh owns
-// its own material and can be styled independently.
+// materials directly, highlighting one mesh would tint every sibling. To avoid
+// that, we CLONE each mesh's material once on load so every mesh owns its own
+// material and can be styled independently.
+//
+// HIGHLIGHT DESIGN:
+// - Selected muscle/mesh -> bright AMBER emissive (reads clearly over the red
+//   muscle tissue; cyan washed out to grey on red).
+// - When a muscle is selected, everything NOT part of it is dimmed slightly so
+//   the eye lands on the highlighted structure — the Complete Anatomy look.
+// - Hover -> soft amber.
+//
+// ISOLATE / PEEL ON SELECT:
+// - When a muscle with a known `depth` is selected, every OTHER muscle that is
+//   MORE SUPERFICIAL (smaller depth) becomes a translucent ghost, so you can
+//   see through what physically covers the selected muscle. This is anatomical
+//   (camera-independent): the deltoid always ghosts when you pick supraspinatus.
+//   Only muscles are ghosted in this version — bones stay solid as reference.
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
@@ -24,28 +37,29 @@ import type { MuscleResolution } from '../lib/muscleResolver';
 const MODEL_URL = '/modelo-opt.glb';
 useGLTF.preload(MODEL_URL);
 
-// Temporary diagnostic: logs the real material properties of the first few
-// solid meshes so we can confirm what the GLB actually ships (vertex colors,
-// baked maps, etc.). Set to false once colors are confirmed working.
-const DEBUG_MAT = true;
-let debugCount = 0;
+// Highlight color: bright amber/orange. Chosen because the muscle atlas color
+// is red — a cyan emissive mixes with red into a muddy grey, while amber stays
+// vivid and unmistakable on top of red, bone and tendon alike.
+const HIGHLIGHT = 0xffa51e;
+const HIGHLIGHT_INTENSITY_SELECTED = 1.1;
+const HIGHLIGHT_INTENSITY_HOVER = 0.4;
 
-// Highlight color (project accent cyan).
-const HIGHLIGHT = 0x22d3ee;
+// When a muscle is selected, non-selected solid tissue is gently dimmed so the
+// highlighted structure pops. 1 = no dimming; lower = darker surroundings.
+const DIM_WHEN_FOCUSED = 0.45;
 
-// Skin appearance: a faint translucent "ghost" so internal structures stay
-// visible while still conveying the body's silhouette — the way Complete
-// Anatomy / Visible Body present skin.
-const SKIN_COLOR = 0xbcd4e6; // cool, slightly blue tint
+// Muscles more superficial than the selected one become a translucent ghost so
+// you can see through them. Lower = more see-through.
+const GHOST_OPACITY = 0.14;
+
+// Skin appearance: a faint translucent "ghost".
+const SKIN_COLOR = 0xbcd4e6;
 const SKIN_OPACITY = 0.16;
 
 interface AnatomyModelProps {
   byMesh: Map<string, AnatomyEntry>;
-  /** Optional region restriction: only these meshNames are eligible to show. */
   regionMeshes?: Set<string> | null;
-  /** Called whenever the set of visible meshes changes, for camera framing. */
   onVisibleChange?: (meshes: THREE.Mesh[]) => void;
-  /** Muscle resolution maps, for muscle-level highlighting. */
   resolution: MuscleResolution;
 }
 
@@ -53,6 +67,10 @@ interface AnatomyModelProps {
 interface OriginalMat {
   emissive: THREE.Color;
   emissiveIntensity: number;
+  color: THREE.Color;
+  opacity: number;
+  transparent: boolean;
+  depthWrite: boolean;
 }
 
 export function AnatomyModel({
@@ -62,12 +80,12 @@ export function AnatomyModel({
   resolution,
 }: AnatomyModelProps) {
   const { scene } = useGLTF(MODEL_URL) as unknown as { scene: THREE.Group };
-// TEMP DEBUG: expone la escena y THREE en la consola para diagnóstico.
-  // Quitar cuando terminemos de arreglar la lateralidad.
+
   if (typeof window !== 'undefined') {
     (window as unknown as Record<string, unknown>).__scene = scene;
     (window as unknown as Record<string, unknown>).THREE = THREE;
   }
+
   const activeLayers = useAnatomyStore((s) => s.activeLayers);
   const sideFilter = useAnatomyStore((s) => s.sideFilter);
   const selectedMeshName = useAnatomyStore((s) => s.selectedMeshName);
@@ -85,14 +103,8 @@ export function AnatomyModel({
     return list;
   }, [scene]);
 
-  // Per-instance laterality, computed from world-space X position.
-  //
-  // The index can't carry side reliably: 760 mesh names are duplicated
-  // (a bone's left and right instances share one runtime name), so the
-  // name→entry map collapses them to a single `side`. Position is unique
-  // per instance, so we resolve side here instead.
+  // Per-instance laterality from world-space X position.
   //   +X = body's LEFT, -X = body's RIGHT (verified visually).
-  // Midline structures (|x| < threshold) are 'center' and always shown.
   const sideByUuid = useMemo(() => {
     const SIDE_X_THRESHOLD = 0.02;
     const map = new Map<string, 'right' | 'left' | 'center'>();
@@ -107,15 +119,55 @@ export function AnatomyModel({
     return map;
   }, [scene, meshes]);
 
-  // One-time material setup: clone each material (so meshes are independent)
-  // and make skin meshes translucent. Runs once per loaded scene.
+  // Build a uuid -> muscleId map ONCE per (meshes, resolution). Resolving by
+  // name inside the highlight loop is fragile because `resolution` is a fresh
+  // object each render; precomputing here makes highlight cheap and stable.
+  const muscleIdByUuid = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const mesh of meshes) {
+      const muscle = resolution.muscleByMeshName.get(mesh.name);
+      if (muscle) map.set(mesh.uuid, muscle.id);
+    }
+    return map;
+  }, [meshes, resolution]);
+
+  // uuid -> anatomical depth of the muscle this mesh belongs to (if any).
+  // Used to ghost more-superficial muscles when a deeper one is selected.
+  const muscleDepthByUuid = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const mesh of meshes) {
+      const muscle = resolution.muscleByMeshName.get(mesh.name);
+      if (muscle && typeof muscle.depth === 'number') {
+        map.set(mesh.uuid, muscle.depth);
+      }
+    }
+    return map;
+  }, [meshes, resolution]);
+
+  // Depth of the currently selected muscle (null if none / no depth assigned).
+  const selectedDepth = useMemo(() => {
+    if (selectedMuscleId == null) return null;
+    const muscle = resolution.meshNamesByMuscleId.has(selectedMuscleId)
+      ? // find the Muscle object via any of its meshes
+        [...resolution.muscleByMeshName.values()].find(
+          (m) => m.id === selectedMuscleId,
+        )
+      : undefined;
+    return muscle && typeof muscle.depth === 'number' ? muscle.depth : null;
+  }, [selectedMuscleId, resolution]);
+
+  // One-time material setup: clone each material and style skin / solid tissue.
   const preparedRef = useRef(false);
+  // originals are captured DURING preparation, so they always exist before any
+  // highlight runs (no more "if (!orig) continue" skipping the very first paint).
+  const originals = useRef<Map<string, OriginalMat>>(new Map());
+
   useEffect(() => {
     if (preparedRef.current) return;
     preparedRef.current = true;
+    const origMap = originals.current;
 
     for (const mesh of meshes) {
-      // Clone material(s) so this mesh owns them and can be styled alone.
       if (Array.isArray(mesh.material)) {
         mesh.material = mesh.material.map((m) => m.clone());
       } else if (mesh.material) {
@@ -125,8 +177,6 @@ export function AnatomyModel({
       const entry = byMesh.get(mesh.name);
       if (!entry) continue;
 
-      // Skin → translucent ghost. depthWrite:false stops it from hiding the
-      // structures behind it; renderOrder pushes it to draw last (over solids).
       if (entry.layer === 'skin') {
         const apply = (m: THREE.Material) => {
           const std = m as THREE.MeshStandardMaterial;
@@ -146,35 +196,10 @@ export function AnatomyModel({
         else apply(mesh.material);
         mesh.renderOrder = 10;
       } else {
-        // Assign the anatomical atlas color by material name so muscles read
-        // red, arteries red, veins blue, nerves yellow, etc.
-        //
-        // Three things can silently kill material.color:
-        //   1. vertexColors === true  → final = color * per-vertex color
-        //      (Z-Anatomy bakes grey/white vertex colors, washing ours out)
-        //   2. a baked `map` texture   → final = map * color
-        //   3. emissive left non-black → adds a grey wash on top
-        // We strip all three on solid tissue so our flat atlas color shows.
         const atlasColor = colorForMaterialMesh(entry.materialName, mesh.name);
         const tune = (m: THREE.Material) => {
           const std = m as THREE.MeshStandardMaterial;
-
-          // One-time peek at what the GLB actually gives us (first few only).
-          if (DEBUG_MAT && debugCount < 8) {
-            debugCount += 1;
-            // eslint-disable-next-line no-console
-            console.log('[MAT DEBUG]', entry.materialName, {
-              vertexColors: (std as THREE.Material).vertexColors,
-              hasMap: !!std.map,
-              metalness: std.metalness,
-              roughness: std.roughness,
-              color: std.color?.getHexString(),
-              emissive: std.emissive?.getHexString(),
-            });
-          }
-
           if (atlasColor !== null && 'color' in std && std.color) {
-            // Kill anything that would tint/override our flat color.
             std.vertexColors = false;
             if (std.map) std.map = null;
             std.color.setHex(atlasColor);
@@ -187,128 +212,165 @@ export function AnatomyModel({
         if (Array.isArray(mesh.material)) mesh.material.forEach(tune);
         else if (mesh.material) tune(mesh.material);
       }
-    }
-  }, [meshes, byMesh]);
 
-  // Cache original emissive values once (per mesh) — after cloning above.
-  const originals = useRef<Map<string, OriginalMat>>(new Map());
-  useEffect(() => {
-    const map = originals.current;
-    for (const mesh of meshes) {
+      // Capture original emissive + base color + transparency NOW
+      // (post-clone, post-tune).
       const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
-      if (mat && 'emissive' in mat && !map.has(mesh.uuid)) {
-        map.set(mesh.uuid, {
+      if (mat && 'emissive' in mat) {
+        origMap.set(mesh.uuid, {
           emissive: mat.emissive.clone(),
           emissiveIntensity: mat.emissiveIntensity ?? 1,
+          color: mat.color ? mat.color.clone() : new THREE.Color(0xffffff),
+          opacity: mat.opacity ?? 1,
+          transparent: mat.transparent ?? false,
+          depthWrite: mat.depthWrite ?? true,
         });
       }
     }
-  }, [meshes]);
+  }, [meshes, byMesh]);
 
-  // Apply visibility whenever filters change.
+  // Visibility.
   useEffect(() => {
     const visible: THREE.Mesh[] = [];
     for (const mesh of meshes) {
       const entry = byMesh.get(mesh.name);
-
-      // Unknown meshes: hide (keeps stray UI panels out).
       if (!entry) {
         mesh.visible = false;
         continue;
       }
-
-      // Non-anatomical geometry (Text labels, Planes, Lines, Directions,
-      // Movement arrows, Black backing, ...) returns null from the color map.
-      // These 1100+ Text meshes otherwise sit in front of the body as grey
-      // clutter, making everything look washed-out. Never render them here;
-      // labels will be drawn as proper HTML overlays in a later phase.
       if (colorForMaterial(entry.materialName) === null) {
         mesh.visible = false;
         continue;
       }
-
       const meshSide = sideByUuid.get(mesh.uuid) ?? 'center';
       const layerOn = activeLayers.has(entry.layer);
       const sideOn =
-        sideFilter === 'both' ||
-        meshSide === 'center' ||
-        meshSide === sideFilter;
+        sideFilter === 'both' || meshSide === 'center' || meshSide === sideFilter;
       const regionOn = !regionMeshes || regionMeshes.has(mesh.name);
       const notHidden = !entry.hiddenByDefault || activeLayers.has('reference');
-
       const show = layerOn && sideOn && regionOn && notHidden;
       mesh.visible = show;
       if (show) visible.push(mesh);
     }
     onVisibleChange?.(visible);
- }, [meshes, byMesh, activeLayers, sideFilter, regionMeshes, onVisibleChange, sideByUuid]);
+  }, [meshes, byMesh, activeLayers, sideFilter, regionMeshes, onVisibleChange, sideByUuid]);
 
-  // Apply highlight (selected = strong, hovered = soft). Skin is never
-  // highlighted — it's a passive reference layer.
+  // Highlight + isolate. Runs whenever selection/hover/muscle changes. Robust:
+  // it never skips a mesh for lack of a cached original — it falls back to black.
   useEffect(() => {
     const map = originals.current;
+    const focusing = selectedMuscleId != null || selectedMeshName != null;
+
     for (const mesh of meshes) {
       const entry = byMesh.get(mesh.name);
       if (entry?.layer === 'skin') continue;
 
       const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
       if (!mat || !('emissive' in mat)) continue;
+
       const orig = map.get(mesh.uuid);
-      if (!orig) continue;
+      const origEmissive = orig ? orig.emissive : new THREE.Color(0x000000);
+      const origEmissiveIntensity = orig ? orig.emissiveIntensity : 1;
+      const origColor = orig ? orig.color : null;
+      const origOpacity = orig ? orig.opacity : 1;
+      const origTransparent = orig ? orig.transparent : false;
+      const origDepthWrite = orig ? orig.depthWrite : true;
 
-      // A mesh is "selected" if it's the directly-clicked mesh OR it belongs
-      // to the currently selected muscle (so all of a muscle's pieces light up).
-      const muscleOfMesh = resolution.muscleByMeshName.get(mesh.name);
+      const muscleOfMeshId = muscleIdByUuid.get(mesh.uuid);
       const isSelectedMuscle =
-        selectedMuscleId != null && muscleOfMesh?.id === selectedMuscleId;
+        selectedMuscleId != null && muscleOfMeshId === selectedMuscleId;
+      const isSelectedMesh = mesh.name === selectedMeshName;
+      const isHovered = mesh.name === hoveredMeshName;
 
-      if (mesh.name === selectedMeshName || isSelectedMuscle) {
+      // Should this mesh be ghosted? Only when isolating a muscle that has a
+      // known depth, and this mesh belongs to a DIFFERENT muscle that is more
+      // superficial (smaller depth). Bones / non-muscles are never ghosted.
+      const myDepth = muscleDepthByUuid.get(mesh.uuid);
+      const shouldGhost =
+        selectedDepth != null &&
+        !isSelectedMuscle &&
+        typeof myDepth === 'number' &&
+        myDepth < selectedDepth;
+
+      // Always reset transparency baseline first (so deselect restores it).
+      mat.transparent = origTransparent;
+      mat.opacity = origOpacity;
+      mat.depthWrite = origDepthWrite;
+
+      if (isSelectedMesh || isSelectedMuscle) {
+        // Strong amber glow on the selected structure.
         mat.emissive.setHex(HIGHLIGHT);
-        mat.emissiveIntensity = 0.9;
-      } else if (mesh.name === hoveredMeshName) {
+        mat.emissiveIntensity = HIGHLIGHT_INTENSITY_SELECTED;
+        if (origColor && mat.color) mat.color.copy(origColor); // full color
+      } else if (shouldGhost) {
+        // Translucent ghost: see through what covers the selected muscle.
+        mat.emissive.copy(origEmissive);
+        mat.emissiveIntensity = origEmissiveIntensity;
+        if (origColor && mat.color) mat.color.copy(origColor);
+        mat.transparent = true;
+        mat.opacity = GHOST_OPACITY;
+        mat.depthWrite = false;
+      } else if (isHovered) {
         mat.emissive.setHex(HIGHLIGHT);
-        mat.emissiveIntensity = 0.35;
+        mat.emissiveIntensity = HIGHLIGHT_INTENSITY_HOVER;
+        if (origColor && mat.color) mat.color.copy(origColor);
       } else {
-        mat.emissive.copy(orig.emissive);
-        mat.emissiveIntensity = orig.emissiveIntensity;
+        // Not selected. Restore emissive; dim the base color while focusing.
+        mat.emissive.copy(origEmissive);
+        mat.emissiveIntensity = origEmissiveIntensity;
+        if (origColor && mat.color) {
+          if (focusing) {
+            mat.color.copy(origColor).multiplyScalar(DIM_WHEN_FOCUSED);
+          } else {
+            mat.color.copy(origColor);
+          }
+        }
       }
+      mat.needsUpdate = true;
     }
-  }, [meshes, byMesh, selectedMeshName, hoveredMeshName, selectedMuscleId, resolution]);
+  }, [
+    meshes,
+    byMesh,
+    selectedMeshName,
+    hoveredMeshName,
+    selectedMuscleId,
+    selectedDepth,
+    muscleIdByUuid,
+    muscleDepthByUuid,
+  ]);
 
-  const handleClick = (e: ThreeEvent<MouseEvent>) => {
-    e.stopPropagation();
-
-    // R3F gives ALL ray hits in `intersections`, sorted near→far. Invisible
-    // reference planes / movement arrows / skin sit in front of the muscles,
-    // so we must skip them and pick the first genuinely selectable mesh
-    // behind them, instead of just taking the closest hit.
-    for (const hit of e.intersections) {
+  const pickFromIntersections = (
+    intersections: ThreeEvent<MouseEvent>['intersections'],
+  ): THREE.Mesh | null => {
+    for (const hit of intersections) {
       const mesh = hit.object as THREE.Mesh;
       if (!mesh.visible) continue;
       const entry = byMesh.get(mesh.name);
       if (!entry) continue;
       if (entry.layer === 'skin') continue;
       if (entry.layer === 'reference') continue;
-      selectMesh(mesh.name);
-      const muscle = resolution.muscleByMeshName.get(mesh.name);
-      useAnatomyStore.getState().selectMuscle(muscle ? muscle.id : null);
-      return;
+      return mesh;
     }
+    return null;
+  };
+
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    const mesh = pickFromIntersections(e.intersections);
+    if (!mesh) return;
+    selectMesh(mesh.name);
+    const muscle = resolution.muscleByMeshName.get(mesh.name);
+    useAnatomyStore.getState().selectMuscle(muscle ? muscle.id : null);
   };
 
   const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
-    for (const hit of e.intersections) {
-      const mesh = hit.object as THREE.Mesh;
-      if (!mesh.visible) continue;
-      const entry = byMesh.get(mesh.name);
-      if (!entry) continue;
-      if (entry.layer === 'skin') continue;
-      if (entry.layer === 'reference') continue;
-      setHovered(mesh.name);
-      document.body.style.cursor = 'pointer';
-      return;
-    }
+    const mesh = pickFromIntersections(
+      e.intersections as unknown as ThreeEvent<MouseEvent>['intersections'],
+    );
+    if (!mesh) return;
+    setHovered(mesh.name);
+    document.body.style.cursor = 'pointer';
   };
 
   const handlePointerOut = () => {
