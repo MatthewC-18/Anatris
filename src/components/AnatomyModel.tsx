@@ -33,7 +33,7 @@ import type { AnatomyEntry } from '../types/anatomy';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { colorForMaterial, colorForMaterialMesh } from '../lib/materialColors';
 import type { MuscleResolution } from '../lib/muscleResolver';
-
+import { shoulderMuscles } from '../data/muscles/shoulder';
 const MODEL_URL = '/modelo-opt.glb';
 useGLTF.preload(MODEL_URL);
 
@@ -130,31 +130,41 @@ export function AnatomyModel({
     }
     return map;
   }, [meshes, resolution]);
-
-  // uuid -> anatomical depth of the muscle this mesh belongs to (if any).
-  // Used to ghost more-superficial muscles when a deeper one is selected.
-  const muscleDepthByUuid = useMemo(() => {
+  // id -> depth, built straight from the clinical data (not from meshes), so
+  // it's robust regardless of how selection propagates.
+  const depthByMuscleId = useMemo(() => {
     const map = new Map<string, number>();
-    for (const mesh of meshes) {
-      const muscle = resolution.muscleByMeshName.get(mesh.name);
-      if (muscle && typeof muscle.depth === 'number') {
-        map.set(mesh.uuid, muscle.depth);
-      }
+    for (const m of shoulderMuscles) {
+      if (typeof m.depth === 'number') map.set(m.id, m.depth);
     }
     return map;
-  }, [meshes, resolution]);
+  }, []);
+
+  // uuid -> anatomical depth of the muscle this mesh belongs to (if any).
+// Used to ghost more-superficial muscles when a deeper one is selected.
+const muscleDepthByUuid = useMemo(() => {
+  const map = new Map<string, number>();
+  
+  for (const mesh of meshes) {
+    const muscle = resolution.muscleByMeshName.get(mesh.name);
+    if (muscle) {
+      // Leemos del mapa por ID en lugar de usar muscle.depth directamente
+      const d = depthByMuscleId.get(muscle.id);
+      if (typeof d === 'number') {
+        map.set(mesh.uuid, d);
+      }
+    }
+  } 
+  
+  return map;
+}, [meshes, resolution, depthByMuscleId]); // <-- No olvides agregar depthByMuscleId a las dependencias
+
 
   // Depth of the currently selected muscle (null if none / no depth assigned).
   const selectedDepth = useMemo(() => {
     if (selectedMuscleId == null) return null;
-    const muscle = resolution.meshNamesByMuscleId.has(selectedMuscleId)
-      ? // find the Muscle object via any of its meshes
-        [...resolution.muscleByMeshName.values()].find(
-          (m) => m.id === selectedMuscleId,
-        )
-      : undefined;
-    return muscle && typeof muscle.depth === 'number' ? muscle.depth : null;
-  }, [selectedMuscleId, resolution]);
+    return depthByMuscleId.get(selectedMuscleId) ?? null;
+  }, [selectedMuscleId, depthByMuscleId]);
 
   // One-time material setup: clone each material and style skin / solid tissue.
   const preparedRef = useRef(false);
@@ -263,7 +273,13 @@ export function AnatomyModel({
 
     for (const mesh of meshes) {
       const entry = byMesh.get(mesh.name);
-      if (entry?.layer === 'skin') continue;
+      // Only touch meshes that belong to a real, highlightable anatomical
+      // layer. Skip skin, reference labels, groups, and anything unclassified —
+      // these may share a material instance with visible meshes, and tinting
+      // their emissive would bleed the highlight onto invisible siblings.
+      if (!entry) continue;
+      if (entry.layer === 'skin') continue;
+      if (entry.layer === 'reference') continue;
 
       const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
       if (!mat || !('emissive' in mat)) continue;
@@ -298,24 +314,31 @@ export function AnatomyModel({
       mat.depthWrite = origDepthWrite;
 
       if (isSelectedMesh || isSelectedMuscle) {
-        // Strong amber glow on the selected structure.
+        // Strong amber glow on the selected structure. Render it LAST so it
+        // draws on top of any translucent ghosts in front of it.
         mat.emissive.setHex(HIGHLIGHT);
         mat.emissiveIntensity = HIGHLIGHT_INTENSITY_SELECTED;
         if (origColor && mat.color) mat.color.copy(origColor); // full color
+        mat.depthTest = true;
+        mesh.renderOrder = 5;
       } else if (shouldGhost) {
         // Translucent ghost: see through what covers the selected muscle.
+        // Render BEFORE the selected muscle and don't write depth, so the
+        // amber structure behind it shows through cleanly.
         mat.emissive.copy(origEmissive);
         mat.emissiveIntensity = origEmissiveIntensity;
         if (origColor && mat.color) mat.color.copy(origColor);
         mat.transparent = true;
         mat.opacity = GHOST_OPACITY;
         mat.depthWrite = false;
+        mesh.renderOrder = 1;
       } else if (isHovered) {
         mat.emissive.setHex(HIGHLIGHT);
         mat.emissiveIntensity = HIGHLIGHT_INTENSITY_HOVER;
         if (origColor && mat.color) mat.color.copy(origColor);
       } else {
         // Not selected. Restore emissive; dim the base color while focusing.
+        mesh.renderOrder = 0;
         mat.emissive.copy(origEmissive);
         mat.emissiveIntensity = origEmissiveIntensity;
         if (origColor && mat.color) {
