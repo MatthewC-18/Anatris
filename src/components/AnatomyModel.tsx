@@ -24,15 +24,23 @@
 //   see through what physically covers the selected muscle. This is anatomical
 //   (camera-independent): the deltoid always ghosts when you pick supraspinatus.
 //   Only muscles are ghosted in this version — bones stay solid as reference.
+//
+// PART FOCUS (origin / insertion):
+// - When `partFocus` is set, the meshes of that part (origin or insertion) of
+//   the SELECTED muscle glow, while the rest of the SAME muscle is dimmed but
+//   still visible — so you see WHERE it attaches without losing the muscle's
+//   identity. Other muscles keep their normal selected/ghost/dim behaviour, so
+//   part focus stacks on top of the isolate effect rather than replacing it.
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
-import { ThreeEvent } from '@react-three/fiber';
+import { ThreeEvent, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { AnatomyEntry } from '../types/anatomy';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { colorForMaterial, colorForMaterialMesh } from '../lib/materialColors';
 import type { MuscleResolution } from '../lib/muscleResolver';
+import { parseMeshName, type MusclePart } from '../lib/parseMeshName';
 import { shoulderMuscles } from '../data/muscles/shoulder';
 const MODEL_URL = '/modelo-opt.glb';
 useGLTF.preload(MODEL_URL);
@@ -44,9 +52,23 @@ const HIGHLIGHT = 0xffa51e;
 const HIGHLIGHT_INTENSITY_SELECTED = 1.1;
 const HIGHLIGHT_INTENSITY_HOVER = 0.4;
 
+// PART FOCUS colors. The focused attachment glows in a distinct hue so it reads
+// as "this specific part", not just "selected". Cyan-green stands apart from
+// the amber selection glow. The non-focused rest of the muscle is dimmed.
+const PART_HIGHLIGHT = 0x2ee6a6; // bright teal/green for the focused part
+const PART_HIGHLIGHT_INTENSITY = 1.2;
+const PART_DIM = 0.22; // how dark the rest of the selected muscle goes (lower = darker)
+
+// ATTENTION PULSE: when a muscle is freshly selected it glows brighter and
+// "breathes" a couple of times, then settles into the steady selected glow.
+// This draws the eye to the structure the moment it's picked from the list.
+const PULSE_DURATION = 1.4; // seconds the whole pulse animation lasts
+const PULSE_CYCLES = 2.5; // how many bright pulses within that duration
+const PULSE_PEAK = 6.0; // emissiveIntensity at the brightest point (very bright)
+
 // When a muscle is selected, non-selected solid tissue is gently dimmed so the
 // highlighted structure pops. 1 = no dimming; lower = darker surroundings.
-const DIM_WHEN_FOCUSED = 0.45;
+const DIM_WHEN_FOCUSED = 0.3;
 
 // Muscles more superficial than the selected one become a translucent ghost so
 // you can see through them. Lower = more see-through.
@@ -88,11 +110,13 @@ export function AnatomyModel({
 
   const activeLayers = useAnatomyStore((s) => s.activeLayers);
   const sideFilter = useAnatomyStore((s) => s.sideFilter);
+  const showOriginInsertion = useAnatomyStore((s) => s.showOriginInsertion);
   const selectedMeshName = useAnatomyStore((s) => s.selectedMeshName);
   const hoveredMeshName = useAnatomyStore((s) => s.hoveredMeshName);
   const selectMesh = useAnatomyStore((s) => s.selectMesh);
   const setHovered = useAnatomyStore((s) => s.setHovered);
   const selectedMuscleId = useAnatomyStore((s) => s.selectedMuscleId);
+  const partFocus = useAnatomyStore((s) => s.partFocus);
 
   // Collect all meshes once.
   const meshes = useMemo(() => {
@@ -119,6 +143,19 @@ export function AnatomyModel({
     return map;
   }, [scene, meshes]);
 
+  // Per-mesh muscle PART (belly / origin / insertion / tendon), decoded from
+  // the flattened Z-Anatomy name. We use this to hide the small origin (.o) and
+  // insertion (.e) marker meshes by default — they're clutter in the dissection
+  // view and only wanted when teaching a specific structure's attachments — AND
+  // now also to drive the part-focus highlight.
+  const partByUuid = useMemo(() => {
+    const map = new Map<string, MusclePart>();
+    for (const mesh of meshes) {
+      map.set(mesh.uuid, parseMeshName(mesh.name).part);
+    }
+    return map;
+  }, [meshes]);
+
   // Build a uuid -> muscleId map ONCE per (meshes, resolution). Resolving by
   // name inside the highlight loop is fragile because `resolution` is a fresh
   // object each render; precomputing here makes highlight cheap and stable.
@@ -141,30 +178,51 @@ export function AnatomyModel({
   }, []);
 
   // uuid -> anatomical depth of the muscle this mesh belongs to (if any).
-// Used to ghost more-superficial muscles when a deeper one is selected.
-const muscleDepthByUuid = useMemo(() => {
-  const map = new Map<string, number>();
-  
-  for (const mesh of meshes) {
-    const muscle = resolution.muscleByMeshName.get(mesh.name);
-    if (muscle) {
-      // Leemos del mapa por ID en lugar de usar muscle.depth directamente
-      const d = depthByMuscleId.get(muscle.id);
-      if (typeof d === 'number') {
-        map.set(mesh.uuid, d);
+  // Used to ghost more-superficial muscles when a deeper one is selected.
+  const muscleDepthByUuid = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const mesh of meshes) {
+      const muscle = resolution.muscleByMeshName.get(mesh.name);
+      if (muscle) {
+        const d = depthByMuscleId.get(muscle.id);
+        if (typeof d === 'number') {
+          map.set(mesh.uuid, d);
+        }
       }
     }
-  } 
-  
-  return map;
-}, [meshes, resolution, depthByMuscleId]); // <-- No olvides agregar depthByMuscleId a las dependencias
-
+    return map;
+  }, [meshes, resolution, depthByMuscleId]);
 
   // Depth of the currently selected muscle (null if none / no depth assigned).
   const selectedDepth = useMemo(() => {
     if (selectedMuscleId == null) return null;
     return depthByMuscleId.get(selectedMuscleId) ?? null;
   }, [selectedMuscleId, depthByMuscleId]);
+
+  // Does the selected muscle actually have meshes for the focused part? If a
+  // muscle's origin/insertion isn't modelled as separate meshes, focusing it
+  // would dim the whole muscle to nothing — so we only engage part focus when
+  // there's at least one mesh of that part for the selected muscle.
+  const partFocusHasMeshes = useMemo(() => {
+    if (partFocus == null || selectedMuscleId == null) return false;
+    for (const mesh of meshes) {
+      if (muscleIdByUuid.get(mesh.uuid) !== selectedMuscleId) continue;
+      if (partByUuid.get(mesh.uuid) === partFocus) return true;
+    }
+    return false;
+  }, [partFocus, selectedMuscleId, meshes, muscleIdByUuid, partByUuid]);
+
+  // ----- attention pulse state (driven by useFrame, not React renders) -----
+  // pulseStart < 0 means "no pulse running". The set of meshes that should
+  // pulse is captured when selection changes, so the frame loop can animate
+  // just those materials without touching anything else.
+  const pulseStartRef = useRef<number>(-1);
+  const pulseMeshesRef = useRef<THREE.Mesh[]>([]);
+  const clockRef = useRef(0);
+  // Reusable color objects so the per-frame pulse doesn't allocate every tick.
+  const pulseColorRef = useRef(new THREE.Color());
+  const pulseAmberRef = useRef(new THREE.Color(HIGHLIGHT));
+  const pulseYellowRef = useRef(new THREE.Color(0xfff04d));
 
   // One-time material setup: clone each material and style skin / solid tissue.
   const preparedRef = useRef(false);
@@ -258,18 +316,37 @@ const muscleDepthByUuid = useMemo(() => {
         sideFilter === 'both' || meshSide === 'center' || meshSide === sideFilter;
       const regionOn = !regionMeshes || regionMeshes.has(mesh.name);
       const notHidden = !entry.hiddenByDefault || activeLayers.has('reference');
-      const show = layerOn && sideOn && regionOn && notHidden;
+      // Origin (.o) and insertion (.e) marker meshes are hidden unless the user
+      // explicitly turns them on. Bellies and tendons are never hidden by this.
+      const part = partByUuid.get(mesh.uuid);
+      const markerOn =
+        showOriginInsertion || (part !== 'origin' && part !== 'insertion');
+      const show = layerOn && sideOn && regionOn && notHidden && markerOn;
       mesh.visible = show;
       if (show) visible.push(mesh);
     }
     onVisibleChange?.(visible);
-  }, [meshes, byMesh, activeLayers, sideFilter, regionMeshes, onVisibleChange, sideByUuid]);
+  }, [
+    meshes,
+    byMesh,
+    activeLayers,
+    sideFilter,
+    regionMeshes,
+    onVisibleChange,
+    sideByUuid,
+    partByUuid,
+    showOriginInsertion,
+  ]);
 
-  // Highlight + isolate. Runs whenever selection/hover/muscle changes. Robust:
-  // it never skips a mesh for lack of a cached original — it falls back to black.
+  // Highlight + isolate + part focus. Runs whenever selection/hover/muscle/part
+  // changes. Robust: it never skips a mesh for lack of a cached original — it
+  // falls back to black.
   useEffect(() => {
     const map = originals.current;
     const focusing = selectedMuscleId != null || selectedMeshName != null;
+    // Part focus only engages if the selected muscle actually has meshes of
+    // that part (otherwise it would dim the whole muscle to nothing).
+    const partActive = partFocus != null && partFocusHasMeshes;
 
     for (const mesh of meshes) {
       const entry = byMesh.get(mesh.name);
@@ -298,6 +375,13 @@ const muscleDepthByUuid = useMemo(() => {
       const isSelectedMesh = mesh.name === selectedMeshName;
       const isHovered = mesh.name === hoveredMeshName;
 
+      // Part-focus sub-roles, only meaningful for the selected muscle's meshes.
+      const myPart = partByUuid.get(mesh.uuid);
+      const isFocusedPart =
+        partActive && isSelectedMuscle && myPart === partFocus;
+      const isOtherPartOfSelected =
+        partActive && isSelectedMuscle && myPart !== partFocus;
+
       // Should this mesh be ghosted? Only when isolating a muscle that has a
       // known depth, and this mesh belongs to a DIFFERENT muscle that is more
       // superficial (smaller depth). Bones / non-muscles are never ghosted.
@@ -313,7 +397,23 @@ const muscleDepthByUuid = useMemo(() => {
       mat.opacity = origOpacity;
       mat.depthWrite = origDepthWrite;
 
-      if (isSelectedMesh || isSelectedMuscle) {
+      if (isFocusedPart) {
+        // The attachment we're teaching: distinct teal glow, drawn on top.
+        mat.emissive.setHex(PART_HIGHLIGHT);
+        mat.emissiveIntensity = PART_HIGHLIGHT_INTENSITY;
+        if (origColor && mat.color) mat.color.copy(origColor);
+        mat.depthTest = true;
+        mesh.renderOrder = 6;
+      } else if (isOtherPartOfSelected) {
+        // Rest of the selected muscle: dimmed but visible, keeps context. No
+        // emissive glow so the focused part clearly stands out against it.
+        mesh.renderOrder = 4;
+        mat.emissive.copy(origEmissive);
+        mat.emissiveIntensity = origEmissiveIntensity;
+        if (origColor && mat.color) {
+          mat.color.copy(origColor).multiplyScalar(PART_DIM);
+        }
+      } else if (isSelectedMesh || isSelectedMuscle) {
         // Strong amber glow on the selected structure. Render it LAST so it
         // draws on top of any translucent ghosts in front of it.
         mat.emissive.setHex(HIGHLIGHT);
@@ -360,7 +460,85 @@ const muscleDepthByUuid = useMemo(() => {
     selectedDepth,
     muscleIdByUuid,
     muscleDepthByUuid,
+    partByUuid,
+    partFocus,
+    partFocusHasMeshes,
   ]);
+
+  // Trigger the attention pulse whenever the SELECTED MUSCLE changes. We
+  // capture the exact meshes to pulse here (cheap, only on selection change)
+  // and let the frame loop below animate their glow over PULSE_DURATION.
+  useEffect(() => {
+    if (selectedMuscleId == null) {
+      pulseStartRef.current = -1;
+      pulseMeshesRef.current = [];
+      return;
+    }
+    const targets: THREE.Mesh[] = [];
+    for (const mesh of meshes) {
+      if (muscleIdByUuid.get(mesh.uuid) === selectedMuscleId) targets.push(mesh);
+    }
+    pulseMeshesRef.current = targets;
+    pulseStartRef.current = clockRef.current; // start "now"
+  }, [selectedMuscleId, meshes, muscleIdByUuid]);
+
+  // Frame loop: drive the pulse animation. While a pulse is active we override
+  // the selected meshes' emissiveIntensity with a decaying sine "breathing"
+  // that eases back down to the steady selected glow, then we stop touching it.
+  //
+  // The pulse is suppressed while a part focus is active, so it doesn't fight
+  // the teal attachment highlight.
+  useFrame((_, delta) => {
+    clockRef.current += delta;
+    const start = pulseStartRef.current;
+    if (start < 0) return;
+    if (partFocus != null) {
+      // Part focus owns the look right now; stop pulsing.
+      pulseStartRef.current = -1;
+      return;
+    }
+
+    const t = clockRef.current - start; // seconds since pulse began
+    const targets = pulseMeshesRef.current;
+
+    if (t >= PULSE_DURATION || targets.length === 0) {
+      // Pulse finished: settle to the steady selected intensity and stop.
+      for (const mesh of targets) {
+        const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
+        if (mat && 'emissive' in mat) {
+          mat.emissiveIntensity = HIGHLIGHT_INTENSITY_SELECTED;
+        }
+      }
+      pulseStartRef.current = -1;
+      return;
+    }
+
+    // progress 0..1 across the whole animation.
+    const p = t / PULSE_DURATION;
+    // A sine that completes PULSE_CYCLES bumps, multiplied by a fade-out so the
+    // last pulses are gentler and it lands softly on the steady value.
+    const wave = Math.sin(p * Math.PI * 2 * PULSE_CYCLES);
+    const envelope = 1 - p; // linear fade so the pulse calms down
+    const bump = Math.max(0, wave) * envelope; // only brighten, never darken
+    const intensity =
+      HIGHLIGHT_INTENSITY_SELECTED +
+      bump * (PULSE_PEAK - HIGHLIGHT_INTENSITY_SELECTED);
+
+    // Also shift the emissive COLOR toward bright yellow at each peak. Pure
+    // brightness can saturate and stop reading; a hue shift always reads. We
+    // lerp from amber (HIGHLIGHT) toward yellow proportionally to the bump.
+    const pulseColor = pulseColorRef.current
+      .copy(pulseAmberRef.current)
+      .lerp(pulseYellowRef.current, bump);
+
+    for (const mesh of targets) {
+      const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
+      if (mat && 'emissive' in mat) {
+        mat.emissive.copy(pulseColor);
+        mat.emissiveIntensity = intensity;
+      }
+    }
+  });
 
   const pickFromIntersections = (
     intersections: ThreeEvent<MouseEvent>['intersections'],

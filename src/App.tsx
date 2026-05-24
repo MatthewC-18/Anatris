@@ -2,9 +2,10 @@
 //
 // Top-level layout: TopBar across the top, then a three-column body of
 // Sidebar | Viewer (with floating toolbar) | SelectionPanel. Loads the
-// anatomy index once, builds the muscle resolution from it, and passes the
-// lookup maps down.
+// anatomy index once, builds the muscle resolution from it, resolves which
+// meshes belong to the current region, and passes the lookup maps down.
 
+import { useMemo } from 'react';
 import { useAnatomyIndex } from './hooks/useAnatomyIndex';
 import { useMuscleResolution } from './hooks/useMuscleResolution';
 import { TopBar } from './components/TopBar';
@@ -13,18 +14,27 @@ import { Viewer3D } from './components/Viewer3D';
 import { ViewToolbar } from './components/ViewToolbar';
 import { SelectionPanel } from './components/SelectionPanel';
 import { CommandPalette } from './components/CommandPalette';
+import { REGIONS, resolveRegionMeshes } from './data/regiones';
 
 export default function App() {
   const { index, byMesh, status, error } = useAnatomyIndex();
   const resolution = useMuscleResolution(index);
 
+  // Restrict the scene to the current region (for now: the shoulder). This is
+  // what hides the head, abdomen, legs, etc. — only shoulder structures stay
+  // visible. We resolve the region's keyword definition against the real mesh
+  // names in the loaded index. When `byMesh` isn't ready yet this is null,
+  // which makes the viewer show everything (its safe default).
+  const regionMeshes = useMemo(() => {
+    if (byMesh.size === 0) return null;
+    return resolveRegionMeshes(REGIONS.shoulder, byMesh.keys());
+  }, [byMesh]);
+
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
       <TopBar />
-
       <div className="flex min-h-0 flex-1">
         <Sidebar index={index} resolution={resolution} />
-
         {/* Viewer column */}
         <main className="relative min-w-0 flex-1">
           {status === 'error' ? (
@@ -33,15 +43,17 @@ export default function App() {
             <IndexLoading />
           ) : (
             <>
-              <Viewer3D byMesh={byMesh} resolution={resolution} />
+              <Viewer3D
+                byMesh={byMesh}
+                regionMeshes={regionMeshes}
+                resolution={resolution}
+              />
               <ViewToolbar />
             </>
           )}
         </main>
-
         <SelectionPanel byMesh={byMesh} resolution={resolution} />
       </div>
-
       <CommandPalette index={index} />
     </div>
   );

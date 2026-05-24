@@ -6,7 +6,7 @@
 // dot), and animates between predefined views in response to camera requests.
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { CameraControls, useProgress } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -16,13 +16,17 @@ import { useAnatomyStore } from '../store/anatomyStore';
 import { VIEW_META } from '../lib/anatomyMeta';
 import type { AnatomyEntry } from '../types/anatomy';
 import type { MuscleResolution } from '../lib/muscleResolver';
-import { useThree } from '@react-three/fiber';
 
 interface Viewer3DProps {
   byMesh: Map<string, AnatomyEntry>;
   regionMeshes?: Set<string> | null;
   resolution: MuscleResolution;
 }
+
+// How tightly the camera frames a focused muscle. Larger padding = more
+// context (you see the surrounding bone/zone); smaller = fills the screen.
+// 0.6 ≈ "close but with context around it".
+const FOCUS_PADDING = 0.6;
 
 /**
  * Bridge component living *inside* the Canvas. It holds the CameraControls ref,
@@ -36,7 +40,7 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
   const hasFramedRef = useRef(false);
 
   const focusRequest = useAnatomyStore((s) => s.focusRequest);
-  const cameraRequest = useAnatomyStore((s) => s.cameraRequest); //
+  const cameraRequest = useAnatomyStore((s) => s.cameraRequest);
 
   // Recompute the bounding box of visible meshes, then frame the camera.
   const handleVisibleChange = useCallback((meshes: THREE.Mesh[]) => {
@@ -45,9 +49,6 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
     const tmp = new THREE.Box3();
     for (const m of meshes) {
       tmp.setFromObject(m);
-
-
-      
       if (isFinite(tmp.min.x)) box.union(tmp);
     }
     if (!isFinite(box.min.x)) return;
@@ -91,30 +92,65 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
       true, // animate
     );
   }, [cameraRequest]);
+
   // Frame the camera onto a requested set of meshes (e.g. a selected muscle).
+  //
+  // ROBUSTNESS: the previous version sometimes failed to move the camera
+  // because Box3.setFromObject relies on up-to-date world matrices, and the
+  // target meshes may have just been made visible (or never had their matrices
+  // refreshed). We now force a world-matrix update first, and fall back to the
+  // meshes' world *positions* if their geometry box can't be computed (e.g. a
+  // mesh that is currently hidden has no renderable bounds).
   useEffect(() => {
     if (!focusRequest || !controlsRef.current) return;
+    const controls = controlsRef.current;
+
+    // Make sure every mesh's world matrix is current before measuring.
+    scene.updateWorldMatrix(true, true);
+
+    const wanted = new Set(focusRequest.meshNames);
     const box = new THREE.Box3();
     const tmp = new THREE.Box3();
-    let found = false;
+    const worldPos = new THREE.Vector3();
+    let foundBox = false;
+    let foundPos = false;
+
     scene.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
-      if (!focusRequest.meshNames.includes(m.name)) return;
+      if (!wanted.has(m.name)) return;
+
+      // Primary: geometry bounding box in world space.
       tmp.setFromObject(m);
-      if (isFinite(tmp.min.x)) {
+      if (isFinite(tmp.min.x) && !tmp.isEmpty()) {
         box.union(tmp);
-        found = true;
+        foundBox = true;
+      }
+
+      // Fallback: at least the mesh's world position, so we can still aim the
+      // camera even if the geometry box failed.
+      m.getWorldPosition(worldPos);
+      if (isFinite(worldPos.x)) {
+        box.expandByPoint(worldPos);
+        foundPos = true;
       }
     });
-    if (!found || !isFinite(box.min.x)) return;
-    void controlsRef.current.fitToBox(box, true, {
-      paddingTop: 0.5,
-      paddingBottom: 0.5,
-      paddingLeft: 0.5,
-      paddingRight: 0.5,
+
+    if (!foundBox && !foundPos) return;
+
+    // If we only had positions (no real volume), pad the box so fitToBox has
+    // something to frame instead of a zero-size point.
+    if (!foundBox && foundPos) {
+      box.expandByScalar(0.08);
+    }
+
+    void controls.fitToBox(box, true, {
+      paddingTop: FOCUS_PADDING,
+      paddingBottom: FOCUS_PADDING,
+      paddingLeft: FOCUS_PADDING,
+      paddingRight: FOCUS_PADDING,
     });
-  }, [focusRequest]);
+  }, [focusRequest, scene]);
 
   return (
     <>
@@ -126,7 +162,7 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
       <directionalLight position={[0, -3, 2]} intensity={0.3} />
       <ambientLight intensity={0.2} />
 
-     <AnatomyModel
+      <AnatomyModel
         byMesh={byMesh}
         regionMeshes={regionMeshes}
         onVisibleChange={handleVisibleChange}

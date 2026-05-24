@@ -1,12 +1,15 @@
 // src/components/ViewToolbar.tsx
 //
 // Floating glass toolbar anchored bottom-center of the viewer. Exposes the
-// six predefined camera views (with keyboard shortcuts 1-6) plus a reset.
+// six predefined camera views (with keyboard shortcuts 1-6), plus the
+// origin/insertion focus controls (shared with the SelectionPanel) for quick
+// access without opening the side panel.
 // Icons are inline SVG to avoid an icon dependency.
 
 import { useEffect } from 'react';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { VIEW_META, VIEW_ORDER } from '../lib/anatomyMeta';
+import { PartFocusControls } from './PartFocusControls';
 import type { CameraView } from '../types/anatomy';
 
 /** Minimal inline icon per view; purely decorative orientation cues. */
@@ -108,6 +111,9 @@ export function ViewToolbar() {
         {secondary.map((view) => (
           <ToolbarButton key={view} view={view} onClick={() => requestView(view)} />
         ))}
+        <div className="mx-1 h-7 w-px bg-slate-600/40" />
+        {/* Origin / insertion focus — disabled until a muscle is selected. */}
+        <PartFocusControls variant="toolbar" />
       </div>
     </div>
   );

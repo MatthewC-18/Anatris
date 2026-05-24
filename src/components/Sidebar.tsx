@@ -3,8 +3,9 @@
 // Left navigation rail. Shows the active module with a progress placeholder,
 // the seven pedagogical phases (display-only until the content phase wires
 // them up), the layer toggles with live visible-count badges, the side
-// filter, and the per-muscle list (grouped by function) for reaching deep
-// muscles that can't be clicked directly in the 3D view.
+// filter, the origin/insertion marker toggle, and the per-muscle list (grouped
+// by function) for reaching deep muscles that can't be clicked directly in the
+// 3D view.
 
 import { useAnatomyStore, type SideFilter } from '../store/anatomyStore';
 import {
@@ -40,11 +41,13 @@ export function Sidebar({ index, resolution }: SidebarProps) {
         <ModuleHeader />
         <PhaseList />
         <div className="my-5 h-px bg-slate-800/60" />
-       <DepthPeeler />
+        <DepthPeeler />
         <div className="my-5 h-px bg-slate-800/60" />
         <LayerControls index={index} />
         <div className="my-5 h-px bg-slate-800/60" />
         <SideControls />
+        <div className="my-5 h-px bg-slate-800/60" />
+        <DisplayControls />
         <div className="my-5 h-px bg-slate-800/60" />
         <MuscleList resolution={resolution} />
       </div>
@@ -233,6 +236,49 @@ function SideControls() {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Extra display options: currently the origin/insertion marker toggle. These
+// markers (small .o/.e meshes) are hidden by default to keep the dissection
+// view clean, and revealed here when teaching a muscle's attachments.
+function DisplayControls() {
+  const showOriginInsertion = useAnatomyStore((s) => s.showOriginInsertion);
+  const toggleOriginInsertion = useAnatomyStore((s) => s.toggleOriginInsertion);
+
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
+        Visualización
+      </p>
+      <button
+        type="button"
+        onClick={toggleOriginInsertion}
+        className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-slate-800/40"
+      >
+        <span
+          className={[
+            'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
+            showOriginInsertion
+              ? 'border-accent bg-accent'
+              : 'border-slate-600 bg-transparent group-hover:border-slate-500',
+          ].join(' ')}
+        >
+          {showOriginInsertion && (
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#070b14" strokeWidth="4">
+              <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </span>
+        <span
+          className={`flex-1 text-sm ${
+            showOriginInsertion ? 'text-slate-200' : 'text-slate-500'
+          }`}
+        >
+          Orígenes e inserciones
+        </span>
+      </button>
     </div>
   );
 }
