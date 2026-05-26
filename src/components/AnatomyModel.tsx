@@ -4,7 +4,7 @@
 // side filter and current region, and handles hover + click selection with a
 // strong emissive highlight. Restores original material on deselect.
 //
-// IMPORTANT — material handling:
+// IMPORTANT â€” material handling:
 // Z-Anatomy shares a single material instance across many meshes (e.g. every
 // "Skin-2" mesh points at the same THREE material). If we mutated those shared
 // materials directly, highlighting one mesh would tint every sibling. To avoid
@@ -15,20 +15,37 @@
 // - Selected muscle/mesh -> bright AMBER emissive (reads clearly over the red
 //   muscle tissue; cyan washed out to grey on red).
 // - When a muscle is selected, everything NOT part of it is dimmed slightly so
-//   the eye lands on the highlighted structure — the Complete Anatomy look.
+//   the eye lands on the highlighted structure â€” the Complete Anatomy look.
 // - Hover -> soft amber.
+//
+// ROM PHASE HIGHLIGHT (multi-muscle, colored by role):
+// - When a ROM phase is active (store.romHighlight is a Map<muscleId, role>),
+//   SEVERAL muscles light up at once, each tinted by its role: prime-mover
+//   amber, assistant blue, stabilizer violet â€” matching the ROM panel legend.
+//   Everything not in the phase is dimmed for focus. This is a separate path
+//   from single-muscle selection; the store guarantees the two never co-occur.
+//
+// ROM FOCUS SPOTLIGHT (hover bridge):
+// - `romFocusMuscleId` is a transient hover spotlight pointing at ONE muscle in
+//   the current ROM set (set by hovering its chip in the panel or its mesh in
+//   3D). When set, that muscle's meshes glow brighter (intensity only â€” role
+//   COLOR is preserved, mirroring the ROM pulse philosophy), and the OTHER
+//   muscles in the set are softly pushed back so the focused one is unmistakable
+//   ("which of these three violet stabilizers is the subscapularis?"). This
+//   never moves the camera and never changes the highlight set; it only nudges
+//   intensities within the existing ROM branch.
 //
 // ISOLATE / PEEL ON SELECT:
 // - When a muscle with a known `depth` is selected, every OTHER muscle that is
 //   MORE SUPERFICIAL (smaller depth) becomes a translucent ghost, so you can
 //   see through what physically covers the selected muscle. This is anatomical
 //   (camera-independent): the deltoid always ghosts when you pick supraspinatus.
-//   Only muscles are ghosted in this version — bones stay solid as reference.
+//   Only muscles are ghosted in this version â€” bones stay solid as reference.
 //
 // PART FOCUS (origin / insertion):
 // - When `partFocus` is set, the meshes of that part (origin or insertion) of
 //   the SELECTED muscle glow, while the rest of the SAME muscle is dimmed but
-//   still visible — so you see WHERE it attaches without losing the muscle's
+//   still visible â€” so you see WHERE it attaches without losing the muscle's
 //   identity. Other muscles keep their normal selected/ghost/dim behaviour, so
 //   part focus stacks on top of the isolate effect rather than replacing it.
 
@@ -42,15 +59,35 @@ import { colorForMaterial, colorForMaterialMesh } from '../lib/materialColors';
 import type { MuscleResolution } from '../lib/muscleResolver';
 import { parseMeshName, type MusclePart } from '../lib/parseMeshName';
 import { shoulderMuscles } from '../data/muscles/shoulder';
+import type { RomMuscleRole } from '../types/rom';
 const MODEL_URL = '/modelo-opt.glb';
 useGLTF.preload(MODEL_URL);
 
 // Highlight color: bright amber/orange. Chosen because the muscle atlas color
-// is red — a cyan emissive mixes with red into a muddy grey, while amber stays
+// is red â€” a cyan emissive mixes with red into a muddy grey, while amber stays
 // vivid and unmistakable on top of red, bone and tendon alike.
 const HIGHLIGHT = 0xffa51e;
 const HIGHLIGHT_INTENSITY_SELECTED = 1.1;
 const HIGHLIGHT_INTENSITY_HOVER = 0.4;
+
+// ROM ROLE colors. These mirror the ROM panel chips (RomPanel.tsx ROLE_STYLE)
+// so the 3D scene and the legend speak the same visual language. Prime-mover
+// reuses the amber selection color; assistant is blue; stabilizer is violet.
+const ROM_ROLE_COLOR: Record<RomMuscleRole, number> = {
+  'prime-mover': 0xffa51e, // amber (same as HIGHLIGHT)
+  assistant: 0x38bdf8, // sky-400
+  stabilizer: 0xa78bfa, // violet-400
+};
+// ROM-highlighted muscles glow a touch less hot than a single hard selection,
+// because several are lit at once and we don't want the scene to blow out.
+const ROM_HIGHLIGHT_INTENSITY = 0.95;
+
+// FOCUS â€” when one ROM muscle is hovered (romFocusMuscleId), it glows brighter
+// than the rest of the set, while the others are softly pushed back. Intensity
+// only; role color is preserved.
+const ROM_FOCUS_INTENSITY = 1.7; // the hovered muscle (above the base 0.95)
+const ROM_UNFOCUSED_INTENSITY = 0.4; // other set muscles while one is focused
+const ROM_UNFOCUSED_COLOR_DIM = 0.6; // gently darken the others' base color too
 
 // PART FOCUS colors. The focused attachment glows in a distinct hue so it reads
 // as "this specific part", not just "selected". Cyan-green stands apart from
@@ -117,6 +154,8 @@ export function AnatomyModel({
   const setHovered = useAnatomyStore((s) => s.setHovered);
   const selectedMuscleId = useAnatomyStore((s) => s.selectedMuscleId);
   const partFocus = useAnatomyStore((s) => s.partFocus);
+  const romHighlight = useAnatomyStore((s) => s.romHighlight);
+  const romFocusMuscleId = useAnatomyStore((s) => s.romFocusMuscleId); // FOCUS
 
   // Collect all meshes once.
   const meshes = useMemo(() => {
@@ -145,8 +184,8 @@ export function AnatomyModel({
 
   // Per-mesh muscle PART (belly / origin / insertion / tendon), decoded from
   // the flattened Z-Anatomy name. We use this to hide the small origin (.o) and
-  // insertion (.e) marker meshes by default — they're clutter in the dissection
-  // view and only wanted when teaching a specific structure's attachments — AND
+  // insertion (.e) marker meshes by default â€” they're clutter in the dissection
+  // view and only wanted when teaching a specific structure's attachments â€” AND
   // now also to drive the part-focus highlight.
   const partByUuid = useMemo(() => {
     const map = new Map<string, MusclePart>();
@@ -201,7 +240,7 @@ export function AnatomyModel({
 
   // Does the selected muscle actually have meshes for the focused part? If a
   // muscle's origin/insertion isn't modelled as separate meshes, focusing it
-  // would dim the whole muscle to nothing — so we only engage part focus when
+  // would dim the whole muscle to nothing â€” so we only engage part focus when
   // there's at least one mesh of that part for the selected muscle.
   const partFocusHasMeshes = useMemo(() => {
     if (partFocus == null || selectedMuscleId == null) return false;
@@ -223,6 +262,10 @@ export function AnatomyModel({
   const pulseColorRef = useRef(new THREE.Color());
   const pulseAmberRef = useRef(new THREE.Color(HIGHLIGHT));
   const pulseYellowRef = useRef(new THREE.Color(0xfff04d));
+  // Whether the current pulse should animate the emissive COLOR (true: single
+  // selection, amber->yellow) or only the intensity (false: ROM, so per-role
+  // colors are preserved). Settled when the pulse is triggered.
+  const pulseColorAnimRef = useRef(true);
 
   // One-time material setup: clone each material and style skin / solid tissue.
   const preparedRef = useRef(false);
@@ -338,20 +381,32 @@ export function AnatomyModel({
     showOriginInsertion,
   ]);
 
-  // Highlight + isolate + part focus. Runs whenever selection/hover/muscle/part
-  // changes. Robust: it never skips a mesh for lack of a cached original — it
-  // falls back to black.
+  // Highlight + isolate + part focus + ROM phase. Runs whenever selection /
+  // hover / muscle / part / ROM changes. Robust: it never skips a mesh for lack
+  // of a cached original â€” it falls back to black.
   useEffect(() => {
     const map = originals.current;
-    const focusing = selectedMuscleId != null || selectedMeshName != null;
+    // ROM phase highlight takes over the "focus" feeling when active. The store
+    // guarantees romHighlight and single-muscle selection don't co-occur, but
+    // we still treat romActive as its own branch for clarity and safety.
+    const romActive = romHighlight != null && romHighlight.size > 0;
+    const focusing =
+      romActive || selectedMuscleId != null || selectedMeshName != null;
     // Part focus only engages if the selected muscle actually has meshes of
     // that part (otherwise it would dim the whole muscle to nothing).
     const partActive = partFocus != null && partFocusHasMeshes;
 
+    // FOCUS â€” is a ROM hover spotlight active, and does it point at a muscle
+    // that's actually in the current set? Only then do we modulate intensities.
+    const romFocusActive =
+      romActive &&
+      romFocusMuscleId != null &&
+      romHighlight!.has(romFocusMuscleId);
+
     for (const mesh of meshes) {
       const entry = byMesh.get(mesh.name);
       // Only touch meshes that belong to a real, highlightable anatomical
-      // layer. Skip skin, reference labels, groups, and anything unclassified —
+      // layer. Skip skin, reference labels, groups, and anything unclassified â€”
       // these may share a material instance with visible meshes, and tinting
       // their emissive would bleed the highlight onto invisible siblings.
       if (!entry) continue;
@@ -370,6 +425,13 @@ export function AnatomyModel({
       const origDepthWrite = orig ? orig.depthWrite : true;
 
       const muscleOfMeshId = muscleIdByUuid.get(mesh.uuid);
+
+      // Is this mesh part of a muscle in the active ROM phase? If so, which role?
+      const romRole =
+        romActive && muscleOfMeshId != null
+          ? romHighlight.get(muscleOfMeshId) ?? null
+          : null;
+
       const isSelectedMuscle =
         selectedMuscleId != null && muscleOfMeshId === selectedMuscleId;
       const isSelectedMesh = mesh.name === selectedMeshName;
@@ -397,7 +459,56 @@ export function AnatomyModel({
       mat.opacity = origOpacity;
       mat.depthWrite = origDepthWrite;
 
-      if (isFocusedPart) {
+      if (romActive) {
+        // ROM branch. The phase's (or studied) muscles glow, colored by role
+        // and rendered LAST so they draw on top of any translucent ghosts in
+        // front of them. To solve occlusion (muscles hidden behind others), the
+        // OTHER muscles become translucent ghosts; non-muscle tissue (bones,
+        // etc.) stays solid but dimmed, as anatomical reference/context.
+        if (romRole != null) {
+          mat.emissive.setHex(ROM_ROLE_COLOR[romRole]);
+          // FOCUS â€” modulate intensity (NOT color) when a hover spotlight is
+          // active: the focused muscle burns brighter, the rest of the set is
+          // pushed back so it's unmistakable which one is which. With no focus,
+          // every set muscle uses the normal base intensity (unchanged behavior).
+          if (romFocusActive) {
+            const isFocusMuscle = muscleOfMeshId === romFocusMuscleId;
+            mat.emissiveIntensity = isFocusMuscle
+              ? ROM_FOCUS_INTENSITY
+              : ROM_UNFOCUSED_INTENSITY;
+            if (origColor && mat.color) {
+              if (isFocusMuscle) {
+                mat.color.copy(origColor);
+              } else {
+                mat.color.copy(origColor).multiplyScalar(ROM_UNFOCUSED_COLOR_DIM);
+              }
+            }
+          } else {
+            mat.emissiveIntensity = ROM_HIGHLIGHT_INTENSITY;
+            if (origColor && mat.color) mat.color.copy(origColor);
+          }
+          mat.depthTest = true;
+          mesh.renderOrder = 5;
+        } else if (muscleOfMeshId != null) {
+          // A muscle NOT in this ROM set: ghost it so the highlighted muscles
+          // behind it show through. Don't write depth, draw first.
+          mat.emissive.copy(origEmissive);
+          mat.emissiveIntensity = origEmissiveIntensity;
+          if (origColor && mat.color) mat.color.copy(origColor);
+          mat.transparent = true;
+          mat.opacity = GHOST_OPACITY;
+          mat.depthWrite = false;
+          mesh.renderOrder = 1;
+        } else {
+          // Non-muscle (bone, ligament, etc.): keep solid, just dim for focus.
+          mesh.renderOrder = 0;
+          mat.emissive.copy(origEmissive);
+          mat.emissiveIntensity = origEmissiveIntensity;
+          if (origColor && mat.color) {
+            mat.color.copy(origColor).multiplyScalar(DIM_WHEN_FOCUSED);
+          }
+        }
+      } else if (isFocusedPart) {
         // The attachment we're teaching: distinct teal glow, drawn on top.
         mat.emissive.setHex(PART_HIGHLIGHT);
         mat.emissiveIntensity = PART_HIGHLIGHT_INTENSITY;
@@ -463,6 +574,8 @@ export function AnatomyModel({
     partByUuid,
     partFocus,
     partFocusHasMeshes,
+    romHighlight,
+    romFocusMuscleId, // FOCUS â€” re-run highlight when the hover spotlight moves
   ]);
 
   // Trigger the attention pulse whenever the SELECTED MUSCLE changes. We
@@ -480,7 +593,32 @@ export function AnatomyModel({
     }
     pulseMeshesRef.current = targets;
     pulseStartRef.current = clockRef.current; // start "now"
+    pulseColorAnimRef.current = true; // single selection: animate amber->yellow
   }, [selectedMuscleId, meshes, muscleIdByUuid]);
+
+  // Trigger the attention pulse when a ROM highlight is (re)activated. Same
+  // breathing animation, but COLOR-PRESERVING: ROM muscles are colored by role
+  // (amber/blue/violet), so we animate intensity only and leave the per-mesh
+  // emissive color set by the highlight effect untouched. We capture exactly
+  // the meshes belonging to the highlighted ROM muscles.
+  useEffect(() => {
+    if (romHighlight == null || romHighlight.size === 0) {
+      // Don't stomp a single-selection pulse; only stop if we own the pulse.
+      if (pulseColorAnimRef.current === false) {
+        pulseStartRef.current = -1;
+        pulseMeshesRef.current = [];
+      }
+      return;
+    }
+    const targets: THREE.Mesh[] = [];
+    for (const mesh of meshes) {
+      const id = muscleIdByUuid.get(mesh.uuid);
+      if (id != null && romHighlight.has(id)) targets.push(mesh);
+    }
+    pulseMeshesRef.current = targets;
+    pulseStartRef.current = clockRef.current; // start "now"
+    pulseColorAnimRef.current = false; // ROM: keep role colors, pulse intensity
+  }, [romHighlight, meshes, muscleIdByUuid]);
 
   // Frame loop: drive the pulse animation. While a pulse is active we override
   // the selected meshes' emissiveIntensity with a decaying sine "breathing"
@@ -488,25 +626,47 @@ export function AnatomyModel({
   //
   // The pulse is suppressed while a part focus is active, so it doesn't fight
   // the teal attachment highlight.
+  //
+  // FOCUS â€” the pulse is ALSO suppressed for ROM while a hover spotlight is
+  // active. The spotlight owns the per-muscle intensities (set by the highlight
+  // effect); letting the pulse run would fight it by re-driving every set
+  // muscle's intensity uniformly. When the hover ends, romFocusMuscleId clears,
+  // the highlight effect repaints the base ROM glow, and pulses work as before.
   useFrame((_, delta) => {
     clockRef.current += delta;
     const start = pulseStartRef.current;
     if (start < 0) return;
-    if (partFocus != null) {
-      // Part focus owns the look right now; stop pulsing.
+    // Part focus only coexists with single-muscle selection, and it owns the
+    // look (teal attachment glow) â€” so suppress the pulse only for the color-
+    // animating (single-selection) pulse. A ROM pulse is never active alongside
+    // partFocus, but guard defensively.
+    if (partFocus != null && pulseColorAnimRef.current) {
+      pulseStartRef.current = -1;
+      return;
+    }
+    // FOCUS â€” suppress the ROM pulse while a hover spotlight owns intensities.
+    if (!pulseColorAnimRef.current && useAnatomyStore.getState().romFocusMuscleId != null) {
       pulseStartRef.current = -1;
       return;
     }
 
     const t = clockRef.current - start; // seconds since pulse began
     const targets = pulseMeshesRef.current;
+    const animateColor = pulseColorAnimRef.current;
+    // Settle intensity differs: single selection settles to the hard selected
+    // glow; ROM settles to the (slightly softer) ROM glow.
+    const settleIntensity = animateColor
+      ? HIGHLIGHT_INTENSITY_SELECTED
+      : ROM_HIGHLIGHT_INTENSITY;
 
     if (t >= PULSE_DURATION || targets.length === 0) {
-      // Pulse finished: settle to the steady selected intensity and stop.
+      // Pulse finished: settle to the steady intensity and stop. For ROM we
+      // leave the per-role emissive color exactly as the highlight effect set
+      // it (we never touched it during the pulse).
       for (const mesh of targets) {
         const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
         if (mat && 'emissive' in mat) {
-          mat.emissiveIntensity = HIGHLIGHT_INTENSITY_SELECTED;
+          mat.emissiveIntensity = settleIntensity;
         }
       }
       pulseStartRef.current = -1;
@@ -521,21 +681,29 @@ export function AnatomyModel({
     const envelope = 1 - p; // linear fade so the pulse calms down
     const bump = Math.max(0, wave) * envelope; // only brighten, never darken
     const intensity =
-      HIGHLIGHT_INTENSITY_SELECTED +
-      bump * (PULSE_PEAK - HIGHLIGHT_INTENSITY_SELECTED);
+      settleIntensity + bump * (PULSE_PEAK - settleIntensity);
 
-    // Also shift the emissive COLOR toward bright yellow at each peak. Pure
-    // brightness can saturate and stop reading; a hue shift always reads. We
-    // lerp from amber (HIGHLIGHT) toward yellow proportionally to the bump.
-    const pulseColor = pulseColorRef.current
-      .copy(pulseAmberRef.current)
-      .lerp(pulseYellowRef.current, bump);
-
-    for (const mesh of targets) {
-      const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
-      if (mat && 'emissive' in mat) {
-        mat.emissive.copy(pulseColor);
-        mat.emissiveIntensity = intensity;
+    if (animateColor) {
+      // Single selection: shift emissive COLOR toward bright yellow at each
+      // peak. Pure brightness can saturate and stop reading; a hue shift always
+      // reads. We lerp from amber toward yellow proportionally to the bump.
+      const pulseColor = pulseColorRef.current
+        .copy(pulseAmberRef.current)
+        .lerp(pulseYellowRef.current, bump);
+      for (const mesh of targets) {
+        const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
+        if (mat && 'emissive' in mat) {
+          mat.emissive.copy(pulseColor);
+          mat.emissiveIntensity = intensity;
+        }
+      }
+    } else {
+      // ROM: keep each muscle's role color; animate intensity only.
+      for (const mesh of targets) {
+        const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
+        if (mat && 'emissive' in mat) {
+          mat.emissiveIntensity = intensity;
+        }
       }
     }
   });
@@ -571,11 +739,25 @@ export function AnatomyModel({
     );
     if (!mesh) return;
     setHovered(mesh.name);
+    // FOCUS â€” if a ROM highlight is active and the hovered mesh belongs to one
+    // of its muscles, set the spotlight on that muscle (3D -> list direction of
+    // the bidirectional bridge). Reading state via getState() avoids adding
+    // store fields to this handler's closure deps.
+    const st = useAnatomyStore.getState();
+    if (st.romHighlight && st.romHighlight.size > 0) {
+      const m = resolution.muscleByMeshName.get(mesh.name);
+      if (m && st.romHighlight.has(m.id)) {
+        st.setRomFocusMuscle(m.id);
+      }
+    }
     document.body.style.cursor = 'pointer';
   };
 
   const handlePointerOut = () => {
     setHovered(null);
+    // FOCUS â€” clear the ROM hover spotlight when leaving a mesh.
+    const st = useAnatomyStore.getState();
+    if (st.romFocusMuscleId != null) st.setRomFocusMuscle(null);
     document.body.style.cursor = 'default';
   };
 

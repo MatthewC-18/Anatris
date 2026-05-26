@@ -1,7 +1,7 @@
 // src/components/Viewer3D.tsx
 //
 // The 3D canvas. Owns the camera and lighting, frames the camera onto the
-// currently *visible* anatomical meshes (not the whole scene — the GLB
+// currently *visible* anatomical meshes (not the whole scene â€” the GLB
 // contains far-away UI/text panels that would otherwise shrink the body to a
 // dot), and animates between predefined views in response to camera requests.
 
@@ -11,8 +11,11 @@ import { CameraControls, useProgress } from '@react-three/drei';
 import * as THREE from 'three';
 
 import { AnatomyModel } from './AnatomyModel';
+import { AttachmentMarkers } from './AttachmentMarkers';
+import { RomMuscleMarkers } from './RomMuscleMarkers';
 import { CanvasLoader } from './CanvasLoader';
 import { useAnatomyStore } from '../store/anatomyStore';
+import { parseMeshName } from '../lib/parseMeshName';
 import { VIEW_META } from '../lib/anatomyMeta';
 import type { AnatomyEntry } from '../types/anatomy';
 import type { MuscleResolution } from '../lib/muscleResolver';
@@ -25,8 +28,12 @@ interface Viewer3DProps {
 
 // How tightly the camera frames a focused muscle. Larger padding = more
 // context (you see the surrounding bone/zone); smaller = fills the screen.
-// 0.6 ≈ "close but with context around it".
+// 0.6 â‰ˆ "close but with context around it".
 const FOCUS_PADDING = 0.6;
+
+// Tighter padding when zooming to an attachment marker â€” we want to get close
+// to the landmark, but keep a little surrounding bone for context.
+const PART_FOCUS_PADDING = 0.9;
 
 /**
  * Bridge component living *inside* the Canvas. It holds the CameraControls ref,
@@ -41,6 +48,9 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
 
   const focusRequest = useAnatomyStore((s) => s.focusRequest);
   const cameraRequest = useAnatomyStore((s) => s.cameraRequest);
+  const selectedMuscleId = useAnatomyStore((s) => s.selectedMuscleId);
+  const partFocus = useAnatomyStore((s) => s.partFocus);
+  const sideFilter = useAnatomyStore((s) => s.sideFilter);
 
   // Recompute the bounding box of visible meshes, then frame the camera.
   const handleVisibleChange = useCallback((meshes: THREE.Mesh[]) => {
@@ -152,10 +162,55 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
     });
   }, [focusRequest, scene]);
 
+  // PART FOCUS camera move: when origin/insertion is activated, zoom toward the
+  // attachment marker(s) of the selected muscle. Reads the (possibly hidden)
+  // marker meshes' world positions â€” visibility isn't required to read a
+  // position. Builds a small box around the marker(s) and frames it.
+  useEffect(() => {
+    if (partFocus == null || selectedMuscleId == null) return;
+    if (!controlsRef.current) return;
+    const controls = controlsRef.current;
+
+    scene.updateWorldMatrix(true, true);
+
+    const box = new THREE.Box3();
+    const wpos = new THREE.Vector3();
+    let found = false;
+
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      const muscle = resolution.muscleByMeshName.get(m.name);
+      if (!muscle || muscle.id !== selectedMuscleId) return;
+      const parsed = parseMeshName(m.name);
+      if (parsed.part !== partFocus) return;
+      if (sideFilter !== 'both' && parsed.side !== 'center' && parsed.side !== sideFilter) {
+        return;
+      }
+      m.getWorldPosition(wpos);
+      if (isFinite(wpos.x)) {
+        box.expandByPoint(wpos);
+        found = true;
+      }
+    });
+
+    if (!found) return;
+
+    // The markers are near-points, so give the box a real size to frame.
+    box.expandByScalar(0.06);
+
+    void controls.fitToBox(box, true, {
+      paddingTop: PART_FOCUS_PADDING,
+      paddingBottom: PART_FOCUS_PADDING,
+      paddingLeft: PART_FOCUS_PADDING,
+      paddingRight: PART_FOCUS_PADDING,
+    });
+  }, [partFocus, selectedMuscleId, sideFilter, resolution, scene]);
+
   return (
     <>
       {/* Soft multi-point lighting for clean clinical modeling (no network
-          dependency — purely analytic lights so it works offline). */}
+          dependency â€” purely analytic lights so it works offline). */}
       <hemisphereLight args={[0xbfdfff, 0x0a0f1a, 0.6]} />
       <directionalLight position={[3, 6, 4]} intensity={1.4} />
       <directionalLight position={[-4, 2, -3]} intensity={0.6} />
@@ -168,6 +223,13 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
         onVisibleChange={handleVisibleChange}
         resolution={resolution}
       />
+
+      {/* Origin/insertion pins (sphere + halo + label) for the selected muscle. */}
+      <AttachmentMarkers resolution={resolution} />
+
+      {/* Numbered identity pins for muscles active in a ROM highlight. Sibling
+          of AttachmentMarkers; overlay-only, does not touch material logic. */}
+      <RomMuscleMarkers resolution={resolution} />
 
       <CameraControls
         ref={controlsRef}

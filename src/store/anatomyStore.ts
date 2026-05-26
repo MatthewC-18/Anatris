@@ -3,19 +3,41 @@
 // Global UI/state store (Zustand). Owns: which anatomical layers are visible,
 // the side filter, the current region restriction, the selected/hovered mesh,
 // the selected MUSCLE (a clinical entity spanning many meshes), the part focus
-// (origin/insertion highlighting), the command-palette open state, and pending
-// camera-view requests.
+// (origin/insertion highlighting), the command-palette open state, pending
+// camera-view requests, and the ROM (range-of-motion) study state.
 //
-// IMPORTANT — default layers:
+// IMPORTANT â€” default layers:
 // Skin is a CONTEXT layer that occludes everything behind it, so it is OFF by
 // default. Likewise `reference` (1100+ text labels, planes, axes) is OFF by
 // default. The model boots showing only real anatomy (bones, muscles,
 // ligaments, nerves, vessels, organs), which is what a dissection-style view
 // for physiotherapy needs.
+//
+// ROM HIGHLIGHTING (drives the ROM panel + 3D):
+// The ROM panel has TWO view modes:
+//   - 'movement' (mode A): study a gesture. Pick a movement, then a phase; the
+//     phase's muscles light up, each colored by role.
+//   - 'muscle' (mode B): study a muscle. Pick a muscle; its participations
+//     across movements/phases are listed, and it lights up in 3D.
+// Either way, the thing that actually drives 3D highlighting is `romHighlight`,
+// a Map<muscleId, RomMuscleRole>. null = no ROM highlight. This is a SEPARATE
+// mechanism from `selectedMuscleId` (single-muscle uniform highlight); the
+// store keeps them mutually exclusive so they never fight over the same meshes.
+//
+// ROM FOCUS (hover bridge, mode-agnostic):
+// `romFocusMuscleId` is a TRANSIENT spotlight, separate from `romHighlight`. It
+// is set on hover (panel chip or 3D mesh) to intensify ONE muscle within the
+// current ROM set and reveal its full name on the 3D pin. It never alters
+// `romHighlight`, never moves the camera, and never touches the mutual
+// exclusion with single-muscle selection. It only modulates INTENSITY (not
+// color), mirroring the ROM pulse behaviour so role colors are preserved.
+// Because it points into the current ROM set, anything that changes that set
+// (new phase, new muscle, clearing ROM) must reset it to null.
 
 import { create } from 'zustand';
 import { ANATOMICAL_LAYERS } from '../lib/anatomyMeta';
 import type { AnatomyLayer, CameraView } from '../types/anatomy';
+import type { RomMuscleRole } from '../types/rom';
 
 /** The side-filter values exposed in the UI. */
 export type SideFilter = 'both' | 'right' | 'left';
@@ -26,6 +48,9 @@ export type SideFilter = 'both' | 'right' | 'left';
  * while the rest of the SAME muscle is dimmed, keeping anatomical context.
  */
 export type PartFocus = 'origin' | 'insertion' | null;
+
+/** How the ROM panel is being explored: by gesture, or by muscle. */
+export type RomViewMode = 'movement' | 'muscle';
 
 /**
  * A camera-view request. We wrap the view in an object with a monotonically
@@ -46,6 +71,15 @@ export interface FocusRequest {
   nonce: number;
 }
 
+/**
+ * Identifies which ROM phase is active: the movement id plus the index of the
+ * phase within that movement's `phases` array. null = no phase active.
+ */
+export interface RomSelection {
+  movementId: string;
+  phaseIndex: number;
+}
+
 interface AnatomyState {
   /* ----- layers ----- */
   activeLayers: Set<AnatomyLayer>;
@@ -57,10 +91,6 @@ interface AnatomyState {
   setSideFilter: (side: SideFilter) => void;
 
   /* ----- origin/insertion markers ----- */
-  // The model carries small origin (.o) and insertion (.e) marker meshes for
-  // every muscle. They're visual clutter in the default dissection view, so
-  // they're OFF by default and revealed only when teaching a specific
-  // structure's attachments.
   showOriginInsertion: boolean;
   setShowOriginInsertion: (on: boolean) => void;
   toggleOriginInsertion: () => void;
@@ -85,6 +115,25 @@ interface AnatomyState {
   setPartFocus: (part: PartFocus) => void;
   togglePartFocus: (part: Exclude<PartFocus, null>) => void;
 
+  /* ----- ROM (range of motion) ----- */
+  romViewMode: RomViewMode;
+  setRomViewMode: (mode: RomViewMode) => void;
+  romSelection: RomSelection | null;
+  romMuscleId: string | null;
+  romHighlight: Map<string, RomMuscleRole> | null;
+  romFocusMuscleId: string | null; // NEW â€” transient hover spotlight
+  setRomPhase: (
+    movementId: string,
+    phaseIndex: number,
+    muscles: Map<string, RomMuscleRole>,
+  ) => void;
+  setRomMuscle: (
+    muscleId: string,
+    muscles: Map<string, RomMuscleRole>,
+  ) => void;
+  setRomFocusMuscle: (muscleId: string | null) => void; // NEW
+  clearRom: () => void;
+
   /* ----- command palette ----- */
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
@@ -99,7 +148,6 @@ interface AnatomyState {
 
 export const useAnatomyStore = create<AnatomyState>((set) => ({
   /* ----- layers ----- */
-  // Boot with ONLY anatomical layers. No skin, no reference labels.
   activeLayers: new Set<AnatomyLayer>(ANATOMICAL_LAYERS),
 
   toggleLayer: (layer) =>
@@ -135,25 +183,65 @@ export const useAnatomyStore = create<AnatomyState>((set) => ({
   /* ----- selection / hover ----- */
   selectedMeshName: null,
   hoveredMeshName: null,
-  selectMesh: (meshName) => set({ selectedMeshName: meshName }),
-  // Clearing the selection also clears the muscle AND the part focus, so a
-  // stale "insertion" focus can't carry over to the next thing selected.
+  selectMesh: (meshName) =>
+    set({ selectedMeshName: meshName, romSelection: null, romHighlight: null, romFocusMuscleId: null }),
   clearSelection: () =>
-    set({ selectedMeshName: null, selectedMuscleId: null, partFocus: null }),
+    set({
+      selectedMeshName: null,
+      selectedMuscleId: null,
+      partFocus: null,
+      romSelection: null,
+      romHighlight: null,
+      romFocusMuscleId: null,
+    }),
   setHovered: (meshName) => set({ hoveredMeshName: meshName }),
 
   /* ----- muscle selection ----- */
   selectedMuscleId: null,
-  // Switching muscles resets the part focus: "show insertion" shouldn't stay
-  // active when you jump from one muscle to another.
-  selectMuscle: (muscleId) => set({ selectedMuscleId: muscleId, partFocus: null }),
+  // Switching muscles resets the part focus AND the ROM phase highlight. Note
+  // we do NOT clear romMuscleId here â€” the "by muscle" ROM view intentionally
+  // follows the selected muscle (see RomPanel).
+  selectMuscle: (muscleId) =>
+    set({ selectedMuscleId: muscleId, partFocus: null, romSelection: null, romHighlight: null, romFocusMuscleId: null }),
 
   /* ----- part focus ----- */
   partFocus: null,
   setPartFocus: (part) => set({ partFocus: part }),
-  // Tapping the active part again turns it off (back to "whole muscle").
   togglePartFocus: (part) =>
     set((s) => ({ partFocus: s.partFocus === part ? null : part })),
+
+  /* ----- ROM ----- */
+  romViewMode: 'movement',
+  setRomViewMode: (mode) => set({ romViewMode: mode }),
+  romSelection: null,
+  romMuscleId: null,
+  romHighlight: null,
+  romFocusMuscleId: null, // NEW
+  setRomPhase: (movementId, phaseIndex, muscles) =>
+    set({
+      romSelection: { movementId, phaseIndex },
+      romMuscleId: null,
+      romHighlight: muscles,
+      romFocusMuscleId: null, // NEW â€” a new phase invalidates any hover spotlight
+      selectedMuscleId: null,
+      selectedMeshName: null,
+      partFocus: null,
+    }),
+  setRomMuscle: (muscleId, muscles) =>
+    set({
+      romMuscleId: muscleId,
+      romSelection: null,
+      romHighlight: muscles,
+      romFocusMuscleId: null, // NEW â€” a new studied muscle invalidates the spotlight
+      selectedMuscleId: null,
+      selectedMeshName: null,
+      partFocus: null,
+    }),
+  // NEW â€” transient hover spotlight. Does not touch romHighlight / selection /
+  // camera. Safe to call with null to clear.
+  setRomFocusMuscle: (muscleId) => set({ romFocusMuscleId: muscleId }),
+  clearRom: () =>
+    set({ romSelection: null, romMuscleId: null, romHighlight: null, romFocusMuscleId: null }), // NEW reset
 
   /* ----- command palette ----- */
   paletteOpen: false,

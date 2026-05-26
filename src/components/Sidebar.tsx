@@ -2,10 +2,10 @@
 //
 // Left navigation rail. Shows the active module with a progress placeholder,
 // the seven pedagogical phases (display-only until the content phase wires
-// them up), the layer toggles with live visible-count badges, the side
-// filter, the origin/insertion marker toggle, and the per-muscle list (grouped
-// by function) for reaching deep muscles that can't be clicked directly in the
-// 3D view.
+// them up), the ROM (range-of-motion) study panel, the layer toggles with live
+// visible-count badges, the side filter, the origin/insertion marker toggle,
+// and the per-muscle list (grouped by function) for reaching deep muscles that
+// can't be clicked directly in the 3D view.
 
 import { useAnatomyStore, type SideFilter } from '../store/anatomyStore';
 import {
@@ -15,6 +15,7 @@ import {
 } from '../lib/anatomyMeta';
 import { MuscleList } from './MuscleList';
 import { DepthPeeler } from './DepthPeeler';
+import { RomPanel } from './RomPanel';
 import type { AnatomyLayer, AnatomyIndex } from '../types/anatomy';
 import type { MuscleResolution } from '../lib/muscleResolver';
 
@@ -42,6 +43,8 @@ export function Sidebar({ index, resolution }: SidebarProps) {
         <PhaseList />
         <div className="my-5 h-px bg-slate-800/60" />
         <DepthPeeler />
+        <div className="my-5 h-px bg-slate-800/60" />
+        <RomPanel resolution={resolution} />
         <div className="my-5 h-px bg-slate-800/60" />
         <LayerControls index={index} />
         <div className="my-5 h-px bg-slate-800/60" />
