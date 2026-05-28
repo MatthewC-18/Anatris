@@ -3,10 +3,7 @@
 // Top-level layout. Two modes:
 //   - "Explorar" (default): TopBar + three-column body
 //       Sidebar | Viewer (with floating toolbar) | SelectionPanel.
-//   - "Aprender": the 7-phase pedagogical track (PhaseTrack). The 3D model is
-//     shown ALONGSIDE the track so guided gestures (the biomechanics phase) can
-//     drive it: highlight muscles by role and move the camera while the student
-//     reads the narration. Sidebar | Viewer | PhaseTrack.
+//   - "Aprender": the 7-phase pedagogical track (PhaseTrack), shown wide.
 // The mode toggle lives top-right for now; it can later move into TopBar.
 //
 // Loads the anatomy index once, builds the muscle resolution, resolves which
@@ -23,7 +20,7 @@ import { SelectionPanel } from './components/SelectionPanel';
 import { CommandPalette } from './components/CommandPalette';
 import { PhaseTrack } from './components/PhaseTrack';
 import { REGIONS, resolveRegionMeshes } from './data/regiones';
-
+import { ShoulderRotationPanel } from './components/ShoulderRotationPrototype';
 /** Which top-level mode the app is in. */
 type AppMode = 'explore' | 'learn';
 
@@ -31,9 +28,9 @@ export default function App() {
   const { index, byMesh, status, error } = useAnatomyIndex();
   const resolution = useMuscleResolution(index);
   const [mode, setMode] = useState<AppMode>('explore');
-
+  const [protoOn, setProtoOn] = useState(false);
   // Restrict the scene to the current region (for now: the shoulder). This is
-  // what hides the head, abdomen, legs, etc. - only shoulder structures stay
+  // what hides the head, abdomen, legs, etc. — only shoulder structures stay
   // visible. We resolve the region's keyword definition against the real mesh
   // names in the loaded index. When `byMesh` isn't ready yet this is null,
   // which makes the viewer show everything (its safe default).
@@ -46,7 +43,7 @@ export default function App() {
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
       <div className="relative">
         <TopBar />
-        {/* Mode toggle - floats over the TopBar's right side. Move into TopBar
+        {/* Mode toggle — floats over the TopBar's right side. Move into TopBar
             later if you prefer it inline. */}
         <div className="pointer-events-auto absolute right-4 top-1/2 z-30 -translate-y-1/2">
           <ModeToggle mode={mode} setMode={setMode} />
@@ -56,28 +53,9 @@ export default function App() {
       {mode === 'learn' ? (
         <div className="flex min-h-0 flex-1">
           <Sidebar index={index} resolution={resolution} />
-          {/* 3D model column - lets guided gestures drive it while the student
-              reads the track on the right. */}
-          <main className="relative min-w-0 flex-1">
-            {status === 'error' ? (
-              <IndexError message={error} />
-            ) : status === 'loading' ? (
-              <IndexLoading />
-            ) : (
-              <>
-                <Viewer3D
-                  byMesh={byMesh}
-                  regionMeshes={regionMeshes}
-                  resolution={resolution}
-                />
-                <ViewToolbar />
-              </>
-            )}
-          </main>
-          {/* Pedagogical track. Fixed, comfortable reading width. */}
-          <aside className="min-h-0 w-[460px] shrink-0 overflow-hidden border-l border-slate-800/60">
+          <main className="min-w-0 flex-1">
             <PhaseTrack />
-          </aside>
+          </main>
         </div>
       ) : (
         <div className="flex min-h-0 flex-1">
@@ -91,11 +69,20 @@ export default function App() {
             ) : (
               <>
                 <Viewer3D
-                  byMesh={byMesh}
-                  regionMeshes={regionMeshes}
-                  resolution={resolution}
-                />
-                <ViewToolbar />
+  byMesh={byMesh}
+  regionMeshes={regionMeshes}
+  resolution={resolution}
+  prototypeOn={protoOn}
+/>
+<ViewToolbar />
+{protoOn && <ShoulderRotationPanel />}
+<button
+  type="button"
+  onClick={() => setProtoOn((v) => !v)}
+  className="absolute right-4 top-4 z-40 rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-300"
+>
+  {protoOn ? 'Prototipo: ON' : 'Prototipo: OFF'}
+</button>
               </>
             )}
           </main>

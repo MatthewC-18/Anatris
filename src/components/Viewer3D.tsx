@@ -1,7 +1,7 @@
 // src/components/Viewer3D.tsx
 //
 // The 3D canvas. Owns the camera and lighting, frames the camera onto the
-// currently *visible* anatomical meshes (not the whole scene — the GLB
+// currently *visible* anatomical meshes (not the whole scene â€” the GLB
 // contains far-away UI/text panels that would otherwise shrink the body to a
 // dot), and animates between predefined views in response to camera requests.
 
@@ -14,26 +14,25 @@ import { AnatomyModel } from './AnatomyModel';
 import { AttachmentMarkers } from './AttachmentMarkers';
 import { RomMuscleMarkers } from './RomMuscleMarkers';
 import { CanvasLoader } from './CanvasLoader';
-import { ShoulderRotationRig } from './ShoulderRotationPrototype';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { parseMeshName } from '../lib/parseMeshName';
 import { VIEW_META } from '../lib/anatomyMeta';
 import type { AnatomyEntry } from '../types/anatomy';
 import type { MuscleResolution } from '../lib/muscleResolver';
-
+import { ShoulderRotationRig } from './ShoulderRotationPrototype';
+import { AbductionSchematic } from './components/AbductionSchematic';
 interface Viewer3DProps {
   byMesh: Map<string, AnatomyEntry>;
   regionMeshes?: Set<string> | null;
   resolution: MuscleResolution;
-  prototypeOn?: boolean;
 }
 
 // How tightly the camera frames a focused muscle. Larger padding = more
 // context (you see the surrounding bone/zone); smaller = fills the screen.
-// 0.6 ≈ "close but with context around it".
+// 0.6 â‰ˆ "close but with context around it".
 const FOCUS_PADDING = 0.6;
 
-// Tighter padding when zooming to an attachment marker — we want to get close
+// Tighter padding when zooming to an attachment marker â€” we want to get close
 // to the landmark, but keep a little surrounding bone for context.
 const PART_FOCUS_PADDING = 0.9;
 
@@ -42,7 +41,7 @@ const PART_FOCUS_PADDING = 0.9;
  * recomputes framing when the visible mesh set changes, and reacts to camera
  * view requests from the store.
  */
-function SceneContents({ byMesh, regionMeshes, resolution, prototypeOn }: Viewer3DProps) {
+function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
   const { scene } = useThree();
   const controlsRef = useRef<CameraControls | null>(null);
   const boundsRef = useRef<{ box: THREE.Box3; radius: number } | null>(null);
@@ -166,7 +165,7 @@ function SceneContents({ byMesh, regionMeshes, resolution, prototypeOn }: Viewer
 
   // PART FOCUS camera move: when origin/insertion is activated, zoom toward the
   // attachment marker(s) of the selected muscle. Reads the (possibly hidden)
-  // marker meshes' world positions — visibility isn't required to read a
+  // marker meshes' world positions â€” visibility isn't required to read a
   // position. Builds a small box around the marker(s) and frames it.
   useEffect(() => {
     if (partFocus == null || selectedMuscleId == null) return;
@@ -212,7 +211,7 @@ function SceneContents({ byMesh, regionMeshes, resolution, prototypeOn }: Viewer
   return (
     <>
       {/* Soft multi-point lighting for clean clinical modeling (no network
-          dependency — purely analytic lights so it works offline). */}
+          dependency â€” purely analytic lights so it works offline). */}
       <hemisphereLight args={[0xbfdfff, 0x0a0f1a, 0.6]} />
       <directionalLight position={[3, 6, 4]} intensity={1.4} />
       <directionalLight position={[-4, 2, -3]} intensity={0.6} />
@@ -232,11 +231,6 @@ function SceneContents({ byMesh, regionMeshes, resolution, prototypeOn }: Viewer
       {/* Numbered identity pins for muscles active in a ROM highlight. Sibling
           of AttachmentMarkers; overlay-only, does not touch material logic. */}
       <RomMuscleMarkers resolution={resolution} />
-
-      {/* TEMP: isolated shoulder-rotation prototype (Option 2). Mounted only
-          when the prototype toggle is on; reparents the right-limb nodes under
-          a pivot and restores them on unmount. Remove when movement decided. */}
-      {prototypeOn && <ShoulderRotationRig />}
 
       <CameraControls
         ref={controlsRef}
@@ -258,7 +252,7 @@ function ProgressReporter({ onProgress }: { onProgress: (p: number) => void }) {
   return null;
 }
 
-export function Viewer3D({ byMesh, regionMeshes, resolution, prototypeOn }: Viewer3DProps) {
+export function Viewer3D({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
   const [progress, setProgress] = useState(0);
   const [ready, setReady] = useState(false);
 
@@ -290,12 +284,7 @@ export function Viewer3D({ byMesh, regionMeshes, resolution, prototypeOn }: View
       >
         <Suspense fallback={null}>
           <ProgressReporter onProgress={setProgress} />
-          <SceneContents
-            byMesh={byMesh}
-            regionMeshes={regionMeshes}
-            resolution={resolution}
-            prototypeOn={prototypeOn}
-          />
+          <SceneContents byMesh={byMesh} regionMeshes={regionMeshes} resolution={resolution} />
         </Suspense>
       </Canvas>
 
