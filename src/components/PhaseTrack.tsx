@@ -8,6 +8,8 @@
 //     declared by the phase. No content is duplicated; it is read live from
 //     SHOULDER_MUSCLES. Clicking a muscle header calls selectMuscle() so the
 //     rest of the app (3D highlight, SelectionPanel) reacts.
+//   - The biomechanics phase additionally renders any guided gestures
+//     (phase.guides) as a step-by-step walkthrough that drives the 3D model.
 //   - Region phases (tests / pathology / treatment / case) render their own
 //     first-class entities, each claim carrying its citations via the shared
 //     CitationRow.
@@ -26,6 +28,7 @@ import {
   SourcedList,
   ActionItem,
 } from './MuscleContentSections';
+import { BiomechanicsGuide } from './BiomechanicsGuide';
 import type {
   PhaseId,
   RegionTrack,
@@ -140,9 +143,20 @@ function PerMuscleView({ phase }: { phase: PerMusclePhase }) {
           <Sourced item={phase.intro} />
         </div>
       )}
+
+      {/* Guided gestures (biomechanics phase). Rendered before the muscle walk-
+          through so the student can play the movement, then study the muscles. */}
+      {phase.guides && phase.guides.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {phase.guides.map((g) => (
+            <BiomechanicsGuide key={g.movementId} guide={g} />
+          ))}
+        </div>
+      )}
+
       {phase.muscleIds.map((id) => {
         const content = SHOULDER_MUSCLES[id];
-        if (!content) return null; // id with no card yet — skip silently
+        if (!content) return null; // id with no card yet - skip silently
         const isSelected = id === selectedMuscleId;
         return (
           <div
@@ -371,10 +385,56 @@ function TestsView({ phase }: { phase: TestsPhase }) {
             <Labeled label="Signo positivo">
               <Sourced item={t.positiveSign} />
             </Labeled>
+            {t.grading && <TestGradingBlock grading={t.grading} />}
           </div>
           <MuscleLinkChips ids={t.targetMuscleIds} />
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Renders the graded-response guidance of a test (sustain time, pain vs.
+ *  weakness, and interpretation by intensity). */
+function TestGradingBlock({
+  grading,
+}: {
+  grading: NonNullable<TestsPhase['tests'][number]['grading']>;
+}) {
+  return (
+    <div className="mt-1 rounded-lg border border-slate-800/50 bg-ink-900/40 p-3">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-accent/80">
+        Graduacion de la respuesta
+      </p>
+      <div className="flex flex-col gap-3">
+        {grading.holdTime && (
+          <Labeled label="Tiempo de sosten">
+            <Sourced item={grading.holdTime} />
+          </Labeled>
+        )}
+        {grading.painVsWeakness && (
+          <Labeled label="Dolor vs. debilidad">
+            <Sourced item={grading.painVsWeakness} />
+          </Labeled>
+        )}
+        {grading.grades && grading.grades.length > 0 && (
+          <div>
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Interpretacion por grados
+            </p>
+            <ul className="flex flex-col gap-2">
+              {grading.grades.map((g, i) => (
+                <li key={i} className="rounded-md bg-slate-800/30 px-2.5 py-2">
+                  <p className="text-sm font-medium text-slate-200">{g.finding}</p>
+                  <div className="mt-1">
+                    <Sourced item={g.interpretation} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

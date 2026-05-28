@@ -30,6 +30,8 @@
 // Spanish for user-facing strings; English for code/identifiers.
 
 import type { SourcedText } from './muscleContent';
+import type { CameraView } from './anatomy';
+import type { RomMuscleRole } from './rom';
 
 /** The seven phases, in their fixed pedagogical order. */
 export type PhaseId =
@@ -118,7 +120,71 @@ export const PHASE_META: Record<PhaseId, PhaseMeta> = {
 };
 
 /* ===========================================================================
- * PHASES 1-3 — PER-MUSCLE PROJECTIONS (reference MuscleContent, no text here)
+ * GUIDED GESTURE (optional enrichment for the biomechanics phase)
+ * ===========================================================================
+ *
+ * A GestureGuide is a STEP-BY-STEP narration of a movement (e.g. abduction),
+ * played alongside the live 3D model. Each step does three things at once,
+ * reusing mechanisms the store already has:
+ *   - lights the involved muscles by role (feeds setRomPhase -> romHighlight),
+ *   - moves the camera to the most legible view (feeds requestView),
+ *   - shows a clinical caption explaining what happens in that part of range.
+ *
+ * This is the honest alternative to deforming the rigid model: the movement is
+ * NARRATED over the real, highlighted anatomy rather than faked with skinning.
+ * It is OPTIONAL on a phase, so phases/regions without a guide are unaffected.
+ */
+
+/** One muscle's role within a guided step (matches the ROM role palette). */
+export interface GuideStepMuscle {
+  /** Muscle id (kebab-case, must exist in the region's content index). */
+  id: string;
+  /** Role in THIS step: prime-mover (amber), assistant (sky), stabilizer (violet). */
+  role: RomMuscleRole;
+}
+
+/** A movement-direction marker drawn over the model during a step (optional).
+ *  The 3D layer interprets these; data stays view-agnostic. */
+export interface GuideStepMarker {
+  /** Which arrow/axis to draw. 'abduction-arc' = curved arrow of the gesture;
+   *  'gh-axis' = the glenohumeral rotation axis line. */
+  kind: 'abduction-arc' | 'gh-axis' | 'none';
+}
+
+/** A single guided step. */
+export interface GuideStep {
+  /** Stable id, kebab-case. */
+  id: string;
+  /** Short title, e.g. "Fase de ajuste (0-15 grados)". Spanish. */
+  title: string;
+  /** Approximate range this step covers, e.g. "0-15 grados". Spanish, optional. */
+  rangeLabel?: string;
+  /** The clinical narration for this part of the range. */
+  caption: SourcedText;
+  /** Muscles to light up, by role. Drives setRomPhase. */
+  muscles: GuideStepMuscle[];
+  /** Camera view to request for this step. */
+  view: CameraView;
+  /** Side to isolate while teaching this gesture (keeps the scene readable). */
+  side?: 'right' | 'left' | 'both';
+  /** Optional movement marker to draw over the model. */
+  marker?: GuideStepMarker;
+}
+
+/** A full guided gesture: an ordered sequence of steps under a named movement. */
+export interface GestureGuide {
+  /** Stable id used as the movementId for setRomPhase, e.g. "abduction". */
+  movementId: string;
+  /** User-facing gesture name, Spanish, e.g. "Abduccion". */
+  name: string;
+  /** Short framing shown before stepping through, Spanish. */
+  intro: SourcedText;
+  /** Ordered steps walked with Prev/Next. */
+  steps: GuideStep[];
+}
+
+/* ===========================================================================
+ * PHASES 1-3 - PER-MUSCLE PROJECTIONS (reference MuscleContent, no text here)
  * ======================================================================== */
 
 /** Field groups of MuscleContent that a per-muscle phase surfaces. The UI maps
@@ -137,7 +203,8 @@ export type MuscleField =
 
 /** A per-muscle phase: an ordered list of muscle ids to walk through, plus the
  *  MuscleContent field groups to show for each. Optional `intro` adds a short
- *  region-level framing shown before the muscle walk-through. */
+ *  region-level framing shown before the muscle walk-through. Optional `guides`
+ *  add step-by-step gesture narrations (used by the biomechanics phase). */
 export interface PerMusclePhase {
   scope: 'per-muscle';
   /** Ordered muscle ids (kebab-case, must exist in the region's content index). */
@@ -146,11 +213,35 @@ export interface PerMusclePhase {
   fields: MuscleField[];
   /** Optional region-level framing shown at the top of the phase. */
   intro?: SourcedText;
+  /** Optional guided gesture narrations (biomechanics phase). Unused elsewhere. */
+  guides?: GestureGuide[];
 }
 
 /* ===========================================================================
- * PHASE 4 — TESTS (region-level, cross-muscle)
+ * PHASE 4 - TESTS (region-level, cross-muscle)
  * ======================================================================== */
+
+/** One interpretive grade of a test's response. The response to a clinical
+ *  test is rarely binary: it varies in intensity and meaning ("hay casos y
+ *  casos"). Each grade pairs an observed finding with what it suggests. */
+export interface TestGrade {
+  /** The observed response, e.g. "Dolor leve al final del rango, sin debilidad". */
+  finding: string;
+  /** What that response suggests clinically. */
+  interpretation: SourcedText;
+}
+
+/** Graded-response guidance for a test. All fields optional so existing tests
+ *  remain valid while the expert pass fills them in. */
+export interface TestGrading {
+  /** How long the patient should sustain the position and what sustain time
+   *  tells you (e.g. holds 10s vs. gives way at 2s). */
+  holdTime?: SourcedText;
+  /** Distinguishing pain-limited from true weakness, and what each implies. */
+  painVsWeakness?: SourcedText;
+  /** Interpretation by intensity of response (mild / moderate / marked). */
+  grades?: TestGrade[];
+}
 
 /** A clinical special test. Pulls the per-test prose out of individual muscle
  *  cards into a first-class entity (resumen punto 5). */
@@ -165,6 +256,9 @@ export interface ClinicalTest {
   procedure: SourcedText;
   /** What a positive result means. */
   positiveSign: SourcedText;
+  /** Graded-response interpretation: sustain time, pain-vs-weakness, grades.
+   *  Optional; the "hay casos y casos" nuance physios asked for. */
+  grading?: TestGrading;
   /** Muscle ids this test primarily targets (link back to cards & 3D). */
   targetMuscleIds: string[];
 }
@@ -176,7 +270,7 @@ export interface TestsPhase {
 }
 
 /* ===========================================================================
- * PHASE 5 — PATHOLOGY (region-level)
+ * PHASE 5 - PATHOLOGY (region-level)
  * ======================================================================== */
 
 export interface Pathology {
@@ -199,7 +293,7 @@ export interface PathologyPhase {
 }
 
 /* ===========================================================================
- * PHASE 6 — TREATMENT (region-level)
+ * PHASE 6 - TREATMENT (region-level)
  * ======================================================================== */
 
 export interface TreatmentPrinciple {
@@ -219,7 +313,7 @@ export interface TreatmentPhase {
 }
 
 /* ===========================================================================
- * PHASE 7 — CLINICAL CASE (region-level, integrative)
+ * PHASE 7 - CLINICAL CASE (region-level, integrative)
  * ======================================================================== */
 
 /** A single reasoning step in the case: a question posed to the student and the
@@ -250,7 +344,7 @@ export interface CasePhase {
 }
 
 /* ===========================================================================
- * THE REGION TRACK — all seven phases for one region (e.g. the shoulder)
+ * THE REGION TRACK - all seven phases for one region (e.g. the shoulder)
  * ======================================================================== */
 
 /** Maps each PhaseId to its concrete phase payload. The per-muscle/region split
