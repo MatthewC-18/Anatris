@@ -2,59 +2,63 @@
 //
 // Maps a clicked mesh name (Z-Anatomy flattened, e.g. "Supraspinatus_muscler",
 // "Clavicular_part_of_deltoid_muscleol", "Long_head_of_biceps_brachiiol") to a
-// stable muscleId used as the key in the content index (e.g. "supraspinatus").
+// stable muscleId used as the key in a content index (e.g. "supraspinatus").
 //
 // Strategy:
 //   0. REJECT non-muscle entities up front. Z-Anatomy includes structures whose
 //      names embed a muscle name as a qualifier but which are NOT the muscle
 //      belly: "Groove_for_subclavius_muscle", "Subtendinous_bursa_of_teres_
-//      major_muscle", tendons, sheaths, etc. These must resolve to null so the
-//      panel never shows the wrong muscle's clinical content for a bursa/groove.
+//      major_muscle", tendons, sheaths, AND bony landmarks like
+//      "Supinator_crest". These must resolve to null so the panel never shows
+//      the wrong muscle's clinical content for a bursa/groove/bone crest.
 //   1. Strip Z-Anatomy technical suffixes/markers from the mesh name to get a
 //      clean base token (side r/l, origin/end markers o/o1/e/e1, tendon _1,
 //      instance suffixes, trailing group letters).
 //   2. Normalize to a lowercase, accent-free, underscore-collapsed slug.
-//   3. Look the slug up against a table of known shoulder muscles, matching by
-//      the most specific alias first (so "clavicular_part_of_deltoid" maps to
-//      the deltoid before a generic "deltoid" rule would), and only when the
-//      alias aligns to a TOKEN BOUNDARY (start of slug or right after '_') so a
-//      muscle name buried inside another entity's name can't match.
+//   3. Look the slug up against a table of known muscles, matching by the most
+//      specific alias first, and only when the alias aligns to a TOKEN BOUNDARY
+//      (start of slug or right after '_') so a muscle name buried inside another
+//      entity's name can't match.
 //
 // Returns null when no known muscle matches -- the caller then shows the raw
 // anatomy entry without clinical content.
 //
-// IDS ARE KEBAB-CASE, aligned with src/data/muscles/shoulder.ts and the keys
-// of SHOULDER_MUSCLES. The ALIAS slugs are matched against snake_case mesh
-// names; slugify() collapses '-' and '_' alike, so a kebab id key and a
-// snake alias coexist without clashing.
+// IDS ARE KEBAB-CASE, aligned with the muscle content indices (SHOULDER_MUSCLES
+// and ELBOW_MUSCLES) and the muscles/<region>.ts data. The ALIAS slugs are
+// matched against snake_case mesh names; slugify() collapses '-' and '_' alike,
+// so a kebab id key and a snake alias coexist without clashing.
 //
 // VERIFIED against the real Z-Anatomy mesh dump (window.__scene traverse):
-//   - 62 representative real shoulder meshes resolve to the correct muscle.
-//   - Levator scapulae (every marker variant) resolves to "levator-scapulae".
-//   - 7 dangerous decoys (grooves + subtendinous bursae) correctly resolve to
-//     null instead of mis-mapping to subclavius/infraspinatus/teres-major/
-//     triceps-brachii.
-//   - Non-shoulder "Levator_*" muscles (ani, anguli oris, nasolabialis,
-//     palpebrae superioris, levatores costarum) correctly resolve to null.
+//   SHOULDER: 62 representative meshes resolve correctly; 7 decoys (grooves +
+//   bursae) and non-shoulder "Levator_*" muscles resolve to null.
+//   ELBOW: 25 representative meshes (incl. all supinator/pronator marker
+//   variants and the two epicondylar groups) resolve correctly. The bony
+//   "Supinator_crest" landmark is guarded so it does NOT resolve to the
+//   supinator muscle.
+//
+// ELBOW NOTES (learned from the real names + this file's aggressive erosion):
+//   - Several elbow muscles do NOT end in "_muscle", so the marker/side erosion
+//     (which here, unlike parseMeshName, runs WITHOUT the predecessor guard)
+//     eats real trailing letters. The SUPINATOR is the worst case: every
+//     variant ("Supinator", "Supinatorl", "Supinatorel", "Supinatoror", ...)
+//     erodes all the way down to the slug "supinat". So the supinator alias is
+//     "supinat" (the slug actually produced), mirroring how the shoulder keeps
+//     "levator_scapula" alongside "levator_scapulae".
+//   - The two EPICONDYLAR GROUPS are not single meshes; clicking ANY member
+//     muscle (extensor/flexor carpi, FDS) must resolve to the GROUP id. Their
+//     aliases list each member's base. The ulnar heads of ECU/FCU are NOT given
+//     their own ids (they belong to the forearm module) but still resolve to
+//     the group via the shared "flexor_carpi_ulnaris"/"extensor_carpi_ulnaris"
+//     alias, which is acceptable: a click on any part of the group opens the
+//     group card.
 
 /** Known muscleId -> list of name fragments that map to it.
  *  Order within the array doesn't matter; longer/more specific alias slugs
- *  across the whole table are tried first (see MATCHERS sort).
- *
- *  IMPORTANT alias rules learned from the real mesh names:
- *    - Real shoulder meshes almost all end in "_muscle" (e.g.
- *      "Teres_minor_muscleol"), which protects the muscle's real final letter
- *      from the marker-erosion rules. So full slugs like "teres_minor" match
- *      cleanly and the two teres muscles never cross-resolve.
- *    - Multi-part muscles (deltoid, pectoralis major, biceps, triceps, trapezius)
- *      list every part/head base so a click on ANY part resolves to the whole
- *      muscle. The bare "deltoid" alias is a last-resort safety net for the rare
- *      "Deltoid_muscleel/er" meshes that erode to "deltoid_musc".
- *    - "levator_scapula" (no trailing 'e') is kept alongside "levator_scapulae"
- *      because the no-"_muscle" levator meshes (e.g. "Levator_scapulaeel") erode
- *      down to "levator_scapula".
- *    - "rhomboid_major"/"rhomboid_minor" both map to the single "rhomboids" card. */
+ *  across the whole table are tried first (see MATCHERS sort). */
 const MUSCLE_ALIASES: Record<string, string[]> = {
+  // ===========================================================================
+  // SHOULDER
+  // ===========================================================================
   // ----- Rotator cuff -----
   supraspinatus: ['supraspinatus'],
   infraspinatus: ['infraspinatus'],
@@ -87,12 +91,11 @@ const MUSCLE_ALIASES: Record<string, string[]> = {
     'trapezius',
   ],
   rhomboids: ['rhomboid_major', 'rhomboid_minor'],
-  'serratus-anterior': ['serratus_anterior'],
   'levator-scapulae': ['levator_scapulae', 'levator_scapula'],
   subclavius: ['subclavius'],
   omohyoid: ['omohyoid'],
 
-  // ----- Biarticular arm muscles -----
+  // ----- Biarticular arm muscles (shared with the elbow) -----
   'biceps-brachii': [
     'long_head_of_biceps_brachii',
     'short_head_of_biceps_brachii',
@@ -105,12 +108,80 @@ const MUSCLE_ALIASES: Record<string, string[]> = {
     'triceps_brachii',
   ],
   coracobrachialis: ['coracobrachialis'],
+
+  // ===========================================================================
+  // ELBOW
+  // (biceps-brachii / triceps-brachii are shared with the shoulder block above)
+  // ===========================================================================
+  // ----- Flexors -----
+  brachialis: ['brachialis'],
+  brachioradialis: ['brachioradialis'],
+
+  // ----- Extensors -----
+  anconeus: ['anconeus'],
+
+  // ----- Prono-supination -----
+  'pronator-teres': [
+    'superficial_head_of_pronator_teres',
+    'deep_head_of_pronator_teres',
+    'pronator_teres',
+  ],
+  'pronator-quadratus': ['pronator_quadratus'],
+  // No "_muscle": all variants erode to the slug "supinat" (see ELBOW NOTES).
+  supinator: ['supinat'],
+
+  // ----- Epicondylar groups (click any member -> the group card) -----
+  'common-flexor-pronator-origin': [
+    'flexor_carpi_radialis',
+    'humeral_head_of_flexor_carpi_ulnaris',
+    'flexor_carpi_ulnaris',
+    'humero_ulnar_head_of_flexor_digitorum_superficialis',
+    'flexor_digitorum_superficialis',
+  ],
+  'common-extensor-origin': [
+    'extensor_carpi_radialis_longus',
+    'extensor_carpi_radialis_brevis',
+    'humeral_head_of_extensor_carpi_ulnaris',
+    'extensor_carpi_ulnaris',
+  ],
+  // ===========================================================================
+  // KNEE
+  // ===========================================================================
+  // ----- Quadriceps -----
+  'rectus-femoris': ['rectus_femoris'],
+  'vastus-lateralis': ['vastus_lateralis'],
+  'vastus-medialis': ['vastus_medialis'],
+  'vastus-intermedius': ['vastus_intermedius'],
+
+  // ----- Hamstrings (two heads + shared insertion resolve via the generic alias) -----
+  'biceps-femoris': [
+    'long_head_of_biceps_femoris',
+    'short_head_of_biceps_femoris',
+    'biceps_femoris',
+  ],
+  semitendinosus: ['semitendinosus'],
+  semimembranosus: ['semimembranosus'],
+
+  // ----- Triceps surae + posterior -----
+  gastrocnemius: [
+    'medial_head_of_gastrocnemius',
+    'lateral_head_of_gastrocnemius',
+    'gastrocnemius',
+  ],
+  soleus: ['soleus'],
+  plantaris: ['plantaris'],
+  popliteus: ['popliteus'],
+
+  // ----- Pes anserinus -----
+  sartorius: ['sartorius'],
+  gracilis: ['gracilis'],
 };
 
 /** Non-muscle entities whose names embed a muscle name as a qualifier.
  *  If the slugified raw mesh name starts with (or contains as a token-prefixed
- *  segment) one of these, the mesh is a groove/bursa/tendon/sheath, NOT a
- *  muscle belly, and must resolve to null. Checked BEFORE any alias matching. */
+ *  segment) one of these, the mesh is a groove/bursa/tendon/sheath/bone-crest,
+ *  NOT a muscle belly, and must resolve to null. Checked BEFORE any alias
+ *  matching. */
 const NON_MUSCLE_PREFIXES = [
   'groove_for_',
   'subtendinous_bursa_of_',
@@ -121,6 +192,12 @@ const NON_MUSCLE_PREFIXES = [
   'sheath_of_',
   'synovial_',
 ];
+
+/** Non-muscle entities identified by a SUBSTRING anywhere in the slug (not just
+ *  a prefix). Bony landmarks that embed a muscle name, e.g. "Supinator_crest"
+ *  (the ulnar crest where the supinator originates) must not resolve to the
+ *  supinator muscle. */
+const NON_MUSCLE_SUBSTRINGS = ['supinator_crest', 'pronator_tuberosity'];
 
 /** Suffix/marker patterns appended by Z-Anatomy to a muscle's base name. */
 const MESH_NOISE = [
@@ -176,6 +253,9 @@ function isNonMuscleEntity(rawSlug: string): boolean {
   for (const p of NON_MUSCLE_PREFIXES) {
     if (rawSlug.startsWith(p) || rawSlug.includes('_' + p)) return true;
   }
+  for (const sub of NON_MUSCLE_SUBSTRINGS) {
+    if (rawSlug.includes(sub)) return true;
+  }
   return false;
 }
 
@@ -195,10 +275,11 @@ const MATCHERS: Matcher[] = Object.entries(MUSCLE_ALIASES)
 
 /**
  * Resolve a mesh name to a known muscleId, or null if none matches.
- * Non-muscle entities (grooves, bursae, tendons, sheaths) are rejected first.
- * Matching is token-boundary-aligned substring on the cleaned slug so that,
- * e.g., "clavicular_part_of_deltoid_muscle" contains "clavicular_part_of_deltoid"
- * but "groove_for_subclavius_muscle" does NOT count as "subclavius".
+ * Non-muscle entities (grooves, bursae, tendons, sheaths, bone crests) are
+ * rejected first. Matching is token-boundary-aligned substring on the cleaned
+ * slug so that, e.g., "clavicular_part_of_deltoid_muscle" contains
+ * "clavicular_part_of_deltoid" but "groove_for_subclavius_muscle" does NOT
+ * count as "subclavius".
  */
 export function resolveMuscleId(meshName: string): string | null {
   const rawSlug = slugify(meshName);

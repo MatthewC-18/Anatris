@@ -11,6 +11,13 @@
 //   movement + degree range where it participates, with its role in each. The
 //   muscle lights up in 3D.
 //
+// REGION-AWARE: the movement list and the muscle universe both follow the
+// active region (store.region) via romForRegion + musclesForRegion, so in the
+// elbow module you study elbow movements and elbow muscles, and in the shoulder
+// module the shoulder set -- never a mismatch between the cropped scene and the
+// listed muscles. The same region muscle array is passed to buildRomNumbering
+// so the chip numbers match the 3D pin numbers exactly.
+//
 // IDENTITY BRIDGE (list <-> 3D):
 // Role color can't disambiguate same-role muscles (three violet stabilizers).
 // Each highlighted muscle gets a STABLE NUMBER (buildRomNumbering, anatomical
@@ -18,20 +25,16 @@
 // chip sets romFocusMuscleId, which (a) reveals the muscle's name on its 3D pin
 // and (b) intensifies it in 3D -- the hover "lupa" for pinpointing which one.
 //
-// Both modes share the same data (src/data/shoulderRom.ts). Mode B is just the
-// inverse index (src/lib/romIndex.ts), built once and memoized. Muscle ids in
-// the ROM data are kebab-case and match the resolver's meshNamesByMuscleId, so
-// we resolve straight to scene mesh names.
+// Muscle ids in the ROM data are kebab-case and match the resolver's
+// meshNamesByMuscleId, so we resolve straight to scene mesh names.
 //
 // ENCODING NOTE: to stay robust against copy/paste re-encoding accidents, the
 // few non-ASCII glyphs this UI needs (degree sign, en dash, middle dot) live in
-// one SYM constant built from char codes -- never typed as literals in JSX. If
-// this file is ever mangled again, the visible text stays ASCII and only SYM
-// would need review.
+// one SYM constant built from char codes -- never typed as literals in JSX.
 
 import { useEffect, useMemo } from 'react';
 import { useAnatomyStore, type RomViewMode } from '../store/anatomyStore';
-import { SHOULDER_ROM_LIST } from '../data/shoulderRom';
+import { romForRegion } from '../data/romByRegion';
 import {
   ROM_ROLE_LABEL,
   type RomMovement,
@@ -39,7 +42,8 @@ import {
 } from '../types/rom';
 import { buildRomMuscleIndex, type RomParticipation } from '../lib/romIndex';
 import { buildRomNumbering } from '../lib/romNumber';
-import { shoulderMuscles } from '../data/muscles/shoulder';
+import { musclesForRegion, musclesForRomLookup } from '../data/musclesByRegion';
+import type { Muscle } from '../types/muscle';
 import type { MuscleResolution } from '../lib/muscleResolver';
 
 interface RomPanelProps {
@@ -64,9 +68,7 @@ function deg(v: number): string {
   return `${v}${SYM.DEG}`;
 }
 
-// Role -> Tailwind classes for the muscle chips and the legend. Kept in one
-// place so the panel and the 3D legend stay in visual sync. (The actual 3D
-// emissive colors live in AnatomyModel; these are the UI mirror.)
+// Role -> Tailwind classes for the muscle chips and the legend.
 const ROLE_STYLE: Record<
   RomMuscleRole,
   { dot: string; text: string; ring: string; badge: string }
@@ -158,8 +160,7 @@ function RoleLegend() {
   );
 }
 
-// Small numbered badge mirroring the 3D pin. The number is the identity locator
-// shared with the 3D scene; the color is the role.
+// Small numbered badge mirroring the 3D pin.
 function NumberBadge({
   n,
   role,
@@ -188,21 +189,32 @@ function NumberBadge({
  * ======================================================================== */
 
 function MovementView({ resolution }: { resolution: MuscleResolution }) {
+  const region = useAnatomyStore((s) => s.region);
   const romSelection = useAnatomyStore((s) => s.romSelection);
   const setRomPhase = useAnatomyStore((s) => s.setRomPhase);
   const clearRom = useAnatomyStore((s) => s.clearRom);
   const requestFocus = useAnatomyStore((s) => s.requestFocus);
 
-  const activeMovementId = romSelection?.movementId ?? SHOULDER_ROM_LIST[0]?.id;
+  // Movement list for the active region.
+  const movements = useMemo(() => romForRegion(region), [region]);
+
+  // The active movement id falls back to the region's first movement. If the
+  // current selection belongs to another region (after a region switch), it
+  // won't be found and we fall back cleanly.
+  const selectedInRegion =
+    romSelection && movements.some((m) => m.id === romSelection.movementId)
+      ? romSelection.movementId
+      : null;
+  const activeMovementId = selectedInRegion ?? movements[0]?.id;
   const movement = useMemo(
-    () => SHOULDER_ROM_LIST.find((m) => m.id === activeMovementId) ?? null,
-    [activeMovementId],
+    () => movements.find((m) => m.id === activeMovementId) ?? null,
+    [movements, activeMovementId],
   );
 
   if (!movement) return null;
 
   const activePhaseIndex =
-    romSelection?.movementId === movement.id ? romSelection.phaseIndex : null;
+    selectedInRegion === movement.id ? romSelection!.phaseIndex : null;
 
   // Resolve a phase's muscles to (a) a muscleId->role map for highlighting and
   // (b) the union of their scene mesh names for the camera focus.
@@ -224,8 +236,6 @@ function MovementView({ resolution }: { resolution: MuscleResolution }) {
     if (meshNames.length > 0) requestFocus(meshNames);
   }
 
-  // Switch movement by lighting its opening phase, so there's immediate 3D
-  // feedback and the displayed movement updates.
   function handleSelectMovement(m: RomMovement) {
     if (m.id === movement?.id) return;
     selectPhase(m, 0);
@@ -237,7 +247,7 @@ function MovementView({ resolution }: { resolution: MuscleResolution }) {
 
       {/* Movement selector */}
       <div className="mb-3 flex flex-wrap gap-1">
-        {SHOULDER_ROM_LIST.map((m) => {
+        {movements.map((m) => {
           const on = m.id === movement.id;
           return (
             <button
@@ -280,18 +290,16 @@ function MovementView({ resolution }: { resolution: MuscleResolution }) {
       />
 
       {activePhaseIndex !== null && (
-        <PhaseDetail movement={movement} phaseIndex={activePhaseIndex} />
+        <PhaseDetail
+          movement={movement}
+          phaseIndex={activePhaseIndex}
+          muscles={musclesForRomLookup(region)}
+        />
       )}
     </div>
   );
 }
 
-// The arc: a proportional bar where each phase's WIDTH reflects its share of
-// the total range (pedagogically correct -- you see that the opening phase is a
-// short slice). To avoid the old text-overflow problem on narrow phases, the
-// bar segments show ONLY a phase number; the human-readable label + degree
-// range live in a legend BELOW the bar, where there is room to breathe. The bar
-// is the proportional picture; the legend is the readable key.
 function ArcBar({
   movement,
   activePhaseIndex,
@@ -340,8 +348,7 @@ function ArcBar({
         <span>{deg(movement.totalRangeDeg.max)}</span>
       </div>
 
-      {/* Readable phase legend: number + label + range, one row each. This is
-          where the text that used to overflow the bar now lives comfortably. */}
+      {/* Readable phase legend: number + label + range, one row each. */}
       <ul className="mt-2 flex flex-col gap-1">
         {movement.phases.map((phase, i) => {
           const on = i === activePhaseIndex;
@@ -390,18 +397,18 @@ function ArcBar({
 function PhaseDetail({
   movement,
   phaseIndex,
+  muscles,
 }: {
   movement: RomMovement;
   phaseIndex: number;
+  muscles: Muscle[];
 }) {
   const phase = movement.phases[phaseIndex];
 
-  // Numbering shared with the 3D pins: built from the SAME set of muscle ids
-  // that the highlight uses (this phase's muscles), in anatomical order.
   const numbering = useMemo(() => {
     if (!phase) return new Map<string, number>();
-    return buildRomNumbering(phase.muscles.map((r) => r.muscleId));
-  }, [phase]);
+    return buildRomNumbering(phase.muscles.map((r) => r.muscleId), muscles);
+  }, [phase, muscles]);
 
   if (!phase) return null;
 
@@ -426,6 +433,7 @@ function PhaseDetail({
             role={ref.role}
             note={ref.note}
             number={numbering.get(ref.muscleId) ?? 0}
+            muscles={muscles}
           />
         ))}
       </ul>
@@ -438,26 +446,26 @@ function PhaseDetail({
  * ======================================================================== */
 
 function MuscleView({ resolution }: { resolution: MuscleResolution }) {
+  const region = useAnatomyStore((s) => s.region);
   const romMuscleId = useAnatomyStore((s) => s.romMuscleId);
   const selectedMuscleId = useAnatomyStore((s) => s.selectedMuscleId);
   const setRomMuscle = useAnatomyStore((s) => s.setRomMuscle);
   const clearRom = useAnatomyStore((s) => s.clearRom);
   const requestFocus = useAnatomyStore((s) => s.requestFocus);
 
-  // The inverse index: muscleId -> participations across movements/phases.
-  const romIndex = useMemo(() => buildRomMuscleIndex(SHOULDER_ROM_LIST), []);
+  // The movement list + inverse index for the active region.
+  const movements = useMemo(() => romForRegion(region), [region]);
+  const romIndex = useMemo(() => buildRomMuscleIndex(movements), [movements]);
 
-  // Only muscles that have ROM participations are offered, with Spanish names.
+  // Region's muscle universe, for Spanish names; only those with ROM data are
+  // offered.
+  const regionMuscles = musclesForRegion(region);
   const pickable = useMemo(() => {
-    return shoulderMuscles
+    return regionMuscles
       .filter((m) => romIndex.has(m.id))
       .map((m) => ({ id: m.id, name: m.name }));
-  }, [romIndex]);
+  }, [regionMuscles, romIndex]);
 
-  // Resolve a muscle: build its highlight map (single muscle) and frame it.
-  // The role used for the 3D color is the muscle's "best" role across its
-  // participations (prime-mover > assistant > stabilizer), so a muscle that is
-  // a prime mover anywhere glows amber here.
   function studyMuscle(muscleId: string) {
     const parts = romIndex.get(muscleId) ?? [];
     const role = bestRole(parts);
@@ -467,9 +475,8 @@ function MuscleView({ resolution }: { resolution: MuscleResolution }) {
     if (names && names.length > 0) requestFocus(names);
   }
 
-  // Mode B follows the muscle selected elsewhere (3D click / MuscleList): if a
-  // muscle is selected and it has ROM data, and we're not already studying it,
-  // adopt it. This is the "respeta seleccion" behaviour.
+  // Mode B follows the muscle selected elsewhere (3D click / MuscleList), but
+  // only if that muscle has ROM data IN THIS REGION.
   useEffect(() => {
     if (
       selectedMuscleId != null &&
@@ -478,18 +485,16 @@ function MuscleView({ resolution }: { resolution: MuscleResolution }) {
     ) {
       studyMuscle(selectedMuscleId);
     }
-    // We intentionally depend only on the selected muscle id; studyMuscle and
-    // the rest are stable enough for this adoption effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMuscleId]);
+  }, [selectedMuscleId, romIndex]);
 
-  const activeId = romMuscleId;
+  // If the studied muscle isn't in this region's index (after a region switch),
+  // treat it as none so we don't show stale cross-region data.
+  const activeId =
+    romMuscleId && romIndex.has(romMuscleId) ? romMuscleId : null;
   const participations = activeId ? romIndex.get(activeId) ?? [] : [];
   const activeName =
     pickable.find((m) => m.id === activeId)?.name ?? activeId ?? '';
-
-  // The studied muscle's stable number (single-muscle highlight -> always 1,
-  // but we compute it for consistency with the 3D pin).
   const activeRole = activeId ? bestRole(participations) : null;
 
   return (
@@ -596,19 +601,18 @@ function ParticipationRow({ part }: { part: RomParticipation }) {
  * SHARED
  * ======================================================================== */
 
-// A muscle chip showing its number + Spanish name + role + optional note.
-// Hovering it sets the ROM focus spotlight (bidirectional bridge to the 3D pin
-// and mesh intensity). Used by the movement-view phase detail.
 function MuscleChip({
   muscleId,
   role,
   note,
   number,
+  muscles,
 }: {
   muscleId: string;
   role: RomMuscleRole;
   note?: string;
   number: number;
+  muscles: Muscle[];
 }) {
   const style = ROLE_STYLE[role];
   const romFocusMuscleId = useAnatomyStore((s) => s.romFocusMuscleId);
@@ -616,8 +620,8 @@ function MuscleChip({
   const focused = romFocusMuscleId === muscleId;
 
   const name = useMemo(
-    () => shoulderMuscles.find((m) => m.id === muscleId)?.name ?? muscleId,
-    [muscleId],
+    () => muscles.find((m) => m.id === muscleId)?.name ?? muscleId,
+    [muscles, muscleId],
   );
 
   return (
@@ -645,8 +649,6 @@ function MuscleChip({
   );
 }
 
-// Pick the strongest role a muscle plays across its participations, so its 3D
-// color reflects its most prominent function.
 function bestRole(parts: RomParticipation[]): RomMuscleRole {
   const order: Record<RomMuscleRole, number> = {
     'prime-mover': 3,

@@ -1,7 +1,7 @@
 // src/components/Viewer3D.tsx
 //
 // The 3D canvas. Owns the camera and lighting, frames the camera onto the
-// currently *visible* anatomical meshes (not the whole scene â€” the GLB
+// currently *visible* anatomical meshes (not the whole scene -- the GLB
 // contains far-away UI/text panels that would otherwise shrink the body to a
 // dot), and animates between predefined views in response to camera requests.
 
@@ -19,8 +19,7 @@ import { parseMeshName } from '../lib/parseMeshName';
 import { VIEW_META } from '../lib/anatomyMeta';
 import type { AnatomyEntry } from '../types/anatomy';
 import type { MuscleResolution } from '../lib/muscleResolver';
-import { ShoulderRotationRig } from './ShoulderRotationPrototype';
-import { AbductionSchematic } from './components/AbductionSchematic';
+
 interface Viewer3DProps {
   byMesh: Map<string, AnatomyEntry>;
   regionMeshes?: Set<string> | null;
@@ -29,12 +28,35 @@ interface Viewer3DProps {
 
 // How tightly the camera frames a focused muscle. Larger padding = more
 // context (you see the surrounding bone/zone); smaller = fills the screen.
-// 0.6 â‰ˆ "close but with context around it".
+// 0.6 ~ "close but with context around it".
 const FOCUS_PADDING = 0.6;
 
-// Tighter padding when zooming to an attachment marker â€” we want to get close
+// Tighter padding when zooming to an attachment marker -- we want to get close
 // to the landmark, but keep a little surrounding bone for context.
 const PART_FOCUS_PADDING = 0.9;
+
+// Device-pixel-ratio ceiling. High-density phones report dpr up to 3, which
+// multiplies fragment work by ~9x; with thousands of meshes that tanks the
+// frame rate for little visual gain. We cap small screens lower than desktop.
+// Geometry/quality is untouched; only render resolution scales.
+const DPR_DESKTOP: [number, number] = [1, 2];
+const DPR_MOBILE: [number, number] = [1, 1.5];
+
+/** True when the viewport is below the lg breakpoint (Tailwind lg = 1024px). */
+function useIsCompact(): boolean {
+  const [compact, setCompact] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 1023px)').matches;
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 1023px)');
+    const onChange = (e: MediaQueryListEvent) => setCompact(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return compact;
+}
 
 /**
  * Bridge component living *inside* the Canvas. It holds the CameraControls ref,
@@ -52,6 +74,7 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
   const selectedMuscleId = useAnatomyStore((s) => s.selectedMuscleId);
   const partFocus = useAnatomyStore((s) => s.partFocus);
   const sideFilter = useAnatomyStore((s) => s.sideFilter);
+  const region = useAnatomyStore((s) => s.region);
 
   // Recompute the bounding box of visible meshes, then frame the camera.
   const handleVisibleChange = useCallback((meshes: THREE.Mesh[]) => {
@@ -78,6 +101,45 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
       });
     }
   }, []);
+
+  // Re-frame the camera when the REGION changes. The initial auto-fit only runs
+  // once (hasFramedRef), so without this a region change (e.g. spine -> knee)
+  // would leave the camera pointing at the previous region and the new one off
+  // screen. We wait a couple of frames so the visibility effect has updated
+  // mesh.visible and world matrices, then fit to the freshly visible bounds.
+  useEffect(() => {
+    if (region == null) return;
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const controls = controlsRef.current;
+        if (!controls) return;
+        scene.updateWorldMatrix(true, true);
+        const box = new THREE.Box3();
+        const tmp = new THREE.Box3();
+        scene.traverse((o) => {
+          const m = o as THREE.Mesh;
+          if (!m.isMesh || !m.visible) return;
+          tmp.setFromObject(m);
+          if (isFinite(tmp.min.x) && !tmp.isEmpty()) box.union(tmp);
+        });
+        if (box.isEmpty() || !isFinite(box.min.x)) return;
+        const sphere = new THREE.Sphere();
+        box.getBoundingSphere(sphere);
+        boundsRef.current = { box: box.clone(), radius: sphere.radius };
+        void controls.fitToBox(box, true, {
+          paddingTop: 0.1,
+          paddingBottom: 0.1,
+          paddingLeft: 0.1,
+          paddingRight: 0.1,
+        });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [region, scene]);
 
   // Respond to predefined-view requests.
   useEffect(() => {
@@ -165,7 +227,7 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
 
   // PART FOCUS camera move: when origin/insertion is activated, zoom toward the
   // attachment marker(s) of the selected muscle. Reads the (possibly hidden)
-  // marker meshes' world positions â€” visibility isn't required to read a
+  // marker meshes' world positions -- visibility isn't required to read a
   // position. Builds a small box around the marker(s) and frames it.
   useEffect(() => {
     if (partFocus == null || selectedMuscleId == null) return;
@@ -211,7 +273,7 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
   return (
     <>
       {/* Soft multi-point lighting for clean clinical modeling (no network
-          dependency â€” purely analytic lights so it works offline). */}
+          dependency -- purely analytic lights so it works offline). */}
       <hemisphereLight args={[0xbfdfff, 0x0a0f1a, 0.6]} />
       <directionalLight position={[3, 6, 4]} intensity={1.4} />
       <directionalLight position={[-4, 2, -3]} intensity={0.6} />
@@ -255,6 +317,7 @@ function ProgressReporter({ onProgress }: { onProgress: (p: number) => void }) {
 export function Viewer3D({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
   const [progress, setProgress] = useState(0);
   const [ready, setReady] = useState(false);
+  const compact = useIsCompact();
 
   useEffect(() => {
     if (progress >= 100) {
@@ -267,7 +330,7 @@ export function Viewer3D({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
     <div className="relative h-full w-full viewer-bg">
       <Canvas
         camera={{ position: [2, 1.5, 4], fov: 45, near: 0.05, far: 100 }}
-        dpr={[1, 2]}
+        dpr={compact ? DPR_MOBILE : DPR_DESKTOP}
         // Color pipeline tuned for a flat "atlas" look: we want the assigned
         // tissue colors to render faithfully, not cinematically. ACES tone
         // mapping desaturates and washes flat colors toward grey, so we use

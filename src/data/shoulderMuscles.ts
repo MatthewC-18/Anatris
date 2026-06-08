@@ -16,6 +16,13 @@
 //      accent/underscore-collapsed slug, so the kebab id and the snake mesh
 //      name still resolve to each other.
 //
+// ENCODING / AUTHORING RULE:
+//   - User-facing strings (nameEs, nameLat, group, all `text` fields, finding):
+//     Latin American Spanish WITH accents and enies, UTF-8.
+//   - Code, ids, keys, enum-like values (id, role, ref, aliases-as-search-keys)
+//     and comments: ASCII.
+//   - Editor ALWAYS UTF-8 without BOM.
+//
 // Status: anatomy authored & considered reliable; ALL page locators are
 // UNVERIFIED (pageVerified: false) pending your physical copies of
 // Kapandji / Oatis / Dufour.

@@ -11,6 +11,13 @@
 //   2. Muscle ids must match src/data/muscles/shoulder.ts exactly (kebab-case).
 //   3. Spanish, user-facing, concise prose.
 //
+// ENCODING / AUTHORING RULE:
+//   - User-facing strings (name, joint, plane, overview, label, description,
+//     note): Latin American Spanish WITH accents and enies, UTF-8.
+//   - Code, ids, keys, enum-like values (id, muscleId, role, region, ref) and
+//     comments: ASCII.
+//   - Editor ALWAYS UTF-8 without BOM.
+//
 // Status: abduction authored in full as the reference template (its 3-phase arc
 // is the clearest teaching case). Flexion + rotations authored with the same
 // structure. All page locators UNVERIFIED.

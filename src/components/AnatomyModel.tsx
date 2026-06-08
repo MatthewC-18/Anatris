@@ -4,7 +4,7 @@
 // side filter and current region, and handles hover + click selection with a
 // strong emissive highlight. Restores original material on deselect.
 //
-// IMPORTANT â€” material handling:
+// IMPORTANT — material handling:
 // Z-Anatomy shares a single material instance across many meshes (e.g. every
 // "Skin-2" mesh points at the same THREE material). If we mutated those shared
 // materials directly, highlighting one mesh would tint every sibling. To avoid
@@ -15,20 +15,20 @@
 // - Selected muscle/mesh -> bright AMBER emissive (reads clearly over the red
 //   muscle tissue; cyan washed out to grey on red).
 // - When a muscle is selected, everything NOT part of it is dimmed slightly so
-//   the eye lands on the highlighted structure â€” the Complete Anatomy look.
+//   the eye lands on the highlighted structure — the Complete Anatomy look.
 // - Hover -> soft amber.
 //
 // ROM PHASE HIGHLIGHT (multi-muscle, colored by role):
 // - When a ROM phase is active (store.romHighlight is a Map<muscleId, role>),
 //   SEVERAL muscles light up at once, each tinted by its role: prime-mover
-//   amber, assistant blue, stabilizer violet â€” matching the ROM panel legend.
+//   amber, assistant blue, stabilizer violet — matching the ROM panel legend.
 //   Everything not in the phase is dimmed for focus. This is a separate path
 //   from single-muscle selection; the store guarantees the two never co-occur.
 //
 // ROM FOCUS SPOTLIGHT (hover bridge):
 // - `romFocusMuscleId` is a transient hover spotlight pointing at ONE muscle in
 //   the current ROM set (set by hovering its chip in the panel or its mesh in
-//   3D). When set, that muscle's meshes glow brighter (intensity only â€” role
+//   3D). When set, that muscle's meshes glow brighter (intensity only — role
 //   COLOR is preserved, mirroring the ROM pulse philosophy), and the OTHER
 //   muscles in the set are softly pushed back so the focused one is unmistakable
 //   ("which of these three violet stabilizers is the subscapularis?"). This
@@ -40,12 +40,12 @@
 //   MORE SUPERFICIAL (smaller depth) becomes a translucent ghost, so you can
 //   see through what physically covers the selected muscle. This is anatomical
 //   (camera-independent): the deltoid always ghosts when you pick supraspinatus.
-//   Only muscles are ghosted in this version â€” bones stay solid as reference.
+//   Only muscles are ghosted in this version — bones stay solid as reference.
 //
 // PART FOCUS (origin / insertion):
 // - When `partFocus` is set, the meshes of that part (origin or insertion) of
 //   the SELECTED muscle glow, while the rest of the SAME muscle is dimmed but
-//   still visible â€” so you see WHERE it attaches without losing the muscle's
+//   still visible — so you see WHERE it attaches without losing the muscle's
 //   identity. Other muscles keep their normal selected/ghost/dim behaviour, so
 //   part focus stacks on top of the isolate effect rather than replacing it.
 
@@ -58,13 +58,14 @@ import { useAnatomyStore } from '../store/anatomyStore';
 import { colorForMaterial, colorForMaterialMesh } from '../lib/materialColors';
 import type { MuscleResolution } from '../lib/muscleResolver';
 import { parseMeshName, type MusclePart } from '../lib/parseMeshName';
-import { shoulderMuscles } from '../data/muscles/shoulder';
+import { musclesForRegion } from '../data/musclesByRegion';
+import { REGIONS, resolveRegionMeshes } from '../data/regiones';
 import type { RomMuscleRole } from '../types/rom';
 const MODEL_URL = '/modelo-opt.glb';
 useGLTF.preload(MODEL_URL);
 
 // Highlight color: bright amber/orange. Chosen because the muscle atlas color
-// is red â€” a cyan emissive mixes with red into a muddy grey, while amber stays
+// is red — a cyan emissive mixes with red into a muddy grey, while amber stays
 // vivid and unmistakable on top of red, bone and tendon alike.
 const HIGHLIGHT = 0xffa51e;
 const HIGHLIGHT_INTENSITY_SELECTED = 1.1;
@@ -82,7 +83,7 @@ const ROM_ROLE_COLOR: Record<RomMuscleRole, number> = {
 // because several are lit at once and we don't want the scene to blow out.
 const ROM_HIGHLIGHT_INTENSITY = 0.95;
 
-// FOCUS â€” when one ROM muscle is hovered (romFocusMuscleId), it glows brighter
+// FOCUS — when one ROM muscle is hovered (romFocusMuscleId), it glows brighter
 // than the rest of the set, while the others are softly pushed back. Intensity
 // only; role color is preserved.
 const ROM_FOCUS_INTENSITY = 1.7; // the hovered muscle (above the base 0.95)
@@ -110,6 +111,16 @@ const DIM_WHEN_FOCUSED = 0.3;
 // Muscles more superficial than the selected one become a translucent ghost so
 // you can see through them. Lower = more see-through.
 const GHOST_OPACITY = 0.14;
+
+// SPINE CONTEXT: the spine is one continuous chain, so when studying a
+// sub-region (cervical / thoracic / lumbar) we keep the WHOLE spine visible and
+// render the OTHER sub-regions as a faint context, so the student sees how the
+// muscles continue into their neighbours. This context opacity is a touch
+// higher than GHOST_OPACITY: it should read as "present but not the focus",
+// not "almost invisible". Only applies when no muscle/ROM focus is active; once
+// the student selects a muscle or a ROM phase, the existing focus logic wins.
+const SPINE_CONTEXT_OPACITY = 0.22;
+const SPINE_REGION_IDS = new Set(['cervical', 'thoracic', 'lumbar']);
 
 // Skin appearance: a faint translucent "ghost".
 const SKIN_COLOR = 0xbcd4e6;
@@ -140,11 +151,6 @@ export function AnatomyModel({
 }: AnatomyModelProps) {
   const { scene } = useGLTF(MODEL_URL) as unknown as { scene: THREE.Group };
 
-  if (typeof window !== 'undefined') {
-    (window as unknown as Record<string, unknown>).__scene = scene;
-    (window as unknown as Record<string, unknown>).THREE = THREE;
-  }
-
   const activeLayers = useAnatomyStore((s) => s.activeLayers);
   const sideFilter = useAnatomyStore((s) => s.sideFilter);
   const showOriginInsertion = useAnatomyStore((s) => s.showOriginInsertion);
@@ -156,6 +162,7 @@ export function AnatomyModel({
   const partFocus = useAnatomyStore((s) => s.partFocus);
   const romHighlight = useAnatomyStore((s) => s.romHighlight);
   const romFocusMuscleId = useAnatomyStore((s) => s.romFocusMuscleId); // FOCUS
+  const region = useAnatomyStore((s) => s.region);
 
   // Collect all meshes once.
   const meshes = useMemo(() => {
@@ -184,8 +191,8 @@ export function AnatomyModel({
 
   // Per-mesh muscle PART (belly / origin / insertion / tendon), decoded from
   // the flattened Z-Anatomy name. We use this to hide the small origin (.o) and
-  // insertion (.e) marker meshes by default â€” they're clutter in the dissection
-  // view and only wanted when teaching a specific structure's attachments â€” AND
+  // insertion (.e) marker meshes by default — they're clutter in the dissection
+  // view and only wanted when teaching a specific structure's attachments — AND
   // now also to drive the part-focus highlight.
   const partByUuid = useMemo(() => {
     const map = new Map<string, MusclePart>();
@@ -207,14 +214,17 @@ export function AnatomyModel({
     return map;
   }, [meshes, resolution]);
   // id -> depth, built straight from the clinical data (not from meshes), so
-  // it's robust regardless of how selection propagates.
+  // it's robust regardless of how selection propagates. Reads the ACTIVE
+  // region's muscle array (same source as MuscleList), so the isolate/peel
+  // ghosting works in every region, not just the shoulder.
   const depthByMuscleId = useMemo(() => {
     const map = new Map<string, number>();
-    for (const m of shoulderMuscles) {
+    const regionMuscles = musclesForRegion(region);
+    for (const m of regionMuscles) {
       if (typeof m.depth === 'number') map.set(m.id, m.depth);
     }
     return map;
-  }, []);
+  }, [region]);
 
   // uuid -> anatomical depth of the muscle this mesh belongs to (if any).
   // Used to ghost more-superficial muscles when a deeper one is selected.
@@ -238,9 +248,37 @@ export function AnatomyModel({
     return depthByMuscleId.get(selectedMuscleId) ?? null;
   }, [selectedMuscleId, depthByMuscleId]);
 
+  // SPINE CONTEXT sets. When the active region is a spine sub-region, we want
+  // the WHOLE spine visible (the three sub-regions united) while only the
+  // active sub-region is in focus; the other two render as faint context.
+  // Both sets are computed from the real mesh names in the scene via the same
+  // resolveRegionMeshes the rest of the app uses, so they never drift from the
+  // region definitions. Null when the active region is not a spine sub-region,
+  // which leaves shoulder/elbow behaviour completely untouched.
+  const isSpineRegion = region != null && SPINE_REGION_IDS.has(region);
+
+  const spineContextMeshes = useMemo(() => {
+    if (!isSpineRegion) return null;
+    const names = meshes.map((m) => m.name);
+    const union = new Set<string>();
+    for (const id of SPINE_REGION_IDS) {
+      const def = REGIONS[id];
+      if (!def) continue;
+      for (const name of resolveRegionMeshes(def, names)) union.add(name);
+    }
+    return union;
+  }, [isSpineRegion, meshes]);
+
+  const activeSpineMeshes = useMemo(() => {
+    if (!isSpineRegion || region == null) return null;
+    const def = REGIONS[region];
+    if (!def) return null;
+    return resolveRegionMeshes(def, meshes.map((m) => m.name));
+  }, [isSpineRegion, region, meshes]);
+
   // Does the selected muscle actually have meshes for the focused part? If a
   // muscle's origin/insertion isn't modelled as separate meshes, focusing it
-  // would dim the whole muscle to nothing â€” so we only engage part focus when
+  // would dim the whole muscle to nothing — so we only engage part focus when
   // there's at least one mesh of that part for the selected muscle.
   const partFocusHasMeshes = useMemo(() => {
     if (partFocus == null || selectedMuscleId == null) return false;
@@ -357,7 +395,13 @@ export function AnatomyModel({
       const layerOn = activeLayers.has(entry.layer);
       const sideOn =
         sideFilter === 'both' || meshSide === 'center' || meshSide === sideFilter;
-      const regionOn = !regionMeshes || regionMeshes.has(mesh.name);
+      // Region gate. For a spine sub-region we widen visibility to the WHOLE
+      // spine (the union of the three sub-regions), so the neighbours stay on
+      // screen as context; the apparence pass below fades the inactive ones.
+      // For every other region this is exactly the previous behaviour.
+      const regionOn = spineContextMeshes
+        ? spineContextMeshes.has(mesh.name)
+        : !regionMeshes || regionMeshes.has(mesh.name);
       const notHidden = !entry.hiddenByDefault || activeLayers.has('reference');
       // Origin (.o) and insertion (.e) marker meshes are hidden unless the user
       // explicitly turns them on. Bellies and tendons are never hidden by this.
@@ -375,6 +419,7 @@ export function AnatomyModel({
     activeLayers,
     sideFilter,
     regionMeshes,
+    spineContextMeshes,
     onVisibleChange,
     sideByUuid,
     partByUuid,
@@ -383,7 +428,7 @@ export function AnatomyModel({
 
   // Highlight + isolate + part focus + ROM phase. Runs whenever selection /
   // hover / muscle / part / ROM changes. Robust: it never skips a mesh for lack
-  // of a cached original â€” it falls back to black.
+  // of a cached original — it falls back to black.
   useEffect(() => {
     const map = originals.current;
     // ROM phase highlight takes over the "focus" feeling when active. The store
@@ -396,7 +441,7 @@ export function AnatomyModel({
     // that part (otherwise it would dim the whole muscle to nothing).
     const partActive = partFocus != null && partFocusHasMeshes;
 
-    // FOCUS â€” is a ROM hover spotlight active, and does it point at a muscle
+    // FOCUS — is a ROM hover spotlight active, and does it point at a muscle
     // that's actually in the current set? Only then do we modulate intensities.
     const romFocusActive =
       romActive &&
@@ -406,7 +451,7 @@ export function AnatomyModel({
     for (const mesh of meshes) {
       const entry = byMesh.get(mesh.name);
       // Only touch meshes that belong to a real, highlightable anatomical
-      // layer. Skip skin, reference labels, groups, and anything unclassified â€”
+      // layer. Skip skin, reference labels, groups, and anything unclassified —
       // these may share a material instance with visible meshes, and tinting
       // their emissive would bleed the highlight onto invisible siblings.
       if (!entry) continue;
@@ -459,6 +504,27 @@ export function AnatomyModel({
       mat.opacity = origOpacity;
       mat.depthWrite = origDepthWrite;
 
+      // SPINE CONTEXT (base layer). When studying a spine sub-region and there
+      // is no active focus (no ROM, no selection), the neighbouring sub-regions
+      // render as a faint context so the chain reads as continuous. The active
+      // sub-region keeps its normal appearance. As soon as a muscle or ROM
+      // phase is focused, the cascade below takes over and this is skipped.
+      if (!focusing && spineContextMeshes && activeSpineMeshes) {
+        const inActive = activeSpineMeshes.has(mesh.name);
+        if (!inActive) {
+          // A neighbour sub-region mesh: fade it to context.
+          mat.emissive.copy(origEmissive);
+          mat.emissiveIntensity = origEmissiveIntensity;
+          if (origColor && mat.color) mat.color.copy(origColor);
+          mat.transparent = true;
+          mat.opacity = SPINE_CONTEXT_OPACITY;
+          mat.depthWrite = false;
+          mesh.renderOrder = 1;
+          continue;
+        }
+        // In the active sub-region: fall through to normal (solid) appearance.
+      }
+
       if (romActive) {
         // ROM branch. The phase's (or studied) muscles glow, colored by role
         // and rendered LAST so they draw on top of any translucent ghosts in
@@ -467,7 +533,7 @@ export function AnatomyModel({
         // etc.) stays solid but dimmed, as anatomical reference/context.
         if (romRole != null) {
           mat.emissive.setHex(ROM_ROLE_COLOR[romRole]);
-          // FOCUS â€” modulate intensity (NOT color) when a hover spotlight is
+          // FOCUS — modulate intensity (NOT color) when a hover spotlight is
           // active: the focused muscle burns brighter, the rest of the set is
           // pushed back so it's unmistakable which one is which. With no focus,
           // every set muscle uses the normal base intensity (unchanged behavior).
@@ -575,7 +641,9 @@ export function AnatomyModel({
     partFocus,
     partFocusHasMeshes,
     romHighlight,
-    romFocusMuscleId, // FOCUS â€” re-run highlight when the hover spotlight moves
+    romFocusMuscleId, // FOCUS — re-run highlight when the hover spotlight moves
+    spineContextMeshes, // spine context base layer
+    activeSpineMeshes,
   ]);
 
   // Trigger the attention pulse whenever the SELECTED MUSCLE changes. We
@@ -627,7 +695,7 @@ export function AnatomyModel({
   // The pulse is suppressed while a part focus is active, so it doesn't fight
   // the teal attachment highlight.
   //
-  // FOCUS â€” the pulse is ALSO suppressed for ROM while a hover spotlight is
+  // FOCUS — the pulse is ALSO suppressed for ROM while a hover spotlight is
   // active. The spotlight owns the per-muscle intensities (set by the highlight
   // effect); letting the pulse run would fight it by re-driving every set
   // muscle's intensity uniformly. When the hover ends, romFocusMuscleId clears,
@@ -637,14 +705,14 @@ export function AnatomyModel({
     const start = pulseStartRef.current;
     if (start < 0) return;
     // Part focus only coexists with single-muscle selection, and it owns the
-    // look (teal attachment glow) â€” so suppress the pulse only for the color-
+    // look (teal attachment glow) — so suppress the pulse only for the color-
     // animating (single-selection) pulse. A ROM pulse is never active alongside
     // partFocus, but guard defensively.
     if (partFocus != null && pulseColorAnimRef.current) {
       pulseStartRef.current = -1;
       return;
     }
-    // FOCUS â€” suppress the ROM pulse while a hover spotlight owns intensities.
+    // FOCUS — suppress the ROM pulse while a hover spotlight owns intensities.
     if (!pulseColorAnimRef.current && useAnatomyStore.getState().romFocusMuscleId != null) {
       pulseStartRef.current = -1;
       return;
@@ -739,7 +807,7 @@ export function AnatomyModel({
     );
     if (!mesh) return;
     setHovered(mesh.name);
-    // FOCUS â€” if a ROM highlight is active and the hovered mesh belongs to one
+    // FOCUS — if a ROM highlight is active and the hovered mesh belongs to one
     // of its muscles, set the spotlight on that muscle (3D -> list direction of
     // the bidirectional bridge). Reading state via getState() avoids adding
     // store fields to this handler's closure deps.
@@ -755,7 +823,7 @@ export function AnatomyModel({
 
   const handlePointerOut = () => {
     setHovered(null);
-    // FOCUS â€” clear the ROM hover spotlight when leaving a mesh.
+    // FOCUS — clear the ROM hover spotlight when leaving a mesh.
     const st = useAnatomyStore.getState();
     if (st.romFocusMuscleId != null) st.setRomFocusMuscle(null);
     document.body.style.cursor = 'default';

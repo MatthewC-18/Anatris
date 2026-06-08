@@ -11,8 +11,14 @@
 // shown both on its panel chip and on a pin floating at its centroid here. The
 // number is the locator; the color stays the role.
 //
+// REGION-AWARE: the muscle names and the anatomical numbering both follow the
+// active region (store.region) via musclesForRegion, so the elbow module pins
+// show elbow names and elbow numbering -- matching the ROM panel exactly. The
+// numbering array passed to buildRomNumbering MUST be the same region array the
+// panel uses, or the chip number and the pin number would disagree.
+//
 // HOVER SPOTLIGHT:
-// When a muscle is "focused" (romFocusMuscleId â€” set by hovering its chip in
+// When a muscle is "focused" (romFocusMuscleId -- set by hovering its chip in
 // the panel, or its mesh in 3D), its pin reveals the full Spanish NAME next to
 // the number, and the pin enlarges/brightens. Everything else stays as-is. The
 // hover only changes what THIS overlay shows; the actual emissive intensity
@@ -22,7 +28,7 @@
 // This component is a sibling of AttachmentMarkers, mirrors its structure
 // (read world positions of possibly-hidden meshes, draw camera-facing sprites
 // with depthTest:false), and likewise does NOT touch AnatomyModel's material
-// logic â€” it only adds overlay geometry.
+// logic -- it only adds overlay geometry.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -30,7 +36,7 @@ import * as THREE from 'three';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { parseMeshName } from '../lib/parseMeshName';
 import { buildRomNumbering } from '../lib/romNumber';
-import { shoulderMuscles } from '../data/muscles/shoulder';
+import { musclesForRegion } from '../data/musclesByRegion';
 import type { MuscleResolution } from '../lib/muscleResolver';
 import type { SideFilter } from '../store/anatomyStore';
 import type { RomMuscleRole } from '../types/rom';
@@ -168,23 +174,28 @@ export function RomMuscleMarkers({ resolution }: RomMuscleMarkersProps) {
   const romHighlight = useAnatomyStore((s) => s.romHighlight);
   const romFocusMuscleId = useAnatomyStore((s) => s.romFocusMuscleId);
   const sideFilter = useAnatomyStore((s) => s.sideFilter);
+  const region = useAnatomyStore((s) => s.region);
 
   const groupRef = useRef<THREE.Group>(null);
   const clockRef = useRef(0);
   // Track which child sprite belongs to which muscle, for the focus pulse.
   const focusedChildRef = useRef<THREE.Sprite | null>(null);
 
-  // muscleId -> Spanish name, once.
+  // Active region's muscle array, used for BOTH the Spanish names and the
+  // anatomical numbering. Must be the same array the ROM panel uses.
+  const regionMuscles = musclesForRegion(region);
+
+  // muscleId -> Spanish name for the active region.
   const nameById = useMemo(() => {
     const m = new Map<string, string>();
-    for (const mus of shoulderMuscles) m.set(mus.id, mus.name);
+    for (const mus of regionMuscles) m.set(mus.id, mus.name);
     return m;
-  }, []);
+  }, [regionMuscles]);
 
   // Compute the markers: one per highlighted muscle, at the centroid of its
   // visible meshes (respecting the side filter). Recomputed when the highlight,
   // the focus, or the side filter changes. (Focus changes the rendered sprite
-  // content â€” number vs number+name â€” so it must rebuild.)
+  // content -- number vs number+name -- so it must rebuild.)
   const [markers, setMarkers] = useState<RomMarker[]>([]);
 
   useEffect(() => {
@@ -194,7 +205,7 @@ export function RomMuscleMarkers({ resolution }: RomMuscleMarkersProps) {
     }
     scene.updateWorldMatrix(true, true);
 
-    const numbering = buildRomNumbering(romHighlight.keys());
+    const numbering = buildRomNumbering(romHighlight.keys(), regionMuscles);
 
     // Accumulate centroid per muscle from its visible meshes.
     const acc = new Map<string, { sum: THREE.Vector3; count: number }>();
@@ -236,7 +247,7 @@ export function RomMuscleMarkers({ resolution }: RomMuscleMarkersProps) {
     }
 
     setMarkers(out);
-  }, [romHighlight, romFocusMuscleId, sideFilter, resolution, scene, nameById]);
+  }, [romHighlight, romFocusMuscleId, sideFilter, resolution, scene, nameById, regionMuscles]);
 
   // Build sprite objects whenever markers change. Tiny set (typ. 2-5), so we
   // rebuild rather than diff.

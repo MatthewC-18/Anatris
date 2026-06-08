@@ -1,11 +1,19 @@
 // src/components/Sidebar.tsx
 //
-// Left navigation rail. Shows the active module with a progress placeholder,
-// the seven pedagogical phases (display-only until the content phase wires
-// them up), the ROM (range-of-motion) study panel, the layer toggles with live
-// visible-count badges, the side filter, the origin/insertion marker toggle,
-// and the per-muscle list (grouped by function) for reaching deep muscles that
-// can't be clicked directly in the 3D view.
+// Left navigation rail. Region-aware: the active module name, the seven phase
+// labels and the muscle list all follow the active region (store.region). The
+// region SWITCH itself lives in the TopBar (the module nav), so this rail no
+// longer carries its own region selector.
+//
+// Shows: the active module header with a progress placeholder, the seven
+// pedagogical phases (display-only until the content phase wires them up), the
+// ROM study panel, the layer toggles with live visible-count badges, the side
+// filter, the origin/insertion marker toggle, and the per-muscle list (grouped
+// by function).
+//
+// RESPONSIVE: on desktop a fixed left column; on compact screens inside a
+// slide-in drawer (see App.tsx). The optional onNavigate callback lets the
+// drawer close itself when the user picks something.
 
 import { useAnatomyStore, type SideFilter } from '../store/anatomyStore';
 import {
@@ -16,31 +24,25 @@ import {
 import { MuscleList } from './MuscleList';
 import { DepthPeeler } from './DepthPeeler';
 import { RomPanel } from './RomPanel';
+import { trackForRegion } from '../data/trackByRegion';
+import { PHASE_ORDER, PHASE_META } from '../types/pedagogy';
 import type { AnatomyLayer, AnatomyIndex } from '../types/anatomy';
 import type { MuscleResolution } from '../lib/muscleResolver';
 
 interface SidebarProps {
   index: AnatomyIndex | null;
   resolution: MuscleResolution;
+  /** Called when the user activates a navigation item; used to close the
+   *  mobile drawer. Optional: omitted on desktop where there is no drawer. */
+  onNavigate?: () => void;
 }
 
-// Placeholder phases for the shoulder module. Wired up in a later phase.
-const PHASES = [
-  'Terminología y orientación',
-  'Anatomía descriptiva',
-  'Biomecánica y cinemática',
-  'Palpación de superficie',
-  'Evaluación y pruebas',
-  'Patología frecuente',
-  'Razonamiento y tratamiento',
-];
-
-export function Sidebar({ index, resolution }: SidebarProps) {
+export function Sidebar({ index, resolution, onNavigate }: SidebarProps) {
   return (
     <nav className="flex h-full w-[260px] shrink-0 flex-col border-r border-slate-800/60 bg-ink-950/80">
       <div className="flex-1 overflow-y-auto px-4 py-5">
         <ModuleHeader />
-        <PhaseList />
+        <PhaseList onNavigate={onNavigate} />
         <div className="my-5 h-px bg-slate-800/60" />
         <DepthPeeler />
         <div className="my-5 h-px bg-slate-800/60" />
@@ -65,13 +67,16 @@ export function Sidebar({ index, resolution }: SidebarProps) {
 }
 
 function ModuleHeader() {
+  const region = useAnatomyStore((s) => s.region);
+  const track = trackForRegion(region);
+
   return (
     <div className="mb-5">
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
-        Módulo
+        Modulo
       </p>
       <h2 className="mt-1 font-display text-lg font-semibold text-slate-100">
-        Hombro
+        {track.regionName}
       </h2>
       <div className="mt-3 flex items-center gap-2">
         <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-800">
@@ -83,19 +88,26 @@ function ModuleHeader() {
   );
 }
 
-function PhaseList() {
+function PhaseList({ onNavigate }: { onNavigate?: () => void }) {
+  // The seven phase labels come from the canonical PHASE_ORDER + PHASE_META, so
+  // they are identical across regions (the order is fixed by pedagogy). The
+  // done/active/locked state is still a placeholder until progress is wired.
   return (
     <div>
       <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
         Fases
       </p>
       <ul className="flex flex-col gap-0.5">
-        {PHASES.map((phase, i) => {
+        {PHASE_ORDER.map((phaseId, i) => {
+          const meta = PHASE_META[phaseId];
           const state = i < 2 ? 'done' : i === 2 ? 'active' : 'locked';
           return (
-            <li key={phase}>
+            <li key={phaseId}>
               <button
                 disabled={state === 'locked'}
+                onClick={() => {
+                  if (state !== 'locked') onNavigate?.();
+                }}
                 className={[
                   'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
                   state === 'active'
@@ -105,8 +117,8 @@ function PhaseList() {
                       : 'cursor-not-allowed text-slate-600',
                 ].join(' ')}
               >
-                <PhaseDot state={state} index={i + 1} />
-                <span className="truncate">{phase}</span>
+                <PhaseDot state={state} index={meta.step} />
+                <span className="truncate">{meta.label}</span>
               </button>
             </li>
           );
@@ -253,7 +265,7 @@ function DisplayControls() {
   return (
     <div>
       <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
-        Visualización
+        Visualizacion
       </p>
       <button
         type="button"
@@ -279,7 +291,7 @@ function DisplayControls() {
             showOriginInsertion ? 'text-slate-200' : 'text-slate-500'
           }`}
         >
-          Orígenes e inserciones
+          Origenes e inserciones
         </span>
       </button>
     </div>

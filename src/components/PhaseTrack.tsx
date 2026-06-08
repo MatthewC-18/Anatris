@@ -5,22 +5,29 @@
 //
 //   - Per-muscle phases (anatomy / biomechanics / palpation) walk the region's
 //     muscles in teaching order and PROJECT only the MuscleContent field groups
-//     declared by the phase. No content is duplicated; it is read live from
-//     SHOULDER_MUSCLES. Clicking a muscle header calls selectMuscle() so the
-//     rest of the app (3D highlight, SelectionPanel) reacts.
+//     declared by the phase. No content is duplicated; it is read live from the
+//     active region's content index. Clicking a muscle header calls
+//     selectMuscle() so the rest of the app (3D highlight, SelectionPanel) reacts.
 //   - The biomechanics phase additionally renders any guided gestures
 //     (phase.guides) as a step-by-step walkthrough that drives the 3D model.
 //   - Region phases (tests / pathology / treatment / case) render their own
 //     first-class entities, each claim carrying its citations via the shared
 //     CitationRow.
 //
+// REGION-AWARE: the track and the muscle content index are chosen from the
+// active region (store.region) via trackForRegion / muscleContentForRegion, so
+// the same navigator serves the shoulder, the elbow and any future region. A
+// `track` prop can still override the derived track if a caller needs to.
+//
 // Styling reuses the project's existing tokens (slate/ink/accent, glass) and
 // the shared MuscleContentSections primitives, so it matches SelectionPanel.
 
 import { useState } from 'react';
 import { useAnatomyStore } from '../store/anatomyStore';
-import { SHOULDER_MUSCLES } from '../data/shoulderMuscles';
-import { SHOULDER_TRACK } from '../data/shoulderPhases';
+import { trackForRegion } from '../data/trackByRegion';
+import { isConceptModule, conceptForRegion } from '../data/conceptByRegion';
+import { ConceptTrackView } from './ConceptTrackView';
+import { muscleContentForRegion } from '../data/muscleContentByRegion';
 import { PHASE_ORDER, PHASE_META } from '../types/pedagogy';
 import {
   Section,
@@ -39,15 +46,27 @@ import type {
   CasePhase,
   MuscleField,
 } from '../types/pedagogy';
-import type { MuscleContent } from '../types/muscleContent';
+import type { MuscleContent, MuscleContentIndex } from '../types/muscleContent';
 
 interface PhaseTrackProps {
-  /** The region track to display. Defaults to the shoulder. */
+  /** Optional explicit track. When omitted, derived from the active region. */
   track?: RegionTrack;
 }
 
-export function PhaseTrack({ track = SHOULDER_TRACK }: PhaseTrackProps) {
+export function PhaseTrack({ track: trackProp }: PhaseTrackProps) {
   const [active, setActive] = useState<PhaseId>('anatomy');
+  const region = useAnatomyStore((s) => s.region);
+
+  // Conceptual modules (e.g. Fundamentos) are NOT anatomical regions: they have
+  // no muscles or ROM, so they render their own section-based view instead of
+  // the 7-phase anatomical track. Intercept BEFORE deriving the region track.
+  const conceptTrack = conceptForRegion(region);
+  if (isConceptModule(region) && conceptTrack) {
+    return <ConceptTrackView track={conceptTrack} />;
+  }
+
+  const track = trackProp ?? trackForRegion(region);
+  const content = muscleContentForRegion(region);
   const meta = PHASE_META[active];
 
   return (
@@ -96,7 +115,7 @@ export function PhaseTrack({ track = SHOULDER_TRACK }: PhaseTrackProps) {
 
       {/* Phase body */}
       <div className="flex-1 overflow-y-auto px-5 pb-8 pt-4">
-        <PhaseBody phaseId={active} track={track} />
+        <PhaseBody phaseId={active} track={track} content={content} />
       </div>
     </section>
   );
@@ -105,26 +124,28 @@ export function PhaseTrack({ track = SHOULDER_TRACK }: PhaseTrackProps) {
 function PhaseBody({
   phaseId,
   track,
+  content,
 }: {
   phaseId: PhaseId;
   track: RegionTrack;
+  content: MuscleContentIndex;
 }) {
   const phases = track.phases;
   switch (phaseId) {
     case 'anatomy':
-      return <PerMuscleView phase={phases.anatomy} />;
+      return <PerMuscleView phase={phases.anatomy} content={content} />;
     case 'biomechanics':
-      return <PerMuscleView phase={phases.biomechanics} />;
+      return <PerMuscleView phase={phases.biomechanics} content={content} />;
     case 'palpation':
-      return <PerMuscleView phase={phases.palpation} />;
+      return <PerMuscleView phase={phases.palpation} content={content} />;
     case 'tests':
-      return <TestsView phase={phases.tests} />;
+      return <TestsView phase={phases.tests} content={content} />;
     case 'pathology':
-      return <PathologyView phase={phases.pathology} />;
+      return <PathologyView phase={phases.pathology} content={content} />;
     case 'treatment':
       return <TreatmentView phase={phases.treatment} />;
     case 'case':
-      return <CaseView phase={phases.case} />;
+      return <CaseView phase={phases.case} content={content} />;
   }
 }
 
@@ -132,7 +153,13 @@ function PhaseBody({
  * PER-MUSCLE PHASES (anatomy / biomechanics / palpation)
  * ======================================================================== */
 
-function PerMuscleView({ phase }: { phase: PerMusclePhase }) {
+function PerMuscleView({
+  phase,
+  content,
+}: {
+  phase: PerMusclePhase;
+  content: MuscleContentIndex;
+}) {
   const selectMuscle = useAnatomyStore((s) => s.selectMuscle);
   const selectedMuscleId = useAnatomyStore((s) => s.selectedMuscleId);
 
@@ -155,8 +182,8 @@ function PerMuscleView({ phase }: { phase: PerMusclePhase }) {
       )}
 
       {phase.muscleIds.map((id) => {
-        const content = SHOULDER_MUSCLES[id];
-        if (!content) return null; // id with no card yet - skip silently
+        const muscle = content[id];
+        if (!muscle) return null; // id with no card yet - skip silently
         const isSelected = id === selectedMuscleId;
         return (
           <div
@@ -172,20 +199,20 @@ function PerMuscleView({ phase }: { phase: PerMusclePhase }) {
             >
               <span>
                 <span className="font-display text-base font-semibold text-slate-100">
-                  {content.nameEs}
+                  {muscle.nameEs}
                 </span>
                 <span className="ml-2 text-xs italic text-slate-500">
-                  {content.nameLat}
+                  {muscle.nameLat}
                 </span>
               </span>
-              {content.group && (
+              {muscle.group && (
                 <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent">
-                  {content.group}
+                  {muscle.group}
                 </span>
               )}
             </button>
             <div className="flex flex-col gap-2 px-4 pb-4">
-              <MuscleFieldGroups content={content} fields={phase.fields} />
+              <MuscleFieldGroups content={muscle} fields={phase.fields} />
             </div>
           </div>
         );
@@ -336,13 +363,19 @@ function MuscleFieldGroup({
  * ======================================================================== */
 
 /** Small helper: a chip linking to a muscle by id (jumps it into selection). */
-function MuscleLinkChips({ ids }: { ids: string[] }) {
+function MuscleLinkChips({
+  ids,
+  content,
+}: {
+  ids: string[];
+  content: MuscleContentIndex;
+}) {
   const selectMuscle = useAnatomyStore((s) => s.selectMuscle);
   if (ids.length === 0) return null;
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
       {ids.map((id) => {
-        const c = SHOULDER_MUSCLES[id];
+        const c = content[id];
         const label = c ? c.nameEs : id;
         return (
           <button
@@ -359,7 +392,13 @@ function MuscleLinkChips({ ids }: { ids: string[] }) {
   );
 }
 
-function TestsView({ phase }: { phase: TestsPhase }) {
+function TestsView({
+  phase,
+  content,
+}: {
+  phase: TestsPhase;
+  content: MuscleContentIndex;
+}) {
   return (
     <div className="flex flex-col gap-3">
       {phase.intro && (
@@ -387,7 +426,7 @@ function TestsView({ phase }: { phase: TestsPhase }) {
             </Labeled>
             {t.grading && <TestGradingBlock grading={t.grading} />}
           </div>
-          <MuscleLinkChips ids={t.targetMuscleIds} />
+          <MuscleLinkChips ids={t.targetMuscleIds} content={content} />
         </div>
       ))}
     </div>
@@ -439,7 +478,13 @@ function TestGradingBlock({
   );
 }
 
-function PathologyView({ phase }: { phase: PathologyPhase }) {
+function PathologyView({
+  phase,
+  content,
+}: {
+  phase: PathologyPhase;
+  content: MuscleContentIndex;
+}) {
   return (
     <div className="flex flex-col gap-3">
       {phase.intro && (
@@ -463,7 +508,7 @@ function PathologyView({ phase }: { phase: PathologyPhase }) {
               </Labeled>
             )}
           </div>
-          <MuscleLinkChips ids={p.relatedMuscleIds} />
+          <MuscleLinkChips ids={p.relatedMuscleIds} content={content} />
         </div>
       ))}
     </div>
@@ -500,7 +545,13 @@ function TreatmentView({ phase }: { phase: TreatmentPhase }) {
   );
 }
 
-function CaseView({ phase }: { phase: CasePhase }) {
+function CaseView({
+  phase,
+  content,
+}: {
+  phase: CasePhase;
+  content: MuscleContentIndex;
+}) {
   return (
     <div className="flex flex-col gap-4">
       {phase.cases.map((c) => (
@@ -530,7 +581,7 @@ function CaseView({ phase }: { phase: CasePhase }) {
                   <Sourced item={st.answer} />
                 </div>
                 {st.muscleIds && st.muscleIds.length > 0 && (
-                  <MuscleLinkChips ids={st.muscleIds} />
+                  <MuscleLinkChips ids={st.muscleIds} content={content} />
                 )}
               </li>
             ))}

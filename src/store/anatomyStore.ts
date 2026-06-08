@@ -6,7 +6,7 @@
 // (origin/insertion highlighting), the command-palette open state, pending
 // camera-view requests, and the ROM (range-of-motion) study state.
 //
-// IMPORTANT â€” default layers:
+// IMPORTANT — default layers:
 // Skin is a CONTEXT layer that occludes everything behind it, so it is OFF by
 // default. Likewise `reference` (1100+ text labels, planes, axes) is OFF by
 // default. The model boots showing only real anatomy (bones, muscles,
@@ -121,7 +121,7 @@ interface AnatomyState {
   romSelection: RomSelection | null;
   romMuscleId: string | null;
   romHighlight: Map<string, RomMuscleRole> | null;
-  romFocusMuscleId: string | null; // NEW â€” transient hover spotlight
+  romFocusMuscleId: string | null; // NEW — transient hover spotlight
   setRomPhase: (
     movementId: string,
     phaseIndex: number,
@@ -199,7 +199,7 @@ export const useAnatomyStore = create<AnatomyState>((set) => ({
   /* ----- muscle selection ----- */
   selectedMuscleId: null,
   // Switching muscles resets the part focus AND the ROM phase highlight. Note
-  // we do NOT clear romMuscleId here â€” the "by muscle" ROM view intentionally
+  // we do NOT clear romMuscleId here — the "by muscle" ROM view intentionally
   // follows the selected muscle (see RomPanel).
   selectMuscle: (muscleId) =>
     set({ selectedMuscleId: muscleId, partFocus: null, romSelection: null, romHighlight: null, romFocusMuscleId: null }),
@@ -222,7 +222,7 @@ export const useAnatomyStore = create<AnatomyState>((set) => ({
       romSelection: { movementId, phaseIndex },
       romMuscleId: null,
       romHighlight: muscles,
-      romFocusMuscleId: null, // NEW â€” a new phase invalidates any hover spotlight
+      romFocusMuscleId: null, // NEW — a new phase invalidates any hover spotlight
       selectedMuscleId: null,
       selectedMeshName: null,
       partFocus: null,
@@ -232,12 +232,12 @@ export const useAnatomyStore = create<AnatomyState>((set) => ({
       romMuscleId: muscleId,
       romSelection: null,
       romHighlight: muscles,
-      romFocusMuscleId: null, // NEW â€” a new studied muscle invalidates the spotlight
+      romFocusMuscleId: null, // NEW — a new studied muscle invalidates the spotlight
       selectedMuscleId: null,
       selectedMeshName: null,
       partFocus: null,
     }),
-  // NEW â€” transient hover spotlight. Does not touch romHighlight / selection /
+  // NEW — transient hover spotlight. Does not touch romHighlight / selection /
   // camera. Safe to call with null to clear.
   setRomFocusMuscle: (muscleId) => set({ romFocusMuscleId: muscleId }),
   clearRom: () =>

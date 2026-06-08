@@ -39,7 +39,17 @@ export type FunctionalGroup =
   | 'elevator'
   | 'depressor'
   | 'protractor'
-  | 'retractor';
+  | 'retractor'
+  // ----- Spine groups (used by the cervical / thoracic / lumbar regions) -----
+  // The limb groups above describe single-joint actions; the spine is a
+  // multisegmental chain, so its muscles are grouped by functional system
+  // (architecture + clinical reasoning) rather than by a single joint action.
+  | 'erector-spinae' // iliocostalis + longissimus + spinalis (global extensor)
+  | 'transversospinalis' // semispinalis + multifidus + rotatores (segmental stabilizer / rotator)
+  | 'spinal-flexor' // anterior trunk + deep neck flexors (rectus abdominis, longus colli/capitis, psoas)
+  | 'lateral-flexor' // side-benders (quadratus lumborum, scalenes, obliques)
+  | 'suboccipital' // the deep craniocervical fine-control group
+  | 'craniocervical'; // superficial head/neck movers (SCM, splenius, levator scapulae)
 
 /** Spanish display labels for the functional groups. */
 export const FUNCTIONAL_GROUP_LABEL: Record<FunctionalGroup, string> = {
@@ -54,6 +64,13 @@ export const FUNCTIONAL_GROUP_LABEL: Record<FunctionalGroup, string> = {
   depressor: 'Depresores',
   protractor: 'Protractores (abducción escapular)',
   retractor: 'Retractores (aducción escapular)',
+  // ----- Spine groups -----
+  'erector-spinae': 'Erector espinal',
+  transversospinalis: 'Transversoespinoso',
+  'spinal-flexor': 'Flexores del raquis',
+  'lateral-flexor': 'Flexores laterales',
+  suboccipital: 'Suboccipitales',
+  craniocervical: 'Craneocervicales',
 };
 
 /**

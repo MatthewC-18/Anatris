@@ -1,8 +1,13 @@
 // src/components/MuscleList.tsx
 //
-// Sidebar section listing the region's muscles grouped by functional group
-// (rotator cuff, abductors, ...). This is the primary way to reach DEEP muscles
-// that are occluded in the 3D view and can't be clicked directly.
+// Sidebar section listing the active region's muscles grouped by functional
+// group. This is the primary way to reach DEEP muscles that are occluded in
+// the 3D view and can't be clicked directly.
+//
+// The muscle source follows the active region (store.region) via
+// musclesForRegion (src/data/musclesByRegion.ts). Grouping is identical for
+// every region (by muscle.groups), so adding a region is a one-line entry in
+// that central registry, not a change here.
 //
 // Clicking a muscle:
 //   - selects it (selectedMuscleId) -> highlighted in 3D, clinical panel shows
@@ -11,7 +16,7 @@
 
 import { useMemo } from 'react';
 import { useAnatomyStore } from '../store/anatomyStore';
-import { shoulderMuscles } from '../data/muscles/shoulder';
+import { musclesForRegion } from '../data/musclesByRegion';
 import { FUNCTIONAL_GROUP_LABEL, type FunctionalGroup } from '../types/muscle';
 import type { Muscle } from '../types/muscle';
 import type { MuscleResolution } from '../lib/muscleResolver';
@@ -36,16 +41,19 @@ const GROUP_ORDER: FunctionalGroup[] = [
 ];
 
 export function MuscleList({ resolution }: MuscleListProps) {
+  const region = useAnatomyStore((s) => s.region);
   const selectedMuscleId = useAnatomyStore((s) => s.selectedMuscleId);
   const selectMuscle = useAnatomyStore((s) => s.selectMuscle);
   const selectMesh = useAnatomyStore((s) => s.selectMesh);
   const requestFocus = useAnatomyStore((s) => s.requestFocus);
 
-  // Group muscles by their (first / primary) functional groups. A muscle can
-  // appear under several groups — that's intentional for the dual view.
+  const muscles = musclesForRegion(region);
+
+  // Group muscles by their functional groups. A muscle can appear under several
+  // groups -- that's intentional for the dual view.
   const grouped = useMemo(() => {
     const map = new Map<FunctionalGroup, Muscle[]>();
-    for (const muscle of shoulderMuscles) {
+    for (const muscle of muscles) {
       for (const g of muscle.groups) {
         const list = map.get(g) ?? [];
         list.push(muscle);
@@ -53,7 +61,7 @@ export function MuscleList({ resolution }: MuscleListProps) {
       }
     }
     return map;
-  }, []);
+  }, [muscles]);
 
   const focusMuscleIds = (ids: string[]) => {
     const names: string[] = [];
@@ -76,16 +84,16 @@ export function MuscleList({ resolution }: MuscleListProps) {
   return (
     <div>
       <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
-        Músculos del hombro
+        Musculos
       </p>
       <div className="flex flex-col gap-3">
         {GROUP_ORDER.filter((g) => grouped.has(g)).map((group) => {
-          const muscles = grouped.get(group)!;
+          const groupMuscles = grouped.get(group)!;
           return (
             <div key={group}>
               <button
                 type="button"
-                onClick={() => focusMuscleIds(muscles.map((m) => m.id))}
+                onClick={() => focusMuscleIds(groupMuscles.map((m) => m.id))}
                 className="mb-1 flex w-full items-center gap-2 text-left text-[11px] font-semibold uppercase tracking-wide text-cyan-500/80 transition-colors hover:text-cyan-400"
               >
                 <span className="h-px flex-1 bg-cyan-900/30" />
@@ -93,7 +101,7 @@ export function MuscleList({ resolution }: MuscleListProps) {
                 <span className="h-px flex-1 bg-cyan-900/30" />
               </button>
               <ul className="flex flex-col gap-0.5">
-                {muscles.map((muscle) => {
+                {groupMuscles.map((muscle) => {
                   const active = muscle.id === selectedMuscleId;
                   return (
                     <li key={muscle.id}>

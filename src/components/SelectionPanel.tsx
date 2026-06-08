@@ -4,11 +4,15 @@
 // structure. When a structure is selected:
 //   - If it resolves to a muscle with authored content, show the full clinical
 //     card (origin, insertion, innervation, actions with hierarchy, functional
-//     positions, biomechanics, palpation, pathologies, notes) — every claim
+//     positions, biomechanics, palpation, pathologies, notes) -- every claim
 //     with its citation(s).
 //   - Otherwise, fall back to the basic name + side/layer pills.
 //
-// The Origin and Insertion sections also carry "Ver origen / Ver inserción"
+// The clinical content index is chosen by the ACTIVE REGION (store.region) via
+// muscleContentForRegion, so the same panel serves the shoulder, the elbow and
+// any future region without changes here.
+//
+// The Origin and Insertion sections also carry "Ver origen / Ver insercion"
 // controls that highlight that attachment on the 3D model (PartFocusControls,
 // shared with the toolbar).
 
@@ -17,10 +21,11 @@ import { useAnatomyStore } from '../store/anatomyStore';
 import { LAYER_META, SIDE_META } from '../lib/anatomyMeta';
 import { formatCanonicalName } from '../lib/formatName';
 import { resolveMuscleId } from '../lib/resolveMuscleId';
-import { SHOULDER_MUSCLES } from '../data/shoulderMuscles';
+import { muscleContentForRegion } from '../data/muscleContentByRegion';
 import { REFERENCES } from '../data/references';
 import { PartFocusControls } from './PartFocusControls';
 import type { AnatomyEntry } from '../types/anatomy';
+import type { MuscleResolution } from '../lib/muscleResolver';
 import type {
   MuscleContent,
   SourcedText,
@@ -28,23 +33,33 @@ import type {
   MuscleAction,
 } from '../types/muscleContent';
 
+
+// Warning glyph built from a code point to keep this source ASCII-only.
+const WARN = String.fromCharCode(0x26a0);
+
 interface SelectionPanelProps {
   byMesh: Map<string, AnatomyEntry>;
+  /** Accepted for call-site compatibility with App.tsx; not used directly here
+   *  (the panel resolves content from the mesh name + active region). */
+  resolution?: MuscleResolution;
 }
 
 export function SelectionPanel({ byMesh }: SelectionPanelProps) {
   const selectedMeshName = useAnatomyStore((s) => s.selectedMeshName);
   const clearSelection = useAnatomyStore((s) => s.clearSelection);
+  const region = useAnatomyStore((s) => s.region);
 
   const entry = selectedMeshName ? byMesh.get(selectedMeshName) : undefined;
   const muscleId = selectedMeshName ? resolveMuscleId(selectedMeshName) : null;
-  const content = muscleId ? SHOULDER_MUSCLES[muscleId] : undefined;
+  const content = muscleId
+    ? muscleContentForRegion(region)[muscleId]
+    : undefined;
 
   return (
     <aside className="flex h-full w-[340px] shrink-0 flex-col border-l border-slate-800/60 bg-ink-900/60">
       <header className="flex items-center justify-between px-5 pb-3 pt-5">
         <h2 className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Selección
+          Seleccion
         </h2>
         {entry && (
           <button
@@ -57,7 +72,12 @@ export function SelectionPanel({ byMesh }: SelectionPanelProps) {
         )}
       </header>
 
-      <div className="flex-1 overflow-y-auto px-5 pb-6">
+      <div
+        className={[
+          'flex-1 overflow-y-auto px-5 pb-6',
+          !entry ? 'flex items-center justify-center' : '',
+        ].join(' ')}
+      >
         {!entry ? (
           <EmptyState />
         ) : content ? (
@@ -72,7 +92,7 @@ export function SelectionPanel({ byMesh }: SelectionPanelProps) {
 
 function EmptyState() {
   return (
-    <div className="mt-16 flex flex-col items-center text-center animate-fade-in">
+    <div className="flex flex-col items-center text-center animate-fade-in">
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800/40">
         <svg
           width="26"
@@ -90,7 +110,7 @@ function EmptyState() {
         </svg>
       </div>
       <p className="max-w-[220px] text-sm leading-relaxed text-slate-500">
-        Haz click sobre una estructura del modelo para ver su información
+        Haz click sobre una estructura del modelo para ver su informacion
         detallada.
       </p>
     </div>
@@ -103,7 +123,7 @@ function BasicDetail({ entry }: { entry: AnatomyEntry }) {
   const sideLabel = SIDE_META[entry.side].label;
 
   return (
-    <div className="animate-slide-in-right">
+    <div className="w-full animate-slide-in-right">
       <h3 className="font-display text-xl font-semibold leading-snug text-slate-50">
         {formatCanonicalName(entry.canonicalName, entry.side)}
       </h3>
@@ -124,7 +144,7 @@ function BasicDetail({ entry }: { entry: AnatomyEntry }) {
       </div>
 
       <p className="mt-6 text-sm leading-relaxed text-slate-500">
-        Esta estructura todavía no tiene contenido clínico detallado.
+        Esta estructura todavia no tiene contenido clinico detallado.
       </p>
     </div>
   );
@@ -145,7 +165,7 @@ function MuscleCard({
   const accessoryActions = content.actions.filter((a) => a.role === 'accessory');
 
   return (
-    <div className="animate-slide-in-right">
+    <div className="w-full animate-slide-in-right">
       <h3 className="font-display text-xl font-semibold leading-snug text-slate-50">
         {content.nameEs}
       </h3>
@@ -174,12 +194,12 @@ function MuscleCard({
           <PartFocusControls variant="panel" />
         </Section>
 
-        <Section title="Inserción" defaultOpen>
+        <Section title="Insercion" defaultOpen>
           <Sourced item={content.insertion} />
           <PartFocusControls variant="panel" />
         </Section>
 
-        <Section title="Inervación">
+        <Section title="Inervacion">
           <Sourced item={content.innervation.nerve} />
           {content.innervation.roots && (
             <div className="mt-2">
@@ -233,18 +253,18 @@ function MuscleCard({
         )}
 
         {content.biomechanics && content.biomechanics.length > 0 && (
-          <Section title="Biomecánica">
+          <Section title="Biomecanica">
             <SourcedList items={content.biomechanics} />
           </Section>
         )}
 
         {content.palpation && (
-          <Section title="Palpación">
+          <Section title="Palpacion">
             <Sourced item={content.palpation.howTo} />
             {content.palpation.position && (
               <div className="mt-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  Posición de acceso
+                  Posicion de acceso
                 </p>
                 <Sourced item={content.palpation.position} />
               </div>
@@ -265,13 +285,13 @@ function MuscleCard({
         )}
 
         {content.pathologies && content.pathologies.length > 0 && (
-          <Section title="Patologías frecuentes">
+          <Section title="Patologias frecuentes">
             <SourcedList items={content.pathologies} />
           </Section>
         )}
 
         {content.clinicalNotes && content.clinicalNotes.length > 0 && (
-          <Section title="Relevancia clínica">
+          <Section title="Relevancia clinica">
             <SourcedList items={content.clinicalNotes} />
           </Section>
         )}
@@ -328,8 +348,8 @@ function CitationRow({ cites }: { cites: Citation[] }) {
             {label}
             {locator ? `, ${locator}` : ''}
             {!c.pageVerified && (
-              <span title="Página por confirmar" className="text-amber-400/80">
-                ⚠
+              <span title="Pagina por confirmar" className="text-amber-400/80">
+                {WARN}
               </span>
             )}
           </span>

@@ -4,7 +4,7 @@
 // muscles): rotator cuff + superficial glenohumeral movers + scapulothoracic
 // movers + the biarticular arm muscles that cross the shoulder.
 //
-// ┌─────────────────────────────────────────────────────────────────────────┐
+// ┌────────────────────────────────────────────────────────────────────────┐
 // │ CLINICAL CONTENT DISCLAIMER                                               │
 // │ The origin / insertion / innervation / action fields below are drafted    │
 // │ from standard anatomical references and are intended as a well-structured │
@@ -31,6 +31,15 @@
 //   muscle highlights completely in 3D.
 // - RHOMBOIDS exist as major + minor separately; both bases are listed.
 
+//
+// ENCODING / AUTHORING RULE:
+//   - User-facing strings (name, latin, origin, insertion, innervation,
+//     movement, note, clinicalNote): Latin American Spanish WITH accents and
+//     enies, UTF-8.
+//   - Code, ids, keys, enum-like values (id, meshBases, layer, depth, groups,
+//     roots, joint) and comments: ASCII.
+//   - Editor ALWAYS UTF-8 without BOM.
+//
 import type { Muscle, MuscleRegion } from '../../types/muscle';
 
 /* ===========================================================================
