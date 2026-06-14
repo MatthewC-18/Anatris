@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Vite / tooling caches
+.vite/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor / OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+
+# Backups and scratch dumps
+*.bak
+*.local
