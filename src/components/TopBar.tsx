@@ -19,7 +19,7 @@ import { useEntitlement } from '../auth/AuthContext';
 import { isRegionPremium } from '../auth/entitlements';
 import { AccountMenu } from './account/AccountMenu';
 
-export type AppMode = 'explore' | 'learn' | 'study';
+export type AppMode = 'explore' | 'learn' | 'study' | 'movement';
 export type Overlay = 'none' | 'about' | 'legal';
 
 interface TopBarProps {
@@ -263,6 +263,7 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
         <ModeButton id="explore" label="Explorar" mode={mode} setMode={setMode} />
         <ModeButton id="learn" label="Aprender" mode={mode} setMode={setMode} />
         <ModeButton id="study" label="Estudiar" mode={mode} setMode={setMode} />
+        <ModeButton id="movement" label="Movimiento" mode={mode} setMode={setMode} />
       </div>
 
       {/* Account / subscription */}

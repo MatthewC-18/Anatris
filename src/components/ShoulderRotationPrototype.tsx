@@ -40,7 +40,7 @@
 //     pose, and removes the pivot + markers.
 //   - ASCII-only source. UI strings Spanish LATAM. No `any`. English comments.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useThree } from '@react-three/fiber';
 import type { CameraControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -125,10 +125,17 @@ interface RigState {
   showMarkers: boolean; // biomechanics axis + deltoid line of action
   frameCamera: boolean; // auto-frame the shoulder when moving
 }
+export type { RigState };
 
 type Listener = (s: RigState) => void;
 
-const channel = (() => {
+/**
+ * Module-level pub/sub that lets the DOM control panel (MovementControls,
+ * outside the canvas) drive the in-canvas rig (ShoulderRotationRig) without
+ * prop-drilling a ref across the <Canvas> boundary. Exported so the productized
+ * panel can read/patch/subscribe to the same channel the rig listens to.
+ */
+export const shoulderRigChannel = (() => {
   let state: RigState = {
     angleDeg: 0,
     includeHand: true,
@@ -330,7 +337,7 @@ export function ShoulderRotationRig(): null {
   >([]);
 
   useEffect(() => {
-    const st = channel.get();
+    const st = shoulderRigChannel.get();
 
     // --- Pivot at the glenohumeral center.
     const pivot = new THREE.Group();
@@ -478,7 +485,7 @@ export function ShoulderRotationRig(): null {
     };
 
     applyState(st);
-    const unsub = channel.subscribe(applyState);
+    const unsub = shoulderRigChannel.subscribe(applyState);
 
     return () => {
       unsub();
@@ -519,137 +526,4 @@ export function ShoulderRotationRig(): null {
   }, [scene, controls]);
 
   return null;
-}
-
-// ---------------------------------------------------------------------------
-// DOM control panel. Mount OUTSIDE the canvas (e.g. in App.tsx).
-// ---------------------------------------------------------------------------
-export function ShoulderRotationPanel(): JSX.Element {
-  const [angle, setAngle] = useState<number>(channel.get().angleDeg);
-  const [includeHand, setIncludeHand] = useState<boolean>(channel.get().includeHand);
-  const [freezeMuscles, setFreezeMuscles] = useState<boolean>(channel.get().freezeMuscles);
-  const [showMarkers, setShowMarkers] = useState<boolean>(channel.get().showMarkers);
-  const [frameCamera, setFrameCamera] = useState<boolean>(channel.get().frameCamera);
-
-  useEffect(() => {
-    channel.set({ angleDeg: angle, includeHand, freezeMuscles, showMarkers, frameCamera });
-  }, [angle, includeHand, freezeMuscles, showMarkers, frameCamera]);
-
-  const warn = String.fromCharCode(0x26a0); // ASCII-safe warning glyph
-
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: 16,
-        left: 16,
-        zIndex: 50,
-        width: 300,
-        padding: 16,
-        borderRadius: 12,
-        background: 'rgba(17, 17, 20, 0.92)',
-        color: '#f4f4f5',
-        fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-        fontSize: 13,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-        backdropFilter: 'blur(6px)',
-      }}
-    >
-      <div style={{ fontWeight: 600, marginBottom: 4 }}>Prototipo: abduccion de hombro</div>
-      <div style={{ opacity: 0.7, marginBottom: 12, lineHeight: 1.4 }}>
-        Brazo derecho en el plano frontal. Bloque rigido de hueso; los musculos
-        del hombro se atenuan durante el gesto (no tienen deformacion real).
-      </div>
-
-      <label style={{ display: 'block', marginBottom: 6 }}>
-        Abduccion: <strong>{angle}</strong>&deg;
-      </label>
-      <input
-        type="range"
-        min={0}
-        max={120}
-        step={1}
-        value={angle}
-        onChange={(e) => setAngle(Number(e.target.value))}
-        style={{ width: '100%', marginBottom: 14 }}
-      />
-
-      <label
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          marginBottom: 10,
-          cursor: 'pointer',
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={frameCamera}
-          onChange={(e) => setFrameCamera(e.target.checked)}
-        />
-        Encuadrar el hombro automaticamente
-      </label>
-
-      <label
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          marginBottom: 10,
-          cursor: 'pointer',
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={showMarkers}
-          onChange={(e) => setShowMarkers(e.target.checked)}
-        />
-        Marcadores biomecanicos (eje + linea del deltoides)
-      </label>
-
-      <label
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          marginBottom: 10,
-          cursor: 'pointer',
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={freezeMuscles}
-          onChange={(e) => setFreezeMuscles(e.target.checked)}
-        />
-        Congelar musculos del humero en esta posicion (esquematico)
-      </label>
-
-      <label
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          marginBottom: 12,
-          cursor: 'pointer',
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={includeHand}
-          onChange={(e) => setIncludeHand(e.target.checked)}
-        />
-        Incluir mano y dedos
-      </label>
-
-      <div style={{ opacity: 0.6, fontSize: 11, lineHeight: 1.4 }}>
-        {warn} &quot;Congelar musculos&quot; vuelve solidos solo los que se
-        insertan en el humero (deltoides y manguito); los de origen escapular
-        siguen atenuados porque su anclaje quedaria fuera de sitio.
-        <br />
-        {warn} Cambiar &quot;Incluir mano&quot; requiere apagar y encender el
-        prototipo (los nodos se reagrupan al montar).
-      </div>
-    </div>
-  );
 }

@@ -39,6 +39,7 @@ import { SelectionPanel } from './components/SelectionPanel';
 import { CommandPalette } from './components/CommandPalette';
 import { PhaseTrack } from './components/PhaseTrack';
 import { StudyView } from './components/study/StudyView';
+import { MovementView } from './components/movement/MovementView';
 import { AuthModal } from './components/account/AuthModal';
 import { Paywall } from './components/account/Paywall';
 import { useEntitlement } from './auth/AuthContext';
@@ -197,6 +198,24 @@ export default function App() {
             <StudyView region={region} isConcept={concept} />
           </main>
         </div>
+      ) : mode === 'movement' ? (
+        // MOVEMENT lab: the live 3D model with the shoulder rig + control panel.
+        <div className="flex min-h-0 flex-1">
+          <main className="relative min-w-0 flex-1">
+            {status === 'error' ? (
+              <IndexError message={error} />
+            ) : status === 'loading' ? (
+              <IndexLoading />
+            ) : (
+              <MovementView
+                region={region}
+                byMesh={byMesh}
+                regionMeshes={regionMeshes}
+                resolution={resolution}
+              />
+            )}
+          </main>
+        </div>
       ) : mode === 'learn' && concept ? (
         // CONCEPTUAL module (Fundamentos): the 3D overlay (planes/axes) is
         // inseparable from the text, so we ALWAYS show the live model beside
@@ -283,7 +302,7 @@ export default function App() {
       )}
 
       {/* Compact-only floating buttons to open the drawers. */}
-      {compact && mode !== 'study' && !locked && (
+      {compact && mode !== 'study' && mode !== 'movement' && !locked && (
         <>
           {!concept && (
             <button

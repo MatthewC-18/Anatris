@@ -14,6 +14,7 @@ import { AnatomyModel } from './AnatomyModel';
 import { AttachmentMarkers } from './AttachmentMarkers';
 import { RomMuscleMarkers } from './RomMuscleMarkers';
 import { ConceptOverlay3D } from './ConceptOverlay3D';
+import { ShoulderRotationRig } from './ShoulderRotationPrototype';
 import { CanvasLoader } from './CanvasLoader';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { parseMeshName } from '../lib/parseMeshName';
@@ -25,6 +26,12 @@ interface Viewer3DProps {
   byMesh: Map<string, AnatomyEntry>;
   regionMeshes?: Set<string> | null;
   resolution: MuscleResolution;
+  /**
+   * When true, mount the interactive movement rig (rigid bone rotation of the
+   * shoulder) inside the canvas. Driven by shoulderRigChannel from the DOM
+   * control panel; fully reversible when this flips back to false/unmounts.
+   */
+  movement?: boolean;
 }
 
 // How tightly the camera frames a focused muscle. Larger padding = more
@@ -64,7 +71,7 @@ function useIsCompact(): boolean {
  * recomputes framing when the visible mesh set changes, and reacts to camera
  * view requests from the store.
  */
-function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
+function SceneContents({ byMesh, regionMeshes, resolution, movement }: Viewer3DProps) {
   const { scene } = useThree();
   const controlsRef = useRef<CameraControls | null>(null);
   const boundsRef = useRef<{ box: THREE.Box3; radius: number } | null>(null);
@@ -304,6 +311,10 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
           so anatomical regions are completely unaffected. */}
       <ConceptOverlay3D />
 
+      {/* Movement lab: rigid bone rotation of the shoulder. Only mounted when
+          the movement mode is active; restores the model on unmount. */}
+      {movement && <ShoulderRotationRig />}
+
       <CameraControls
         ref={controlsRef}
         makeDefault
@@ -324,7 +335,7 @@ function ProgressReporter({ onProgress }: { onProgress: (p: number) => void }) {
   return null;
 }
 
-export function Viewer3D({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
+export function Viewer3D({ byMesh, regionMeshes, resolution, movement }: Viewer3DProps) {
   const [progress, setProgress] = useState(0);
   const [ready, setReady] = useState(false);
   const compact = useIsCompact();
@@ -357,7 +368,12 @@ export function Viewer3D({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
       >
         <Suspense fallback={null}>
           <ProgressReporter onProgress={setProgress} />
-          <SceneContents byMesh={byMesh} regionMeshes={regionMeshes} resolution={resolution} />
+          <SceneContents
+            byMesh={byMesh}
+            regionMeshes={regionMeshes}
+            resolution={resolution}
+            movement={movement}
+          />
         </Suspense>
       </Canvas>
 
