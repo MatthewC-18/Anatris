@@ -38,6 +38,7 @@ import { ViewToolbar } from './components/ViewToolbar';
 import { SelectionPanel } from './components/SelectionPanel';
 import { CommandPalette } from './components/CommandPalette';
 import { PhaseTrack } from './components/PhaseTrack';
+import { StudyView } from './components/study/StudyView';
 import { AttributionScreen } from './components/AttributionScreen';
 import {
   MedicalDisclaimerBanner,
@@ -163,7 +164,16 @@ export default function App() {
         <MedicalDisclaimerBanner />
       </div>
 
-      {mode === 'learn' && concept ? (
+      {mode === 'study' ? (
+        // STUDY mode: generated quiz + flashcards over the active region's
+        // muscles. No 3D scene, sidebar or selection panel -- it's a focused
+        // recall experience that fills the body.
+        <div className="flex min-h-0 flex-1">
+          <main className="min-w-0 flex-1 overflow-hidden">
+            <StudyView region={region} isConcept={concept} />
+          </main>
+        </div>
+      ) : mode === 'learn' && concept ? (
         // CONCEPTUAL module (Fundamentos): the 3D overlay (planes/axes) is
         // inseparable from the text, so we ALWAYS show the live model beside
         // the concept renderer. Desktop: Viewer | ConceptTrack side by side.
@@ -249,7 +259,7 @@ export default function App() {
       )}
 
       {/* Compact-only floating buttons to open the drawers. */}
-      {compact && (
+      {compact && mode !== 'study' && (
         <>
           {!concept && (
             <button

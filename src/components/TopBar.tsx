@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAnatomyStore } from '../store/anatomyStore';
 
-export type AppMode = 'explore' | 'learn';
+export type AppMode = 'explore' | 'learn' | 'study';
 export type Overlay = 'none' | 'about' | 'legal';
 
 interface TopBarProps {
@@ -231,6 +231,7 @@ export function TopBar({ mode, setMode, setOverlay }: TopBarProps) {
       <div className="flex shrink-0 items-center gap-1 rounded-xl border border-slate-800/60 bg-slate-900/60 p-1">
         <ModeButton id="explore" label="Explorar" mode={mode} setMode={setMode} />
         <ModeButton id="learn" label="Aprender" mode={mode} setMode={setMode} />
+        <ModeButton id="study" label="Estudiar" mode={mode} setMode={setMode} />
       </div>
     </header>
   );
