@@ -63,6 +63,20 @@ La app quedará disponible en la URL que imprime Vite (por defecto
 > los nombres de malla coinciden 1:1 con los del runtime. Si la app muestra el
 > error "No se pudo cargar el índice anatómico", ejecuta `npm run build-anatomy`.
 
+## Cuentas y suscripción
+
+Anatris tiene un modo de suscripción (Supabase + Stripe). **Hombro** y
+**Fundamentos** son gratuitos; el resto de regiones requiere plan Premium.
+
+- **Sin configurar nada**, la app corre en **modo demo**: usa un backend de
+  autenticación simulado en `localStorage`, así que todo el embudo (registro →
+  muro de pago → "suscribirme" → premium) es probable sin cuentas reales.
+- Para activar el backend real, define `VITE_SUPABASE_URL` y
+  `VITE_SUPABASE_ANON_KEY` (ver [`.env.example`](.env.example)) y sigue la guía
+  de [`supabase/README.md`](supabase/README.md).
+
+La política free/premium vive en `src/auth/entitlements.ts`.
+
 ## Estructura del proyecto
 
 ```

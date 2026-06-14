@@ -22,6 +22,11 @@ desktop.ini
 .idea/
 .vscode/
 
+# Local environment files (keep .env.example tracked)
+.env
+.env.*
+!.env.example
+
 # Backups and scratch dumps
 *.bak
 *.local

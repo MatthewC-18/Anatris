@@ -39,6 +39,9 @@ import { SelectionPanel } from './components/SelectionPanel';
 import { CommandPalette } from './components/CommandPalette';
 import { PhaseTrack } from './components/PhaseTrack';
 import { StudyView } from './components/study/StudyView';
+import { AuthModal } from './components/account/AuthModal';
+import { Paywall } from './components/account/Paywall';
+import { useEntitlement } from './auth/AuthContext';
 import { AttributionScreen } from './components/AttributionScreen';
 import {
   MedicalDisclaimerBanner,
@@ -106,8 +109,10 @@ export default function App() {
   const [mode, setMode] = useState<AppMode>('explore');
   const [overlay, setOverlay] = useState<Overlay>('none');
   const [drawer, setDrawer] = useState<Drawer>('none');
+  const [authOpen, setAuthOpen] = useState<boolean>(false);
   const [accepted, setAccepted] = useState<boolean>(() => readAccepted());
   const compact = useIsCompact();
+  const entitlement = useEntitlement();
 
   // Active region lives in the store; the TopBar module nav is the single
   // switch. Default to the shoulder on first mount if unset.
@@ -121,6 +126,11 @@ export default function App() {
   // "Aprender" experience. So entering a concept module forces Aprender, and
   // the muscle-centric panels (Sidebar / SelectionPanel) are hidden for it.
   const concept = isConceptModule(region);
+
+  // Subscription gate: premium regions (everything but the shoulder and
+  // Fundamentos) require an active subscription. When locked, the body is
+  // replaced by the Paywall regardless of the current mode.
+  const locked = !entitlement.canAccessRegion(regionId);
 
   useEffect(() => {
     if (region == null) setRegion('shoulder');
@@ -157,14 +167,28 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
-      <TopBar mode={mode} setMode={setMode} setOverlay={setOverlay} />
+      <TopBar
+        mode={mode}
+        setMode={setMode}
+        setOverlay={setOverlay}
+        onOpenAuth={() => setAuthOpen(true)}
+      />
 
       {/* Persistent educational disclaimer. */}
       <div className="shrink-0 px-4 py-2">
         <MedicalDisclaimerBanner />
       </div>
 
-      {mode === 'study' ? (
+      {locked ? (
+        // SUBSCRIPTION GATE: this region needs premium. Replace the whole body
+        // with the upgrade funnel; the TopBar stays so the user can switch back
+        // to a free region (Hombro / Fundamentos).
+        <div className="flex min-h-0 flex-1">
+          <main className="min-w-0 flex-1 overflow-hidden">
+            <Paywall region={regionId} onOpenAuth={() => setAuthOpen(true)} />
+          </main>
+        </div>
+      ) : mode === 'study' ? (
         // STUDY mode: generated quiz + flashcards over the active region's
         // muscles. No 3D scene, sidebar or selection panel -- it's a focused
         // recall experience that fills the body.
@@ -259,7 +283,7 @@ export default function App() {
       )}
 
       {/* Compact-only floating buttons to open the drawers. */}
-      {compact && mode !== 'study' && (
+      {compact && mode !== 'study' && !locked && (
         <>
           {!concept && (
             <button
@@ -301,6 +325,9 @@ export default function App() {
       )}
 
       <CommandPalette index={index} />
+
+      {/* Auth / subscription modal. */}
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
 
       {/* Overlays: credits / legal. */}
       {overlay === 'about' && (

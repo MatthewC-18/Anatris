@@ -15,6 +15,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAnatomyStore } from '../store/anatomyStore';
+import { useEntitlement } from '../auth/AuthContext';
+import { isRegionPremium } from '../auth/entitlements';
+import { AccountMenu } from './account/AccountMenu';
 
 export type AppMode = 'explore' | 'learn' | 'study';
 export type Overlay = 'none' | 'about' | 'legal';
@@ -23,6 +26,27 @@ interface TopBarProps {
   mode: AppMode;
   setMode: (m: AppMode) => void;
   setOverlay: (o: Overlay) => void;
+  /** Open the sign-in / sign-up modal. */
+  onOpenAuth: () => void;
+}
+
+/** Small lock glyph appended to premium modules the user can't access yet. */
+function LockGlyph() {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="opacity-70"
+      aria-label="Premium"
+    >
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  );
 }
 
 // The spine is three first-class regions (peers of shoulder/elbow in the store)
@@ -51,12 +75,17 @@ const MODULES: {
   { label: 'Rodilla', region: 'knee', enabled: true },
 ];
 
-export function TopBar({ mode, setMode, setOverlay }: TopBarProps) {
+export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
   const setPaletteOpen = useAnatomyStore((s) => s.setPaletteOpen);
   const region = useAnatomyStore((s) => s.region);
   const setRegion = useAnatomyStore((s) => s.setRegion);
   const clearSelection = useAnatomyStore((s) => s.clearSelection);
   const activeRegion = region ?? 'shoulder';
+  const entitlement = useEntitlement();
+
+  /** A module shows a lock when it's premium and the user can't open it yet. */
+  const showLock = (regionId: string) =>
+    isRegionPremium(regionId) && !entitlement.canAccessRegion(regionId);
 
   // Spine submenu open/close. Local UI state only; nothing touches the store.
   const [spineOpen, setSpineOpen] = useState(false);
@@ -119,6 +148,7 @@ export function TopBar({ mode, setMode, setOverlay }: TopBarProps) {
                   ].join(' ')}
                 >
                   {m.label}
+                  {showLock('cervical') && <LockGlyph />}
                   <svg
                     width="12"
                     height="12"
@@ -180,7 +210,7 @@ export function TopBar({ mode, setMode, setOverlay }: TopBarProps) {
                 clearSelection();
               }}
               className={[
-                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-slate-800/60 text-slate-100'
                   : m.enabled
@@ -189,6 +219,7 @@ export function TopBar({ mode, setMode, setOverlay }: TopBarProps) {
               ].join(' ')}
             >
               {m.label}
+              {m.region && showLock(m.region) && <LockGlyph />}
             </button>
           );
         })}
@@ -227,12 +258,15 @@ export function TopBar({ mode, setMode, setOverlay }: TopBarProps) {
         Legal
       </button>
 
-      {/* Mode toggle: Explorar / Aprender */}
+      {/* Mode toggle: Explorar / Aprender / Estudiar */}
       <div className="flex shrink-0 items-center gap-1 rounded-xl border border-slate-800/60 bg-slate-900/60 p-1">
         <ModeButton id="explore" label="Explorar" mode={mode} setMode={setMode} />
         <ModeButton id="learn" label="Aprender" mode={mode} setMode={setMode} />
         <ModeButton id="study" label="Estudiar" mode={mode} setMode={setMode} />
       </div>
+
+      {/* Account / subscription */}
+      <AccountMenu onOpenAuth={onOpenAuth} />
     </header>
   );
 }

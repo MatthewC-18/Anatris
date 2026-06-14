@@ -1,0 +1,1550 @@
+diff --git a/.env.example b/.env.example
+new file mode 100644
+index 0000000..48a80e7
+--- /dev/null
++++ b/.env.example
+@@ -0,0 +1,13 @@
++# Anatris — variables de entorno del frontend (Vite).
++# Copia este archivo a `.env` (o `.env.local`) y rellena los valores.
++#
++# Si DEJAS ESTAS VARIABLES VACÍAS, la app funciona en MODO DEMO: usa un backend
++# de autenticación simulado (mock) en localStorage, ideal para desarrollo. En
++# cuanto las definas, se activa automáticamente el backend real de Supabase.
++
++# URL del proyecto Supabase (Project Settings -> API -> Project URL).
++VITE_SUPABASE_URL=
++
++# Clave pública "anon" del proyecto (Project Settings -> API -> anon public).
++# Es segura para el cliente: el acceso real lo protege Row Level Security.
++VITE_SUPABASE_ANON_KEY=
+diff --git a/.gitignore b/.gitignore
+index d76ac88..c55d555 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -22,6 +22,11 @@ desktop.ini
+ .idea/
+ .vscode/
+ 
++# Local environment files (keep .env.example tracked)
++.env
++.env.*
++!.env.example
++
+ # Backups and scratch dumps
+ *.bak
+ *.local
+diff --git a/README.md b/README.md
+index d57bf17..e16bcec 100644
+--- a/README.md
++++ b/README.md
+@@ -63,6 +63,20 @@ La app quedará disponible en la URL que imprime Vite (por defecto
+ > los nombres de malla coinciden 1:1 con los del runtime. Si la app muestra el
+ > error "No se pudo cargar el índice anatómico", ejecuta `npm run build-anatomy`.
+ 
++## Cuentas y suscripción
++
++Anatris tiene un modo de suscripción (Supabase + Stripe). **Hombro** y
++**Fundamentos** son gratuitos; el resto de regiones requiere plan Premium.
++
++- **Sin configurar nada**, la app corre en **modo demo**: usa un backend de
++  autenticación simulado en `localStorage`, así que todo el embudo (registro →
++  muro de pago → "suscribirme" → premium) es probable sin cuentas reales.
++- Para activar el backend real, define `VITE_SUPABASE_URL` y
++  `VITE_SUPABASE_ANON_KEY` (ver [`.env.example`](.env.example)) y sigue la guía
++  de [`supabase/README.md`](supabase/README.md).
++
++La política free/premium vive en `src/auth/entitlements.ts`.
++
+ ## Estructura del proyecto
+ 
+ ```
+diff --git a/package.json b/package.json
+index 0bc9a74..ec5ab93 100644
+--- a/package.json
++++ b/package.json
+@@ -12,6 +12,7 @@
+   "dependencies": {
+     "@react-three/drei": "^9.122.0",
+     "@react-three/fiber": "^8.18.0",
++    "@supabase/supabase-js": "^2.108.1",
+     "react": "^18.3.1",
+     "react-dom": "^18.3.1",
+     "three": "^0.169.0",
+diff --git a/src/App.tsx b/src/App.tsx
+index fe7a36a..d4a0eef 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -39,6 +39,9 @@ import { SelectionPanel } from './components/SelectionPanel';
+ import { CommandPalette } from './components/CommandPalette';
+ import { PhaseTrack } from './components/PhaseTrack';
+ import { StudyView } from './components/study/StudyView';
++import { AuthModal } from './components/account/AuthModal';
++import { Paywall } from './components/account/Paywall';
++import { useEntitlement } from './auth/AuthContext';
+ import { AttributionScreen } from './components/AttributionScreen';
+ import {
+   MedicalDisclaimerBanner,
+@@ -106,8 +109,10 @@ export default function App() {
+   const [mode, setMode] = useState<AppMode>('explore');
+   const [overlay, setOverlay] = useState<Overlay>('none');
+   const [drawer, setDrawer] = useState<Drawer>('none');
++  const [authOpen, setAuthOpen] = useState<boolean>(false);
+   const [accepted, setAccepted] = useState<boolean>(() => readAccepted());
+   const compact = useIsCompact();
++  const entitlement = useEntitlement();
+ 
+   // Active region lives in the store; the TopBar module nav is the single
+   // switch. Default to the shoulder on first mount if unset.
+@@ -122,6 +127,11 @@ export default function App() {
+   // the muscle-centric panels (Sidebar / SelectionPanel) are hidden for it.
+   const concept = isConceptModule(region);
+ 
++  // Subscription gate: premium regions (everything but the shoulder and
++  // Fundamentos) require an active subscription. When locked, the body is
++  // replaced by the Paywall regardless of the current mode.
++  const locked = !entitlement.canAccessRegion(regionId);
++
+   useEffect(() => {
+     if (region == null) setRegion('shoulder');
+   }, [region, setRegion]);
+@@ -157,14 +167,28 @@ export default function App() {
+ 
+   return (
+     <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
+-      <TopBar mode={mode} setMode={setMode} setOverlay={setOverlay} />
++      <TopBar
++        mode={mode}
++        setMode={setMode}
++        setOverlay={setOverlay}
++        onOpenAuth={() => setAuthOpen(true)}
++      />
+ 
+       {/* Persistent educational disclaimer. */}
+       <div className="shrink-0 px-4 py-2">
+         <MedicalDisclaimerBanner />
+       </div>
+ 
+-      {mode === 'study' ? (
++      {locked ? (
++        // SUBSCRIPTION GATE: this region needs premium. Replace the whole body
++        // with the upgrade funnel; the TopBar stays so the user can switch back
++        // to a free region (Hombro / Fundamentos).
++        <div className="flex min-h-0 flex-1">
++          <main className="min-w-0 flex-1 overflow-hidden">
++            <Paywall region={regionId} onOpenAuth={() => setAuthOpen(true)} />
++          </main>
++        </div>
++      ) : mode === 'study' ? (
+         // STUDY mode: generated quiz + flashcards over the active region's
+         // muscles. No 3D scene, sidebar or selection panel -- it's a focused
+         // recall experience that fills the body.
+@@ -259,7 +283,7 @@ export default function App() {
+       )}
+ 
+       {/* Compact-only floating buttons to open the drawers. */}
+-      {compact && mode !== 'study' && (
++      {compact && mode !== 'study' && !locked && (
+         <>
+           {!concept && (
+             <button
+@@ -302,6 +326,9 @@ export default function App() {
+ 
+       <CommandPalette index={index} />
+ 
++      {/* Auth / subscription modal. */}
++      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
++
+       {/* Overlays: credits / legal. */}
+       {overlay === 'about' && (
+         <OverlayShell title="Creditos y licencias" onClose={() => setOverlay('none')}>
+diff --git a/src/auth/AuthContext.tsx b/src/auth/AuthContext.tsx
+new file mode 100644
+index 0000000..c45cdca
+--- /dev/null
++++ b/src/auth/AuthContext.tsx
+@@ -0,0 +1,133 @@
++// src/auth/AuthContext.tsx
++//
++// React wiring around the AuthBackend seam. It selects the backend ONCE at
++// startup (Supabase when configured, otherwise the mock), restores any existing
++// session, subscribes to changes, and exposes everything through useAuth().
++//
++// Components never touch a backend directly — they call useAuth() / useEntitlement()
++// so the app is identical whether it runs on the mock or on real Supabase.
++
++import {
++  createContext,
++  useContext,
++  useEffect,
++  useMemo,
++  useRef,
++  useState,
++  type ReactNode,
++} from 'react';
++import type { AuthBackend, AuthResult, AuthSnapshot, Subscription } from './types';
++import { FREE_SUBSCRIPTION } from './types';
++import { createMockBackend } from './mockProvider';
++import { createSupabaseBackend } from './supabaseProvider';
++import { canAccessRegion, isPremiumActive, type Plan } from './entitlements';
++
++/** True when the Supabase env vars are present at build time. */
++export function isSupabaseConfigured(): boolean {
++  return Boolean(
++    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY,
++  );
++}
++
++/** Build the active backend. Falls back to the mock when unconfigured. */
++function resolveBackend(): AuthBackend {
++  if (isSupabaseConfigured()) {
++    return createSupabaseBackend(
++      import.meta.env.VITE_SUPABASE_URL as string,
++      import.meta.env.VITE_SUPABASE_ANON_KEY as string,
++    );
++  }
++  return createMockBackend();
++}
++
++interface AuthContextValue {
++  loading: boolean;
++  snapshot: AuthSnapshot;
++  /** 'mock' or 'supabase' — handy for a dev badge. */
++  backend: AuthBackend['name'];
++  signIn: AuthBackend['signIn'];
++  signUp: AuthBackend['signUp'];
++  signOut: AuthBackend['signOut'];
++  startCheckout: AuthBackend['startCheckout'];
++  manageBilling: () => Promise<AuthResult>;
++}
++
++const AuthContext = createContext<AuthContextValue | null>(null);
++
++const EMPTY_SNAPSHOT: AuthSnapshot = { user: null, subscription: FREE_SUBSCRIPTION };
++
++export function AuthProvider({ children }: { children: ReactNode }) {
++  // The backend is created once and kept stable for the app's lifetime.
++  const backendRef = useRef<AuthBackend | null>(null);
++  if (backendRef.current === null) backendRef.current = resolveBackend();
++  const backend = backendRef.current;
++
++  const [snapshot, setSnapshot] = useState<AuthSnapshot>(EMPTY_SNAPSHOT);
++  const [loading, setLoading] = useState(true);
++
++  useEffect(() => {
++    let alive = true;
++    backend
++      .init()
++      .then((snap) => {
++        if (alive) setSnapshot(snap);
++      })
++      .finally(() => {
++        if (alive) setLoading(false);
++      });
++    const unsubscribe = backend.onChange((snap) => {
++      if (alive) setSnapshot(snap);
++    });
++    return () => {
++      alive = false;
++      unsubscribe();
++    };
++  }, [backend]);
++
++  const value = useMemo<AuthContextValue>(
++    () => ({
++      loading,
++      snapshot,
++      backend: backend.name,
++      signIn: backend.signIn.bind(backend),
++      signUp: backend.signUp.bind(backend),
++      signOut: backend.signOut.bind(backend),
++      startCheckout: backend.startCheckout.bind(backend),
++      manageBilling: backend.manageBilling
++        ? backend.manageBilling.bind(backend)
++        : async () => ({ ok: false, error: 'No disponible.' }),
++    }),
++    [backend, loading, snapshot],
++  );
++
++  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
++}
++
++export function useAuth(): AuthContextValue {
++  const ctx = useContext(AuthContext);
++  if (!ctx) throw new Error('useAuth debe usarse dentro de <AuthProvider>.');
++  return ctx;
++}
++
++export interface Entitlement {
++  plan: Plan;
++  isPremium: boolean;
++  subscription: Subscription;
++  /** Whether the signed-in user can open a given region. */
++  canAccessRegion: (region: string) => boolean;
++}
++
++/** Derived access info for the current user. */
++export function useEntitlement(): Entitlement {
++  const { snapshot } = useAuth();
++  const sub = snapshot.subscription;
++  return useMemo<Entitlement>(() => {
++    const isPremium = isPremiumActive(sub);
++    return {
++      plan: isPremium ? 'premium' : 'free',
++      isPremium,
++      subscription: sub,
++      canAccessRegion: (region: string) => canAccessRegion(region, sub),
++    };
++  }, [sub]);
++}
+diff --git a/src/auth/entitlements.ts b/src/auth/entitlements.ts
+new file mode 100644
+index 0000000..b4f07aa
+--- /dev/null
++++ b/src/auth/entitlements.ts
+@@ -0,0 +1,35 @@
++// src/auth/entitlements.ts
++//
++// The single source of truth for "what can this user access". Keeping the
++// free/premium policy here (not scattered across components) means pricing
++// experiments are a one-file change.
++//
++// Funnel: the shoulder region and the conceptual Fundamentos module are FREE
++// (a meaningful teaser), and every other region requires an active premium
++// subscription. Adjust FREE_REGIONS to change the free tier.
++
++import type { Subscription } from './types';
++
++/** Region ids usable without a subscription. */
++export const FREE_REGIONS = new Set<string>(['shoulder', 'fundamentos']);
++
++export type Plan = 'free' | 'premium';
++
++/** Statuses that grant premium access. */
++const PREMIUM_STATUSES = new Set<Subscription['status']>(['active', 'trialing']);
++
++/** Whether a subscription currently unlocks premium content. */
++export function isPremiumActive(sub: Subscription): boolean {
++  return sub.plan === 'premium' && PREMIUM_STATUSES.has(sub.status);
++}
++
++/** Whether a region is reachable given a subscription. */
++export function canAccessRegion(region: string, sub: Subscription): boolean {
++  if (FREE_REGIONS.has(region)) return true;
++  return isPremiumActive(sub);
++}
++
++/** Whether a region needs premium (regardless of the current user). */
++export function isRegionPremium(region: string): boolean {
++  return !FREE_REGIONS.has(region);
++}
+diff --git a/src/auth/mockProvider.ts b/src/auth/mockProvider.ts
+new file mode 100644
+index 0000000..c587b31
+--- /dev/null
++++ b/src/auth/mockProvider.ts
+@@ -0,0 +1,123 @@
++// src/auth/mockProvider.ts
++//
++// Zero-dependency, localStorage-backed implementation of AuthBackend. It exists
++// so the ENTIRE product funnel — sign up, sign in, hit the paywall, "upgrade",
++// unlock premium, sign out — works and is testable WITHOUT a Supabase project
++// or Stripe keys. It is selected automatically whenever the VITE_SUPABASE_*
++// env vars are absent (see AuthContext).
++//
++// Security note: this is intentionally insecure (passwords are not stored, any
++// password is accepted for a known email). It is a development stand-in, never
++// a production backend. The real provider is supabaseProvider.ts.
++
++import type {
++  AuthBackend,
++  AuthResult,
++  AuthSnapshot,
++  Subscription,
++} from './types';
++import { FREE_SUBSCRIPTION } from './types';
++
++const USER_KEY = 'anatris.mockauth.user';
++const SUB_KEY = 'anatris.mockauth.subscription';
++
++type Listener = (snap: AuthSnapshot) => void;
++
++function read<T>(key: string, fallback: T): T {
++  try {
++    const raw = window.localStorage.getItem(key);
++    return raw ? (JSON.parse(raw) as T) : fallback;
++  } catch {
++    return fallback;
++  }
++}
++
++function write(key: string, value: unknown): void {
++  try {
++    window.localStorage.setItem(key, JSON.stringify(value));
++  } catch {
++    /* storage unavailable: state just won't persist. Non-fatal. */
++  }
++}
++
++function isValidEmail(email: string): boolean {
++  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
++}
++
++export function createMockBackend(): AuthBackend {
++  const listeners = new Set<Listener>();
++
++  function snapshot(): AuthSnapshot {
++    return {
++      user: read(USER_KEY, null),
++      subscription: read<Subscription>(SUB_KEY, FREE_SUBSCRIPTION),
++    };
++  }
++
++  function emit(): void {
++    const snap = snapshot();
++    listeners.forEach((l) => l(snap));
++  }
++
++  return {
++    name: 'mock',
++
++    async init() {
++      return snapshot();
++    },
++
++    onChange(cb) {
++      listeners.add(cb);
++      return () => listeners.delete(cb);
++    },
++
++    async signIn(email, password): Promise<AuthResult> {
++      if (!isValidEmail(email)) {
++        return { ok: false, error: 'Introduce un correo válido.' };
++      }
++      if (password.length < 6) {
++        return { ok: false, error: 'La contraseña debe tener al menos 6 caracteres.' };
++      }
++      write(USER_KEY, { id: `mock-${email}`, email });
++      emit();
++      return { ok: true };
++    },
++
++    async signUp(email, password): Promise<AuthResult> {
++      // In the mock, sign up and sign in are equivalent.
++      return this.signIn(email, password);
++    },
++
++    async signOut() {
++      try {
++        window.localStorage.removeItem(USER_KEY);
++      } catch {
++        /* ignore */
++      }
++      emit();
++    },
++
++    async startCheckout(): Promise<AuthResult> {
++      const user = read<{ id: string } | null>(USER_KEY, null);
++      if (!user) {
++        return { ok: false, error: 'Inicia sesión para suscribirte.' };
++      }
++      // Simulate a successful Stripe Checkout: grant premium immediately.
++      const sub: Subscription = {
++        plan: 'premium',
++        status: 'active',
++        currentPeriodEnd: new Date(Date.now() + 30 * 864e5).toISOString(),
++      };
++      write(SUB_KEY, sub);
++      emit();
++      return { ok: true };
++    },
++
++    async manageBilling(): Promise<AuthResult> {
++      // Simulate the customer portal: toggle back to free (cancel).
++      write(SUB_KEY, FREE_SUBSCRIPTION);
++      emit();
++      return { ok: true };
++    },
++  };
++}
+diff --git a/src/auth/supabaseProvider.ts b/src/auth/supabaseProvider.ts
+new file mode 100644
+index 0000000..f5aa386
+--- /dev/null
++++ b/src/auth/supabaseProvider.ts
+@@ -0,0 +1,124 @@
++// src/auth/supabaseProvider.ts
++//
++// Real backend: Supabase Auth for identity + a Stripe Checkout edge function
++// for billing. Activated automatically when VITE_SUPABASE_URL and
++// VITE_SUPABASE_ANON_KEY are set (see AuthContext / isSupabaseConfigured).
++//
++// Expected backend pieces (see /supabase in the repo for the deployable code):
++//   - table `subscriptions` (user_id PK, plan, status, current_period_end),
++//     written by the Stripe webhook, readable by the owner via RLS.
++//   - edge function `create-checkout` -> returns { url } for Stripe Checkout.
++//   - edge function `billing-portal`  -> returns { url } for the Stripe portal.
++//
++// This file is fully type-checked against @supabase/supabase-js but cannot be
++// exercised end-to-end without a live project + keys; the mock covers local
++// testing of the funnel.
++
++import { createClient, type SupabaseClient } from '@supabase/supabase-js';
++import type {
++  AuthBackend,
++  AuthResult,
++  AuthSnapshot,
++  AuthUser,
++  Subscription,
++} from './types';
++import { FREE_SUBSCRIPTION } from './types';
++
++/** Shape of a row in the `subscriptions` table. */
++interface SubscriptionRow {
++  plan: 'premium' | null;
++  status: Subscription['status'];
++  current_period_end: string | null;
++}
++
++/** Translate a raw Supabase auth error into Spanish UI copy. */
++function friendly(error: { message?: string } | null): string | undefined {
++  if (!error?.message) return undefined;
++  const m = error.message.toLowerCase();
++  if (m.includes('invalid login')) return 'Correo o contraseña incorrectos.';
++  if (m.includes('already registered')) return 'Ese correo ya está registrado.';
++  if (m.includes('password')) return 'La contraseña no cumple los requisitos.';
++  return error.message;
++}
++
++export function createSupabaseBackend(url: string, anonKey: string): AuthBackend {
++  const supabase: SupabaseClient = createClient(url, anonKey);
++
++  async function fetchSubscription(userId: string): Promise<Subscription> {
++    const { data, error } = await supabase
++      .from('subscriptions')
++      .select('plan,status,current_period_end')
++      .eq('user_id', userId)
++      .maybeSingle<SubscriptionRow>();
++    if (error || !data) return FREE_SUBSCRIPTION;
++    return {
++      plan: data.plan,
++      status: data.status,
++      currentPeriodEnd: data.current_period_end ?? undefined,
++    };
++  }
++
++  async function snapshotFor(
++    user: { id: string; email?: string } | null,
++  ): Promise<AuthSnapshot> {
++    if (!user) return { user: null, subscription: FREE_SUBSCRIPTION };
++    const authUser: AuthUser = { id: user.id, email: user.email ?? '' };
++    const subscription = await fetchSubscription(user.id);
++    return { user: authUser, subscription };
++  }
++
++  return {
++    name: 'supabase',
++
++    async init() {
++      const { data } = await supabase.auth.getSession();
++      return snapshotFor(data.session?.user ?? null);
++    },
++
++    onChange(cb) {
++      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
++        // The callback must stay sync; resolve the snapshot then emit.
++        void snapshotFor(session?.user ?? null).then(cb);
++      });
++      return () => data.subscription.unsubscribe();
++    },
++
++    async signIn(email, password): Promise<AuthResult> {
++      const { error } = await supabase.auth.signInWithPassword({ email, password });
++      return error ? { ok: false, error: friendly(error) } : { ok: true };
++    },
++
++    async signUp(email, password): Promise<AuthResult> {
++      const { error } = await supabase.auth.signUp({ email, password });
++      return error ? { ok: false, error: friendly(error) } : { ok: true };
++    },
++
++    async signOut() {
++      await supabase.auth.signOut();
++    },
++
++    async startCheckout(): Promise<AuthResult> {
++      const { data, error } = await supabase.functions.invoke<{ url: string }>(
++        'create-checkout',
++        { body: { returnUrl: window.location.origin } },
++      );
++      if (error || !data?.url) {
++        return { ok: false, error: 'No se pudo iniciar el pago. Inténtalo de nuevo.' };
++      }
++      window.location.assign(data.url);
++      return { ok: true };
++    },
++
++    async manageBilling(): Promise<AuthResult> {
++      const { data, error } = await supabase.functions.invoke<{ url: string }>(
++        'billing-portal',
++        { body: { returnUrl: window.location.origin } },
++      );
++      if (error || !data?.url) {
++        return { ok: false, error: 'No se pudo abrir el portal de facturación.' };
++      }
++      window.location.assign(data.url);
++      return { ok: true };
++    },
++  };
++}
+diff --git a/src/auth/types.ts b/src/auth/types.ts
+new file mode 100644
+index 0000000..f85a81a
+--- /dev/null
++++ b/src/auth/types.ts
+@@ -0,0 +1,72 @@
++// src/auth/types.ts
++//
++// Provider-agnostic auth + billing contract. The rest of the app depends ONLY
++// on these types, never on Supabase or Stripe directly. Two implementations
++// satisfy this contract:
++//   - mockProvider:     localStorage-backed, works with zero configuration so
++//                       the whole sign-in / paywall / upgrade funnel is
++//                       demoable and testable today.
++//   - supabaseProvider: real Supabase Auth + a Stripe Checkout edge function,
++//                       activated automatically when the VITE_SUPABASE_* env
++//                       vars are present.
++// Swapping the backend later is a one-file change behind this seam.
++
++/** The signed-in user, reduced to what the UI needs. */
++export interface AuthUser {
++  id: string;
++  email: string;
++}
++
++/** Subscription state, mirrored from Stripe (via the backend) or the mock. */
++export interface Subscription {
++  /** 'premium' once a paid plan is active; null on the free tier. */
++  plan: 'premium' | null;
++  /** Lifecycle status. 'none' = never subscribed. */
++  status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'none';
++  /** ISO date the current paid period ends, when known. */
++  currentPeriodEnd?: string;
++}
++
++/** A full snapshot of auth state emitted to subscribers. */
++export interface AuthSnapshot {
++  user: AuthUser | null;
++  subscription: Subscription;
++}
++
++export const FREE_SUBSCRIPTION: Subscription = { plan: null, status: 'none' };
++
++/** Result of a credential operation, so the UI can show a friendly error. */
++export interface AuthResult {
++  ok: boolean;
++  /** User-facing (Spanish) error message when ok is false. */
++  error?: string;
++}
++
++/**
++ * The contract every backend implements. Methods are async and never throw for
++ * expected failures (bad password, email taken): they resolve an AuthResult so
++ * the UI handles them uniformly.
++ */
++export interface AuthBackend {
++  /** Human label shown in dev so it's obvious which backend is live. */
++  readonly name: 'mock' | 'supabase';
++
++  /** Resolve the initial snapshot (e.g. restore an existing session). */
++  init(): Promise<AuthSnapshot>;
++
++  /** Subscribe to snapshot changes. Returns an unsubscribe function. */
++  onChange(cb: (snap: AuthSnapshot) => void): () => void;
++
++  signIn(email: string, password: string): Promise<AuthResult>;
++  signUp(email: string, password: string): Promise<AuthResult>;
++  signOut(): Promise<void>;
++
++  /**
++   * Begin the upgrade flow. In production this redirects to Stripe Checkout;
++   * in the mock it immediately grants premium so the funnel can be demoed.
++   */
++  startCheckout(): Promise<AuthResult>;
++
++  /** Open the billing/management portal (Stripe portal in production). */
++  manageBilling?(): Promise<AuthResult>;
++}
+diff --git a/src/components/TopBar.tsx b/src/components/TopBar.tsx
+index 425b2c9..9b2b718 100644
+--- a/src/components/TopBar.tsx
++++ b/src/components/TopBar.tsx
+@@ -15,6 +15,9 @@
+ 
+ import { useEffect, useRef, useState } from 'react';
+ import { useAnatomyStore } from '../store/anatomyStore';
++import { useEntitlement } from '../auth/AuthContext';
++import { isRegionPremium } from '../auth/entitlements';
++import { AccountMenu } from './account/AccountMenu';
+ 
+ export type AppMode = 'explore' | 'learn' | 'study';
+ export type Overlay = 'none' | 'about' | 'legal';
+@@ -23,6 +26,27 @@ interface TopBarProps {
+   mode: AppMode;
+   setMode: (m: AppMode) => void;
+   setOverlay: (o: Overlay) => void;
++  /** Open the sign-in / sign-up modal. */
++  onOpenAuth: () => void;
++}
++
++/** Small lock glyph appended to premium modules the user can't access yet. */
++function LockGlyph() {
++  return (
++    <svg
++      width="11"
++      height="11"
++      viewBox="0 0 24 24"
++      fill="none"
++      stroke="currentColor"
++      strokeWidth="2"
++      className="opacity-70"
++      aria-label="Premium"
++    >
++      <rect x="5" y="11" width="14" height="10" rx="2" />
++      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
++    </svg>
++  );
+ }
+ 
+ // The spine is three first-class regions (peers of shoulder/elbow in the store)
+@@ -51,12 +75,17 @@ const MODULES: {
+   { label: 'Rodilla', region: 'knee', enabled: true },
+ ];
+ 
+-export function TopBar({ mode, setMode, setOverlay }: TopBarProps) {
++export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
+   const setPaletteOpen = useAnatomyStore((s) => s.setPaletteOpen);
+   const region = useAnatomyStore((s) => s.region);
+   const setRegion = useAnatomyStore((s) => s.setRegion);
+   const clearSelection = useAnatomyStore((s) => s.clearSelection);
+   const activeRegion = region ?? 'shoulder';
++  const entitlement = useEntitlement();
++
++  /** A module shows a lock when it's premium and the user can't open it yet. */
++  const showLock = (regionId: string) =>
++    isRegionPremium(regionId) && !entitlement.canAccessRegion(regionId);
+ 
+   // Spine submenu open/close. Local UI state only; nothing touches the store.
+   const [spineOpen, setSpineOpen] = useState(false);
+@@ -119,6 +148,7 @@ export function TopBar({ mode, setMode, setOverlay }: TopBarProps) {
+                   ].join(' ')}
+                 >
+                   {m.label}
++                  {showLock('cervical') && <LockGlyph />}
+                   <svg
+                     width="12"
+                     height="12"
+@@ -180,7 +210,7 @@ export function TopBar({ mode, setMode, setOverlay }: TopBarProps) {
+                 clearSelection();
+               }}
+               className={[
+-                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
++                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                 isActive
+                   ? 'bg-slate-800/60 text-slate-100'
+                   : m.enabled
+@@ -189,6 +219,7 @@ export function TopBar({ mode, setMode, setOverlay }: TopBarProps) {
+               ].join(' ')}
+             >
+               {m.label}
++              {m.region && showLock(m.region) && <LockGlyph />}
+             </button>
+           );
+         })}
+@@ -227,12 +258,15 @@ export function TopBar({ mode, setMode, setOverlay }: TopBarProps) {
+         Legal
+       </button>
+ 
+-      {/* Mode toggle: Explorar / Aprender */}
++      {/* Mode toggle: Explorar / Aprender / Estudiar */}
+       <div className="flex shrink-0 items-center gap-1 rounded-xl border border-slate-800/60 bg-slate-900/60 p-1">
+         <ModeButton id="explore" label="Explorar" mode={mode} setMode={setMode} />
+         <ModeButton id="learn" label="Aprender" mode={mode} setMode={setMode} />
+         <ModeButton id="study" label="Estudiar" mode={mode} setMode={setMode} />
+       </div>
++
++      {/* Account / subscription */}
++      <AccountMenu onOpenAuth={onOpenAuth} />
+     </header>
+   );
+ }
+diff --git a/src/components/account/AccountMenu.tsx b/src/components/account/AccountMenu.tsx
+new file mode 100644
+index 0000000..1673d11
+--- /dev/null
++++ b/src/components/account/AccountMenu.tsx
+@@ -0,0 +1,123 @@
++// src/components/account/AccountMenu.tsx
++//
++// TopBar account control. Signed out: a "Iniciar sesión" button. Signed in: a
++// menu showing the email, the plan badge, and actions (upgrade / manage billing
++// / sign out). Lives in the header flow like the other TopBar controls.
++
++import { useEffect, useRef, useState } from 'react';
++import { useAuth, useEntitlement } from '../../auth/AuthContext';
++
++export function AccountMenu({ onOpenAuth }: { onOpenAuth: () => void }) {
++  const { snapshot, signOut, startCheckout, manageBilling } = useAuth();
++  const { isPremium } = useEntitlement();
++  const [open, setOpen] = useState(false);
++  const ref = useRef<HTMLDivElement>(null);
++
++  useEffect(() => {
++    if (!open) return;
++    const onDown = (e: MouseEvent) => {
++      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
++    };
++    document.addEventListener('mousedown', onDown);
++    return () => document.removeEventListener('mousedown', onDown);
++  }, [open]);
++
++  if (!snapshot.user) {
++    return (
++      <button
++        type="button"
++        onClick={onOpenAuth}
++        className="shrink-0 rounded-lg border border-slate-800/80 px-3 py-1.5 text-sm font-medium text-slate-300 transition-colors hover:border-slate-700 hover:text-slate-100"
++      >
++        Iniciar sesión
++      </button>
++    );
++  }
++
++  const initial = snapshot.user.email.charAt(0).toUpperCase() || '?';
++
++  return (
++    <div ref={ref} className="relative shrink-0">
++      <button
++        type="button"
++        onClick={() => setOpen((o) => !o)}
++        className="flex items-center gap-2 rounded-lg border border-slate-800/80 px-2 py-1.5 text-sm transition-colors hover:border-slate-700"
++      >
++        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/20 text-xs font-bold text-accent">
++          {initial}
++        </span>
++        <span
++          className={`hidden rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide lg:inline ${
++            isPremium ? 'bg-emerald-600/20 text-emerald-300' : 'bg-slate-800 text-slate-400'
++          }`}
++        >
++          {isPremium ? 'Premium' : 'Free'}
++        </span>
++      </button>
++
++      {open && (
++        <div className="absolute right-0 top-full z-50 mt-1 w-60 overflow-hidden rounded-xl border border-slate-800/80 bg-ink-950/95 p-1 shadow-xl backdrop-blur">
++          <div className="px-3 py-2">
++            <p className="truncate text-sm font-medium text-slate-200">
++              {snapshot.user.email}
++            </p>
++            <p className="text-xs text-slate-500">
++              Plan {isPremium ? 'Premium' : 'Gratuito'}
++            </p>
++          </div>
++          <div className="my-1 h-px bg-slate-800/60" />
++
++          {!isPremium ? (
++            <MenuItem
++              label="Mejorar a Premium"
++              accent
++              onClick={async () => {
++                setOpen(false);
++                await startCheckout();
++              }}
++            />
++          ) : (
++            <MenuItem
++              label="Gestionar suscripción"
++              onClick={async () => {
++                setOpen(false);
++                await manageBilling();
++              }}
++            />
++          )}
++          <MenuItem
++            label="Cerrar sesión"
++            onClick={async () => {
++              setOpen(false);
++              await signOut();
++            }}
++          />
++        </div>
++      )}
++    </div>
++  );
++}
++
++function MenuItem({
++  label,
++  onClick,
++  accent,
++}: {
++  label: string;
++  onClick: () => void;
++  accent?: boolean;
++}) {
++  return (
++    <button
++      type="button"
++      onClick={onClick}
++      className={`block w-full rounded-lg px-3 py-1.5 text-left text-sm font-medium transition-colors ${
++        accent
++          ? 'text-accent hover:bg-accent/10'
++          : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100'
++      }`}
++    >
++      {label}
++    </button>
++  );
++}
+diff --git a/src/components/account/AuthModal.tsx b/src/components/account/AuthModal.tsx
+new file mode 100644
+index 0000000..600daf8
+--- /dev/null
++++ b/src/components/account/AuthModal.tsx
+@@ -0,0 +1,135 @@
++// src/components/account/AuthModal.tsx
++//
++// Email/password sign-in & sign-up modal. Talks only to useAuth(), so it works
++// identically on the mock backend (local testing) and on real Supabase.
++
++import { useState } from 'react';
++import { useAuth } from '../../auth/AuthContext';
++
++type Tab = 'signin' | 'signup';
++
++export function AuthModal({
++  open,
++  onClose,
++}: {
++  open: boolean;
++  onClose: () => void;
++}) {
++  const { signIn, signUp, backend } = useAuth();
++  const [tab, setTab] = useState<Tab>('signin');
++  const [email, setEmail] = useState('');
++  const [password, setPassword] = useState('');
++  const [error, setError] = useState<string | null>(null);
++  const [busy, setBusy] = useState(false);
++
++  if (!open) return null;
++
++  async function submit(e: React.FormEvent) {
++    e.preventDefault();
++    setBusy(true);
++    setError(null);
++    const fn = tab === 'signin' ? signIn : signUp;
++    const res = await fn(email.trim(), password);
++    setBusy(false);
++    if (res.ok) {
++      onClose();
++      setEmail('');
++      setPassword('');
++    } else {
++      setError(res.error ?? 'No se pudo completar la operación.');
++    }
++  }
++
++  return (
++    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
++      <button
++        type="button"
++        aria-label="Cerrar"
++        onClick={onClose}
++        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
++      />
++      <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-slate-800/60 bg-ink-950 shadow-2xl">
++        <div className="flex gap-1 border-b border-slate-800/60 p-1">
++          <TabBtn id="signin" label="Iniciar sesión" tab={tab} setTab={setTab} />
++          <TabBtn id="signup" label="Crear cuenta" tab={tab} setTab={setTab} />
++        </div>
++
++        <form onSubmit={submit} className="flex flex-col gap-3 px-5 py-5">
++          <label className="flex flex-col gap-1 text-xs font-medium text-slate-400">
++            Correo
++            <input
++              type="email"
++              required
++              value={email}
++              onChange={(e) => setEmail(e.target.value)}
++              className="rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent/60"
++              placeholder="tu@correo.com"
++            />
++          </label>
++          <label className="flex flex-col gap-1 text-xs font-medium text-slate-400">
++            Contraseña
++            <input
++              type="password"
++              required
++              minLength={6}
++              value={password}
++              onChange={(e) => setPassword(e.target.value)}
++              className="rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent/60"
++              placeholder="Mínimo 6 caracteres"
++            />
++          </label>
++
++          {error && (
++            <p className="rounded-lg border border-rose-900/40 bg-rose-950/30 px-3 py-2 text-xs text-rose-300">
++              {error}
++            </p>
++          )}
++
++          <button
++            type="submit"
++            disabled={busy}
++            className="mt-1 rounded-lg bg-accent/20 px-4 py-2.5 text-sm font-medium text-accent transition-colors hover:bg-accent/30 disabled:opacity-50"
++          >
++            {busy
++              ? 'Procesando…'
++              : tab === 'signin'
++                ? 'Entrar'
++                : 'Crear cuenta'}
++          </button>
++
++          {backend === 'mock' && (
++            <p className="text-center text-[11px] leading-relaxed text-slate-600">
++              Modo demo (sin Supabase configurado): cualquier correo válido y una
++              contraseña de 6+ caracteres inician sesión.
++            </p>
++          )}
++        </form>
++      </div>
++    </div>
++  );
++}
++
++function TabBtn({
++  id,
++  label,
++  tab,
++  setTab,
++}: {
++  id: Tab;
++  label: string;
++  tab: Tab;
++  setTab: (t: Tab) => void;
++}) {
++  const active = tab === id;
++  return (
++    <button
++      type="button"
++      onClick={() => setTab(id)}
++      className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
++        active ? 'bg-accent/20 text-accent' : 'text-slate-400 hover:text-slate-200'
++      }`}
++    >
++      {label}
++    </button>
++  );
++}
+diff --git a/src/components/account/Paywall.tsx b/src/components/account/Paywall.tsx
+new file mode 100644
+index 0000000..89a74bc
+--- /dev/null
++++ b/src/components/account/Paywall.tsx
+@@ -0,0 +1,106 @@
++// src/components/account/Paywall.tsx
++//
++// Shown in place of a premium region's content when the user isn't subscribed.
++// Drives the upgrade funnel: sign in (if needed) -> subscribe -> unlock. On the
++// mock backend "Suscribirme" grants premium instantly so the flow is demoable.
++
++import { useState } from 'react';
++import { useAuth } from '../../auth/AuthContext';
++import { REGIONS } from '../../data/regiones';
++
++const PREMIUM_BENEFITS = [
++  'Todas las regiones: hombro, codo, columna y rodilla',
++  'Cuestionarios y tarjetas de estudio de cada región',
++  'Rangos de movimiento y guías de biomecánica',
++  'Tu progreso sincronizado en todos tus dispositivos',
++];
++
++export function Paywall({
++  region,
++  onOpenAuth,
++}: {
++  region: string;
++  onOpenAuth: () => void;
++}) {
++  const { snapshot, startCheckout } = useAuth();
++  const [busy, setBusy] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++  const regionName = REGIONS[region]?.name ?? 'esta región';
++
++  async function upgrade() {
++    if (!snapshot.user) {
++      onOpenAuth();
++      return;
++    }
++    setBusy(true);
++    setError(null);
++    const res = await startCheckout();
++    setBusy(false);
++    if (!res.ok) setError(res.error ?? 'No se pudo iniciar el pago.');
++  }
++
++  return (
++    <div className="flex h-full items-center justify-center overflow-y-auto px-6 py-8">
++      <div className="w-full max-w-md rounded-2xl border border-slate-800/60 bg-slate-900/40 p-8 text-center">
++        <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-accent">
++          <LockIcon /> Contenido Premium
++        </span>
++
++        <h2 className="mt-4 font-display text-xl font-bold text-slate-50">
++          Desbloquea {regionName} y todo Anatris
++        </h2>
++        <p className="mt-2 text-sm text-slate-400">
++          La región del hombro y Fundamentos son gratuitas. Suscríbete para
++          acceder al resto del cuerpo y a todas las herramientas de estudio.
++        </p>
++
++        <ul className="mx-auto mt-5 flex max-w-xs flex-col gap-2 text-left">
++          {PREMIUM_BENEFITS.map((b) => (
++            <li key={b} className="flex items-start gap-2 text-sm text-slate-300">
++              <CheckIcon /> {b}
++            </li>
++          ))}
++        </ul>
++
++        {error && (
++          <p className="mt-4 rounded-lg border border-rose-900/40 bg-rose-950/30 px-3 py-2 text-xs text-rose-300">
++            {error}
++          </p>
++        )}
++
++        <button
++          type="button"
++          onClick={upgrade}
++          disabled={busy}
++          className="mt-6 w-full rounded-lg bg-accent/20 px-5 py-3 text-sm font-semibold text-accent transition-colors hover:bg-accent/30 disabled:opacity-50"
++        >
++          {busy
++            ? 'Procesando…'
++            : snapshot.user
++              ? 'Suscribirme a Premium'
++              : 'Inicia sesión para suscribirte'}
++        </button>
++
++        <p className="mt-3 text-[11px] text-slate-600">
++          Cancela cuando quieras. El pago se procesa de forma segura con Stripe.
++        </p>
++      </div>
++    </div>
++  );
++}
++
++function LockIcon() {
++  return (
++    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
++      <rect x="5" y="11" width="14" height="10" rx="2" />
++      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
++    </svg>
++  );
++}
++function CheckIcon() {
++  return (
++    <svg className="mt-0.5 shrink-0 text-emerald-400" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
++      <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
++    </svg>
++  );
++}
+diff --git a/src/main.tsx b/src/main.tsx
+index cb8804f..823b524 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,7 @@
+ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import App from './App';
++import { AuthProvider } from './auth/AuthContext';
+ import './index.css';
+ 
+ const rootEl = document.getElementById('root');
+@@ -9,6 +10,8 @@ if (!rootEl) throw new Error('Root element #root not found');
+ 
+ createRoot(rootEl).render(
+   <StrictMode>
+-    <App />
++    <AuthProvider>
++      <App />
++    </AuthProvider>
+   </StrictMode>,
+ );
+diff --git a/supabase/README.md b/supabase/README.md
+new file mode 100644
+index 0000000..4e56dfb
+--- /dev/null
++++ b/supabase/README.md
+@@ -0,0 +1,65 @@
++# Backend de Anatris — Supabase + Stripe
++
++Esta carpeta contiene el código **desplegable** que activa la autenticación y la
++suscripción reales. **No forma parte del build de la app** (Vite solo compila
++`src/`); son funciones Deno + SQL que se despliegan en tu proyecto Supabase.
++
++Mientras no configures esto, la app funciona en **modo demo** con un backend
++simulado (mock) en `localStorage`, así que puedes desarrollar y probar todo el
++embudo (registro → muro de pago → "suscribirme" → premium) sin cuentas.
++
++## Arquitectura
++
++```
++Frontend (src/auth)                Supabase                     Stripe
++─────────────────────              ──────────────────────       ──────────────
++useAuth() / useEntitlement()       Auth (correo+contraseña)
++  │                                tabla public.subscriptions
++  ├─ signIn/signUp ───────────────▶ Supabase Auth
++  ├─ startCheckout ───────────────▶ fn create-checkout ────────▶ Checkout Session
++  │                                                              (redirección)
++  │                                 fn stripe-webhook  ◀──────── customer.subscription.*
++  │                                   └─ upsert subscriptions
++  └─ fetchSubscription ◀──────────── select subscriptions (RLS: dueño)
++```
++
++El **webhook es la única fuente de verdad**: el frontend nunca escribe el estado
++de la suscripción, solo lo lee (protegido por Row Level Security).
++
++## Puesta en marcha
++
++1. **Crea un proyecto en Supabase** y copia en tu `.env` (ver `.env.example`):
++   ```
++   VITE_SUPABASE_URL=...
++   VITE_SUPABASE_ANON_KEY=...
++   ```
++   Con eso, la app deja el mock y usa Supabase automáticamente.
++
++2. **Crea la tabla** ejecutando `schema.sql` en el SQL Editor.
++
++3. **Crea el producto/precio en Stripe** (modo suscripción) y guarda el
++   `price_...`.
++
++4. **Configura los secretos** de las funciones:
++   ```bash
++   supabase secrets set \
++     STRIPE_SECRET_KEY=sk_live_... \
++     STRIPE_PRICE_PREMIUM=price_... \
++     STRIPE_WEBHOOK_SECRET=whsec_...
++   ```
++
++5. **Despliega las funciones**:
++   ```bash
++   supabase functions deploy create-checkout
++   supabase functions deploy billing-portal
++   supabase functions deploy stripe-webhook --no-verify-jwt
++   ```
++
++6. **Registra el webhook en Stripe** apuntando a la URL de `stripe-webhook` y
++   suscríbete a los eventos `customer.subscription.created/updated/deleted`.
++   Copia el `whsec_...` resultante al secreto `STRIPE_WEBHOOK_SECRET`.
++
++## Política de acceso (free vs premium)
++
++Se define en `src/auth/entitlements.ts`. Hoy: **Hombro y Fundamentos gratis**, el
++resto premium. Cambiar el plan gratuito es editar `FREE_REGIONS`.
+diff --git a/supabase/functions/billing-portal/index.ts b/supabase/functions/billing-portal/index.ts
+new file mode 100644
+index 0000000..cb754c6
+--- /dev/null
++++ b/supabase/functions/billing-portal/index.ts
+@@ -0,0 +1,66 @@
++// supabase/functions/billing-portal/index.ts
++//
++// Opens the Stripe Customer Portal so a subscribed user can update payment
++// methods, see invoices, or cancel. The frontend calls this via
++// supabase.functions.invoke('billing-portal') and redirects to { url }.
++//
++// Deploy:
++//   supabase functions deploy billing-portal
++// Required secrets: STRIPE_SECRET_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
++//
++// Deployable reference code; not part of the Vite app build.
++
++import Stripe from 'npm:stripe@^16';
++import { createClient } from 'jsr:@supabase/supabase-js@2';
++
++const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!);
++
++const cors = {
++  'Access-Control-Allow-Origin': '*',
++  'Access-Control-Allow-Headers': 'authorization, content-type',
++};
++
++Deno.serve(async (req) => {
++  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
++
++  try {
++    const supabase = createClient(
++      Deno.env.get('SUPABASE_URL')!,
++      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
++      { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
++    );
++    const {
++      data: { user },
++    } = await supabase.auth.getUser();
++    if (!user) return json({ error: 'No autenticado' }, 401);
++
++    const { data } = await supabase
++      .from('subscriptions')
++      .select('stripe_customer_id')
++      .eq('user_id', user.id)
++      .maybeSingle();
++
++    const customerId = data?.stripe_customer_id as string | undefined;
++    if (!customerId) return json({ error: 'Sin cliente de Stripe' }, 400);
++
++    const { returnUrl } = (await req.json().catch(() => ({}))) as {
++      returnUrl?: string;
++    };
++
++    const session = await stripe.billingPortal.sessions.create({
++      customer: customerId,
++      return_url: returnUrl ?? new URL(req.url).origin,
++    });
++
++    return json({ url: session.url });
++  } catch (err) {
++    return json({ error: (err as Error).message }, 500);
++  }
++});
++
++function json(body: unknown, status = 200): Response {
++  return new Response(JSON.stringify(body), {
++    status,
++    headers: { ...cors, 'Content-Type': 'application/json' },
++  });
++}
+diff --git a/supabase/functions/create-checkout/index.ts b/supabase/functions/create-checkout/index.ts
+new file mode 100644
+index 0000000..0358d3a
+--- /dev/null
++++ b/supabase/functions/create-checkout/index.ts
+@@ -0,0 +1,93 @@
++// supabase/functions/create-checkout/index.ts
++//
++// Stripe Checkout edge function (Deno). The frontend calls this via
++// supabase.functions.invoke('create-checkout'); it returns { url } and the
++// client redirects the user to Stripe's hosted checkout.
++//
++// Deploy:
++//   supabase functions deploy create-checkout
++// Required secrets (supabase secrets set ...):
++//   STRIPE_SECRET_KEY        sk_live_... / sk_test_...
++//   STRIPE_PRICE_PREMIUM     price_...   (your monthly/annual price id)
++//   SUPABASE_URL             (auto-injected in functions)
++//   SUPABASE_SERVICE_ROLE_KEY (auto-injected in functions)
++//
++// NOTE: this is deployable reference code. It is NOT part of the Vite app build
++// and is intentionally not type-checked by the app's tsconfig (Deno runtime).
++
++import Stripe from 'npm:stripe@^16';
++import { createClient } from 'jsr:@supabase/supabase-js@2';
++
++const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!);
++const PRICE = Deno.env.get('STRIPE_PRICE_PREMIUM')!;
++
++const cors = {
++  'Access-Control-Allow-Origin': '*',
++  'Access-Control-Allow-Headers': 'authorization, content-type',
++};
++
++Deno.serve(async (req) => {
++  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
++
++  try {
++    const authHeader = req.headers.get('Authorization') ?? '';
++    // Identify the caller from their Supabase JWT.
++    const supabase = createClient(
++      Deno.env.get('SUPABASE_URL')!,
++      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
++      { global: { headers: { Authorization: authHeader } } },
++    );
++    const {
++      data: { user },
++    } = await supabase.auth.getUser();
++    if (!user) {
++      return json({ error: 'No autenticado' }, 401);
++    }
++
++    const { returnUrl } = (await req.json().catch(() => ({}))) as {
++      returnUrl?: string;
++    };
++    const base = returnUrl ?? new URL(req.url).origin;
++
++    // Reuse an existing Stripe customer for this user if we have one.
++    const { data: existing } = await supabase
++      .from('subscriptions')
++      .select('stripe_customer_id')
++      .eq('user_id', user.id)
++      .maybeSingle();
++
++    let customerId = existing?.stripe_customer_id as string | undefined;
++    if (!customerId) {
++      const customer = await stripe.customers.create({
++        email: user.email,
++        metadata: { supabase_user_id: user.id },
++      });
++      customerId = customer.id;
++      await supabase
++        .from('subscriptions')
++        .upsert({ user_id: user.id, stripe_customer_id: customerId });
++    }
++
++    const session = await stripe.checkout.sessions.create({
++      mode: 'subscription',
++      customer: customerId,
++      line_items: [{ price: PRICE, quantity: 1 }],
++      success_url: `${base}/?checkout=success`,
++      cancel_url: `${base}/?checkout=cancel`,
++      // So the webhook can map the event back to our user even if metadata
++      // on the customer is missing.
++      subscription_data: { metadata: { supabase_user_id: user.id } },
++    });
++
++    return json({ url: session.url });
++  } catch (err) {
++    return json({ error: (err as Error).message }, 500);
++  }
++});
++
++function json(body: unknown, status = 200): Response {
++  return new Response(JSON.stringify(body), {
++    status,
++    headers: { ...cors, 'Content-Type': 'application/json' },
++  });
++}
+diff --git a/supabase/functions/stripe-webhook/index.ts b/supabase/functions/stripe-webhook/index.ts
+new file mode 100644
+index 0000000..576f8f7
+--- /dev/null
++++ b/supabase/functions/stripe-webhook/index.ts
+@@ -0,0 +1,78 @@
++// supabase/functions/stripe-webhook/index.ts
++//
++// Stripe webhook (Deno). The single source of truth that keeps the
++// `subscriptions` table in sync with Stripe. Point a Stripe webhook endpoint at
++// this function and subscribe to the customer.subscription.* events.
++//
++// Deploy (must be PUBLIC — Stripe calls it without a Supabase JWT):
++//   supabase functions deploy stripe-webhook --no-verify-jwt
++// Required secrets:
++//   STRIPE_SECRET_KEY
++//   STRIPE_WEBHOOK_SECRET    whsec_...  (from the Stripe webhook settings)
++//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (auto-injected)
++//
++// Deployable reference code; not part of the Vite app build.
++
++import Stripe from 'npm:stripe@^16';
++import { createClient } from 'jsr:@supabase/supabase-js@2';
++
++const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!);
++const WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
++
++const admin = createClient(
++  Deno.env.get('SUPABASE_URL')!,
++  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
++);
++
++// Stripe subscription statuses that mean "premium is on".
++const ACTIVE = new Set(['active', 'trialing']);
++
++Deno.serve(async (req) => {
++  const signature = req.headers.get('stripe-signature');
++  if (!signature) return new Response('Missing signature', { status: 400 });
++
++  const body = await req.text();
++  let event: Stripe.Event;
++  try {
++    event = await stripe.webhooks.constructEventAsync(
++      body,
++      signature,
++      WEBHOOK_SECRET,
++    );
++  } catch (err) {
++    return new Response(`Invalid signature: ${(err as Error).message}`, {
++      status: 400,
++    });
++  }
++
++  if (event.type.startsWith('customer.subscription.')) {
++    const sub = event.data.object as Stripe.Subscription;
++    const userId = sub.metadata?.supabase_user_id;
++    const customerId =
++      typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
++
++    const isActive = ACTIVE.has(sub.status);
++    const row = {
++      plan: isActive ? 'premium' : null,
++      status: sub.status,
++      stripe_customer_id: customerId,
++      stripe_subscription_id: sub.id,
++      current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
++      updated_at: new Date().toISOString(),
++    };
++
++    // Prefer matching by our user id; fall back to the Stripe customer id.
++    if (userId) {
++      await admin.from('subscriptions').upsert({ user_id: userId, ...row });
++    } else {
++      await admin
++        .from('subscriptions')
++        .update(row)
++        .eq('stripe_customer_id', customerId);
++    }
++  }
++
++  return new Response(JSON.stringify({ received: true }), {
++    headers: { 'Content-Type': 'application/json' },
++  });
++});
+diff --git a/supabase/schema.sql b/supabase/schema.sql
+new file mode 100644
+index 0000000..e41caf5
+--- /dev/null
++++ b/supabase/schema.sql
+@@ -0,0 +1,35 @@
++-- Anatris — esquema de suscripciones para Supabase.
++-- Ejecutar en el SQL Editor del proyecto (o vía `supabase db push`).
++--
++-- Modelo: una fila por usuario con su estado de suscripción, escrita SOLO por
++-- el webhook de Stripe (service role) y legible por su dueño mediante RLS. El
++-- frontend lee esta tabla a través de supabaseProvider.fetchSubscription().
++
++create table if not exists public.subscriptions (
++  user_id                uuid primary key references auth.users (id) on delete cascade,
++  plan                   text,                       -- 'premium' | null
++  status                 text not null default 'none',
++  stripe_customer_id     text,
++  stripe_subscription_id text,
++  current_period_end     timestamptz,
++  updated_at             timestamptz not null default now()
++);
++
++-- Búsqueda rápida por el cliente de Stripe (la usa el webhook).
++create index if not exists subscriptions_stripe_customer_idx
++  on public.subscriptions (stripe_customer_id);
++
++-- ---------------------------------------------------------------------------
++-- Row Level Security: cada usuario solo ve SU fila. Nadie puede escribir desde
++-- el cliente; las escrituras llegan del webhook con la service role key, que
++-- evita RLS por diseño.
++-- ---------------------------------------------------------------------------
++alter table public.subscriptions enable row level security;
++
++drop policy if exists "subscriptions_select_own" on public.subscriptions;
++create policy "subscriptions_select_own"
++  on public.subscriptions
++  for select
++  using (auth.uid() = user_id);
++
++-- (Sin políticas de insert/update/delete: el cliente NUNCA escribe aquí.)
