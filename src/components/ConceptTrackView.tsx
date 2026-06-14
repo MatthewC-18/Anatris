@@ -38,7 +38,10 @@ export function ConceptTrackView({ track }: ConceptTrackViewProps) {
 
   return (
     <section className="flex h-full w-full flex-col bg-ink-900/40">
-      {/* Section tab strip (numbered, like the 7-phase strip). */}
+      {/* Section tab strip (numbered). In a narrow side panel, showing all 8
+          full titles overflows, so inactive tabs collapse to just their number
+          and only the ACTIVE tab reveals its title. Hovering an inactive tab
+          still shows its summary via the title attribute. */}
       <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-slate-800/60 px-3 py-2">
         {track.sections.map((s, i) => {
           const isActive = s.id === active?.id;
@@ -47,15 +50,16 @@ export function ConceptTrackView({ track }: ConceptTrackViewProps) {
               key={s.id}
               type="button"
               onClick={() => setActiveId(s.id)}
-              title={s.summary}
-              className={`group flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+              title={s.title}
+              aria-label={s.title}
+              className={`group flex shrink-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors ${
                 isActive
                   ? 'bg-accent/15 text-accent'
                   : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
               }`}
             >
               <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
                   isActive
                     ? 'bg-accent/30 text-accent'
                     : 'bg-slate-800/70 text-slate-400'
@@ -63,7 +67,9 @@ export function ConceptTrackView({ track }: ConceptTrackViewProps) {
               >
                 {i + 1}
               </span>
-              <span className="font-medium">{s.title}</span>
+              {isActive && (
+                <span className="whitespace-nowrap font-medium">{s.title}</span>
+              )}
             </button>
           );
         })}

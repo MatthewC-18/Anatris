@@ -38,6 +38,7 @@ import { create } from 'zustand';
 import { ANATOMICAL_LAYERS } from '../lib/anatomyMeta';
 import type { AnatomyLayer, CameraView } from '../types/anatomy';
 import type { RomMuscleRole } from '../types/rom';
+import type { ConceptOverlay } from '../types/concept';
 
 /** The side-filter values exposed in the UI. */
 export type SideFilter = 'both' | 'right' | 'left';
@@ -144,6 +145,10 @@ interface AnatomyState {
 
   focusRequest: FocusRequest | null;
   requestFocus: (meshNames: string[]) => void;
+
+  /* ----- concept overlay (Fundamentos: planes / axes over the model) ----- */
+  conceptOverlay: ConceptOverlay;
+  requestConceptOverlay: (overlay: ConceptOverlay) => void;
 }
 
 export const useAnatomyStore = create<AnatomyState>((set) => ({
@@ -178,7 +183,13 @@ export const useAnatomyStore = create<AnatomyState>((set) => ({
 
   /* ----- region ----- */
   region: null,
-  setRegion: (region) => set({ region }),
+  // Leaving the concept module (or switching regions) drops any concept overlay
+  // so planes/axes never linger over an anatomical region.
+  setRegion: (region) =>
+    set((s) => ({
+      region,
+      conceptOverlay: region === 'fundamentos' ? s.conceptOverlay : 'none',
+    })),
 
   /* ----- selection / hover ----- */
   selectedMeshName: null,
@@ -265,4 +276,11 @@ export const useAnatomyStore = create<AnatomyState>((set) => ({
         nonce: (s.focusRequest?.nonce ?? 0) + 1,
       },
     })),
+
+  /* ----- concept overlay -----
+   * Persistent flag (NOT a nonce-style request): the overlay stays drawn while
+   * the section that asked for it is active, and is cleared when leaving the
+   * concept module. ConceptTrackView already calls this defensively. */
+  conceptOverlay: 'none',
+  requestConceptOverlay: (overlay) => set({ conceptOverlay: overlay }),
 }));

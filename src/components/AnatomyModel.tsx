@@ -60,6 +60,7 @@ import type { MuscleResolution } from '../lib/muscleResolver';
 import { parseMeshName, type MusclePart } from '../lib/parseMeshName';
 import { musclesForRegion } from '../data/musclesByRegion';
 import { REGIONS, resolveRegionMeshes } from '../data/regiones';
+import { isConceptModule } from '../data/conceptByRegion';
 import type { RomMuscleRole } from '../types/rom';
 const MODEL_URL = '/modelo-opt.glb';
 useGLTF.preload(MODEL_URL);
@@ -793,6 +794,10 @@ export function AnatomyModel({
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
+    // In a conceptual module (Fundamentos) the body is just the canvas for the
+    // planes/axes overlay; there is no per-muscle study, so a click selects
+    // nothing (and never lights a muscle up).
+    if (isConceptModule(region)) return;
     const mesh = pickFromIntersections(e.intersections);
     if (!mesh) return;
     selectMesh(mesh.name);
@@ -802,6 +807,8 @@ export function AnatomyModel({
 
   const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
+    // No hover highlight in conceptual modules (see handleClick).
+    if (isConceptModule(region)) return;
     const mesh = pickFromIntersections(
       e.intersections as unknown as ThreeEvent<MouseEvent>['intersections'],
     );

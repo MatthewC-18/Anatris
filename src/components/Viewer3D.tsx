@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { AnatomyModel } from './AnatomyModel';
 import { AttachmentMarkers } from './AttachmentMarkers';
 import { RomMuscleMarkers } from './RomMuscleMarkers';
+import { ConceptOverlay3D } from './ConceptOverlay3D';
 import { CanvasLoader } from './CanvasLoader';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { parseMeshName } from '../lib/parseMeshName';
@@ -152,7 +153,11 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
 
     const meta = VIEW_META[cameraRequest.view];
     const dir = new THREE.Vector3(...meta.dir).normalize();
-    const distance = radius * 2.6;
+    // When a concept overlay (planes/axes) is showing, pull back further: the
+    // overlay extends past the body, so we need extra margin to see the full
+    // planes and axis labels rather than filling the frame with the torso.
+    const overlayActive = useAnatomyStore.getState().conceptOverlay !== 'none';
+    const distance = radius * (overlayActive ? 3.6 : 2.6);
     const camPos = center.clone().add(dir.multiplyScalar(distance));
 
     void controls.setLookAt(
@@ -293,6 +298,11 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
       {/* Numbered identity pins for muscles active in a ROM highlight. Sibling
           of AttachmentMarkers; overlay-only, does not touch material logic. */}
       <RomMuscleMarkers resolution={resolution} />
+
+      {/* Fundamentos concept overlay: cardinal planes / axes through the whole
+          body. Inert (renders null) unless the store's conceptOverlay is set,
+          so anatomical regions are completely unaffected. */}
+      <ConceptOverlay3D />
 
       <CameraControls
         ref={controlsRef}

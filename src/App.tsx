@@ -44,22 +44,43 @@ import {
   MedicalDisclaimerScreen,
 } from './components/MedicalDisclaimer';
 import { REGIONS, resolveRegionMeshes } from './data/regiones';
+import { isConceptModule } from './data/conceptByRegion';
 
 /** Which mobile drawer (if any) is open. Desktop never opens these. */
 type Drawer = 'none' | 'sidebar' | 'selection';
 
 /* ---------------------------------------------------------------------------
- * PERSISTENCE HOOK (production wiring point)
+ * DISCLAIMER PERSISTENCE
  * ---------------------------------------------------------------------------
- * Replace these two helpers with real persistence (e.g. localStorage) to keep
- * the disclaimer accepted across visits. Kept as no-ops so this file stays
- * portable.
+ * The medical-disclaimer acceptance is persisted in localStorage so returning
+ * visitors are not re-prompted on every load. The stored value is a VERSION
+ * string: bump DISCLAIMER_VERSION whenever the disclaimer text changes
+ * materially, and every user will be asked to accept the new wording again.
+ *
+ * All access is wrapped in try/catch because localStorage can throw or be
+ * absent (private browsing, disabled storage, SSR). On any failure we fail
+ * "open to the gate": the disclaimer is shown for the current session rather
+ * than crashing the app.
  * ------------------------------------------------------------------------ */
+const DISCLAIMER_KEY = 'anatris.disclaimer.accepted';
+const DISCLAIMER_VERSION = '1';
+
 function readAccepted(): boolean {
-  return false;
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return false;
+    return window.localStorage.getItem(DISCLAIMER_KEY) === DISCLAIMER_VERSION;
+  } catch {
+    return false;
+  }
 }
 function writeAccepted(): void {
-  // no-op placeholder; see PERSISTENCE HOOK above.
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    window.localStorage.setItem(DISCLAIMER_KEY, DISCLAIMER_VERSION);
+  } catch {
+    // Storage unavailable (private mode, blocked, quota): acceptance simply
+    // does not persist; the gate will reappear next session. Non-fatal.
+  }
 }
 
 /** True when the viewport is below the lg breakpoint (Tailwind lg = 1024px). */
@@ -93,9 +114,22 @@ export default function App() {
   const setRegion = useAnatomyStore((s) => s.setRegion);
   const regionId = region ?? 'shoulder';
 
+  // Conceptual modules (Fundamentos) are not anatomical regions: they have no
+  // muscle list, no ROM, no 7 phases. They are taught as reading + diagrams +
+  // an optional planes/axes overlay over the WHOLE body, which is exactly the
+  // "Aprender" experience. So entering a concept module forces Aprender, and
+  // the muscle-centric panels (Sidebar / SelectionPanel) are hidden for it.
+  const concept = isConceptModule(region);
+
   useEffect(() => {
     if (region == null) setRegion('shoulder');
   }, [region, setRegion]);
+
+  // Entering a conceptual module (Fundamentos) snaps to "Aprender": the concept
+  // renderer (with its "Ver en 3D" overlay action) only lives in that mode.
+  useEffect(() => {
+    if (concept && mode === 'explore') setMode('learn');
+  }, [concept, mode]);
 
   // Close any open drawer when growing back to desktop.
   useEffect(() => {
@@ -105,9 +139,11 @@ export default function App() {
   // Restrict the scene to the current region (hides head, abdomen, legs, ...).
   const regionMeshes = useMemo(() => {
     if (byMesh.size === 0) return null;
+    // Concept modules show the whole body (null = no region restriction).
+    if (concept) return null;
     const def = REGIONS[regionId] ?? REGIONS.shoulder;
     return resolveRegionMeshes(def, byMesh.keys());
-  }, [byMesh, regionId]);
+  }, [byMesh, regionId, concept]);
 
   function acceptDisclaimer(): void {
     writeAccepted();
@@ -127,7 +163,35 @@ export default function App() {
         <MedicalDisclaimerBanner />
       </div>
 
-      {mode === 'learn' ? (
+      {mode === 'learn' && concept ? (
+        // CONCEPTUAL module (Fundamentos): the 3D overlay (planes/axes) is
+        // inseparable from the text, so we ALWAYS show the live model beside
+        // the concept renderer. Desktop: Viewer | ConceptTrack side by side.
+        // Compact: Viewer on top (45vh), ConceptTrack below. No Sidebar /
+        // SelectionPanel here -- there are no muscles to list.
+        <div className="flex min-h-0 flex-1">
+          <main className="min-w-0 flex-1 overflow-y-auto lg:overflow-hidden">
+            <div className="flex min-h-0 flex-col lg:h-full lg:flex-row">
+              <div className="h-[45vh] shrink-0 lg:h-full lg:flex-1 lg:border-r lg:border-slate-800/60">
+                {status === 'error' ? (
+                  <IndexError message={error} />
+                ) : status === 'loading' ? (
+                  <IndexLoading />
+                ) : (
+                  <Viewer3D
+                    byMesh={byMesh}
+                    regionMeshes={regionMeshes}
+                    resolution={resolution}
+                  />
+                )}
+              </div>
+              <div className="min-h-0 flex-1 lg:h-full lg:w-[480px] lg:flex-none">
+                <PhaseTrack />
+              </div>
+            </div>
+          </main>
+        </div>
+      ) : mode === 'learn' ? (
         <div className="flex min-h-0 flex-1">
           <div className="hidden lg:flex">
             <Sidebar index={index} resolution={resolution} />
@@ -155,9 +219,11 @@ export default function App() {
         </div>
       ) : (
         <div className="flex min-h-0 flex-1">
-          <div className="hidden lg:flex">
-            <Sidebar index={index} resolution={resolution} />
-          </div>
+          {!concept && (
+            <div className="hidden lg:flex">
+              <Sidebar index={index} resolution={resolution} />
+            </div>
+          )}
           <main className="relative min-w-0 flex-1">
             {status === 'error' ? (
               <IndexError message={error} />
@@ -174,24 +240,28 @@ export default function App() {
               </>
             )}
           </main>
-          <div className="hidden lg:flex">
-            <SelectionPanel byMesh={byMesh} resolution={resolution} />
-          </div>
+          {!concept && (
+            <div className="hidden lg:flex">
+              <SelectionPanel byMesh={byMesh} resolution={resolution} />
+            </div>
+          )}
         </div>
       )}
 
       {/* Compact-only floating buttons to open the drawers. */}
       {compact && (
         <>
-          <button
-            type="button"
-            onClick={() => setDrawer('sidebar')}
-            className="fixed bottom-4 left-4 z-30 flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/90 px-4 py-2.5 text-sm font-medium text-slate-200 shadow-lg backdrop-blur"
-          >
-            <PanelIcon />
-            Controles
-          </button>
-          {mode === 'explore' && (
+          {!concept && (
+            <button
+              type="button"
+              onClick={() => setDrawer('sidebar')}
+              className="fixed bottom-4 left-4 z-30 flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/90 px-4 py-2.5 text-sm font-medium text-slate-200 shadow-lg backdrop-blur"
+            >
+              <PanelIcon />
+              Controles
+            </button>
+          )}
+          {!concept && mode === 'explore' && (
             <button
               type="button"
               onClick={() => setDrawer('selection')}
