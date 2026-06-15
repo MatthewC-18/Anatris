@@ -43,12 +43,13 @@ const ROLE_COLOR: Record<RomMuscleRole, number> = {
 };
 const INACTIVE_COLOR = 0x64748b;
 
-// Tube sizing in world units (model arm span ~1 unit). Tuned conservatively;
-// these are the obvious knobs for a visual pass.
-const BASE_RADIUS = 0.02;
-const MIN_RADIUS = 0.012;
-const MAX_RADIUS = 0.05;
-const BASE_BULGE = 0.01;
+// Tube sizing in world units (model arm span ~1 unit). With the muscles hidden
+// (clean skeleton), the bands carry the muscle read, so they're a touch bolder.
+// These are the obvious knobs for a visual pass.
+const BASE_RADIUS = 0.026;
+const MIN_RADIUS = 0.015;
+const MAX_RADIUS = 0.06;
+const BASE_BULGE = 0.012;
 const BULGE_GAIN = 0.5;
 
 interface RestData {

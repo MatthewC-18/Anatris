@@ -5,9 +5,12 @@
 // so other regions get an honest "coming soon" state with a shortcut back to
 // the shoulder.
 
+import { useEffect } from 'react';
 import { Viewer3D } from '../Viewer3D';
 import { MovementControls } from './MovementControls';
 import { useAnatomyStore } from '../../store/anatomyStore';
+import { ANATOMICAL_LAYERS, SECONDARY_LAYERS } from '../../lib/anatomyMeta';
+import type { AnatomyLayer } from '../../types/anatomy';
 import type { AnatomyEntry } from '../../types/anatomy';
 import type { MuscleResolution } from '../../lib/muscleResolver';
 
@@ -18,6 +21,14 @@ interface MovementViewProps {
   resolution: MuscleResolution;
 }
 
+// In the movement lab the detailed muscle meshes can't deform, so showing them
+// (even faded) just clutters and occludes the gesture. We restrict the scene to
+// a CLEAN SKELETON (bones + ligaments) and let the deforming muscle BANDS be the
+// muscle representation — the Muscle&Motion-style "clear skeleton + simplified
+// active muscles" read. The previous layer set is restored on exit.
+const MOVEMENT_LAYERS = new Set<AnatomyLayer>(['bones', 'ligaments']);
+const ALL_LAYERS: AnatomyLayer[] = [...ANATOMICAL_LAYERS, ...SECONDARY_LAYERS];
+
 export function MovementView({
   region,
   byMesh,
@@ -26,6 +37,18 @@ export function MovementView({
 }: MovementViewProps) {
   const setRegion = useAnatomyStore((s) => s.setRegion);
   const isShoulder = (region ?? 'shoulder') === 'shoulder';
+
+  // Switch to the clean skeleton view while the lab is open; restore on exit.
+  useEffect(() => {
+    if (!isShoulder) return;
+    const store = useAnatomyStore.getState();
+    const prev = new Set(store.activeLayers);
+    ALL_LAYERS.forEach((l) => store.setLayer(l, MOVEMENT_LAYERS.has(l)));
+    return () => {
+      const s = useAnatomyStore.getState();
+      ALL_LAYERS.forEach((l) => s.setLayer(l, prev.has(l)));
+    };
+  }, [isShoulder]);
 
   if (!isShoulder) {
     return (

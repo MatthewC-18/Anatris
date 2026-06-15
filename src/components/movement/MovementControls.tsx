@@ -62,8 +62,9 @@ export function MovementControls() {
         <span className="font-mono text-xs text-slate-500">{ABDUCTION?.plane}</span>
       </div>
       <p className="mb-3 text-xs leading-relaxed text-slate-500">
-        Mueve el brazo derecho: los músculos activos se muestran como bandas que
-        se acortan y engrosan al contraerse, coloreadas por su rol en cada tramo.
+        Vista de esqueleto: mueve el brazo derecho y los músculos activos
+        aparecen como bandas que se acortan y engrosan al contraerse, coloreadas
+        por su rol en cada tramo del recorrido.
       </p>
 
       {/* Angle slider */}
