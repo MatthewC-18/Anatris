@@ -33,7 +33,6 @@ export function MovementControls() {
   const initial = shoulderRigChannel.get();
   const [angle, setAngle] = useState<number>(initial.angleDeg);
   const [showMarkers, setShowMarkers] = useState<boolean>(initial.showMarkers);
-  const [freezeMuscles, setFreezeMuscles] = useState<boolean>(initial.freezeMuscles);
   const [frameCamera, setFrameCamera] = useState<boolean>(initial.frameCamera);
 
   // Push UI state to the rig channel.
@@ -41,11 +40,10 @@ export function MovementControls() {
     const patch: Partial<RigState> = {
       angleDeg: angle,
       showMarkers,
-      freezeMuscles,
       frameCamera,
     };
     shoulderRigChannel.set(patch);
-  }, [angle, showMarkers, freezeMuscles, frameCamera]);
+  }, [angle, showMarkers, frameCamera]);
 
   // Return the arm to rest when leaving the lab so re-entry starts clean.
   useEffect(() => {
@@ -64,8 +62,8 @@ export function MovementControls() {
         <span className="font-mono text-xs text-slate-500">{ABDUCTION?.plane}</span>
       </div>
       <p className="mb-3 text-xs leading-relaxed text-slate-500">
-        Mueve el brazo derecho y observa qué músculos trabajan en cada tramo del
-        recorrido.
+        Mueve el brazo derecho: los músculos activos se muestran como bandas que
+        se acortan y engrosan al contraerse, coloreadas por su rol en cada tramo.
       </p>
 
       {/* Angle slider */}
@@ -132,11 +130,6 @@ export function MovementControls() {
       <div className="mt-3 flex flex-col gap-2">
         <Toggle label="Marcadores biomecánicos" checked={showMarkers} onChange={setShowMarkers} />
         <Toggle label="Encuadrar el hombro" checked={frameCamera} onChange={setFrameCamera} />
-        <Toggle
-          label="Congelar músculos del húmero"
-          checked={freezeMuscles}
-          onChange={setFreezeMuscles}
-        />
       </div>
     </div>
   );

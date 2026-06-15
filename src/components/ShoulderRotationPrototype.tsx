@@ -46,11 +46,13 @@ import type { CameraControls } from '@react-three/drei';
 import * as THREE from 'three';
 
 // --- Glenohumeral pivot for the RIGHT side, from the humeral-head world bbox.
-const RIGHT_GH_PIVOT = new THREE.Vector3(-0.1709, 1.427, -0.0156);
+// Exported so the muscle-band proxies rotate their humeral insertion about the
+// SAME center the bone turns about (otherwise band and bone would diverge).
+export const RIGHT_GH_PIVOT = new THREE.Vector3(-0.1709, 1.427, -0.0156);
 
 // Abduction axis is FIXED. Frontal-plane abduction is about the model's Z axis
 // (confirmed from the prototype screenshots). No longer user-selectable.
-const ABDUCTION_AXIS = new THREE.Vector3(0, 0, 1);
+export const ABDUCTION_AXIS = new THREE.Vector3(0, 0, 1);
 
 // Right-limb bone container nodes to reparent under the pivot.
 const RIGHT_LIMB_NODE_NAMES: readonly string[] = ['Humerusr', 'Radiusr', 'Ulnar'] as const;

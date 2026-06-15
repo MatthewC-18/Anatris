@@ -1,624 +1,345 @@
-diff --git a/src/App.tsx b/src/App.tsx
-index d4a0eef..f63babe 100644
---- a/src/App.tsx
-+++ b/src/App.tsx
-@@ -39,6 +39,7 @@ import { SelectionPanel } from './components/SelectionPanel';
- import { CommandPalette } from './components/CommandPalette';
- import { PhaseTrack } from './components/PhaseTrack';
- import { StudyView } from './components/study/StudyView';
-+import { MovementView } from './components/movement/MovementView';
- import { AuthModal } from './components/account/AuthModal';
- import { Paywall } from './components/account/Paywall';
- import { useEntitlement } from './auth/AuthContext';
-@@ -197,6 +198,24 @@ export default function App() {
-             <StudyView region={region} isConcept={concept} />
-           </main>
-         </div>
-+      ) : mode === 'movement' ? (
-+        // MOVEMENT lab: the live 3D model with the shoulder rig + control panel.
-+        <div className="flex min-h-0 flex-1">
-+          <main className="relative min-w-0 flex-1">
-+            {status === 'error' ? (
-+              <IndexError message={error} />
-+            ) : status === 'loading' ? (
-+              <IndexLoading />
-+            ) : (
-+              <MovementView
-+                region={region}
-+                byMesh={byMesh}
-+                regionMeshes={regionMeshes}
-+                resolution={resolution}
-+              />
-+            )}
-+          </main>
-+        </div>
-       ) : mode === 'learn' && concept ? (
-         // CONCEPTUAL module (Fundamentos): the 3D overlay (planes/axes) is
-         // inseparable from the text, so we ALWAYS show the live model beside
-@@ -283,7 +302,7 @@ export default function App() {
-       )}
- 
-       {/* Compact-only floating buttons to open the drawers. */}
--      {compact && mode !== 'study' && !locked && (
-+      {compact && mode !== 'study' && mode !== 'movement' && !locked && (
-         <>
-           {!concept && (
-             <button
 diff --git a/src/components/ShoulderRotationPrototype.tsx b/src/components/ShoulderRotationPrototype.tsx
-index f340166..9b7afb8 100644
+index 9b7afb8..0a3352f 100644
 --- a/src/components/ShoulderRotationPrototype.tsx
 +++ b/src/components/ShoulderRotationPrototype.tsx
-@@ -40,7 +40,7 @@
- //     pose, and removes the pivot + markers.
- //   - ASCII-only source. UI strings Spanish LATAM. No `any`. English comments.
- 
--import { useEffect, useRef, useState } from 'react';
-+import { useEffect, useRef } from 'react';
- import { useThree } from '@react-three/fiber';
- import type { CameraControls } from '@react-three/drei';
+@@ -46,11 +46,13 @@ import type { CameraControls } from '@react-three/drei';
  import * as THREE from 'three';
-@@ -125,10 +125,17 @@ interface RigState {
-   showMarkers: boolean; // biomechanics axis + deltoid line of action
-   frameCamera: boolean; // auto-frame the shoulder when moving
- }
-+export type { RigState };
  
- type Listener = (s: RigState) => void;
+ // --- Glenohumeral pivot for the RIGHT side, from the humeral-head world bbox.
+-const RIGHT_GH_PIVOT = new THREE.Vector3(-0.1709, 1.427, -0.0156);
++// Exported so the muscle-band proxies rotate their humeral insertion about the
++// SAME center the bone turns about (otherwise band and bone would diverge).
++export const RIGHT_GH_PIVOT = new THREE.Vector3(-0.1709, 1.427, -0.0156);
  
--const channel = (() => {
-+/**
-+ * Module-level pub/sub that lets the DOM control panel (MovementControls,
-+ * outside the canvas) drive the in-canvas rig (ShoulderRotationRig) without
-+ * prop-drilling a ref across the <Canvas> boundary. Exported so the productized
-+ * panel can read/patch/subscribe to the same channel the rig listens to.
-+ */
-+export const shoulderRigChannel = (() => {
-   let state: RigState = {
-     angleDeg: 0,
-     includeHand: true,
-@@ -330,7 +337,7 @@ export function ShoulderRotationRig(): null {
-   >([]);
+ // Abduction axis is FIXED. Frontal-plane abduction is about the model's Z axis
+ // (confirmed from the prototype screenshots). No longer user-selectable.
+-const ABDUCTION_AXIS = new THREE.Vector3(0, 0, 1);
++export const ABDUCTION_AXIS = new THREE.Vector3(0, 0, 1);
  
-   useEffect(() => {
--    const st = channel.get();
-+    const st = shoulderRigChannel.get();
- 
-     // --- Pivot at the glenohumeral center.
-     const pivot = new THREE.Group();
-@@ -478,7 +485,7 @@ export function ShoulderRotationRig(): null {
-     };
- 
-     applyState(st);
--    const unsub = channel.subscribe(applyState);
-+    const unsub = shoulderRigChannel.subscribe(applyState);
- 
-     return () => {
-       unsub();
-@@ -520,136 +527,3 @@ export function ShoulderRotationRig(): null {
- 
-   return null;
- }
--
--// ---------------------------------------------------------------------------
--// DOM control panel. Mount OUTSIDE the canvas (e.g. in App.tsx).
--// ---------------------------------------------------------------------------
--export function ShoulderRotationPanel(): JSX.Element {
--  const [angle, setAngle] = useState<number>(channel.get().angleDeg);
--  const [includeHand, setIncludeHand] = useState<boolean>(channel.get().includeHand);
--  const [freezeMuscles, setFreezeMuscles] = useState<boolean>(channel.get().freezeMuscles);
--  const [showMarkers, setShowMarkers] = useState<boolean>(channel.get().showMarkers);
--  const [frameCamera, setFrameCamera] = useState<boolean>(channel.get().frameCamera);
--
--  useEffect(() => {
--    channel.set({ angleDeg: angle, includeHand, freezeMuscles, showMarkers, frameCamera });
--  }, [angle, includeHand, freezeMuscles, showMarkers, frameCamera]);
--
--  const warn = String.fromCharCode(0x26a0); // ASCII-safe warning glyph
--
--  return (
--    <div
--      style={{
--        position: 'absolute',
--        bottom: 16,
--        left: 16,
--        zIndex: 50,
--        width: 300,
--        padding: 16,
--        borderRadius: 12,
--        background: 'rgba(17, 17, 20, 0.92)',
--        color: '#f4f4f5',
--        fontFamily: 'ui-sans-serif, system-ui, sans-serif',
--        fontSize: 13,
--        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
--        backdropFilter: 'blur(6px)',
--      }}
--    >
--      <div style={{ fontWeight: 600, marginBottom: 4 }}>Prototipo: abduccion de hombro</div>
--      <div style={{ opacity: 0.7, marginBottom: 12, lineHeight: 1.4 }}>
--        Brazo derecho en el plano frontal. Bloque rigido de hueso; los musculos
--        del hombro se atenuan durante el gesto (no tienen deformacion real).
--      </div>
--
--      <label style={{ display: 'block', marginBottom: 6 }}>
--        Abduccion: <strong>{angle}</strong>&deg;
--      </label>
--      <input
--        type="range"
--        min={0}
--        max={120}
--        step={1}
--        value={angle}
--        onChange={(e) => setAngle(Number(e.target.value))}
--        style={{ width: '100%', marginBottom: 14 }}
--      />
--
--      <label
--        style={{
--          display: 'flex',
--          alignItems: 'center',
--          gap: 8,
--          marginBottom: 10,
--          cursor: 'pointer',
--        }}
--      >
--        <input
--          type="checkbox"
--          checked={frameCamera}
--          onChange={(e) => setFrameCamera(e.target.checked)}
--        />
--        Encuadrar el hombro automaticamente
--      </label>
--
--      <label
--        style={{
--          display: 'flex',
--          alignItems: 'center',
--          gap: 8,
--          marginBottom: 10,
--          cursor: 'pointer',
--        }}
--      >
--        <input
--          type="checkbox"
--          checked={showMarkers}
--          onChange={(e) => setShowMarkers(e.target.checked)}
--        />
--        Marcadores biomecanicos (eje + linea del deltoides)
--      </label>
--
--      <label
--        style={{
--          display: 'flex',
--          alignItems: 'center',
--          gap: 8,
--          marginBottom: 10,
--          cursor: 'pointer',
--        }}
--      >
--        <input
--          type="checkbox"
--          checked={freezeMuscles}
--          onChange={(e) => setFreezeMuscles(e.target.checked)}
--        />
--        Congelar musculos del humero en esta posicion (esquematico)
--      </label>
--
--      <label
--        style={{
--          display: 'flex',
--          alignItems: 'center',
--          gap: 8,
--          marginBottom: 12,
--          cursor: 'pointer',
--        }}
--      >
--        <input
--          type="checkbox"
--          checked={includeHand}
--          onChange={(e) => setIncludeHand(e.target.checked)}
--        />
--        Incluir mano y dedos
--      </label>
--
--      <div style={{ opacity: 0.6, fontSize: 11, lineHeight: 1.4 }}>
--        {warn} &quot;Congelar musculos&quot; vuelve solidos solo los que se
--        insertan en el humero (deltoides y manguito); los de origen escapular
--        siguen atenuados porque su anclaje quedaria fuera de sitio.
--        <br />
--        {warn} Cambiar &quot;Incluir mano&quot; requiere apagar y encender el
--        prototipo (los nodos se reagrupan al montar).
--      </div>
--    </div>
--  );
--}
-diff --git a/src/components/TopBar.tsx b/src/components/TopBar.tsx
-index 9b2b718..fba5ea0 100644
---- a/src/components/TopBar.tsx
-+++ b/src/components/TopBar.tsx
-@@ -19,7 +19,7 @@ import { useEntitlement } from '../auth/AuthContext';
- import { isRegionPremium } from '../auth/entitlements';
- import { AccountMenu } from './account/AccountMenu';
- 
--export type AppMode = 'explore' | 'learn' | 'study';
-+export type AppMode = 'explore' | 'learn' | 'study' | 'movement';
- export type Overlay = 'none' | 'about' | 'legal';
- 
- interface TopBarProps {
-@@ -263,6 +263,7 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
-         <ModeButton id="explore" label="Explorar" mode={mode} setMode={setMode} />
-         <ModeButton id="learn" label="Aprender" mode={mode} setMode={setMode} />
-         <ModeButton id="study" label="Estudiar" mode={mode} setMode={setMode} />
-+        <ModeButton id="movement" label="Movimiento" mode={mode} setMode={setMode} />
-       </div>
- 
-       {/* Account / subscription */}
+ // Right-limb bone container nodes to reparent under the pivot.
+ const RIGHT_LIMB_NODE_NAMES: readonly string[] = ['Humerusr', 'Radiusr', 'Ulnar'] as const;
 diff --git a/src/components/Viewer3D.tsx b/src/components/Viewer3D.tsx
-index 24c9059..c9f7684 100644
+index c9f7684..98edbf6 100644
 --- a/src/components/Viewer3D.tsx
 +++ b/src/components/Viewer3D.tsx
-@@ -14,6 +14,7 @@ import { AnatomyModel } from './AnatomyModel';
- import { AttachmentMarkers } from './AttachmentMarkers';
+@@ -15,6 +15,7 @@ import { AttachmentMarkers } from './AttachmentMarkers';
  import { RomMuscleMarkers } from './RomMuscleMarkers';
  import { ConceptOverlay3D } from './ConceptOverlay3D';
-+import { ShoulderRotationRig } from './ShoulderRotationPrototype';
+ import { ShoulderRotationRig } from './ShoulderRotationPrototype';
++import { MuscleBands } from './movement/MuscleBands';
  import { CanvasLoader } from './CanvasLoader';
  import { useAnatomyStore } from '../store/anatomyStore';
  import { parseMeshName } from '../lib/parseMeshName';
-@@ -25,6 +26,12 @@ interface Viewer3DProps {
-   byMesh: Map<string, AnatomyEntry>;
-   regionMeshes?: Set<string> | null;
-   resolution: MuscleResolution;
-+  /**
-+   * When true, mount the interactive movement rig (rigid bone rotation of the
-+   * shoulder) inside the canvas. Driven by shoulderRigChannel from the DOM
-+   * control panel; fully reversible when this flips back to false/unmounts.
-+   */
-+  movement?: boolean;
- }
- 
- // How tightly the camera frames a focused muscle. Larger padding = more
-@@ -64,7 +71,7 @@ function useIsCompact(): boolean {
-  * recomputes framing when the visible mesh set changes, and reacts to camera
-  * view requests from the store.
-  */
--function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
-+function SceneContents({ byMesh, regionMeshes, resolution, movement }: Viewer3DProps) {
-   const { scene } = useThree();
-   const controlsRef = useRef<CameraControls | null>(null);
-   const boundsRef = useRef<{ box: THREE.Box3; radius: number } | null>(null);
-@@ -304,6 +311,10 @@ function SceneContents({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
+@@ -311,9 +312,11 @@ function SceneContents({ byMesh, regionMeshes, resolution, movement }: Viewer3DP
            so anatomical regions are completely unaffected. */}
        <ConceptOverlay3D />
  
-+      {/* Movement lab: rigid bone rotation of the shoulder. Only mounted when
-+          the movement mode is active; restores the model on unmount. */}
-+      {movement && <ShoulderRotationRig />}
-+
+-      {/* Movement lab: rigid bone rotation of the shoulder. Only mounted when
+-          the movement mode is active; restores the model on unmount. */}
++      {/* Movement lab: rigid bone rotation of the shoulder + deforming muscle
++          bands. Only mounted when the movement mode is active; both restore the
++          model on unmount. */}
+       {movement && <ShoulderRotationRig />}
++      {movement && <MuscleBands resolution={resolution} />}
+ 
        <CameraControls
          ref={controlsRef}
-         makeDefault
-@@ -324,7 +335,7 @@ function ProgressReporter({ onProgress }: { onProgress: (p: number) => void }) {
-   return null;
- }
- 
--export function Viewer3D({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
-+export function Viewer3D({ byMesh, regionMeshes, resolution, movement }: Viewer3DProps) {
-   const [progress, setProgress] = useState(0);
-   const [ready, setReady] = useState(false);
-   const compact = useIsCompact();
-@@ -357,7 +368,12 @@ export function Viewer3D({ byMesh, regionMeshes, resolution }: Viewer3DProps) {
-       >
-         <Suspense fallback={null}>
-           <ProgressReporter onProgress={setProgress} />
--          <SceneContents byMesh={byMesh} regionMeshes={regionMeshes} resolution={resolution} />
-+          <SceneContents
-+            byMesh={byMesh}
-+            regionMeshes={regionMeshes}
-+            resolution={resolution}
-+            movement={movement}
-+          />
-         </Suspense>
-       </Canvas>
- 
 diff --git a/src/components/movement/MovementControls.tsx b/src/components/movement/MovementControls.tsx
-new file mode 100644
-index 0000000..f3ce221
---- /dev/null
+index f3ce221..5cfd75e 100644
+--- a/src/components/movement/MovementControls.tsx
 +++ b/src/components/movement/MovementControls.tsx
-@@ -0,0 +1,165 @@
-+// src/components/movement/MovementControls.tsx
+@@ -33,7 +33,6 @@ export function MovementControls() {
+   const initial = shoulderRigChannel.get();
+   const [angle, setAngle] = useState<number>(initial.angleDeg);
+   const [showMarkers, setShowMarkers] = useState<boolean>(initial.showMarkers);
+-  const [freezeMuscles, setFreezeMuscles] = useState<boolean>(initial.freezeMuscles);
+   const [frameCamera, setFrameCamera] = useState<boolean>(initial.frameCamera);
+ 
+   // Push UI state to the rig channel.
+@@ -41,11 +40,10 @@ export function MovementControls() {
+     const patch: Partial<RigState> = {
+       angleDeg: angle,
+       showMarkers,
+-      freezeMuscles,
+       frameCamera,
+     };
+     shoulderRigChannel.set(patch);
+-  }, [angle, showMarkers, freezeMuscles, frameCamera]);
++  }, [angle, showMarkers, frameCamera]);
+ 
+   // Return the arm to rest when leaving the lab so re-entry starts clean.
+   useEffect(() => {
+@@ -64,8 +62,8 @@ export function MovementControls() {
+         <span className="font-mono text-xs text-slate-500">{ABDUCTION?.plane}</span>
+       </div>
+       <p className="mb-3 text-xs leading-relaxed text-slate-500">
+-        Mueve el brazo derecho y observa qué músculos trabajan en cada tramo del
+-        recorrido.
++        Mueve el brazo derecho: los músculos activos se muestran como bandas que
++        se acortan y engrosan al contraerse, coloreadas por su rol en cada tramo.
+       </p>
+ 
+       {/* Angle slider */}
+@@ -132,11 +130,6 @@ export function MovementControls() {
+       <div className="mt-3 flex flex-col gap-2">
+         <Toggle label="Marcadores biomecánicos" checked={showMarkers} onChange={setShowMarkers} />
+         <Toggle label="Encuadrar el hombro" checked={frameCamera} onChange={setFrameCamera} />
+-        <Toggle
+-          label="Congelar músculos del húmero"
+-          checked={freezeMuscles}
+-          onChange={setFreezeMuscles}
+-        />
+       </div>
+     </div>
+   );
+diff --git a/src/components/movement/MuscleBands.tsx b/src/components/movement/MuscleBands.tsx
+new file mode 100644
+index 0000000..f00306e
+--- /dev/null
++++ b/src/components/movement/MuscleBands.tsx
+@@ -0,0 +1,181 @@
++// src/components/movement/MuscleBands.tsx
 +//
-+// Productized control panel for the shoulder movement lab. It drives the
-+// in-canvas rig through shoulderRigChannel (rigid bone rotation) AND, crucially,
-+// reads the live angle against the existing ROM phase data to show — in sync —
-+// which phase of the abduction arc the arm is in and which muscles are working,
-+// by role. That synced "see the muscles change through the range" readout is
-+// the clinical payload that sets this apart from a plain animation.
++// 3D muscle-band proxies for the movement lab. The Z-Anatomy meshes can't
++// deform (no skin), so during a gesture we fade the detailed muscle (the rig
++// does that) and draw a TUBE from the muscle's origin (fixed on the scapula) to
++// its insertion (which we rotate with the humerus about the same glenohumeral
++// pivot the bone uses). The tube shortens and thickens as the joint moves —
++// an honest, legible "the muscle is contracting" cue, in the Muscle&Motion
++// spirit, rather than faking deformation of the realistic mesh.
++//
++// Lives INSIDE the canvas (uses useThree). Renders nothing at rest (angle 0) so
++// the untouched anatomy shows normally; bands appear as the arm abducts.
 +
-+import { useEffect, useState } from 'react';
++import { useEffect, useRef } from 'react';
++import { useThree } from '@react-three/fiber';
++import * as THREE from 'three';
++
++import { parseMeshName } from '../../lib/parseMeshName';
++import { rotateAboutPivot, bandRadius, bulgeOffset } from '../../lib/muscleBand';
 +import {
 +  shoulderRigChannel,
-+  type RigState,
++  RIGHT_GH_PIVOT,
++  ABDUCTION_AXIS,
 +} from '../ShoulderRotationPrototype';
 +import { SHOULDER_ROM } from '../../data/shoulderRom';
-+import { ROM_ROLE_LABEL, type RomMuscleRole } from '../../types/rom';
-+import { phaseAtAngle, muscleNameById } from '../../lib/romPhaseAtAngle';
++import { phaseAtAngle } from '../../lib/romPhaseAtAngle';
++import type { RomMuscleRole } from '../../types/rom';
++import type { MuscleResolution } from '../../lib/muscleResolver';
 +
-+// The rig only rotates the humerus (no scapular upward rotation), so the honest
-+// glenohumeral ceiling is ~120 deg; beyond that elevation needs the scapula.
-+const MAX_ANGLE = 120;
++// Muscles drawn as deforming bands during abduction. Kept to the legible
++// abductors (broad superficial deltoid + the cuff initiator) so the scene stays
++// clean; the list is data so adding more is trivial.
++const BAND_MUSCLE_IDS = ['deltoid', 'supraspinatus'];
 +
 +const ABDUCTION = SHOULDER_ROM['glenohumeral-abduction'];
 +
-+/** Tailwind classes per muscle role (amber / sky / violet, matching the app). */
-+const ROLE_STYLE: Record<RomMuscleRole, string> = {
-+  'prime-mover': 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-+  assistant: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-+  stabilizer: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
++// Role -> color (amber prime / sky assistant / violet stabilizer), matching the
++// rest of the app. Muscles not active in the current phase render muted slate.
++const ROLE_COLOR: Record<RomMuscleRole, number> = {
++  'prime-mover': 0xffa51e,
++  assistant: 0x38bdf8,
++  stabilizer: 0xa78bfa,
 +};
++const INACTIVE_COLOR = 0x64748b;
 +
-+export function MovementControls() {
-+  const initial = shoulderRigChannel.get();
-+  const [angle, setAngle] = useState<number>(initial.angleDeg);
-+  const [showMarkers, setShowMarkers] = useState<boolean>(initial.showMarkers);
-+  const [freezeMuscles, setFreezeMuscles] = useState<boolean>(initial.freezeMuscles);
-+  const [frameCamera, setFrameCamera] = useState<boolean>(initial.frameCamera);
++// Tube sizing in world units (model arm span ~1 unit). Tuned conservatively;
++// these are the obvious knobs for a visual pass.
++const BASE_RADIUS = 0.02;
++const MIN_RADIUS = 0.012;
++const MAX_RADIUS = 0.05;
++const BASE_BULGE = 0.01;
++const BULGE_GAIN = 0.5;
 +
-+  // Push UI state to the rig channel.
++interface RestData {
++  muscleId: string;
++  origin: THREE.Vector3;
++  insertionRest: THREE.Vector3;
++  restLength: number;
++}
++
++/** Average world position of a muscle's meshes for one part on the right side. */
++function partCentroid(
++  scene: THREE.Object3D,
++  resolution: MuscleResolution,
++  muscleId: string,
++  part: 'origin' | 'insertion',
++): THREE.Vector3 | null {
++  const acc = new THREE.Vector3();
++  const w = new THREE.Vector3();
++  let count = 0;
++  scene.traverse((o) => {
++    const mesh = o as THREE.Mesh;
++    if (!mesh.isMesh) return;
++    const muscle = resolution.muscleByMeshName.get(mesh.name);
++    if (!muscle || muscle.id !== muscleId) return;
++    const parsed = parseMeshName(mesh.name);
++    if (parsed.part !== part) return;
++    if (parsed.side !== 'right') return;
++    mesh.getWorldPosition(w);
++    if (!isFinite(w.x)) return;
++    acc.add(w);
++    count++;
++  });
++  return count > 0 ? acc.multiplyScalar(1 / count) : null;
++}
++
++/** Current role of a muscle at the given abduction angle, or null if inactive. */
++function roleAtAngle(muscleId: string, angleDeg: number): RomMuscleRole | null {
++  if (!ABDUCTION) return null;
++  const at = phaseAtAngle(ABDUCTION, angleDeg);
++  const ref = at?.phase.muscles.find((m) => m.muscleId === muscleId);
++  return ref ? ref.role : null;
++}
++
++export function MuscleBands({ resolution }: { resolution: MuscleResolution }) {
++  const { scene } = useThree();
++  const groupRef = useRef<THREE.Group>(null);
++  const restRef = useRef<RestData[]>([]);
++
 +  useEffect(() => {
-+    const patch: Partial<RigState> = {
-+      angleDeg: angle,
-+      showMarkers,
-+      freezeMuscles,
-+      frameCamera,
++    const group = groupRef.current;
++    if (!group) return;
++
++    // --- Measure each band muscle's origin + rest insertion ONCE. The muscle
++    // meshes never move (the rig only moves bones), so their positions are
++    // always the rest pose; we rotate the insertion analytically per angle.
++    scene.updateWorldMatrix(true, true);
++    const rest: RestData[] = [];
++    for (const muscleId of BAND_MUSCLE_IDS) {
++      const origin = partCentroid(scene, resolution, muscleId, 'origin');
++      const insertionRest = partCentroid(scene, resolution, muscleId, 'insertion');
++      if (!origin || !insertionRest) continue; // can't anchor -> skip honestly
++      rest.push({
++        muscleId,
++        origin,
++        insertionRest,
++        restLength: origin.distanceTo(insertionRest),
++      });
++    }
++    restRef.current = rest;
++
++    const clear = (): void => {
++      while (group.children.length > 0) {
++        const child = group.children[0] as THREE.Mesh;
++        group.remove(child);
++        child.geometry?.dispose();
++        (child.material as THREE.Material)?.dispose();
++      }
 +    };
-+    shoulderRigChannel.set(patch);
-+  }, [angle, showMarkers, freezeMuscles, frameCamera]);
 +
-+  // Return the arm to rest when leaving the lab so re-entry starts clean.
-+  useEffect(() => {
-+    return () => shoulderRigChannel.set({ angleDeg: 0 });
-+  }, []);
++    const rebuild = (angleDeg: number): void => {
++      clear();
++      if (angleDeg <= 0) return; // at rest, show the real anatomy untouched
++      const angleRad = THREE.MathUtils.degToRad(angleDeg);
 +
-+  const at = ABDUCTION ? phaseAtAngle(ABDUCTION, angle) : null;
-+  const beyondRig = angle >= MAX_ANGLE;
++      for (const r of restRef.current) {
++        const insertion = rotateAboutPivot(
++          r.insertionRest,
++          RIGHT_GH_PIVOT,
++          ABDUCTION_AXIS,
++          angleRad,
++        );
++        const curLen = r.origin.distanceTo(insertion);
++        const radius = bandRadius(r.restLength, curLen, BASE_RADIUS, MIN_RADIUS, MAX_RADIUS);
 +
-+  return (
-+    <div className="pointer-events-auto w-[20rem] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-800/70 bg-ink-950/90 p-4 shadow-2xl backdrop-blur">
-+      <div className="mb-1 flex items-center justify-between">
-+        <h2 className="font-display text-sm font-bold text-slate-50">
-+          Abducción de hombro
-+        </h2>
-+        <span className="font-mono text-xs text-slate-500">{ABDUCTION?.plane}</span>
-+      </div>
-+      <p className="mb-3 text-xs leading-relaxed text-slate-500">
-+        Mueve el brazo derecho y observa qué músculos trabajan en cada tramo del
-+        recorrido.
-+      </p>
++        const mid = r.origin.clone().add(insertion).multiplyScalar(0.5);
++        const outward = mid.clone().sub(RIGHT_GH_PIVOT).normalize();
++        const midCtrl = mid.add(bulgeOffset(r.restLength, curLen, outward, BASE_BULGE, BULGE_GAIN));
 +
-+      {/* Angle slider */}
-+      <div className="mb-1 flex items-baseline justify-between">
-+        <label htmlFor="abduction-angle" className="text-xs font-medium text-slate-400">
-+          Ángulo
-+        </label>
-+        <span className="font-display text-lg font-bold text-slate-100">
-+          {angle}°
-+        </span>
-+      </div>
-+      <input
-+        id="abduction-angle"
-+        type="range"
-+        min={0}
-+        max={MAX_ANGLE}
-+        step={1}
-+        value={angle}
-+        onChange={(e) => setAngle(Number(e.target.value))}
-+        className="w-full accent-accent"
-+      />
++        const curve = new THREE.CatmullRomCurve3([r.origin, midCtrl, insertion]);
++        const geom = new THREE.TubeGeometry(curve, 24, radius, 10, false);
 +
-+      {/* Live phase readout */}
-+      {at && (
-+        <div className="mt-3 rounded-xl border border-slate-800/60 bg-slate-900/40 p-3">
-+          <div className="flex items-center justify-between">
-+            <span className="text-xs font-semibold uppercase tracking-wide text-accent">
-+              Fase {at.index + 1} / {at.total} · {at.phase.label}
-+            </span>
-+            <span className="font-mono text-[11px] text-slate-500">
-+              {at.phase.startDeg}–{at.phase.endDeg}°
-+            </span>
-+          </div>
-+          <p className="mt-1.5 text-xs leading-relaxed text-slate-300">
-+            {at.phase.description}
-+          </p>
++        const role = roleAtAngle(r.muscleId, angleDeg);
++        const color = role ? ROLE_COLOR[role] : INACTIVE_COLOR;
++        const mat = new THREE.MeshStandardMaterial({
++          color,
++          emissive: color,
++          emissiveIntensity: role ? 0.3 : 0.1,
++          roughness: 0.5,
++          metalness: 0,
++          transparent: true,
++          opacity: role ? 0.96 : 0.5,
++        });
++        const tube = new THREE.Mesh(geom, mat);
++        tube.renderOrder = 996;
++        group.add(tube);
++      }
++    };
 +
-+          <div className="mt-3 flex flex-col gap-1.5">
-+            {at.phase.muscles.map((m) => (
-+              <div key={m.muscleId} className="flex items-center gap-2">
-+                <span
-+                  className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold ${ROLE_STYLE[m.role]}`}
-+                >
-+                  {ROM_ROLE_LABEL[m.role]}
-+                </span>
-+                <span className="truncate text-xs text-slate-200">
-+                  {muscleNameById('shoulder', m.muscleId)}
-+                </span>
-+              </div>
-+            ))}
-+          </div>
++    rebuild(shoulderRigChannel.get().angleDeg);
++    const unsub = shoulderRigChannel.subscribe((s) => rebuild(s.angleDeg));
 +
-+          {beyondRig && (
-+            <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-200/90">
-+              Por encima de {MAX_ANGLE}° la elevación depende de la rotación
-+              superior de la escápula (ritmo escapulohumeral), que este modelo
-+              rígido aún no representa.
-+            </p>
-+          )}
-+        </div>
-+      )}
++    return () => {
++      unsub();
++      clear();
++      restRef.current = [];
++    };
++  }, [scene, resolution]);
 +
-+      {/* Options */}
-+      <div className="mt-3 flex flex-col gap-2">
-+        <Toggle label="Marcadores biomecánicos" checked={showMarkers} onChange={setShowMarkers} />
-+        <Toggle label="Encuadrar el hombro" checked={frameCamera} onChange={setFrameCamera} />
-+        <Toggle
-+          label="Congelar músculos del húmero"
-+          checked={freezeMuscles}
-+          onChange={setFreezeMuscles}
-+        />
-+      </div>
-+    </div>
-+  );
++  return <group ref={groupRef} />;
 +}
-+
-+function Toggle({
-+  label,
-+  checked,
-+  onChange,
-+}: {
-+  label: string;
-+  checked: boolean;
-+  onChange: (v: boolean) => void;
-+}) {
-+  return (
-+    <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300">
-+      <input
-+        type="checkbox"
-+        checked={checked}
-+        onChange={(e) => onChange(e.target.checked)}
-+        className="accent-accent"
-+      />
-+      {label}
-+    </label>
-+  );
-+}
-diff --git a/src/components/movement/MovementView.tsx b/src/components/movement/MovementView.tsx
+diff --git a/src/lib/muscleBand.ts b/src/lib/muscleBand.ts
 new file mode 100644
-index 0000000..7f327e1
+index 0000000..0f2a2af
 --- /dev/null
-+++ b/src/components/movement/MovementView.tsx
-@@ -0,0 +1,68 @@
-+// src/components/movement/MovementView.tsx
++++ b/src/lib/muscleBand.ts
+@@ -0,0 +1,58 @@
++// src/lib/muscleBand.ts
 +//
-+// "Movimiento" mode body: the live 3D model with the shoulder movement rig
-+// mounted, plus the control panel overlaid. Only the shoulder is rigged today,
-+// so other regions get an honest "coming soon" state with a shortcut back to
-+// the shoulder.
++// Pure geometry helpers for the 3D muscle-band proxies used in the movement
++// lab. Instead of deforming the (unrigged) detailed muscle mesh, we draw a tube
++// from the muscle's ORIGIN (fixed on the scapula) to its INSERTION (which
++// travels with the rotating humerus). As the joint moves, the band shortens and
++// thickens — a volume-preserving cue that the muscle is contracting.
 +
-+import { Viewer3D } from '../Viewer3D';
-+import { MovementControls } from './MovementControls';
-+import { useAnatomyStore } from '../../store/anatomyStore';
-+import type { AnatomyEntry } from '../../types/anatomy';
-+import type { MuscleResolution } from '../../lib/muscleResolver';
++import * as THREE from 'three';
 +
-+interface MovementViewProps {
-+  region: string | null;
-+  byMesh: Map<string, AnatomyEntry>;
-+  regionMeshes?: Set<string> | null;
-+  resolution: MuscleResolution;
-+}
-+
-+export function MovementView({
-+  region,
-+  byMesh,
-+  regionMeshes,
-+  resolution,
-+}: MovementViewProps) {
-+  const setRegion = useAnatomyStore((s) => s.setRegion);
-+  const isShoulder = (region ?? 'shoulder') === 'shoulder';
-+
-+  if (!isShoulder) {
-+    return (
-+      <div className="flex h-full items-center justify-center px-6">
-+        <div className="max-w-md text-center">
-+          <p className="font-display text-base font-semibold text-slate-200">
-+            El laboratorio de movimiento está disponible para el Hombro
-+          </p>
-+          <p className="mt-2 text-sm text-slate-500">
-+            Estamos preparando codo, rodilla y columna. Por ahora puedes estudiar
-+            la abducción glenohumeral con músculos activos por fase.
-+          </p>
-+          <button
-+            type="button"
-+            onClick={() => setRegion('shoulder')}
-+            className="mt-4 rounded-lg bg-accent/20 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/30"
-+          >
-+            Ir al hombro
-+          </button>
-+        </div>
-+      </div>
-+    );
-+  }
-+
-+  return (
-+    <div className="relative h-full w-full">
-+      <Viewer3D
-+        byMesh={byMesh}
-+        regionMeshes={regionMeshes}
-+        resolution={resolution}
-+        movement
-+      />
-+      {/* Control panel overlaid bottom-left; the wrapper is click-through so the
-+          canvas stays draggable around it. */}
-+      <div className="pointer-events-none absolute bottom-4 left-4 z-20">
-+        <MovementControls />
-+      </div>
-+    </div>
-+  );
-+}
-diff --git a/src/lib/romPhaseAtAngle.ts b/src/lib/romPhaseAtAngle.ts
-new file mode 100644
-index 0000000..4dd94f6
---- /dev/null
-+++ b/src/lib/romPhaseAtAngle.ts
-@@ -0,0 +1,51 @@
-+// src/lib/romPhaseAtAngle.ts
-+//
-+// Pure helpers that bridge the movement SLIDER (a live angle) to the existing
-+// ROM phase data. Given a movement and the current angle, they answer "which
-+// phase of the arc am I in, and which muscles are working right now" — the
-+// teaching payload the movement lab shows beside the moving 3D model.
-+
-+import type { RomMovement, RomPhase } from '../types/rom';
-+import { MUSCLES_BY_REGION } from '../data/musclesByRegion';
-+
-+export interface PhaseAtAngle {
-+  phase: RomPhase;
-+  index: number;
-+  /** Total number of phases, for "Fase 2 / 3" style labels. */
-+  total: number;
++/**
++ * Rotate a point about an arbitrary axis through a pivot. Used to place a
++ * muscle's humeral insertion where it ends up after the arm abducts by
++ * `angleRad`, reusing the rig's exact pivot + axis.
++ */
++export function rotateAboutPivot(
++  point: THREE.Vector3,
++  pivot: THREE.Vector3,
++  axis: THREE.Vector3,
++  angleRad: number,
++): THREE.Vector3 {
++  const q = new THREE.Quaternion().setFromAxisAngle(axis, angleRad);
++  return point.clone().sub(pivot).applyQuaternion(q).add(pivot);
 +}
 +
 +/**
-+ * The phase whose degree sub-range contains `angle`. Boundaries are inclusive;
-+ * at a shared boundary the EARLIER phase wins. Returns the last phase when the
-+ * angle is past the final boundary, and null only for an empty movement.
++ * Tube radius for a contracting muscle, approximately preserving volume: a
++ * cylinder of fixed volume has radius proportional to 1/sqrt(length), so as the
++ * band shortens it thickens. Clamped to keep it readable (never a needle, never
++ * a balloon).
 + */
-+export function phaseAtAngle(
-+  movement: RomMovement,
-+  angle: number,
-+): PhaseAtAngle | null {
-+  const phases = movement.phases;
-+  if (phases.length === 0) return null;
-+  for (let i = 0; i < phases.length; i++) {
-+    if (angle <= phases[i].endDeg) {
-+      return { phase: phases[i], index: i, total: phases.length };
-+    }
-+  }
-+  return {
-+    phase: phases[phases.length - 1],
-+    index: phases.length - 1,
-+    total: phases.length,
-+  };
++export function bandRadius(
++  restLength: number,
++  currentLength: number,
++  base: number,
++  min: number,
++  max: number,
++): number {
++  if (currentLength <= 1e-6) return max;
++  const r = base * Math.sqrt(restLength / currentLength);
++  return THREE.MathUtils.clamp(r, min, max);
 +}
 +
-+/** Resolve a muscle id (e.g. "serratus-anterior") to its Spanish display name. */
-+export function muscleNameById(region: string, muscleId: string): string {
-+  const list = MUSCLES_BY_REGION[region];
-+  const hit = list?.find((m) => m.id === muscleId);
-+  if (hit) return hit.name;
-+  // Fallback: humanize the id so the UI never shows a raw slug.
-+  return muscleId
-+    .split('-')
-+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-+    .join(' ');
++/**
++ * A gentle outward bulge offset for the band's midpoint, growing as the muscle
++ * shortens so a contracted muscle looks fuller. `dir` should be a unit vector
++ * pointing away from the joint center.
++ */
++export function bulgeOffset(
++  restLength: number,
++  currentLength: number,
++  dir: THREE.Vector3,
++  baseBulge: number,
++  gain: number,
++): THREE.Vector3 {
++  const shortened = Math.max(0, restLength - currentLength);
++  return dir.clone().multiplyScalar(baseBulge + shortened * gain);
 +}

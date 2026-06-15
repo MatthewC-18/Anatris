@@ -15,6 +15,7 @@ import { AttachmentMarkers } from './AttachmentMarkers';
 import { RomMuscleMarkers } from './RomMuscleMarkers';
 import { ConceptOverlay3D } from './ConceptOverlay3D';
 import { ShoulderRotationRig } from './ShoulderRotationPrototype';
+import { MuscleBands } from './movement/MuscleBands';
 import { CanvasLoader } from './CanvasLoader';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { parseMeshName } from '../lib/parseMeshName';
@@ -311,9 +312,11 @@ function SceneContents({ byMesh, regionMeshes, resolution, movement }: Viewer3DP
           so anatomical regions are completely unaffected. */}
       <ConceptOverlay3D />
 
-      {/* Movement lab: rigid bone rotation of the shoulder. Only mounted when
-          the movement mode is active; restores the model on unmount. */}
+      {/* Movement lab: rigid bone rotation of the shoulder + deforming muscle
+          bands. Only mounted when the movement mode is active; both restore the
+          model on unmount. */}
       {movement && <ShoulderRotationRig />}
+      {movement && <MuscleBands resolution={resolution} />}
 
       <CameraControls
         ref={controlsRef}
