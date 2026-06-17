@@ -35,14 +35,16 @@ interface SidebarProps {
   /** Called when the user activates a navigation item; used to close the
    *  mobile drawer. Optional: omitted on desktop where there is no drawer. */
   onNavigate?: () => void;
+  /** Enter "Aprender" mode (the phase navigator jumps the app to a phase). */
+  onOpenPhase?: () => void;
 }
 
-export function Sidebar({ index, resolution, onNavigate }: SidebarProps) {
+export function Sidebar({ index, resolution, onNavigate, onOpenPhase }: SidebarProps) {
   return (
     <nav className="flex h-full w-[260px] shrink-0 flex-col border-r border-slate-800/60 bg-ink-950/80">
       <div className="flex-1 overflow-y-auto px-4 py-5">
         <ModuleHeader />
-        <PhaseList onNavigate={onNavigate} />
+        <PhaseList onNavigate={onNavigate} onOpenPhase={onOpenPhase} />
         <div className="my-5 h-px bg-slate-800/60" />
         <DepthPeeler />
         <div className="my-5 h-px bg-slate-800/60" />
@@ -78,46 +80,50 @@ function ModuleHeader() {
       <h2 className="mt-1 font-display text-lg font-semibold text-slate-100">
         {track.regionName}
       </h2>
-      <div className="mt-3 flex items-center gap-2">
-        <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-800">
-          <div className="h-full w-[28%] rounded-full bg-accent" />
-        </div>
-        <span className="font-mono text-[11px] text-slate-500">28%</span>
-      </div>
     </div>
   );
 }
 
-function PhaseList({ onNavigate }: { onNavigate?: () => void }) {
+function PhaseList({
+  onNavigate,
+  onOpenPhase,
+}: {
+  onNavigate?: () => void;
+  /** Switch the app into "Aprender" so the chosen phase is actually shown. */
+  onOpenPhase?: () => void;
+}) {
   // The seven phase labels come from the canonical PHASE_ORDER + PHASE_META, so
-  // they are identical across regions (the order is fixed by pedagogy). The
-  // done/active/locked state is still a placeholder until progress is wired.
+  // they are identical across regions (the order is fixed by pedagogy). This is
+  // a real navigator: it reflects/sets the active phase in the store, which the
+  // "Aprender" tab strip shares. Clicking a phase enters Aprender at that phase.
+  const learnPhase = useAnatomyStore((s) => s.learnPhase);
+  const setLearnPhase = useAnatomyStore((s) => s.setLearnPhase);
+
   return (
     <div>
       <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
         Fases
       </p>
       <ul className="flex flex-col gap-0.5">
-        {PHASE_ORDER.map((phaseId, i) => {
+        {PHASE_ORDER.map((phaseId) => {
           const meta = PHASE_META[phaseId];
-          const state = i < 2 ? 'done' : i === 2 ? 'active' : 'locked';
+          const isActive = phaseId === learnPhase;
           return (
             <li key={phaseId}>
               <button
-                disabled={state === 'locked'}
                 onClick={() => {
-                  if (state !== 'locked') onNavigate?.();
+                  setLearnPhase(phaseId);
+                  onOpenPhase?.();
+                  onNavigate?.();
                 }}
                 className={[
                   'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
-                  state === 'active'
+                  isActive
                     ? 'bg-accent/10 text-accent'
-                    : state === 'done'
-                      ? 'text-slate-300 hover:bg-slate-800/40'
-                      : 'cursor-not-allowed text-slate-600',
+                    : 'text-slate-300 hover:bg-slate-800/40',
                 ].join(' ')}
               >
-                <PhaseDot state={state} index={meta.step} />
+                <PhaseDot index={meta.step} isActive={isActive} />
                 <span className="truncate">{meta.label}</span>
               </button>
             </li>
@@ -128,29 +134,12 @@ function PhaseList({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function PhaseDot({
-  state,
-  index,
-}: {
-  state: 'done' | 'active' | 'locked';
-  index: number;
-}) {
-  if (state === 'done') {
-    return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/20 text-accent">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-          <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-    );
-  }
+function PhaseDot({ index, isActive }: { index: number; isActive: boolean }) {
   return (
     <span
       className={[
         'flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-[10px]',
-        state === 'active'
-          ? 'bg-accent text-ink-950'
-          : 'bg-slate-800 text-slate-500',
+        isActive ? 'bg-accent text-ink-950' : 'bg-slate-800 text-slate-500',
       ].join(' ')}
     >
       {index}

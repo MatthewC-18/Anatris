@@ -39,6 +39,7 @@ import { ANATOMICAL_LAYERS } from '../lib/anatomyMeta';
 import type { AnatomyLayer, CameraView } from '../types/anatomy';
 import type { RomMuscleRole } from '../types/rom';
 import type { ConceptOverlay } from '../types/concept';
+import type { PhaseId } from '../types/pedagogy';
 
 /** The side-filter values exposed in the UI. */
 export type SideFilter = 'both' | 'right' | 'left';
@@ -134,6 +135,14 @@ interface AnatomyState {
   ) => void;
   setRomFocusMuscle: (muscleId: string | null) => void; // NEW
   clearRom: () => void;
+
+  /* ----- learn track: which of the 7 phases is active ----- */
+  // Single source of truth for the active pedagogical phase, shared by the
+  // "Aprender" tab strip (PhaseTrack) and the Sidebar phase navigator so the two
+  // controls never disagree. Region-independent: the 7 phases are the same
+  // everywhere, so switching region keeps the chosen phase.
+  learnPhase: PhaseId;
+  setLearnPhase: (phase: PhaseId) => void;
 
   /* ----- command palette ----- */
   paletteOpen: boolean;
@@ -253,6 +262,10 @@ export const useAnatomyStore = create<AnatomyState>((set) => ({
   setRomFocusMuscle: (muscleId) => set({ romFocusMuscleId: muscleId }),
   clearRom: () =>
     set({ romSelection: null, romMuscleId: null, romHighlight: null, romFocusMuscleId: null }), // NEW reset
+
+  /* ----- learn track phase ----- */
+  learnPhase: 'anatomy',
+  setLearnPhase: (phase) => set({ learnPhase: phase }),
 
   /* ----- command palette ----- */
   paletteOpen: false,

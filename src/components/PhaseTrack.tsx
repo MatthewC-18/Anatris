@@ -22,7 +22,6 @@
 // Styling reuses the project's existing tokens (slate/ink/accent, glass) and
 // the shared MuscleContentSections primitives, so it matches SelectionPanel.
 
-import { useState } from 'react';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { trackForRegion } from '../data/trackByRegion';
 import { isConceptModule, conceptForRegion } from '../data/conceptByRegion';
@@ -54,7 +53,10 @@ interface PhaseTrackProps {
 }
 
 export function PhaseTrack({ track: trackProp }: PhaseTrackProps) {
-  const [active, setActive] = useState<PhaseId>('anatomy');
+  // The active phase lives in the store so the Sidebar phase navigator and this
+  // tab strip stay in sync (one source of truth).
+  const active = useAnatomyStore((s) => s.learnPhase);
+  const setActive = useAnatomyStore((s) => s.setLearnPhase);
   const region = useAnatomyStore((s) => s.region);
 
   // Conceptual modules (e.g. Fundamentos) are NOT anatomical regions: they have

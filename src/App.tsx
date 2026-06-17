@@ -294,7 +294,11 @@ export default function App() {
       ) : mode === 'learn' ? (
         <div className="flex min-h-0 flex-1">
           <div className="hidden lg:flex">
-            <Sidebar index={index} resolution={resolution} />
+            <Sidebar
+              index={index}
+              resolution={resolution}
+              onOpenPhase={() => setMode('learn')}
+            />
           </div>
           <main className="min-w-0 flex-1 overflow-y-auto lg:overflow-hidden">
             <div className="flex min-h-0 flex-col lg:h-full">
@@ -321,7 +325,11 @@ export default function App() {
         <div className="flex min-h-0 flex-1">
           {!concept && (
             <div className="hidden lg:flex">
-              <Sidebar index={index} resolution={resolution} />
+              <Sidebar
+              index={index}
+              resolution={resolution}
+              onOpenPhase={() => setMode('learn')}
+            />
             </div>
           )}
           <main className="relative min-w-0 flex-1">
@@ -381,6 +389,7 @@ export default function App() {
             index={index}
             resolution={resolution}
             onNavigate={() => setDrawer('none')}
+            onOpenPhase={() => setMode('learn')}
           />
         </DrawerShell>
       )}
