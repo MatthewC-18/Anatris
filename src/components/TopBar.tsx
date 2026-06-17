@@ -20,7 +20,7 @@ import { isRegionPremium } from '../auth/entitlements';
 import { AccountMenu } from './account/AccountMenu';
 
 export type AppMode = 'explore' | 'learn' | 'study' | 'movement';
-export type Overlay = 'none' | 'about' | 'legal';
+export type Overlay = 'none' | 'about' | 'legal' | 'pricing';
 
 interface TopBarProps {
   mode: AppMode;
@@ -241,6 +241,17 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
         <span className="hidden lg:inline">Buscar estructura</span>
         <span className="kbd ml-2">{String.fromCharCode(0x2318)}K</span>
       </button>
+
+      {/* Upgrade entry point: only shown while the user is on the free tier. */}
+      {!entitlement.isPremium && (
+        <button
+          type="button"
+          onClick={() => setOverlay('pricing')}
+          className="hidden shrink-0 rounded-lg bg-accent/15 px-2.5 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/25 lg:block"
+        >
+          Planes
+        </button>
+      )}
 
       {/* App-level controls: Acerca de / Legal */}
       <button

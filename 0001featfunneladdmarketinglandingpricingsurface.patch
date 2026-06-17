@@ -1,0 +1,487 @@
+From 29c253b664ebba37e8280175bf10b6ed78ea38be Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 15 Jun 2026 17:52:29 +0000
+Subject: [PATCH] feat(funnel): add marketing landing + pricing surface
+
+Add a sales funnel as the first surface after the legal gate:
+- LandingScreen: hero, value props and pricing for new visitors
+- Pricing: Free vs Premium with monthly/annual toggle, wired to the
+  existing auth/checkout seam (startCheckout)
+- App: one-time "entered" gate (localStorage); premium users skip it
+- TopBar: "Planes" entry that opens an in-app pricing overlay
+
+Placeholder prices are clearly marked for editing.
+---
+ src/App.tsx                              |  60 ++++++++
+ src/components/TopBar.tsx                |  13 +-
+ src/components/landing/LandingScreen.tsx | 141 ++++++++++++++++++
+ src/components/landing/Pricing.tsx       | 175 +++++++++++++++++++++++
+ 4 files changed, 388 insertions(+), 1 deletion(-)
+ create mode 100644 src/components/landing/LandingScreen.tsx
+ create mode 100644 src/components/landing/Pricing.tsx
+
+diff --git a/src/App.tsx b/src/App.tsx
+index f63babe..f3bf36e 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -42,6 +42,8 @@ import { StudyView } from './components/study/StudyView';
+ import { MovementView } from './components/movement/MovementView';
+ import { AuthModal } from './components/account/AuthModal';
+ import { Paywall } from './components/account/Paywall';
++import { LandingScreen } from './components/landing/LandingScreen';
++import { Pricing } from './components/landing/Pricing';
+ import { useEntitlement } from './auth/AuthContext';
+ import { AttributionScreen } from './components/AttributionScreen';
+ import {
+@@ -88,6 +90,33 @@ function writeAccepted(): void {
+   }
+ }
+ 
++/* ---------------------------------------------------------------------------
++ * LANDING ("entered") PERSISTENCE
++ * ---------------------------------------------------------------------------
++ * The marketing landing is shown once per visitor (after the legal gate) as the
++ * sales funnel. Once they choose to enter the app — free or via checkout — we
++ * remember it so returning visitors land straight in the app. Same fail-open
++ * localStorage discipline as the disclaimer above.
++ * ------------------------------------------------------------------------ */
++const ENTERED_KEY = 'anatris.entered';
++
++function readEntered(): boolean {
++  try {
++    if (typeof window === 'undefined' || !window.localStorage) return false;
++    return window.localStorage.getItem(ENTERED_KEY) === '1';
++  } catch {
++    return false;
++  }
++}
++function writeEntered(): void {
++  try {
++    if (typeof window === 'undefined' || !window.localStorage) return;
++    window.localStorage.setItem(ENTERED_KEY, '1');
++  } catch {
++    // Non-fatal: the landing simply reappears next session.
++  }
++}
++
+ /** True when the viewport is below the lg breakpoint (Tailwind lg = 1024px). */
+ function useIsCompact(): boolean {
+   const [compact, setCompact] = useState<boolean>(() => {
+@@ -112,6 +141,7 @@ export default function App() {
+   const [drawer, setDrawer] = useState<Drawer>('none');
+   const [authOpen, setAuthOpen] = useState<boolean>(false);
+   const [accepted, setAccepted] = useState<boolean>(() => readAccepted());
++  const [entered, setEntered] = useState<boolean>(() => readEntered());
+   const compact = useIsCompact();
+   const entitlement = useEntitlement();
+ 
+@@ -162,10 +192,27 @@ export default function App() {
+     setAccepted(true);
+   }
+ 
++  function enterApp(): void {
++    writeEntered();
++    setEntered(true);
++  }
++
+   if (!accepted) {
+     return <DisclaimerGate onAccept={acceptDisclaimer} />;
+   }
+ 
++  // Marketing landing (sales funnel): shown once, after the legal gate, to
++  // visitors who haven't entered yet and aren't already premium. Premium users
++  // (returning subscribers) always skip straight to the app.
++  if (!entered && !entitlement.isPremium) {
++    return (
++      <>
++        <LandingScreen onEnter={enterApp} onOpenAuth={() => setAuthOpen(true)} />
++        <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
++      </>
++    );
++  }
++
+   return (
+     <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
+       <TopBar
+@@ -359,6 +406,19 @@ export default function App() {
+           <MedicalDisclaimerScreen />
+         </OverlayShell>
+       )}
++      {overlay === 'pricing' && (
++        <OverlayShell title="Planes" onClose={() => setOverlay('none')}>
++          <div className="px-5 py-6">
++            <Pricing
++              onChooseFree={() => setOverlay('none')}
++              onOpenAuth={() => {
++                setOverlay('none');
++                setAuthOpen(true);
++              }}
++            />
++          </div>
++        </OverlayShell>
++      )}
+     </div>
+   );
+ }
+diff --git a/src/components/TopBar.tsx b/src/components/TopBar.tsx
+index fba5ea0..35015b9 100644
+--- a/src/components/TopBar.tsx
++++ b/src/components/TopBar.tsx
+@@ -20,7 +20,7 @@ import { isRegionPremium } from '../auth/entitlements';
+ import { AccountMenu } from './account/AccountMenu';
+ 
+ export type AppMode = 'explore' | 'learn' | 'study' | 'movement';
+-export type Overlay = 'none' | 'about' | 'legal';
++export type Overlay = 'none' | 'about' | 'legal' | 'pricing';
+ 
+ interface TopBarProps {
+   mode: AppMode;
+@@ -242,6 +242,17 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
+         <span className="kbd ml-2">{String.fromCharCode(0x2318)}K</span>
+       </button>
+ 
++      {/* Upgrade entry point: only shown while the user is on the free tier. */}
++      {!entitlement.isPremium && (
++        <button
++          type="button"
++          onClick={() => setOverlay('pricing')}
++          className="hidden shrink-0 rounded-lg bg-accent/15 px-2.5 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/25 lg:block"
++        >
++          Planes
++        </button>
++      )}
++
+       {/* App-level controls: Acerca de / Legal */}
+       <button
+         type="button"
+diff --git a/src/components/landing/LandingScreen.tsx b/src/components/landing/LandingScreen.tsx
+new file mode 100644
+index 0000000..88b9271
+--- /dev/null
++++ b/src/components/landing/LandingScreen.tsx
+@@ -0,0 +1,141 @@
++// src/components/landing/LandingScreen.tsx
++//
++// Marketing landing: the first surface a new visitor sees (after the legal
++// gate). Sells the value, then drops them into the app (free) or to checkout.
++// Logged-in premium users skip this entirely (see App).
++
++import { useAuth } from '../../auth/AuthContext';
++import { Pricing } from './Pricing';
++
++interface LandingScreenProps {
++  /** Enter the app on the free tier. */
++  onEnter: () => void;
++  /** Open the sign-in / sign-up modal. */
++  onOpenAuth: () => void;
++}
++
++const FEATURES = [
++  {
++    title: 'Atlas 3D por regiones',
++    body: 'Explora hombro, codo, columna y rodilla en un modelo interactivo. Aísla músculos, capas y lados.',
++  },
++  {
++    title: 'Biomecánica que se entiende',
++    body: 'Mueve la articulación y observa qué músculos trabajan en cada tramo del recorrido, por su rol.',
++  },
++  {
++    title: 'Estudio con retención',
++    body: 'Cuestionarios y tarjetas generados desde el contenido clínico de cada región. Mide tu progreso.',
++  },
++  {
++    title: 'Pensado para fisioterapia',
++    body: 'Origen, inserción, inervación, acciones y rangos de movimiento, con referencias y enfoque clínico.',
++  },
++];
++
++export function LandingScreen({ onEnter, onOpenAuth }: LandingScreenProps) {
++  const { snapshot } = useAuth();
++
++  return (
++    <div className="h-screen w-screen overflow-y-auto bg-ink-950 text-slate-200">
++      {/* Top bar */}
++      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-800/60 bg-ink-950/85 px-5 py-3 backdrop-blur">
++        <div className="flex items-center gap-2">
++          <span className="font-display text-base font-bold tracking-tight text-slate-50">
++            Anatris
++          </span>
++          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
++        </div>
++        <div className="flex items-center gap-2">
++          {!snapshot.user && (
++            <button
++              type="button"
++              onClick={onOpenAuth}
++              className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-300 transition-colors hover:text-slate-100"
++            >
++              Iniciar sesión
++            </button>
++          )}
++          <button
++            type="button"
++            onClick={onEnter}
++            className="rounded-lg bg-accent/20 px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent/30"
++          >
++            Entrar a la app
++          </button>
++        </div>
++      </header>
++
++      {/* Hero */}
++      <section className="mx-auto max-w-3xl px-6 pb-10 pt-16 text-center">
++        <span className="inline-block rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1 text-xs font-medium text-slate-400">
++          Anatomía y biomecánica para fisioterapia
++        </span>
++        <h1 className="mt-5 font-display text-4xl font-bold leading-tight text-slate-50 sm:text-5xl">
++          Estudia el movimiento,
++          <br className="hidden sm:block" /> no solo la anatomía
++        </h1>
++        <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-slate-400">
++          Un atlas 3D enfocado en fisioterapia: explora cada región, entiende qué
++          músculos actúan en cada fase del rango de movimiento y afianza con
++          cuestionarios y tarjetas.
++        </p>
++        <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
++          <button
++            type="button"
++            onClick={onEnter}
++            className="w-full rounded-lg bg-accent/20 px-6 py-3 text-sm font-semibold text-accent transition-colors hover:bg-accent/30 sm:w-auto"
++          >
++            Probar gratis
++          </button>
++          <a
++            href="#planes"
++            className="w-full rounded-lg border border-slate-700 px-6 py-3 text-center text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800/60 sm:w-auto"
++          >
++            Ver planes
++          </a>
++        </div>
++        <p className="mt-3 text-xs text-slate-600">
++          Empieza con el hombro gratis. Sin tarjeta.
++        </p>
++      </section>
++
++      {/* Features */}
++      <section className="mx-auto max-w-4xl px-6 py-10">
++        <div className="grid gap-4 sm:grid-cols-2">
++          {FEATURES.map((f) => (
++            <div
++              key={f.title}
++              className="rounded-2xl border border-slate-800/60 bg-slate-900/30 p-5"
++            >
++              <h3 className="font-display text-base font-semibold text-slate-100">
++                {f.title}
++              </h3>
++              <p className="mt-1.5 text-sm leading-relaxed text-slate-400">{f.body}</p>
++            </div>
++          ))}
++        </div>
++      </section>
++
++      {/* Pricing */}
++      <section id="planes" className="mx-auto max-w-4xl px-6 py-12">
++        <h2 className="mb-2 text-center font-display text-2xl font-bold text-slate-50">
++          Planes
++        </h2>
++        <p className="mb-8 text-center text-sm text-slate-500">
++          Empieza gratis con el hombro; desbloquea el cuerpo completo cuando
++          quieras.
++        </p>
++        <Pricing onChooseFree={onEnter} onOpenAuth={onOpenAuth} />
++      </section>
++
++      {/* Footer */}
++      <footer className="border-t border-slate-800/60 px-6 py-8 text-center">
++        <p className="text-xs leading-relaxed text-slate-600">
++          Anatris es una herramienta educativa. No sustituye el diagnóstico ni el
++          criterio clínico profesional.
++        </p>
++      </footer>
++    </div>
++  );
++}
+diff --git a/src/components/landing/Pricing.tsx b/src/components/landing/Pricing.tsx
+new file mode 100644
+index 0000000..51feb1c
+--- /dev/null
++++ b/src/components/landing/Pricing.tsx
+@@ -0,0 +1,175 @@
++// src/components/landing/Pricing.tsx
++//
++// Pricing surface: Free vs Premium with a monthly/annual toggle. Reused both on
++// the marketing landing and as an in-app "Planes" overlay. The premium CTA is
++// wired to the existing auth/billing seam (useAuth.startCheckout) so it works on
++// the mock today and on real Stripe once configured.
++//
++// EDIT ME: the amounts/currency below are placeholders. Set your real prices —
++// and consider local currency for your market (MXN / COP / EUR ...).
++
++import { useState } from 'react';
++import { useAuth, useEntitlement } from '../../auth/AuthContext';
++
++const PRICING = {
++  currency: 'USD',
++  symbol: '$',
++  monthly: 7.99,
++  annual: 59, // ~ 4.92 / mes (ahorro frente al mensual)
++};
++
++const PREMIUM_FEATURES = [
++  'Todas las regiones: hombro, codo, columna y rodilla',
++  'Laboratorio de movimiento (biomecánica interactiva)',
++  'Cuestionarios y tarjetas de estudio de cada región',
++  'Rangos de movimiento y músculos activos por fase',
++  'Contenido clínico con referencias',
++  'Tu progreso sincronizado en todos tus dispositivos',
++];
++
++const FREE_FEATURES = [
++  'Región del hombro completa',
++  'Módulo de Fundamentos',
++  'Explorador 3D y estudio del hombro',
++];
++
++interface PricingProps {
++  /** Called by the free-plan CTA (e.g. enter the app / close the overlay). */
++  onChooseFree?: () => void;
++  /** Open the sign-in / sign-up modal (used when not authenticated). */
++  onOpenAuth: () => void;
++}
++
++export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
++  const { snapshot, startCheckout } = useAuth();
++  const { isPremium } = useEntitlement();
++  const [annual, setAnnual] = useState(true);
++  const [busy, setBusy] = useState(false);
++
++  const price = annual ? PRICING.annual / 12 : PRICING.monthly;
++  const priceLabel = `${PRICING.symbol}${price.toFixed(2)}`;
++
++  async function goPremium() {
++    if (isPremium) return;
++    if (!snapshot.user) {
++      onOpenAuth();
++      return;
++    }
++    setBusy(true);
++    await startCheckout();
++    setBusy(false);
++  }
++
++  return (
++    <div className="mx-auto w-full max-w-3xl px-2">
++      {/* Billing period toggle */}
++      <div className="mb-6 flex items-center justify-center gap-3">
++        <span className={`text-sm ${!annual ? 'text-slate-200' : 'text-slate-500'}`}>
++          Mensual
++        </span>
++        <button
++          type="button"
++          onClick={() => setAnnual((a) => !a)}
++          className="relative h-6 w-11 rounded-full border border-slate-700 bg-slate-800 transition-colors"
++          aria-label="Cambiar periodo de facturación"
++        >
++          <span
++            className={`absolute top-0.5 h-4 w-4 rounded-full bg-accent transition-all ${
++              annual ? 'left-[1.4rem]' : 'left-0.5'
++            }`}
++          />
++        </button>
++        <span className={`text-sm ${annual ? 'text-slate-200' : 'text-slate-500'}`}>
++          Anual
++          <span className="ml-1 rounded bg-emerald-600/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
++            ahorra
++          </span>
++        </span>
++      </div>
++
++      <div className="grid gap-4 sm:grid-cols-2">
++        {/* Free */}
++        <div className="flex flex-col rounded-2xl border border-slate-800/60 bg-slate-900/30 p-6">
++          <h3 className="font-display text-lg font-bold text-slate-100">Gratis</h3>
++          <p className="mt-1 text-sm text-slate-500">Para empezar a estudiar hoy.</p>
++          <p className="mt-4 font-display text-3xl font-bold text-slate-50">
++            {PRICING.symbol}0
++          </p>
++          <ul className="mt-5 flex flex-1 flex-col gap-2">
++            {FREE_FEATURES.map((f) => (
++              <Feature key={f} text={f} />
++            ))}
++          </ul>
++          <button
++            type="button"
++            onClick={onChooseFree}
++            className="mt-6 rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800/60"
++          >
++            Empezar gratis
++          </button>
++        </div>
++
++        {/* Premium */}
++        <div className="relative flex flex-col rounded-2xl border border-accent/40 bg-accent/[0.06] p-6">
++          <span className="absolute -top-2.5 right-5 rounded-full bg-accent/20 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
++            Recomendado
++          </span>
++          <h3 className="font-display text-lg font-bold text-slate-100">Premium</h3>
++          <p className="mt-1 text-sm text-slate-500">El cuerpo completo y todo el estudio.</p>
++          <p className="mt-4 flex items-baseline gap-1">
++            <span className="font-display text-3xl font-bold text-slate-50">{priceLabel}</span>
++            <span className="text-sm text-slate-500">/ mes</span>
++          </p>
++          <p className="text-xs text-slate-500">
++            {annual
++              ? `Facturado ${PRICING.symbol}${PRICING.annual.toFixed(2)} al año`
++              : 'Facturación mensual'}
++          </p>
++          <ul className="mt-5 flex flex-1 flex-col gap-2">
++            {PREMIUM_FEATURES.map((f) => (
++              <Feature key={f} text={f} highlight />
++            ))}
++          </ul>
++          <button
++            type="button"
++            onClick={goPremium}
++            disabled={busy || isPremium}
++            className="mt-6 rounded-lg bg-accent/20 px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent/30 disabled:opacity-60"
++          >
++            {isPremium
++              ? 'Tu plan actual'
++              : busy
++                ? 'Procesando…'
++                : snapshot.user
++                  ? 'Suscribirme'
++                  : 'Crear cuenta y suscribirme'}
++          </button>
++        </div>
++      </div>
++
++      <p className="mt-5 text-center text-[11px] text-slate-600">
++        Cancela cuando quieras. Pago seguro con Stripe. Solo con fines educativos;
++        no sustituye el criterio clínico profesional.
++      </p>
++    </div>
++  );
++}
++
++function Feature({ text, highlight }: { text: string; highlight?: boolean }) {
++  return (
++    <li className="flex items-start gap-2 text-sm text-slate-300">
++      <svg
++        className={`mt-0.5 shrink-0 ${highlight ? 'text-accent' : 'text-emerald-400'}`}
++        width="15"
++        height="15"
++        viewBox="0 0 24 24"
++        fill="none"
++        stroke="currentColor"
++        strokeWidth="2.5"
++      >
++        <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
++      </svg>
++      {text}
++    </li>
++  );
++}
+-- 
+2.43.0
+

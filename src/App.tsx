@@ -42,6 +42,8 @@ import { StudyView } from './components/study/StudyView';
 import { MovementView } from './components/movement/MovementView';
 import { AuthModal } from './components/account/AuthModal';
 import { Paywall } from './components/account/Paywall';
+import { LandingScreen } from './components/landing/LandingScreen';
+import { Pricing } from './components/landing/Pricing';
 import { useEntitlement } from './auth/AuthContext';
 import { AttributionScreen } from './components/AttributionScreen';
 import {
@@ -88,6 +90,33 @@ function writeAccepted(): void {
   }
 }
 
+/* ---------------------------------------------------------------------------
+ * LANDING ("entered") PERSISTENCE
+ * ---------------------------------------------------------------------------
+ * The marketing landing is shown once per visitor (after the legal gate) as the
+ * sales funnel. Once they choose to enter the app — free or via checkout — we
+ * remember it so returning visitors land straight in the app. Same fail-open
+ * localStorage discipline as the disclaimer above.
+ * ------------------------------------------------------------------------ */
+const ENTERED_KEY = 'anatris.entered';
+
+function readEntered(): boolean {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return false;
+    return window.localStorage.getItem(ENTERED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function writeEntered(): void {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    window.localStorage.setItem(ENTERED_KEY, '1');
+  } catch {
+    // Non-fatal: the landing simply reappears next session.
+  }
+}
+
 /** True when the viewport is below the lg breakpoint (Tailwind lg = 1024px). */
 function useIsCompact(): boolean {
   const [compact, setCompact] = useState<boolean>(() => {
@@ -112,6 +141,7 @@ export default function App() {
   const [drawer, setDrawer] = useState<Drawer>('none');
   const [authOpen, setAuthOpen] = useState<boolean>(false);
   const [accepted, setAccepted] = useState<boolean>(() => readAccepted());
+  const [entered, setEntered] = useState<boolean>(() => readEntered());
   const compact = useIsCompact();
   const entitlement = useEntitlement();
 
@@ -162,8 +192,25 @@ export default function App() {
     setAccepted(true);
   }
 
+  function enterApp(): void {
+    writeEntered();
+    setEntered(true);
+  }
+
   if (!accepted) {
     return <DisclaimerGate onAccept={acceptDisclaimer} />;
+  }
+
+  // Marketing landing (sales funnel): shown once, after the legal gate, to
+  // visitors who haven't entered yet and aren't already premium. Premium users
+  // (returning subscribers) always skip straight to the app.
+  if (!entered && !entitlement.isPremium) {
+    return (
+      <>
+        <LandingScreen onEnter={enterApp} onOpenAuth={() => setAuthOpen(true)} />
+        <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      </>
+    );
   }
 
   return (
@@ -357,6 +404,19 @@ export default function App() {
       {overlay === 'legal' && (
         <OverlayShell title="Aviso legal" onClose={() => setOverlay('none')}>
           <MedicalDisclaimerScreen />
+        </OverlayShell>
+      )}
+      {overlay === 'pricing' && (
+        <OverlayShell title="Planes" onClose={() => setOverlay('none')}>
+          <div className="px-5 py-6">
+            <Pricing
+              onChooseFree={() => setOverlay('none')}
+              onOpenAuth={() => {
+                setOverlay('none');
+                setAuthOpen(true);
+              }}
+            />
+          </div>
         </OverlayShell>
       )}
     </div>
