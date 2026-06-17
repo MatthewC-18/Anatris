@@ -27,19 +27,29 @@
 //   - "Acerca de" and "Legal" open the attribution / disclaimer screens as
 //     overlays.
 
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useAnatomyIndex } from './hooks/useAnatomyIndex';
 import { useMuscleResolution } from './hooks/useMuscleResolution';
 import { useAnatomyStore } from './store/anatomyStore';
 import { TopBar, type AppMode, type Overlay } from './components/TopBar';
 import { Sidebar } from './components/Sidebar';
-import { Viewer3D } from './components/Viewer3D';
+// The 3D workspace (Viewer3D + MovementView) is the ONLY path that pulls in
+// three.js / @react-three (~1.4 MB). It is code-split behind React.lazy so the
+// marketing landing, pricing, disclaimer and study views — none of which touch
+// three — load without downloading the 3D engine. See vite.config manualChunks.
+const Viewer3D = lazy(() =>
+  import('./components/Viewer3D').then((m) => ({ default: m.Viewer3D })),
+);
 import { ViewToolbar } from './components/ViewToolbar';
 import { SelectionPanel } from './components/SelectionPanel';
 import { CommandPalette } from './components/CommandPalette';
 import { PhaseTrack } from './components/PhaseTrack';
 import { StudyView } from './components/study/StudyView';
-import { MovementView } from './components/movement/MovementView';
+const MovementView = lazy(() =>
+  import('./components/movement/MovementView').then((m) => ({
+    default: m.MovementView,
+  })),
+);
 import { AuthModal } from './components/account/AuthModal';
 import { Paywall } from './components/account/Paywall';
 import { LandingScreen } from './components/landing/LandingScreen';
@@ -227,6 +237,9 @@ export default function App() {
         <MedicalDisclaimerBanner />
       </div>
 
+      {/* The 3D views below are lazy-loaded; IndexLoading covers the brief
+          chunk fetch the first time the workspace is shown. */}
+      <Suspense fallback={<IndexLoading />}>
       {locked ? (
         // SUBSCRIPTION GATE: this region needs premium. Replace the whole body
         // with the upgrade funnel; the TopBar stays so the user can switch back
@@ -355,6 +368,7 @@ export default function App() {
           )}
         </div>
       )}
+      </Suspense>
 
       {/* Compact-only floating buttons to open the drawers. */}
       {compact && mode !== 'study' && mode !== 'movement' && !locked && (
