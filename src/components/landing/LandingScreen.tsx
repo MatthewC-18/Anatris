@@ -6,6 +6,7 @@
 
 import { useAuth } from '../../auth/AuthContext';
 import { Pricing } from './Pricing';
+import { BrandMark, RoleLegend } from '../BrandMark';
 
 interface LandingScreenProps {
   /** Enter the app on the free tier. */
@@ -18,18 +19,22 @@ const FEATURES = [
   {
     title: 'Atlas 3D por regiones',
     body: 'Explora hombro, codo, columna y rodilla en un modelo interactivo. Aísla músculos, capas y lados.',
+    bar: 'bg-accent',
   },
   {
     title: 'Biomecánica que se entiende',
     body: 'Mueve la articulación y observa qué músculos trabajan en cada tramo del recorrido, por su rol.',
+    bar: 'bg-role-prime',
   },
   {
     title: 'Estudio con retención',
     body: 'Cuestionarios y tarjetas generados desde el contenido clínico de cada región. Mide tu progreso.',
+    bar: 'bg-role-stabilize',
   },
   {
     title: 'Pensado para fisioterapia',
     body: 'Origen, inserción, inervación, acciones y rangos de movimiento, con referencias y enfoque clínico.',
+    bar: 'bg-clinical',
   },
 ];
 
@@ -41,10 +46,10 @@ export function LandingScreen({ onEnter, onOpenAuth }: LandingScreenProps) {
       {/* Top bar */}
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-800/60 bg-ink-950/85 px-5 py-3 backdrop-blur">
         <div className="flex items-center gap-2">
+          <BrandMark className="h-5 w-5 text-slate-200" title="Anatris" />
           <span className="font-display text-base font-bold tracking-tight text-slate-50">
             Anatris
           </span>
-          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
         </div>
         <div className="flex items-center gap-2">
           {!snapshot.user && (
@@ -68,7 +73,9 @@ export function LandingScreen({ onEnter, onOpenAuth }: LandingScreenProps) {
 
       {/* Hero */}
       <section className="mx-auto max-w-3xl px-6 pb-10 pt-16 text-center">
-        <span className="inline-block rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1 text-xs font-medium text-slate-400">
+        <BrandMark className="mx-auto mb-6 h-12 w-12 text-slate-100" />
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           Anatomía y biomecánica para fisioterapia
         </span>
         <h1 className="mt-5 font-display text-4xl font-bold leading-tight text-slate-50 sm:text-5xl">
@@ -106,14 +113,24 @@ export function LandingScreen({ onEnter, onOpenAuth }: LandingScreenProps) {
           {FEATURES.map((f) => (
             <div
               key={f.title}
-              className="rounded-2xl border border-slate-800/60 bg-slate-900/30 p-5"
+              className="relative overflow-hidden rounded-2xl border border-slate-800/60 bg-slate-900/30 p-5 pl-6"
             >
+              <span className={`absolute inset-y-0 left-0 w-1 ${f.bar}`} />
               <h3 className="font-display text-base font-semibold text-slate-100">
                 {f.title}
               </h3>
               <p className="mt-1.5 text-sm leading-relaxed text-slate-400">{f.body}</p>
             </div>
           ))}
+        </div>
+
+        {/* Clinical color language: the role legend used across the app, shown
+            here as a teaser of the physiotherapy-first vocabulary. */}
+        <div className="mt-8 flex flex-col items-center gap-2 text-center">
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-600">
+            Cada músculo, por su rol en el movimiento
+          </p>
+          <RoleLegend className="justify-center" />
         </div>
       </section>
 

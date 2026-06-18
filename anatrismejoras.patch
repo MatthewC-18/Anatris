@@ -1,0 +1,532 @@
+From 014ae3209d5534784838105ea7a0446ea136954e Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 18 Jun 2026 04:39:35 +0000
+Subject: [PATCH 1/3] fix(build): eliminar comando git pegado por error en
+ elbowMuscles
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Una línea de elbowMuscles.ts contenía 'git push -u origin ...' pegado
+accidentalmente dentro de un literal de objeto, lo que rompía tsc -b y
+por tanto npm run build. Se restaura la coma de cierre del antagonista.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01C6wgxmMppTMhSVuhYafjSb
+---
+ src/data/elbowMuscles.ts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/data/elbowMuscles.ts b/src/data/elbowMuscles.ts
+index d8dbb87..caa0616 100644
+--- a/src/data/elbowMuscles.ts
++++ b/src/data/elbowMuscles.ts
+@@ -361,7 +361,7 @@ const brachioradialis: MuscleContent = {
+     {
+       text: 'Tríceps braquial y ancóneo (extensión del codo).',
+       cite: [{ ref: 'kapandji', pageVerified: false }],
+-    },git push -u origin claude/serene-cerf-30u63z
++    },
+   ],
+ 
+   pathologies: [
+-- 
+2.43.0
+
+
+From c3faff8f580de198076ea90103008b9787b27a44 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 18 Jun 2026 04:46:47 +0000
+Subject: [PATCH 2/3] =?UTF-8?q?feat(brand):=20identidad=20visual=20de=20fi?=
+ =?UTF-8?q?sioterapia=20(marca,=20color=20cl=C3=ADnico)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Refuerza el enfoque de fisioterapia en la interfaz para diferenciar la app:
+
+- BrandMark: logo SVG propio que representa el rango de movimiento de una
+  articulación (pivote + arco ROM), en vez del texto + punto genérico.
+  Se usa en TopBar, landing (header y hero) y como favicon.
+- Sistema de color con significado clínico en tailwind.config: tokens de
+  rol muscular (role.prime/assist/stabilize = agonista/asistente/
+  estabilizador) y un verde clínico (clinical) como segundo acento.
+- RoleLegend reutilizable que enseña el lenguaje de color clínico; se
+  muestra en la landing y queda disponible para el resto de la app.
+- Landing: tarjetas de features con barra de color clínico y badge con
+  acento; hero con la marca.
+- index.html: título y descripción reales (antes 'Fisio'), favicon SVG,
+  theme-color y fondo coherente con el tema ink.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01C6wgxmMppTMhSVuhYafjSb
+---
+ index.html                               | 12 +++-
+ public/favicon.svg                       |  7 +++
+ src/components/BrandMark.tsx             | 77 ++++++++++++++++++++++++
+ src/components/TopBar.tsx                |  3 +-
+ src/components/landing/LandingScreen.tsx | 23 ++++++-
+ tailwind.config.js                       | 17 ++++++
+ 6 files changed, 132 insertions(+), 7 deletions(-)
+ create mode 100644 public/favicon.svg
+ create mode 100644 src/components/BrandMark.tsx
+
+diff --git a/index.html b/index.html
+index 6ac6f1e..d92a90d 100644
+--- a/index.html
++++ b/index.html
+@@ -2,11 +2,17 @@
+ <html lang="es">
+   <head>
+     <meta charset="UTF-8" />
++    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+-    <title>Fisio — Anatomía 3D</title>
++    <meta name="theme-color" content="#070b14" />
++    <meta
++      name="description"
++      content="Anatris — atlas 3D de anatomía clínica y biomecánica enfocado en fisioterapia: rangos de movimiento, músculos por fase y estudio con referencias."
++    />
++    <title>Anatris — Anatomía clínica y biomecánica para fisioterapia</title>
+   </head>
+-  <body class="bg-neutral-900 text-neutral-100">
++  <body class="bg-ink-950 text-slate-200">
+     <div id="root"></div>
+     <script type="module" src="/src/main.tsx"></script>
+   </body>
+-</html>
+\ No newline at end of file
++</html>
+diff --git a/public/favicon.svg b/public/favicon.svg
+new file mode 100644
+index 0000000..4b49b0b
+--- /dev/null
++++ b/public/favicon.svg
+@@ -0,0 +1,7 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
++  <rect width="24" height="24" rx="6" fill="#0b1120"/>
++  <path d="M7 18.5V7" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round"/>
++  <path d="M7 18.5L16.5 12.2" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round"/>
++  <path d="M7 8.1A9.5 9.5 0 0 1 15.6 11.2" stroke="#22d3ee" stroke-width="1.7" stroke-linecap="round" fill="none"/>
++  <circle cx="7" cy="18.5" r="2.3" fill="#22d3ee"/>
++</svg>
+diff --git a/src/components/BrandMark.tsx b/src/components/BrandMark.tsx
+new file mode 100644
+index 0000000..f9914a7
+--- /dev/null
++++ b/src/components/BrandMark.tsx
+@@ -0,0 +1,77 @@
++// src/components/BrandMark.tsx
++//
++// The Anatris brand mark and a small clinical-color legend.
++//
++// The mark is a physiotherapy-first glyph: a joint pivot with a fixed limb
++// segment, a moving segment, and a sweeping range-of-motion (ROM) arc. It reads
++// as "movement around a joint" — the core of what the app teaches — rather than
++// a generic anatomy/medical cross. The bones use `currentColor` so the mark
++// adopts the surrounding text color; the ROM arc is always the cyan accent so
++// the "movement" idea stays legible on any surface.
++
++interface BrandMarkProps {
++  className?: string;
++  /** Title for assistive tech. Omit to render purely decorative (aria-hidden). */
++  title?: string;
++}
++
++export function BrandMark({ className, title }: BrandMarkProps) {
++  return (
++    <svg
++      viewBox="0 0 24 24"
++      className={className}
++      fill="none"
++      role={title ? 'img' : undefined}
++      aria-hidden={title ? undefined : true}
++      aria-label={title}
++    >
++      {/* Fixed limb segment (reference position). */}
++      <path
++        d="M6 19V6.5"
++        stroke="currentColor"
++        strokeWidth="2"
++        strokeLinecap="round"
++      />
++      {/* Moving limb segment (rotated through the range). */}
++      <path
++        d="M6 19L17.5 11.5"
++        stroke="currentColor"
++        strokeWidth="2"
++        strokeLinecap="round"
++      />
++      {/* Range-of-motion arc swept between the two segments. */}
++      <path
++        d="M6 7.4A11 11 0 0 1 16.4 11"
++        stroke="#22d3ee"
++        strokeWidth="1.7"
++        strokeLinecap="round"
++      />
++      {/* Pivot / joint. */}
++      <circle cx="6" cy="19" r="2.4" fill="#22d3ee" />
++    </svg>
++  );
++}
++
++/**
++ * The muscle-role color legend. The role colors are the app's clinical shorthand
++ * for "who does what" in a movement; surfacing them as a legend teaches the
++ * vocabulary at a glance — a small but distinctly physiotherapy touch.
++ */
++const ROLE_LEGEND: { label: string; dot: string }[] = [
++  { label: 'Agonista', dot: 'bg-role-prime' },
++  { label: 'Asistente', dot: 'bg-role-assist' },
++  { label: 'Estabilizador', dot: 'bg-role-stabilize' },
++];
++
++export function RoleLegend({ className }: { className?: string }) {
++  return (
++    <div className={['flex flex-wrap items-center gap-x-4 gap-y-2', className].join(' ')}>
++      {ROLE_LEGEND.map((r) => (
++        <span key={r.label} className="inline-flex items-center gap-1.5 text-xs text-slate-400">
++          <span className={`h-2 w-2 rounded-full ${r.dot}`} />
++          {r.label}
++        </span>
++      ))}
++    </div>
++  );
++}
+diff --git a/src/components/TopBar.tsx b/src/components/TopBar.tsx
+index 35015b9..a9636cf 100644
+--- a/src/components/TopBar.tsx
++++ b/src/components/TopBar.tsx
+@@ -18,6 +18,7 @@ import { useAnatomyStore } from '../store/anatomyStore';
+ import { useEntitlement } from '../auth/AuthContext';
+ import { isRegionPremium } from '../auth/entitlements';
+ import { AccountMenu } from './account/AccountMenu';
++import { BrandMark } from './BrandMark';
+ 
+ export type AppMode = 'explore' | 'learn' | 'study' | 'movement';
+ export type Overlay = 'none' | 'about' | 'legal' | 'pricing';
+@@ -122,10 +123,10 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
+     <header className="flex h-12 shrink-0 items-center gap-4 border-b border-slate-800/60 bg-ink-950/90 px-4">
+       {/* Wordmark */}
+       <div className="flex shrink-0 items-center gap-2">
++        <BrandMark className="h-5 w-5 text-slate-200" title="Anatris" />
+         <span className="font-display text-base font-bold tracking-tight text-slate-50">
+           Anatris
+         </span>
+-        <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+       </div>
+ 
+       {/* Module nav -- the single region selector. */}
+diff --git a/src/components/landing/LandingScreen.tsx b/src/components/landing/LandingScreen.tsx
+index 88b9271..4889014 100644
+--- a/src/components/landing/LandingScreen.tsx
++++ b/src/components/landing/LandingScreen.tsx
+@@ -6,6 +6,7 @@
+ 
+ import { useAuth } from '../../auth/AuthContext';
+ import { Pricing } from './Pricing';
++import { BrandMark, RoleLegend } from '../BrandMark';
+ 
+ interface LandingScreenProps {
+   /** Enter the app on the free tier. */
+@@ -18,18 +19,22 @@ const FEATURES = [
+   {
+     title: 'Atlas 3D por regiones',
+     body: 'Explora hombro, codo, columna y rodilla en un modelo interactivo. Aísla músculos, capas y lados.',
++    bar: 'bg-accent',
+   },
+   {
+     title: 'Biomecánica que se entiende',
+     body: 'Mueve la articulación y observa qué músculos trabajan en cada tramo del recorrido, por su rol.',
++    bar: 'bg-role-prime',
+   },
+   {
+     title: 'Estudio con retención',
+     body: 'Cuestionarios y tarjetas generados desde el contenido clínico de cada región. Mide tu progreso.',
++    bar: 'bg-role-stabilize',
+   },
+   {
+     title: 'Pensado para fisioterapia',
+     body: 'Origen, inserción, inervación, acciones y rangos de movimiento, con referencias y enfoque clínico.',
++    bar: 'bg-clinical',
+   },
+ ];
+ 
+@@ -41,10 +46,10 @@ export function LandingScreen({ onEnter, onOpenAuth }: LandingScreenProps) {
+       {/* Top bar */}
+       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-800/60 bg-ink-950/85 px-5 py-3 backdrop-blur">
+         <div className="flex items-center gap-2">
++          <BrandMark className="h-5 w-5 text-slate-200" title="Anatris" />
+           <span className="font-display text-base font-bold tracking-tight text-slate-50">
+             Anatris
+           </span>
+-          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+         </div>
+         <div className="flex items-center gap-2">
+           {!snapshot.user && (
+@@ -68,7 +73,9 @@ export function LandingScreen({ onEnter, onOpenAuth }: LandingScreenProps) {
+ 
+       {/* Hero */}
+       <section className="mx-auto max-w-3xl px-6 pb-10 pt-16 text-center">
+-        <span className="inline-block rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1 text-xs font-medium text-slate-400">
++        <BrandMark className="mx-auto mb-6 h-12 w-12 text-slate-100" />
++        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
++          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+           Anatomía y biomecánica para fisioterapia
+         </span>
+         <h1 className="mt-5 font-display text-4xl font-bold leading-tight text-slate-50 sm:text-5xl">
+@@ -106,8 +113,9 @@ export function LandingScreen({ onEnter, onOpenAuth }: LandingScreenProps) {
+           {FEATURES.map((f) => (
+             <div
+               key={f.title}
+-              className="rounded-2xl border border-slate-800/60 bg-slate-900/30 p-5"
++              className="relative overflow-hidden rounded-2xl border border-slate-800/60 bg-slate-900/30 p-5 pl-6"
+             >
++              <span className={`absolute inset-y-0 left-0 w-1 ${f.bar}`} />
+               <h3 className="font-display text-base font-semibold text-slate-100">
+                 {f.title}
+               </h3>
+@@ -115,6 +123,15 @@ export function LandingScreen({ onEnter, onOpenAuth }: LandingScreenProps) {
+             </div>
+           ))}
+         </div>
++
++        {/* Clinical color language: the role legend used across the app, shown
++            here as a teaser of the physiotherapy-first vocabulary. */}
++        <div className="mt-8 flex flex-col items-center gap-2 text-center">
++          <p className="text-xs uppercase tracking-[0.18em] text-slate-600">
++            Cada músculo, por su rol en el movimiento
++          </p>
++          <RoleLegend className="justify-center" />
++        </div>
+       </section>
+ 
+       {/* Pricing */}
+diff --git a/tailwind.config.js b/tailwind.config.js
+index 97abc26..502bf9e 100644
+--- a/tailwind.config.js
++++ b/tailwind.config.js
+@@ -27,6 +27,23 @@ export default {
+           800: '#141d30',
+           700: '#1c2740',
+         },
++        // Clinical green — a second accent for "go / healthy / range achieved".
++        // Paired with the cyan accent it gives the palette a physiotherapy
++        // (movement + health) identity instead of a generic single-accent dark UI.
++        clinical: {
++          DEFAULT: '#10b981', // emerald-500
++          soft: '#34d399', // emerald-400
++          deep: '#059669', // emerald-600
++          glow: 'rgba(16, 185, 129, 0.15)',
++        },
++        // Muscle-role colors — the app's clinical language for "who does what"
++        // in a movement (prime mover / assistant / stabilizer). Centralized here
++        // so badges, legends and 3D markers stay in sync across the app.
++        role: {
++          prime: '#f59e0b', // amber-500  — agonista / motor principal
++          assist: '#38bdf8', // sky-400    — asistente
++          stabilize: '#a78bfa', // violet-400 — estabilizador
++        },
+       },
+       boxShadow: {
+         glass: '0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+-- 
+2.43.0
+
+
+From 4fdce6ee0553d29e40c7443df1a2fbaa0870f4f1 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 18 Jun 2026 04:46:55 +0000
+Subject: [PATCH 3/3] =?UTF-8?q?fix(panel):=20mostrar=20contenido=20cl?=
+ =?UTF-8?q?=C3=ADnico=20de=20columna=20en=20el=20panel=20de=20detalle?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Los músculos de cervical/torácica/lumbar guardan su contenido en la forma
+simple Muscle (no en MuscleContent), por lo que el SelectionPanel caía al
+estado 'sin contenido clínico'. Ahora, cuando no hay MuscleContent rico pero
+la estructura resuelve a un Muscle, BasicDetail muestra su origen, inserción,
+inervación (con raíces), acciones, grupos funcionales y nota clínica. Las
+estructuras no musculares (huesos, ligamentos) conservan el estado previo.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01C6wgxmMppTMhSVuhYafjSb
+---
+ src/components/SelectionPanel.tsx | 120 +++++++++++++++++++++++++++---
+ 1 file changed, 110 insertions(+), 10 deletions(-)
+
+diff --git a/src/components/SelectionPanel.tsx b/src/components/SelectionPanel.tsx
+index 2109f20..54153bb 100644
+--- a/src/components/SelectionPanel.tsx
++++ b/src/components/SelectionPanel.tsx
+@@ -22,9 +22,12 @@ import { LAYER_META, SIDE_META } from '../lib/anatomyMeta';
+ import { formatCanonicalName } from '../lib/formatName';
+ import { resolveMuscleId } from '../lib/resolveMuscleId';
+ import { muscleContentForRegion } from '../data/muscleContentByRegion';
++import { musclesForRomLookup } from '../data/musclesByRegion';
+ import { REFERENCES } from '../data/references';
+ import { PartFocusControls } from './PartFocusControls';
+ import type { AnatomyEntry } from '../types/anatomy';
++import type { Muscle } from '../types/muscle';
++import { FUNCTIONAL_GROUP_LABEL } from '../types/muscle';
+ import type { MuscleResolution } from '../lib/muscleResolver';
+ import type {
+   MuscleContent,
+@@ -54,6 +57,15 @@ export function SelectionPanel({ byMesh }: SelectionPanelProps) {
+   const content = muscleId
+     ? muscleContentForRegion(region)[muscleId]
+     : undefined;
++  // Regions whose clinical content lives only in the simpler `Muscle` shape
++  // (currently the spine: cervical / thoracic / lumbar) have no rich
++  // MuscleContent entry, so `content` is undefined above. Fall back to the
++  // muscle's own attachment/innervation/action fields instead of the bare
++  // "no content yet" placeholder, so spine muscles still teach something.
++  const muscle =
++    !content && muscleId
++      ? musclesForRomLookup(region).find((m) => m.id === muscleId)
++      : undefined;
+ 
+   return (
+     <aside className="flex h-full w-[340px] shrink-0 flex-col border-l border-slate-800/60 bg-ink-900/60">
+@@ -83,7 +95,7 @@ export function SelectionPanel({ byMesh }: SelectionPanelProps) {
+         ) : content ? (
+           <MuscleCard entry={entry} content={content} />
+         ) : (
+-          <BasicDetail entry={entry} />
++          <BasicDetail entry={entry} muscle={muscle} />
+         )}
+       </div>
+     </aside>
+@@ -117,19 +129,35 @@ function EmptyState() {
+   );
+ }
+ 
+-/** Fallback for structures without authored clinical content. */
+-function BasicDetail({ entry }: { entry: AnatomyEntry }) {
++/**
++ * Fallback card for a selected structure without rich MuscleContent. If the
++ * structure resolves to a `Muscle` (e.g. the spine regions, whose clinical data
++ * lives in the simpler Muscle shape), we surface its attachments, innervation,
++ * actions and clinical note. Otherwise (bones, ligaments, vessels) we show the
++ * name + pills and a "no detailed content yet" line.
++ */
++function BasicDetail({
++  entry,
++  muscle,
++}: {
++  entry: AnatomyEntry;
++  muscle?: Muscle;
++}) {
+   const layer = LAYER_META[entry.layer];
+   const sideLabel = SIDE_META[entry.side].label;
+ 
+   return (
+     <div className="w-full animate-slide-in-right">
+       <h3 className="font-display text-xl font-semibold leading-snug text-slate-50">
+-        {formatCanonicalName(entry.canonicalName, entry.side)}
++        {muscle ? muscle.name : formatCanonicalName(entry.canonicalName, entry.side)}
+       </h3>
+-      <p className="mt-1 font-mono text-[11px] text-slate-600">
+-        {entry.canonicalName}
+-      </p>
++      {muscle ? (
++        <p className="mt-0.5 text-sm italic text-slate-400">{muscle.latin}</p>
++      ) : (
++        <p className="mt-1 font-mono text-[11px] text-slate-600">
++          {entry.canonicalName}
++        </p>
++      )}
+ 
+       <div className="mt-4 flex flex-wrap gap-2">
+         <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-800/60 px-2.5 py-1 text-xs font-medium text-slate-300">
+@@ -141,11 +169,83 @@ function BasicDetail({ entry }: { entry: AnatomyEntry }) {
+             {sideLabel}
+           </span>
+         )}
++        {muscle?.groups.map((g) => (
++          <span
++            key={g}
++            className="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent"
++          >
++            {FUNCTIONAL_GROUP_LABEL[g]}
++          </span>
++        ))}
+       </div>
+ 
+-      <p className="mt-6 text-sm leading-relaxed text-slate-500">
+-        Esta estructura todavia no tiene contenido clinico detallado.
+-      </p>
++      {muscle ? (
++        <div className="mt-6 space-y-5">
++          <BasicSection label="Origen">{muscle.origin}</BasicSection>
++          <BasicSection label="Inserción">{muscle.insertion}</BasicSection>
++          <BasicSection label="Inervación">
++            {muscle.innervation}
++            {muscle.roots.length > 0 && (
++              <span className="ml-1.5 font-mono text-[11px] text-slate-500">
++                ({muscle.roots.join(', ')})
++              </span>
++            )}
++          </BasicSection>
++          {muscle.actions.length > 0 && (
++            <div>
++              <h4 className="mb-1.5 font-display text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
++                Acciones
++              </h4>
++              <ul className="space-y-1.5">
++                {muscle.actions.map((a, i) => (
++                  <li key={i} className="text-sm leading-relaxed text-slate-300">
++                    <span className="font-medium text-slate-200">{a.movement}</span>
++                    <span className="text-slate-500"> · {a.joint}</span>
++                    {a.note && (
++                      <span className="block text-[13px] text-slate-400">{a.note}</span>
++                    )}
++                  </li>
++                ))}
++              </ul>
++            </div>
++          )}
++          {muscle.clinicalNote && (
++            <div className="rounded-lg border border-clinical/25 bg-clinical/[0.06] px-3 py-2.5">
++              <h4 className="mb-1 font-display text-xs font-semibold uppercase tracking-[0.16em] text-clinical-soft">
++                Relevancia clínica
++              </h4>
++              <p className="text-[13px] leading-relaxed text-slate-300">
++                {muscle.clinicalNote}
++              </p>
++            </div>
++          )}
++          <p className="border-t border-slate-800/60 pt-3 text-[11px] leading-relaxed text-slate-600">
++            Contenido en revisión; pendiente de verificación con la fuente.
++          </p>
++        </div>
++      ) : (
++        <p className="mt-6 text-sm leading-relaxed text-slate-500">
++          Esta estructura todavia no tiene contenido clinico detallado.
++        </p>
++      )}
++    </div>
++  );
++}
++
++/** Compact labeled prose block used by the basic (Muscle-shape) detail card. */
++function BasicSection({
++  label,
++  children,
++}: {
++  label: string;
++  children: React.ReactNode;
++}) {
++  return (
++    <div>
++      <h4 className="mb-1 font-display text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
++        {label}
++      </h4>
++      <p className="text-sm leading-relaxed text-slate-300">{children}</p>
+     </div>
+   );
+ }
+-- 
+2.43.0
+

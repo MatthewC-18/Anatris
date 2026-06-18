@@ -22,9 +22,12 @@ import { LAYER_META, SIDE_META } from '../lib/anatomyMeta';
 import { formatCanonicalName } from '../lib/formatName';
 import { resolveMuscleId } from '../lib/resolveMuscleId';
 import { muscleContentForRegion } from '../data/muscleContentByRegion';
+import { musclesForRomLookup } from '../data/musclesByRegion';
 import { REFERENCES } from '../data/references';
 import { PartFocusControls } from './PartFocusControls';
 import type { AnatomyEntry } from '../types/anatomy';
+import type { Muscle } from '../types/muscle';
+import { FUNCTIONAL_GROUP_LABEL } from '../types/muscle';
 import type { MuscleResolution } from '../lib/muscleResolver';
 import type {
   MuscleContent,
@@ -54,6 +57,15 @@ export function SelectionPanel({ byMesh }: SelectionPanelProps) {
   const content = muscleId
     ? muscleContentForRegion(region)[muscleId]
     : undefined;
+  // Regions whose clinical content lives only in the simpler `Muscle` shape
+  // (currently the spine: cervical / thoracic / lumbar) have no rich
+  // MuscleContent entry, so `content` is undefined above. Fall back to the
+  // muscle's own attachment/innervation/action fields instead of the bare
+  // "no content yet" placeholder, so spine muscles still teach something.
+  const muscle =
+    !content && muscleId
+      ? musclesForRomLookup(region).find((m) => m.id === muscleId)
+      : undefined;
 
   return (
     <aside className="flex h-full w-[340px] shrink-0 flex-col border-l border-slate-800/60 bg-ink-900/60">
@@ -83,7 +95,7 @@ export function SelectionPanel({ byMesh }: SelectionPanelProps) {
         ) : content ? (
           <MuscleCard entry={entry} content={content} />
         ) : (
-          <BasicDetail entry={entry} />
+          <BasicDetail entry={entry} muscle={muscle} />
         )}
       </div>
     </aside>
@@ -117,19 +129,35 @@ function EmptyState() {
   );
 }
 
-/** Fallback for structures without authored clinical content. */
-function BasicDetail({ entry }: { entry: AnatomyEntry }) {
+/**
+ * Fallback card for a selected structure without rich MuscleContent. If the
+ * structure resolves to a `Muscle` (e.g. the spine regions, whose clinical data
+ * lives in the simpler Muscle shape), we surface its attachments, innervation,
+ * actions and clinical note. Otherwise (bones, ligaments, vessels) we show the
+ * name + pills and a "no detailed content yet" line.
+ */
+function BasicDetail({
+  entry,
+  muscle,
+}: {
+  entry: AnatomyEntry;
+  muscle?: Muscle;
+}) {
   const layer = LAYER_META[entry.layer];
   const sideLabel = SIDE_META[entry.side].label;
 
   return (
     <div className="w-full animate-slide-in-right">
       <h3 className="font-display text-xl font-semibold leading-snug text-slate-50">
-        {formatCanonicalName(entry.canonicalName, entry.side)}
+        {muscle ? muscle.name : formatCanonicalName(entry.canonicalName, entry.side)}
       </h3>
-      <p className="mt-1 font-mono text-[11px] text-slate-600">
-        {entry.canonicalName}
-      </p>
+      {muscle ? (
+        <p className="mt-0.5 text-sm italic text-slate-400">{muscle.latin}</p>
+      ) : (
+        <p className="mt-1 font-mono text-[11px] text-slate-600">
+          {entry.canonicalName}
+        </p>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-800/60 px-2.5 py-1 text-xs font-medium text-slate-300">
@@ -141,11 +169,83 @@ function BasicDetail({ entry }: { entry: AnatomyEntry }) {
             {sideLabel}
           </span>
         )}
+        {muscle?.groups.map((g) => (
+          <span
+            key={g}
+            className="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent"
+          >
+            {FUNCTIONAL_GROUP_LABEL[g]}
+          </span>
+        ))}
       </div>
 
-      <p className="mt-6 text-sm leading-relaxed text-slate-500">
-        Esta estructura todavia no tiene contenido clinico detallado.
-      </p>
+      {muscle ? (
+        <div className="mt-6 space-y-5">
+          <BasicSection label="Origen">{muscle.origin}</BasicSection>
+          <BasicSection label="Inserción">{muscle.insertion}</BasicSection>
+          <BasicSection label="Inervación">
+            {muscle.innervation}
+            {muscle.roots.length > 0 && (
+              <span className="ml-1.5 font-mono text-[11px] text-slate-500">
+                ({muscle.roots.join(', ')})
+              </span>
+            )}
+          </BasicSection>
+          {muscle.actions.length > 0 && (
+            <div>
+              <h4 className="mb-1.5 font-display text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Acciones
+              </h4>
+              <ul className="space-y-1.5">
+                {muscle.actions.map((a, i) => (
+                  <li key={i} className="text-sm leading-relaxed text-slate-300">
+                    <span className="font-medium text-slate-200">{a.movement}</span>
+                    <span className="text-slate-500"> · {a.joint}</span>
+                    {a.note && (
+                      <span className="block text-[13px] text-slate-400">{a.note}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {muscle.clinicalNote && (
+            <div className="rounded-lg border border-clinical/25 bg-clinical/[0.06] px-3 py-2.5">
+              <h4 className="mb-1 font-display text-xs font-semibold uppercase tracking-[0.16em] text-clinical-soft">
+                Relevancia clínica
+              </h4>
+              <p className="text-[13px] leading-relaxed text-slate-300">
+                {muscle.clinicalNote}
+              </p>
+            </div>
+          )}
+          <p className="border-t border-slate-800/60 pt-3 text-[11px] leading-relaxed text-slate-600">
+            Contenido en revisión; pendiente de verificación con la fuente.
+          </p>
+        </div>
+      ) : (
+        <p className="mt-6 text-sm leading-relaxed text-slate-500">
+          Esta estructura todavia no tiene contenido clinico detallado.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Compact labeled prose block used by the basic (Muscle-shape) detail card. */
+function BasicSection({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <h4 className="mb-1 font-display text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+        {label}
+      </h4>
+      <p className="text-sm leading-relaxed text-slate-300">{children}</p>
     </div>
   );
 }

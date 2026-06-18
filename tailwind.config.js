@@ -27,6 +27,23 @@ export default {
           800: '#141d30',
           700: '#1c2740',
         },
+        // Clinical green — a second accent for "go / healthy / range achieved".
+        // Paired with the cyan accent it gives the palette a physiotherapy
+        // (movement + health) identity instead of a generic single-accent dark UI.
+        clinical: {
+          DEFAULT: '#10b981', // emerald-500
+          soft: '#34d399', // emerald-400
+          deep: '#059669', // emerald-600
+          glow: 'rgba(16, 185, 129, 0.15)',
+        },
+        // Muscle-role colors — the app's clinical language for "who does what"
+        // in a movement (prime mover / assistant / stabilizer). Centralized here
+        // so badges, legends and 3D markers stay in sync across the app.
+        role: {
+          prime: '#f59e0b', // amber-500  — agonista / motor principal
+          assist: '#38bdf8', // sky-400    — asistente
+          stabilize: '#a78bfa', // violet-400 — estabilizador
+        },
       },
       boxShadow: {
         glass: '0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04)',

@@ -18,6 +18,7 @@ import { useAnatomyStore } from '../store/anatomyStore';
 import { useEntitlement } from '../auth/AuthContext';
 import { isRegionPremium } from '../auth/entitlements';
 import { AccountMenu } from './account/AccountMenu';
+import { BrandMark } from './BrandMark';
 
 export type AppMode = 'explore' | 'learn' | 'study' | 'movement';
 export type Overlay = 'none' | 'about' | 'legal' | 'pricing';
@@ -122,10 +123,10 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
     <header className="flex h-12 shrink-0 items-center gap-4 border-b border-slate-800/60 bg-ink-950/90 px-4">
       {/* Wordmark */}
       <div className="flex shrink-0 items-center gap-2">
+        <BrandMark className="h-5 w-5 text-slate-200" title="Anatris" />
         <span className="font-display text-base font-bold tracking-tight text-slate-50">
           Anatris
         </span>
-        <span className="h-1.5 w-1.5 rounded-full bg-accent" />
       </div>
 
       {/* Module nav -- the single region selector. */}
