@@ -361,7 +361,7 @@ const brachioradialis: MuscleContent = {
     {
       text: 'Tríceps braquial y ancóneo (extensión del codo).',
       cite: [{ ref: 'kapandji', pageVerified: false }],
-    },
+    },git push -u origin claude/serene-cerf-30u63z
   ],
 
   pathologies: [

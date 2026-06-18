@@ -60,7 +60,9 @@ import {
   MedicalDisclaimerBanner,
   MedicalDisclaimerScreen,
 } from './components/MedicalDisclaimer';
+import { OnboardingTour, readTourDone } from './components/OnboardingTour';
 import { REGIONS, resolveRegionMeshes } from './data/regiones';
+
 import { isConceptModule } from './data/conceptByRegion';
 
 /** Which mobile drawer (if any) is open. Desktop never opens these. */
@@ -151,7 +153,8 @@ export default function App() {
   const [drawer, setDrawer] = useState<Drawer>('none');
   const [authOpen, setAuthOpen] = useState<boolean>(false);
   const [accepted, setAccepted] = useState<boolean>(() => readAccepted());
-  const [entered, setEntered] = useState<boolean>(() => readEntered());
+    const [entered, setEntered] = useState<boolean>(() => readEntered());
+  const [tourDone, setTourDone] = useState<boolean>(() => readTourDone());
   const compact = useIsCompact();
   const entitlement = useEntitlement();
 
@@ -413,7 +416,11 @@ export default function App() {
         </DrawerShell>
       )}
 
-      <CommandPalette index={index} />
+            <CommandPalette index={index} />
+
+      {!tourDone && (
+        <OnboardingTour onDone={() => setTourDone(true)} />
+      )}
 
       {/* Auth / subscription modal. */}
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
