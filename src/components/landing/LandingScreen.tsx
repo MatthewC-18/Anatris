@@ -85,10 +85,10 @@ export function LandingScreen({ onEnter, onOpenAuth }: LandingScreenProps) {
             <br className="hidden sm:block" /> no solo la anatomía.
           </h1>
           <p className="mt-5 max-w-lg text-base leading-relaxed text-slate-400">
-            Anatris es un atlas 3D para fisioterapia. Mueve la articulación y mira
-            qué músculo trabaja en cada grado del recorrido —{' '}
-            <span className="text-slate-300">agonista, asistente o estabilizador</span>{' '}
-            — con origen, inserción, inervación y referencias a la vista.
+            Anatris es un atlas 3D para fisioterapia. Mueve la articulación y
+            observa qué músculo trabaja en cada grado del recorrido y con qué rol:{' '}
+            <span className="text-slate-300">agonista, asistente o estabilizador</span>.
+            Cada dato lleva su origen, inserción, inervación y referencia.
           </p>
 
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -97,7 +97,7 @@ export function LandingScreen({ onEnter, onOpenAuth }: LandingScreenProps) {
               onClick={onEnter}
               className="rounded-lg bg-accent px-6 py-3 text-sm font-semibold text-ink-950 transition-opacity hover:opacity-90"
             >
-              Probar gratis — empieza por el hombro
+              Probar gratis con el hombro
             </button>
             <a
               href="#planes"

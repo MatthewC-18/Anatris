@@ -14,13 +14,13 @@
 //     first-class entities, each claim carrying its citations via the shared
 //     CitationRow.
 //
-// REGION-AWARE: the track and the muscle content index are chosen from the
-// active region (store.region) via trackForRegion / muscleContentForRegion, so
-// the same navigator serves the shoulder, the elbow and any future region. A
-// `track` prop can still override the derived track if a caller needs to.
+// PRESENTATION: an EDITORIAL reading layout, not stacked collapsible cards. Each
+// muscle is a monograph-style entry separated by hairlines; fields are shown as
+// always-open labeled prose (no accordions, no nested boxes). Region phases read
+// as numbered entries. The goal is a calm, premium, textbook feel.
 //
-// Styling reuses the project's existing tokens (slate/ink/accent, glass) and
-// the shared MuscleContentSections primitives, so it matches SelectionPanel.
+// REGION-AWARE: the track and the muscle content index are chosen from the
+// active region (store.region) via trackForRegion / muscleContentForRegion.
 
 import { useAnatomyStore } from '../store/anatomyStore';
 import { trackForRegion } from '../data/trackByRegion';
@@ -28,12 +28,7 @@ import { isConceptModule, conceptForRegion } from '../data/conceptByRegion';
 import { ConceptTrackView } from './ConceptTrackView';
 import { muscleContentForRegion } from '../data/muscleContentByRegion';
 import { PHASE_ORDER, PHASE_META } from '../types/pedagogy';
-import {
-  Section,
-  Sourced,
-  SourcedList,
-  ActionItem,
-} from './MuscleContentSections';
+import { Sourced, SourcedList, ActionItem } from './MuscleContentSections';
 import { BiomechanicsGuide } from './BiomechanicsGuide';
 import type {
   PhaseId,
@@ -105,19 +100,24 @@ export function PhaseTrack({ track: trackProp }: PhaseTrackProps) {
         })}
       </div>
 
-      {/* Phase blurb */}
-      <div className="shrink-0 px-5 pt-4">
-        <h2 className="font-display text-lg font-semibold text-slate-50">
-          {meta.step}. {meta.label}
-        </h2>
-        <p className="mt-0.5 text-sm leading-relaxed text-slate-500">
-          {meta.blurb}
-        </p>
+      {/* Phase header */}
+      <div className="shrink-0 px-6 pt-5">
+        <div className="mx-auto max-w-2xl">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-600">
+            Fase {meta.step} de 7
+          </p>
+          <h2 className="mt-1 font-display text-xl font-semibold text-slate-50">
+            {meta.label}
+          </h2>
+          <p className="mt-1 text-sm leading-relaxed text-slate-500">{meta.blurb}</p>
+        </div>
       </div>
 
       {/* Phase body */}
-      <div className="flex-1 overflow-y-auto px-5 pb-8 pt-4">
-        <PhaseBody phaseId={active} track={track} content={content} />
+      <div className="flex-1 overflow-y-auto px-6 pb-12 pt-6">
+        <div className="mx-auto max-w-2xl">
+          <PhaseBody phaseId={active} track={track} content={content} />
+        </div>
       </div>
     </section>
   );
@@ -152,6 +152,45 @@ function PhaseBody({
 }
 
 /* ===========================================================================
+ * EDITORIAL PRIMITIVES (no boxes, no accordions)
+ * ======================================================================== */
+
+/** A labeled prose block: small caps label, then content. The building block of
+ *  the monograph layout, replacing the old collapsible Section card. */
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-1 sm:grid-cols-[120px_1fr] sm:gap-x-6">
+      <p className="pt-px font-mono text-[11px] uppercase tracking-[0.12em] text-slate-500">
+        {label}
+      </p>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+/** A quiet, rule-marked callout for intros (no filled box). */
+function Callout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="border-l-2 border-accent/40 pl-4 text-slate-300">{children}</div>
+  );
+}
+
+/** Section index pill used by the region-phase entries. */
+function EntryIndex({ n }: { n: number }) {
+  return (
+    <span className="font-mono text-xs font-semibold text-accent/70">
+      {String(n).padStart(2, '0')}
+    </span>
+  );
+}
+
+/* ===========================================================================
  * PER-MUSCLE PHASES (anatomy / biomechanics / palpation)
  * ======================================================================== */
 
@@ -166,80 +205,73 @@ function PerMuscleView({
   const selectedMuscleId = useAnatomyStore((s) => s.selectedMuscleId);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col">
       {phase.intro && (
-        <div className="rounded-lg border border-slate-800/60 bg-slate-900/30 p-3">
-          <Sourced item={phase.intro} />
+        <div className="mb-2">
+          <Callout>
+            <Sourced item={phase.intro} />
+          </Callout>
         </div>
       )}
 
       {/* Guided gestures (biomechanics phase). Rendered before the muscle walk-
           through so the student can play the movement, then study the muscles. */}
       {phase.guides && phase.guides.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="mb-2 flex flex-col gap-3">
           {phase.guides.map((g) => (
             <BiomechanicsGuide key={g.movementId} guide={g} />
           ))}
         </div>
       )}
 
-      {phase.muscleIds.map((id) => {
-        const muscle = content[id];
-        if (!muscle) return null; // id with no card yet - skip silently
-        const isSelected = id === selectedMuscleId;
-        return (
-          <div
-            key={id}
-            className={`rounded-xl border bg-slate-900/30 transition-colors ${
-              isSelected ? 'border-accent/50' : 'border-slate-800/60'
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => selectMuscle(isSelected ? null : id)}
-              className="flex w-full items-baseline justify-between gap-3 px-4 py-3 text-left"
-            >
-              <span>
-                <span className="font-display text-base font-semibold text-slate-100">
-                  {muscle.nameEs}
+      <div className="divide-y divide-slate-800/60">
+        {phase.muscleIds.map((id) => {
+          const muscle = content[id];
+          if (!muscle) return null; // id with no card yet - skip silently
+          const isSelected = id === selectedMuscleId;
+          return (
+            <article key={id} className="py-6 first:pt-3">
+              <button
+                type="button"
+                onClick={() => selectMuscle(isSelected ? null : id)}
+                title="Resaltar en el modelo 3D"
+                className="group flex w-full items-baseline justify-between gap-3 text-left"
+              >
+                <span className="min-w-0">
+                  <span
+                    className={`font-display text-lg font-semibold transition-colors ${
+                      isSelected
+                        ? 'text-accent'
+                        : 'text-slate-100 group-hover:text-white'
+                    }`}
+                  >
+                    {muscle.nameEs}
+                  </span>
+                  <span className="ml-2 text-sm italic text-slate-500">
+                    {muscle.nameLat}
+                  </span>
                 </span>
-                <span className="ml-2 text-xs italic text-slate-500">
-                  {muscle.nameLat}
-                </span>
-              </span>
-              {muscle.group && (
-                <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent">
-                  {muscle.group}
-                </span>
-              )}
-            </button>
-            <div className="flex flex-col gap-2 px-4 pb-4">
-              <MuscleFieldGroups content={muscle} fields={phase.fields} />
-            </div>
-          </div>
-        );
-      })}
+                {muscle.group && (
+                  <span className="shrink-0 rounded-full border border-slate-700/70 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                    {muscle.group}
+                  </span>
+                )}
+              </button>
+
+              <dl className="mt-4 space-y-4">
+                {phase.fields.map((field) => (
+                  <MuscleFieldGroup key={field} content={muscle} field={field} />
+                ))}
+              </dl>
+            </article>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-/** Projects the requested MuscleContent field groups, in declared order. */
-function MuscleFieldGroups({
-  content,
-  fields,
-}: {
-  content: MuscleContent;
-  fields: MuscleField[];
-}) {
-  return (
-    <>
-      {fields.map((field) => (
-        <MuscleFieldGroup key={field} content={content} field={field} />
-      ))}
-    </>
-  );
-}
-
+/** Projects ONE requested MuscleContent field group as an editorial Field. */
 function MuscleFieldGroup({
   content,
   field,
@@ -250,112 +282,102 @@ function MuscleFieldGroup({
   switch (field) {
     case 'origin':
       return (
-        <Section title="Origen" defaultOpen>
+        <Field label="Origen">
           <Sourced item={content.origin} />
-        </Section>
+        </Field>
       );
     case 'insertion':
       return (
-        <Section title="Insercion" defaultOpen>
+        <Field label="Inserción">
           <Sourced item={content.insertion} />
-        </Section>
+        </Field>
       );
     case 'innervation':
       return (
-        <Section title="Inervacion">
+        <Field label="Inervación">
           <Sourced item={content.innervation.nerve} />
           {content.innervation.roots && (
             <div className="mt-2">
               <Sourced item={content.innervation.roots} />
             </div>
           )}
-        </Section>
+        </Field>
       );
     case 'actions': {
       const primary = content.actions.filter((a) => a.role === 'primary');
       const accessory = content.actions.filter((a) => a.role === 'accessory');
       return (
-        <Section title="Acciones" defaultOpen>
+        <Field label="Acciones">
           {primary.length > 0 && (
-            <>
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-rose-300/80">
-                Principales
-              </p>
-              <ul className="flex flex-col gap-2">
-                {primary.map((a, i) => (
-                  <li key={i}>
-                    <ActionItem action={a} />
-                  </li>
-                ))}
-              </ul>
-            </>
+            <ul className="flex flex-col gap-2">
+              {primary.map((a, i) => (
+                <li key={i} className="flex gap-2.5">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-role-prime" />
+                  <ActionItem action={a} />
+                </li>
+              ))}
+            </ul>
           )}
           {accessory.length > 0 && (
-            <>
-              <p className="mb-1 mt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Accesorias
-              </p>
-              <ul className="flex flex-col gap-2">
-                {accessory.map((a, i) => (
-                  <li key={i}>
-                    <ActionItem action={a} />
-                  </li>
-                ))}
-              </ul>
-            </>
+            <ul className="mt-2.5 flex flex-col gap-2">
+              {accessory.map((a, i) => (
+                <li key={i} className="flex gap-2.5">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-600" />
+                  <ActionItem action={a} />
+                </li>
+              ))}
+            </ul>
           )}
-        </Section>
+        </Field>
       );
     }
     case 'biomechanics':
       if (!content.biomechanics || content.biomechanics.length === 0) return null;
       return (
-        <Section title="Biomecanica">
+        <Field label="Biomecánica">
           <SourcedList items={content.biomechanics} />
-        </Section>
+        </Field>
       );
     case 'functionalPositions':
       if (!content.functionalPositions) return null;
       return (
-        <Section title="Posiciones funcionales">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            Acortado
-          </p>
+        <Field label="Posiciones">
+          <p className="mb-0.5 text-[11px] font-medium text-slate-500">Acortado</p>
           <Sourced item={content.functionalPositions.shortened} />
-          <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <p className="mb-0.5 mt-2.5 text-[11px] font-medium text-slate-500">
             Estirado
           </p>
           <Sourced item={content.functionalPositions.lengthened} />
-        </Section>
+        </Field>
       );
     case 'synergists':
       if (!content.synergists || content.synergists.length === 0) return null;
       return (
-        <Section title="Sinergistas">
+        <Field label="Sinergistas">
           <SourcedList items={content.synergists} />
-        </Section>
+        </Field>
       );
     case 'antagonists':
       if (!content.antagonists || content.antagonists.length === 0) return null;
       return (
-        <Section title="Antagonistas">
+        <Field label="Antagonistas">
           <SourcedList items={content.antagonists} />
-        </Section>
+        </Field>
       );
     case 'palpation':
       if (!content.palpation) return null;
       return (
-        <Section title="Palpacion" defaultOpen>
+        <Field label="Palpación">
           <Sourced item={content.palpation.howTo} />
           {content.palpation.position && (
             <div className="mt-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Posicion de acceso
+              <p className="mb-0.5 text-[11px] font-medium text-slate-500">
+                Posición de acceso
               </p>
               <Sourced item={content.palpation.position} />
             </div>
           )}
-        </Section>
+        </Field>
       );
   }
 }
@@ -375,7 +397,7 @@ function MuscleLinkChips({
   const selectMuscle = useAnatomyStore((s) => s.selectMuscle);
   if (ids.length === 0) return null;
   return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
+    <div className="mt-3 flex flex-wrap gap-1.5">
       {ids.map((id) => {
         const c = content[id];
         const label = c ? c.nameEs : id;
@@ -384,13 +406,34 @@ function MuscleLinkChips({
             key={id}
             type="button"
             onClick={() => selectMuscle(id)}
-            className="rounded-md border border-slate-700/60 bg-slate-800/40 px-2 py-0.5 text-[11px] font-medium text-slate-300 transition-colors hover:border-accent/50 hover:text-accent"
+            className="rounded-md border border-slate-700/60 px-2 py-0.5 text-[11px] font-medium text-slate-400 transition-colors hover:border-accent/50 hover:text-accent"
           >
             {label}
           </button>
         );
       })}
     </div>
+  );
+}
+
+/** Editorial entry wrapper for the region phases: index + title, hairline-split. */
+function Entry({
+  n,
+  title,
+  children,
+}: {
+  n: number;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <article className="py-6 first:pt-3">
+      <header className="flex items-baseline gap-3">
+        <EntryIndex n={n} />
+        <h3 className="font-display text-lg font-semibold text-slate-100">{title}</h3>
+      </header>
+      <div className="mt-4 space-y-4">{children}</div>
+    </article>
   );
 }
 
@@ -402,35 +445,31 @@ function TestsView({
   content: MuscleContentIndex;
 }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col">
       {phase.intro && (
-        <div className="rounded-lg border border-slate-800/60 bg-slate-900/30 p-3">
-          <Sourced item={phase.intro} />
+        <div className="mb-2">
+          <Callout>
+            <Sourced item={phase.intro} />
+          </Callout>
         </div>
       )}
-      {phase.tests.map((t) => (
-        <div
-          key={t.id}
-          className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-4"
-        >
-          <h3 className="font-display text-base font-semibold text-slate-100">
-            {t.name}
-          </h3>
-          <div className="mt-3 flex flex-col gap-3">
-            <Labeled label="Que valora">
+      <div className="divide-y divide-slate-800/60">
+        {phase.tests.map((t, i) => (
+          <Entry key={t.id} n={i + 1} title={t.name}>
+            <Field label="Qué valora">
               <Sourced item={t.assesses} />
-            </Labeled>
-            <Labeled label="Procedimiento">
+            </Field>
+            <Field label="Procedimiento">
               <Sourced item={t.procedure} />
-            </Labeled>
-            <Labeled label="Signo positivo">
+            </Field>
+            <Field label="Signo positivo">
               <Sourced item={t.positiveSign} />
-            </Labeled>
+            </Field>
             {t.grading && <TestGradingBlock grading={t.grading} />}
-          </div>
-          <MuscleLinkChips ids={t.targetMuscleIds} content={content} />
-        </div>
-      ))}
+            <MuscleLinkChips ids={t.targetMuscleIds} content={content} />
+          </Entry>
+        ))}
+      </div>
     </div>
   );
 }
@@ -443,37 +482,34 @@ function TestGradingBlock({
   grading: NonNullable<TestsPhase['tests'][number]['grading']>;
 }) {
   return (
-    <div className="mt-1 rounded-lg border border-slate-800/50 bg-ink-900/40 p-3">
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-accent/80">
-        Graduacion de la respuesta
+    <div className="rounded-lg bg-ink-900/50 p-4">
+      <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] text-accent/80">
+        Graduación de la respuesta
       </p>
-      <div className="flex flex-col gap-3">
+      <div className="space-y-4">
         {grading.holdTime && (
-          <Labeled label="Tiempo de sosten">
+          <Field label="Sostén">
             <Sourced item={grading.holdTime} />
-          </Labeled>
+          </Field>
         )}
         {grading.painVsWeakness && (
-          <Labeled label="Dolor vs. debilidad">
+          <Field label="Dolor vs. debilidad">
             <Sourced item={grading.painVsWeakness} />
-          </Labeled>
+          </Field>
         )}
         {grading.grades && grading.grades.length > 0 && (
-          <div>
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Interpretacion por grados
-            </p>
-            <ul className="flex flex-col gap-2">
+          <Field label="Por grados">
+            <ul className="flex flex-col gap-2.5">
               {grading.grades.map((g, i) => (
-                <li key={i} className="rounded-md bg-slate-800/30 px-2.5 py-2">
+                <li key={i}>
                   <p className="text-sm font-medium text-slate-200">{g.finding}</p>
-                  <div className="mt-1">
+                  <div className="mt-0.5">
                     <Sourced item={g.interpretation} />
                   </div>
                 </li>
               ))}
             </ul>
-          </div>
+          </Field>
         )}
       </div>
     </div>
@@ -488,61 +524,57 @@ function PathologyView({
   content: MuscleContentIndex;
 }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col">
       {phase.intro && (
-        <div className="rounded-lg border border-slate-800/60 bg-slate-900/30 p-3">
-          <Sourced item={phase.intro} />
+        <div className="mb-2">
+          <Callout>
+            <Sourced item={phase.intro} />
+          </Callout>
         </div>
       )}
-      {phase.pathologies.map((p) => (
-        <div
-          key={p.id}
-          className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-4"
-        >
-          <h3 className="font-display text-base font-semibold text-slate-100">
-            {p.name}
-          </h3>
-          <div className="mt-3 flex flex-col gap-3">
-            <Sourced item={p.description} />
+      <div className="divide-y divide-slate-800/60">
+        {phase.pathologies.map((p, i) => (
+          <Entry key={p.id} n={i + 1} title={p.name}>
+            <div className="text-sm leading-relaxed text-slate-300">
+              <Sourced item={p.description} />
+            </div>
             {p.presentation && (
-              <Labeled label="Presentacion">
+              <Field label="Presentación">
                 <Sourced item={p.presentation} />
-              </Labeled>
+              </Field>
             )}
-          </div>
-          <MuscleLinkChips ids={p.relatedMuscleIds} content={content} />
-        </div>
-      ))}
+            <MuscleLinkChips ids={p.relatedMuscleIds} content={content} />
+          </Entry>
+        ))}
+      </div>
     </div>
   );
 }
 
 function TreatmentView({ phase }: { phase: TreatmentPhase }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col">
       {phase.intro && (
-        <div className="rounded-lg border border-slate-800/60 bg-slate-900/30 p-3">
-          <Sourced item={phase.intro} />
+        <div className="mb-2">
+          <Callout>
+            <Sourced item={phase.intro} />
+          </Callout>
         </div>
       )}
-      {phase.principles.map((pr) => (
-        <div
-          key={pr.id}
-          className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-4"
-        >
-          <h3 className="font-display text-base font-semibold text-slate-100">
-            {pr.title}
-          </h3>
-          <div className="mt-3 flex flex-col gap-3">
-            <Sourced item={pr.rationale} />
+      <div className="divide-y divide-slate-800/60">
+        {phase.principles.map((pr, i) => (
+          <Entry key={pr.id} n={i + 1} title={pr.title}>
+            <div className="text-sm leading-relaxed text-slate-300">
+              <Sourced item={pr.rationale} />
+            </div>
             {pr.examples && pr.examples.length > 0 && (
-              <Labeled label="Ejemplos">
+              <Field label="Ejemplos">
                 <SourcedList items={pr.examples} />
-              </Labeled>
+              </Field>
             )}
-          </div>
-        </div>
-      ))}
+          </Entry>
+        ))}
+      </div>
     </div>
   );
 }
@@ -555,31 +587,20 @@ function CaseView({
   content: MuscleContentIndex;
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      {phase.cases.map((c) => (
-        <div
-          key={c.id}
-          className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-4"
-        >
-          <h3 className="font-display text-base font-semibold text-slate-100">
-            {c.title}
-          </h3>
-          <div className="mt-3">
-            <Labeled label="Caso">
-              <Sourced item={c.vignette} />
-            </Labeled>
-          </div>
-          <ol className="mt-4 flex flex-col gap-3">
+    <div className="divide-y divide-slate-800/60">
+      {phase.cases.map((c, ci) => (
+        <Entry key={c.id} n={ci + 1} title={c.title}>
+          <Field label="Caso">
+            <Sourced item={c.vignette} />
+          </Field>
+          <ol className="space-y-3 border-l border-slate-800/60 pl-4">
             {c.steps.map((st, i) => (
-              <li
-                key={st.id}
-                className="rounded-lg border border-slate-800/50 bg-ink-900/40 p-3"
-              >
+              <li key={st.id}>
                 <p className="text-sm font-medium text-slate-200">
-                  <span className="mr-2 text-accent">{i + 1}.</span>
+                  <span className="mr-2 font-mono text-accent/70">{i + 1}</span>
                   {st.prompt}
                 </p>
-                <div className="mt-2">
+                <div className="mt-1">
                   <Sourced item={st.answer} />
                 </div>
                 {st.muscleIds && st.muscleIds.length > 0 && (
@@ -588,26 +609,8 @@ function CaseView({
               </li>
             ))}
           </ol>
-        </div>
+        </Entry>
       ))}
-    </div>
-  );
-}
-
-/** Small labeled wrapper used across region phases. */
-function Labeled({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
-      {children}
     </div>
   );
 }

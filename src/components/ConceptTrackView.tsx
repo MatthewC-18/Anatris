@@ -99,12 +99,14 @@ export function ConceptTrackView({ track }: ConceptTrackViewProps) {
 
 function SectionBody({ section }: { section: ConceptSection }) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <div>
-        <h3 className="font-display text-base font-semibold text-slate-100">
+        <h3 className="font-display text-xl font-semibold text-slate-100">
           {section.title}
         </h3>
-        <p className="mt-0.5 text-sm text-slate-500">{section.summary}</p>
+        <p className="mt-1 text-sm leading-relaxed text-slate-500">
+          {section.summary}
+        </p>
       </div>
 
       {/* Optional 3D overlay action (planes / axes over the live model). */}
@@ -112,39 +114,34 @@ function SectionBody({ section }: { section: ConceptSection }) {
         <ConceptViewButton section={section} />
       )}
 
-      {/* Teaching prose, each paragraph sourced. */}
-      <div className="flex flex-col gap-3">
+      {/* Teaching prose: flows as a reading column, each paragraph sourced. */}
+      <div className="flex flex-col gap-4 text-[15px] leading-7 text-slate-300">
         {section.body.map((para, i) => (
-          <div
-            key={i}
-            className="rounded-lg border border-slate-800/60 bg-slate-900/30 p-3 text-sm leading-relaxed text-slate-300"
-          >
-            <Sourced item={para} />
-          </div>
+          <Sourced key={i} item={para} />
         ))}
       </div>
 
-      {/* Optional inline 2D diagram. */}
+      {/* Optional inline 2D diagram, presented as a figure. */}
       {section.diagram && section.diagram !== 'none' && (
         <ConceptDiagramView kind={section.diagram} />
       )}
 
-      {/* Optional key-term glossary. */}
+      {/* Optional key-term glossary, as a clean definition list. */}
       {section.terms && section.terms.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <div className="mt-1">
+          <h4 className="font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500">
             Términos clave
           </h4>
-          <dl className="grid gap-2 sm:grid-cols-2">
+          <dl className="mt-2 divide-y divide-slate-800/60">
             {section.terms.map((t) => (
               <div
                 key={t.term}
-                className="rounded-lg border border-slate-800/60 bg-slate-900/20 p-3"
+                className="grid grid-cols-1 gap-1 py-3 sm:grid-cols-[150px_1fr] sm:gap-x-6"
               >
                 <dt className="font-display text-sm font-semibold text-accent">
                   {t.term}
                 </dt>
-                <dd className="mt-1 text-sm leading-relaxed text-slate-400">
+                <dd className="text-sm leading-relaxed text-slate-400">
                   <Sourced item={t.definition} />
                 </dd>
               </div>
@@ -187,25 +184,23 @@ function ConceptViewButton({ section }: { section: ConceptSection }) {
   };
 
   return (
-    <div className="rounded-lg border border-accent/30 bg-accent/5 p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm text-slate-300">
-          {view.caption ? (
-            <Sourced item={view.caption} />
-          ) : (
-            <span>Visualiza este concepto sobre el modelo 3D.</span>
-          )}
-        </div>
-        {canAct && (
-          <button
-            type="button"
-            onClick={onClick}
-            className="shrink-0 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent/20"
-          >
-            Ver en 3D
-          </button>
+    <div className="flex items-center justify-between gap-3 border-l-2 border-accent/40 pl-4">
+      <div className="text-sm text-slate-400">
+        {view.caption ? (
+          <Sourced item={view.caption} />
+        ) : (
+          <span>Visualiza este concepto sobre el modelo 3D.</span>
         )}
       </div>
+      {canAct && (
+        <button
+          type="button"
+          onClick={onClick}
+          className="shrink-0 rounded-lg bg-accent/15 px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent/25"
+        >
+          Ver en 3D
+        </button>
+      )}
     </div>
   );
 }
