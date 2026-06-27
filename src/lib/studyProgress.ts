@@ -16,14 +16,15 @@ export interface RegionProgress {
 
 type ProgressMap = Record<string, RegionProgress>;
 
-const KEY = 'anatris.study.progress';
+/** localStorage key for per-region study progress. Exported for cloud sync. */
+export const PROGRESS_KEY = 'anatris.study.progress';
 
 const EMPTY: RegionProgress = { quizBest: 0, quizAttempts: 0, cardsKnown: 0 };
 
 function readAll(): ProgressMap {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return {};
-    const raw = window.localStorage.getItem(KEY);
+    const raw = window.localStorage.getItem(PROGRESS_KEY);
     return raw ? (JSON.parse(raw) as ProgressMap) : {};
   } catch {
     return {};
@@ -33,7 +34,7 @@ function readAll(): ProgressMap {
 function writeAll(map: ProgressMap): void {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return;
-    window.localStorage.setItem(KEY, JSON.stringify(map));
+    window.localStorage.setItem(PROGRESS_KEY, JSON.stringify(map));
   } catch {
     // Storage unavailable: progress simply doesn't persist. Non-fatal.
   }

@@ -33,3 +33,39 @@ create policy "subscriptions_select_own"
   using (auth.uid() = user_id);
 
 -- (Sin políticas de insert/update/delete: el cliente NUNCA escribe aquí.)
+
+-- ===========================================================================
+-- study_state — progreso de estudio sincronizado por cuenta.
+-- ===========================================================================
+-- Modelo: una fila por usuario con un snapshot JSON de TODO su progreso de
+-- estudio (programación SRS, racha, progreso por región). A diferencia de
+-- subscriptions, AQUÍ el cliente sí escribe: cada dispositivo hace upsert de su
+-- estado fusionado (merge monótono en el cliente, ver lib/studyState.ts), así
+-- que RLS permite al dueño leer y escribir SOLO su propia fila.
+
+create table if not exists public.study_state (
+  user_id    uuid primary key references auth.users (id) on delete cascade,
+  payload    jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.study_state enable row level security;
+
+drop policy if exists "study_state_select_own" on public.study_state;
+create policy "study_state_select_own"
+  on public.study_state
+  for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "study_state_insert_own" on public.study_state;
+create policy "study_state_insert_own"
+  on public.study_state
+  for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "study_state_update_own" on public.study_state;
+create policy "study_state_update_own"
+  on public.study_state
+  for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

@@ -35,7 +35,9 @@ interface SrsStore {
   decks: Record<string, DeckRecord>;
 }
 
-const KEY = 'anatris.srs.v1';
+/** localStorage key for the SRS store. Exported so the cloud-sync layer can
+ *  read/merge it without duplicating the literal. */
+export const SRS_KEY = 'anatris.srs.v1';
 
 function emptyDeck(): DeckRecord {
   return { cards: {}, newDate: '', newToday: 0 };
@@ -44,7 +46,7 @@ function emptyDeck(): DeckRecord {
 function read(): SrsStore {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return { decks: {} };
-    const raw = window.localStorage.getItem(KEY);
+    const raw = window.localStorage.getItem(SRS_KEY);
     return raw ? (JSON.parse(raw) as SrsStore) : { decks: {} };
   } catch {
     return { decks: {} };
@@ -54,7 +56,7 @@ function read(): SrsStore {
 function write(store: SrsStore): void {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return;
-    window.localStorage.setItem(KEY, JSON.stringify(store));
+    window.localStorage.setItem(SRS_KEY, JSON.stringify(store));
   } catch {
     // Storage unavailable: schedules simply don't persist. Non-fatal.
   }

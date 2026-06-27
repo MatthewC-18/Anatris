@@ -23,12 +23,46 @@ import type {
   Subscription,
 } from './types';
 import { FREE_SUBSCRIPTION } from './types';
+import type { StudyCloud, StudySnapshot } from '../lib/studyState';
 
 /** Shape of a row in the `subscriptions` table. */
 interface SubscriptionRow {
   plan: 'premium' | null;
   status: Subscription['status'];
   current_period_end: string | null;
+}
+
+/** Shape of a row in the `study_state` table (one per user). */
+interface StudyStateRow {
+  payload: StudySnapshot;
+}
+
+/**
+ * StudyCloud backed by a single-row-per-user `study_state` table. Both methods
+ * are best-effort and swallow nothing the caller needs — they reject on error so
+ * the sync hook can decide to ignore it (study progress is never lost locally).
+ */
+function createStudyCloud(supabase: SupabaseClient): StudyCloud {
+  return {
+    async pull(userId: string): Promise<StudySnapshot | null> {
+      const { data, error } = await supabase
+        .from('study_state')
+        .select('payload')
+        .eq('user_id', userId)
+        .maybeSingle<StudyStateRow>();
+      if (error) throw error;
+      return data?.payload ?? null;
+    },
+    async push(userId: string, snap: StudySnapshot): Promise<void> {
+      const { error } = await supabase
+        .from('study_state')
+        .upsert(
+          { user_id: userId, payload: snap, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id' },
+        );
+      if (error) throw error;
+    },
+  };
 }
 
 /** Translate a raw Supabase auth error into Spanish UI copy. */
@@ -67,8 +101,14 @@ export function createSupabaseBackend(url: string, anonKey: string): AuthBackend
     return { user: authUser, subscription };
   }
 
+  const studyCloud = createStudyCloud(supabase);
+
   return {
     name: 'supabase',
+
+    studyCloud() {
+      return studyCloud;
+    },
 
     async init() {
       const { data } = await supabase.auth.getSession();

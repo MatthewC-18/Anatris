@@ -266,6 +266,76 @@ export function buildQuizQuestions(muscles: Muscle[]): QuizQuestion[] {
 }
 
 /* ===========================================================================
+ * STUDY CARD BUILDER (granular, per-fact — used by the SRS review)
+ * ======================================================================== */
+
+/** Which single fact a study card tests. Drives its stable id and theming. */
+export type StudyCardKind = 'latin' | 'origin' | 'insertion' | 'innervation' | 'action';
+
+/**
+ * One atomic recall unit for the spaced-repetition system: a single fact about a
+ * single muscle. Splitting each muscle into per-fact cards (the way serious Anki
+ * decks are built) lets the scheduler track exactly WHICH fact a student keeps
+ * forgetting — origin vs innervation vs action — instead of lumping a whole
+ * muscle into one coarse card. The id is stable (`${muscleId}::${kind}`) so a
+ * card's schedule survives across sessions.
+ */
+export interface StudyCard {
+  id: string;
+  muscleId: string;
+  kind: StudyCardKind;
+  /** The subject of the card (the muscle name), shown large on the front. */
+  front: string;
+  /** The question asked about that subject ("¿Cuál es su origen?"). */
+  prompt: string;
+  /** Optional context cue under the subject (e.g. the Latin name). */
+  sub?: string;
+  /** The answer to recall, rendered on the back. Usually a single fact. */
+  facts: FlashcardFact[];
+}
+
+/**
+ * Expand a region's muscles into atomic per-fact study cards for the SRS. Every
+ * card is derived from the existing clinical record, so adding a muscle (or a
+ * region) grows the review deck automatically. Empty fields are skipped so a
+ * muscle never yields a blank card.
+ */
+export function buildStudyCards(muscles: Muscle[]): StudyCard[] {
+  const cards: StudyCard[] = [];
+
+  for (const m of muscles) {
+    const add = (kind: StudyCardKind, prompt: string, label: string, value: string, sub?: string) => {
+      if (!value) return;
+      cards.push({
+        id: `${m.id}::${kind}`,
+        muscleId: m.id,
+        kind,
+        front: m.name,
+        prompt,
+        sub,
+        facts: [{ label, value }],
+      });
+    };
+
+    // Latin name: the only card that must NOT reveal the Latin in its cue.
+    add('latin', '¿Cuál es su nombre anatómico (en latín)?', 'Latín', m.latin);
+    add('origin', '¿Cuál es su origen?', 'Origen', m.origin, m.latin);
+    add('insertion', '¿Cuál es su inserción?', 'Inserción', m.insertion, m.latin);
+    add(
+      'innervation',
+      '¿Qué nervio lo inerva?',
+      'Inervación',
+      m.roots.length ? `${m.innervation} (${m.roots.join('–')})` : m.innervation,
+      m.latin,
+    );
+    const actions = m.actions.map((a) => `${a.movement} (${a.joint})`).join(' · ');
+    add('action', '¿Cuáles son sus acciones?', 'Acciones', actions, m.latin);
+  }
+
+  return cards;
+}
+
+/* ===========================================================================
  * FLASHCARD BUILDER
  * ======================================================================== */
 

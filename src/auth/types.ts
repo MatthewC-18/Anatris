@@ -11,6 +11,8 @@
 //                       vars are present.
 // Swapping the backend later is a one-file change behind this seam.
 
+import type { StudyCloud } from '../lib/studyState';
+
 /** The signed-in user, reduced to what the UI needs. */
 export interface AuthUser {
   id: string;
@@ -69,4 +71,11 @@ export interface AuthBackend {
 
   /** Open the billing/management portal (Stripe portal in production). */
   manageBilling?(): Promise<AuthResult>;
+
+  /**
+   * Cloud transport for syncing study progress to the user's account, or null
+   * when this backend has none (e.g. the mock, where progress stays local).
+   * Returned lazily so it can capture the live session.
+   */
+  studyCloud?(): StudyCloud | null;
 }

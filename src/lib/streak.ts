@@ -25,7 +25,8 @@ export interface StreakState {
   totalReviews: number;
 }
 
-const KEY = 'anatris.streak.v1';
+/** localStorage key for the streak state. Exported for the cloud-sync layer. */
+export const STREAK_KEY = 'anatris.streak.v1';
 
 const EMPTY: StreakState = {
   current: 0,
@@ -52,7 +53,7 @@ function yesterdayKey(now: number): string {
 function read(): StreakState {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return { ...EMPTY };
-    const raw = window.localStorage.getItem(KEY);
+    const raw = window.localStorage.getItem(STREAK_KEY);
     if (!raw) return { ...EMPTY };
     return { ...EMPTY, ...(JSON.parse(raw) as Partial<StreakState>) };
   } catch {
@@ -63,7 +64,7 @@ function read(): StreakState {
 function write(state: StreakState): void {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return;
-    window.localStorage.setItem(KEY, JSON.stringify(state));
+    window.localStorage.setItem(STREAK_KEY, JSON.stringify(state));
   } catch {
     // Storage unavailable: the streak simply doesn't persist. Non-fatal.
   }

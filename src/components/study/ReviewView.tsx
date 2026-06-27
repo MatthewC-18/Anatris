@@ -14,7 +14,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import type { Muscle } from '../../types/muscle';
-import { buildFlashcards, type Flashcard } from '../../lib/studyEngine';
+import { buildStudyCards, type StudyCard } from '../../lib/studyEngine';
 import {
   buildQueue,
   getCardSchedule,
@@ -74,8 +74,8 @@ const GRADES: { grade: Grade; label: string; classes: string }[] = [
 export function ReviewView({ region, muscles, onReviewed }: ReviewViewProps) {
   // All cards available for this region, indexed by id for O(1) lookup.
   const cardsById = useMemo(() => {
-    const map = new Map<string, Flashcard>();
-    for (const c of buildFlashcards(muscles)) map.set(c.id, c);
+    const map = new Map<string, StudyCard>();
+    for (const c of buildStudyCards(muscles)) map.set(c.id, c);
     return map;
   }, [muscles]);
   const allIds = useMemo(() => Array.from(cardsById.keys()), [cardsById]);
@@ -191,6 +191,11 @@ export function ReviewView({ region, muscles, onReviewed }: ReviewViewProps) {
             {currentCard?.sub && (
               <span className="text-sm italic text-slate-500">{currentCard.sub}</span>
             )}
+            {currentCard?.prompt && (
+              <span className="mt-3 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-sm font-medium text-accent">
+                {currentCard.prompt}
+              </span>
+            )}
             <span className="mt-4 text-xs uppercase tracking-wide text-slate-600">
               Toca para revelar
             </span>
@@ -231,7 +236,7 @@ export function ReviewView({ region, muscles, onReviewed }: ReviewViewProps) {
         </div>
       ) : (
         <p className="text-center text-xs text-slate-600">
-          Intenta recordar origen, inserción e inervación antes de calificar.
+          Responde mentalmente y luego gírala para calificar tu recuerdo.
         </p>
       )}
     </div>

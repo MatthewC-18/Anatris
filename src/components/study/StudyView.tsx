@@ -16,13 +16,18 @@
 import { useCallback, useMemo, useState } from 'react';
 import { musclesForRegion } from '../../data/musclesByRegion';
 import { REGIONS } from '../../data/regiones';
+import { buildStudyCards } from '../../lib/studyEngine';
 import { getDeckStats } from '../../lib/srsStore';
+import { useAuth } from '../../auth/AuthContext';
+import { useStudySync } from '../../hooks/useStudySync';
+import { casesForRegion } from '../../data/clinicalCases';
 import { QuizView } from './QuizView';
 import { FlashcardsView } from './FlashcardsView';
 import { ReviewView } from './ReviewView';
+import { CaseView } from './CaseView';
 import { StudyDashboard } from './StudyDashboard';
 
-type StudyTab = 'review' | 'quiz' | 'cards';
+type StudyTab = 'review' | 'cases' | 'quiz' | 'cards';
 
 interface StudyViewProps {
   /** Active region id from the store. null/concept => empty state. */
@@ -37,9 +42,17 @@ export function StudyView({ region, isConcept }: StudyViewProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = useCallback(() => setRefreshKey((n) => n + 1), []);
 
+  // Account sync (no-op in demo mode / when signed out): pulls + merges on login
+  // and pushes study progress as it changes. `refresh` re-reads after a merge.
+  const { snapshot, studyCloud } = useAuth();
+  const synced = Boolean(studyCloud && snapshot.user);
+  useStudySync(refreshKey, refresh);
+
   const regionId = region ?? 'shoulder';
   const muscles = useMemo(() => musclesForRegion(regionId), [regionId]);
-  const cardIds = useMemo(() => muscles.map((m) => m.id), [muscles]);
+  // SRS works on atomic per-fact cards, so the dashboard / due-count must count
+  // those ids (not one per muscle).
+  const cardIds = useMemo(() => buildStudyCards(muscles).map((c) => c.id), [muscles]);
   const regionName = REGIONS[regionId]?.name ?? 'Región';
 
   // Cards-due badge on the Repaso tab.
@@ -48,6 +61,7 @@ export function StudyView({ region, isConcept }: StudyViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [regionId, cardIds, refreshKey],
   );
+  const caseCount = useMemo(() => casesForRegion(regionId).length, [regionId]);
 
   if (isConcept) {
     return (
@@ -71,17 +85,28 @@ export function StudyView({ region, isConcept }: StudyViewProps) {
       {/* Header: region + dashboard + tab selector */}
       <div className="shrink-0 border-b border-slate-800/60 px-6 py-4">
         <div className="mx-auto flex max-w-2xl flex-col gap-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Estudiar
-            </p>
-            <h1 className="font-display text-xl font-bold text-slate-50">{regionName}</h1>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Estudiar
+              </p>
+              <h1 className="font-display text-xl font-bold text-slate-50">{regionName}</h1>
+            </div>
+            {synced && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-clinical/30 bg-clinical/[0.06] px-2.5 py-1 text-[11px] font-medium text-clinical-soft">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                En tu cuenta
+              </span>
+            )}
           </div>
 
           <StudyDashboard region={regionId} cardIds={cardIds} refreshKey={refreshKey} />
 
-          <div className="flex w-fit gap-1 rounded-xl border border-slate-800/60 bg-slate-900/60 p-1">
+          <div className="flex w-fit flex-wrap gap-1 rounded-xl border border-slate-800/60 bg-slate-900/60 p-1">
             <TabButton id="review" label="Repaso" tab={tab} setTab={setTab} badge={dueCount} />
+            <TabButton id="cases" label="Casos" tab={tab} setTab={setTab} badge={caseCount} />
             <TabButton id="quiz" label="Cuestionario" tab={tab} setTab={setTab} />
             <TabButton id="cards" label="Tarjetas" tab={tab} setTab={setTab} />
           </div>
@@ -97,6 +122,8 @@ export function StudyView({ region, isConcept }: StudyViewProps) {
             muscles={muscles}
             onReviewed={refresh}
           />
+        ) : tab === 'cases' ? (
+          <CaseView key={`cases-${regionId}`} region={regionId} onFinished={refresh} />
         ) : tab === 'quiz' ? (
           <QuizView
             key={`quiz-${regionId}`}

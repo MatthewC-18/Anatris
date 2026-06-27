@@ -223,12 +223,12 @@ export function LandingScreen({ onEnter, onOpenAuth }: LandingScreenProps) {
             <span className="absolute inset-x-0 top-0 h-0.5 bg-role-stabilize" />
             <p className="font-mono text-[11px] text-slate-600">03 · Estudio</p>
             <h3 className="mt-2 font-display text-lg font-semibold text-slate-100">
-              Repaso espaciado, como los que aprueban
+              Repaso espaciado y casos clínicos
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Repetición espaciada, cuestionarios y tarjetas generados desde el
-              contenido clínico de cada región. Con racha diaria y dominio medido,
-              repasas justo lo que estás por olvidar.
+              Repetición espaciada, casos de razonamiento clínico, cuestionarios y
+              tarjetas desde el contenido de cada región. Con racha diaria y
+              dominio medido, repasas justo lo que estás por olvidar.
             </p>
           </article>
 

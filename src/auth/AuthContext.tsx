@@ -18,6 +18,7 @@ import {
 } from 'react';
 import type { AuthBackend, AuthResult, AuthSnapshot, Subscription } from './types';
 import { FREE_SUBSCRIPTION } from './types';
+import type { StudyCloud } from '../lib/studyState';
 import { createMockBackend } from './mockProvider';
 import { createSupabaseBackend } from './supabaseProvider';
 import { canAccessRegion, isPremiumActive, type Plan } from './entitlements';
@@ -50,6 +51,8 @@ interface AuthContextValue {
   signOut: AuthBackend['signOut'];
   startCheckout: AuthBackend['startCheckout'];
   manageBilling: () => Promise<AuthResult>;
+  /** Cloud transport for study-progress sync, or null on the local-only mock. */
+  studyCloud: StudyCloud | null;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -96,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       manageBilling: backend.manageBilling
         ? backend.manageBilling.bind(backend)
         : async () => ({ ok: false, error: 'No disponible.' }),
+      studyCloud: backend.studyCloud ? backend.studyCloud() : null,
     }),
     [backend, loading, snapshot],
   );

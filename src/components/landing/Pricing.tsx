@@ -20,11 +20,11 @@ const PRICING = {
 
 const PREMIUM_FEATURES = [
   'Repaso inteligente con repetición espaciada en todas las regiones',
+  'Casos clínicos interactivos de razonamiento',
   'Todas las regiones: hombro, codo, columna y rodilla',
   'Laboratorio de movimiento (biomecánica interactiva)',
-  'Cuestionarios y tarjetas de estudio de cada región',
-  'Rangos de movimiento y músculos activos por fase',
   'Racha diaria, metas y seguimiento de dominio',
+  'Progreso sincronizado en todos tus dispositivos',
   'Contenido clínico con referencias',
 ];
 
