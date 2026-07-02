@@ -47,11 +47,11 @@ const ROLE_DOT: Record<RomMuscleRole, string> = {
 
 const SIDE_LABEL: Record<Side, string> = { R: 'Derecho', L: 'Izquierdo' };
 
-/** Playback speeds in degrees/second. */
+/** Playback speeds in degrees/second (clinical, unhurried pace). */
 const SPEEDS = [
-  { id: 'slow', label: 'Lento', dps: 40 },
-  { id: 'normal', label: 'Normal', dps: 80 },
-  { id: 'fast', label: 'Rápido', dps: 140 },
+  { id: 'slow', label: 'Lento', dps: 12 },
+  { id: 'normal', label: 'Normal', dps: 25 },
+  { id: 'fast', label: 'Rápido', dps: 50 },
 ] as const;
 
 /** Live subscription to prefers-reduced-motion. */
@@ -448,12 +448,18 @@ export function MovementControls({ region }: MovementControlsProps) {
                 {at.phase.startDeg}–{at.phase.endDeg}°
               </span>
             </div>
-            <p className="mt-1.5 text-xs leading-relaxed text-slate-300">
-              {at.phase.description}
-            </p>
+            {/* Fixed-height, scrollable region: the description and muscle list
+                change length as the arc sweeps, so pinning the height keeps the
+                whole (bottom-anchored) panel from resizing frame-to-frame during
+                playback -- which is what made the controls jump and become
+                un-clickable. */}
+            <div className="mt-1.5 h-[188px] overflow-y-auto pr-1">
+              <p className="text-xs leading-relaxed text-slate-300">
+                {at.phase.description}
+              </p>
 
-            <div className="mt-3 flex flex-col gap-1.5">
-              {at.phase.muscles.map((m) => (
+              <div className="mt-3 flex flex-col gap-1.5">
+                {at.phase.muscles.map((m) => (
                 <button
                   type="button"
                   key={m.muscleId}
@@ -479,7 +485,8 @@ export function MovementControls({ region }: MovementControlsProps) {
                     )}
                   </span>
                 </button>
-              ))}
+                ))}
+              </div>
             </div>
 
             <RoleLegend />
