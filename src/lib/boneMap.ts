@@ -240,8 +240,12 @@ export const BONE_MAP: Record<string, BoneControl> = {
     armatureBase: 'Shoulder_Armature',
     bone: 'forearm_flex',
     axis: 'x',
-    // Opposite of flexion about the same axis.
-    sign: { R: -1, L: 1 },
+    // SAME sign as flexion on purpose: at the elbow, 0 deg is the fully EXTENDED
+    // (straight) arm and the max is full flexion -- extension and flexion share
+    // one physical arc. Extension is the RETURN toward 0 (shown with the
+    // extensor muscles and started from the flexed end), NOT a rotation the
+    // opposite way past 0, which would drive an inhuman backward hyperextension.
+    sign: { R: 1, L: -1 },
     clinicalRange: { min: 0, max: 145 },
   },
   'elbow-pronation': {
@@ -278,7 +282,12 @@ export const BONE_MAP: Record<string, BoneControl> = {
     armatureBase: 'Leg_Armature',
     bone: 'shin_flex',
     axis: 'x',
-    sign: { R: 1, L: -1 },
+    // SAME sign as flexion on purpose: 0 deg is the fully EXTENDED (straight)
+    // knee and the max is full flexion -- one physical arc. Extension is the
+    // RETURN toward 0 (shown with the quadriceps and started from the flexed
+    // end), NOT a rotation past 0, which would kick the shin up into an
+    // impossible forward hyperextension.
+    sign: { R: -1, L: 1 },
     clinicalRange: { min: 0, max: 140 },
     couplings: [patellarGlide],
   },

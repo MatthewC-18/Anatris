@@ -57,6 +57,7 @@ const flexion: RomMovement = {
   overview:
     'Flexión de la pierna sobre el muslo en el plano sagital, hasta unos 140 grados de flexión activa (más con la cadera flexionada, que preestira los isquiotibiales). El poplíteo "desbloquea" la rodilla extendida rotando la tibia internamente; luego los isquiotibiales lideran la flexión. El gastrocnemio asiste solo con el tobillo libre.',
   region: 'knee',
+  rig: { axis: [1, 0, 0] },
   phases: [
     {
       startDeg: 0,
@@ -139,6 +140,11 @@ const extension: RomMovement = {
   overview:
     'Extensión de la pierna desde la flexión hasta la posición neutra (0 grados). El cuádriceps es el único extensor. En los últimos 30 grados aparece el mecanismo de tornillo: la tibia rota externamente de forma automática y bloquea la rodilla en bipedestación con bajo coste muscular. Un valor negativo indicaría genu recurvatum (hiperextensión).',
   region: 'knee',
+  rig: { axis: [1, 0, 0] },
+  // Lab: la extension recorre el MISMO arco que la flexion (0 = rodilla recta,
+  // max = flexionada), arrancando en el extremo FLEXIONADO y volviendo a 0. La
+  // pierna no "sube" mas alla de la posicion recta (sin patada hacia adelante).
+  labStartAt: 'max',
   phases: [
     {
       startDeg: 0,

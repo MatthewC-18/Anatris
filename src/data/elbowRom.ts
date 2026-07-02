@@ -52,6 +52,7 @@ const flexion: RomMovement = {
   overview:
     'Flexión del antebrazo sobre el brazo en el plano sagital, hasta unos 145 grados de flexión activa. El braquial y el bíceps lideran; el braquiorradial asiste sobre todo contra resistencia y con el antebrazo en posición neutra. La masa flexora-pronadora de la epitróclea no flexiona el codo: estabiliza su cara medial frente al valgo.',
   region: 'elbow',
+  rig: { axis: [1, 0, 0] },
   phases: [
     {
       startDeg: 0,
@@ -142,6 +143,11 @@ const extension: RomMovement = {
   overview:
     'Extensión del antebrazo desde la flexión hasta la posición anatómica (0 grados). El tríceps es el extensor principal; el ancóneo lo asiste y estabiliza el cúbito. La masa extensora del epicóndilo lateral no extiende el codo: estabiliza su cara lateral frente al varo. El rango se mide desde la flexión máxima hacia 0; un valor negativo indicaría hiperextensión.',
   region: 'elbow',
+  rig: { axis: [1, 0, 0] },
+  // Lab: the extension gesture recorre el MISMO arco que la flexion (0 = codo
+  // estirado, max = flexionado), pero arranca en el extremo FLEXIONADO y vuelve
+  // a 0. Nunca pasa de 0 hacia atras (sin hiperextension inhumana).
+  labStartAt: 'max',
   phases: [
     {
       startDeg: 0,
@@ -217,6 +223,7 @@ const pronation: RomMovement = {
   overview:
     'Rotación del antebrazo que lleva la palma hacia abajo, evaluada con el codo flexionado a 90 grados y pegado al cuerpo para anular la rotación del hombro. El pronador cuadrado inicia y mantiene; el pronador redondo se suma para los movimientos rápidos y contra resistencia.',
   region: 'elbow',
+  rig: { axis: [0, 1, 0] },
   phases: [
     {
       startDeg: 0,
@@ -275,6 +282,7 @@ const supination: RomMovement = {
   overview:
     'Rotación del antebrazo que lleva la palma hacia arriba, evaluada con el codo a 90 grados pegado al cuerpo. El supinador actúa en movimientos lentos sin resistencia; el bíceps se suma como supinador potente cuando el codo está flexionado y hay carga.',
   region: 'elbow',
+  rig: { axis: [0, 1, 0] },
   phases: [
     {
       startDeg: 0,
