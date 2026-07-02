@@ -1,0 +1,222 @@
+// src/components/movement/RigViewer.tsx
+//
+// Dedicated canvas for the movement lab: renders ONLY the skinned biomechanical
+// rig (cuerpo-rig.glb) and drives it through rigChannel. Kept separate from the
+// main Viewer3D so the heavy master atlas and the rig never load or overlap at
+// once, and so the rig's real skeletal deformation is the whole show.
+//
+// Self-contained: own lighting (same analytic setup as Viewer3D, no network),
+// own CameraControls, and a one-shot auto-fit onto the rig once it streams in.
+
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
+import {
+  CameraControls,
+  Environment,
+  Lightformer,
+  useProgress,
+} from '@react-three/drei';
+import * as THREE from 'three';
+import { RigModel } from './RigModel';
+import { RigOverlays } from './RigOverlays';
+
+// The rig is 1300+ skinned meshes; skinning is vertex-heavy and each mesh is a
+// draw call. Cap DPR low so mid-range physio laptops stay smooth -- geometry,
+// not render resolution, is what makes this model read.
+const RIG_DPR: [number, number] = [1, 1.25];
+
+/** Auto-fit the camera onto the rig once, after it has a valid bounding box. */
+function AutoFit() {
+  const { scene } = useThree();
+  const controls = useThree((s) => s.controls) as CameraControls | null;
+  const framed = useRef(false);
+
+  useEffect(() => {
+    if (framed.current || !controls) return;
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        scene.updateWorldMatrix(true, true);
+        const box = new THREE.Box3();
+        const tmp = new THREE.Box3();
+        // Frame ONLY the skinned body. The rig GLB also carries far-away
+        // Z-Anatomy text/label panels ("VENOUS SYSTEM", ...) that are plain
+        // meshes; including them blows up the bounding box and shrinks the body
+        // to a dot off to the side. The body is the SkinnedMesh set.
+        scene.traverse((o) => {
+          const m = o as THREE.SkinnedMesh;
+          if (!m.isSkinnedMesh || !m.visible) return;
+          tmp.setFromObject(m);
+          if (isFinite(tmp.min.x) && !tmp.isEmpty()) box.union(tmp);
+        });
+        if (box.isEmpty() || !isFinite(box.min.x)) return;
+        framed.current = true;
+        void controls.fitToBox(box, true, {
+          paddingTop: 0.15,
+          paddingBottom: 0.15,
+          paddingLeft: 0.15,
+          paddingRight: 0.15,
+        });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [controls, scene]);
+
+  return null;
+}
+
+/**
+ * Premium studio lighting baked into an image-based environment. Pure
+ * Lightformers (no HDR file -> fully offline), rendered ONCE (frames={1}) into a
+ * small env map: a broad key softbox, a cool fill, and two rim strips that trace
+ * the bone/muscle silhouettes with a soft pearly highlight. Materials pick this
+ * up through their envMapIntensity. `background={false}` keeps our CSS gradient.
+ */
+function StudioEnvironment() {
+  return (
+    <Environment frames={1} resolution={256} background={false}>
+      {/* Key: large warm-neutral softbox, front-high-right. */}
+      <Lightformer
+        form="rect"
+        intensity={2.4}
+        color="#fff6ec"
+        position={[3, 4, 5]}
+        scale={[8, 8, 1]}
+        target={[0, 1, 0]}
+      />
+      {/* Fill: cool, opposite side, low intensity to open the shadows. */}
+      <Lightformer
+        form="rect"
+        intensity={0.9}
+        color="#cfe0ff"
+        position={[-5, 2, -2]}
+        scale={[6, 8, 1]}
+        target={[0, 1, 0]}
+      />
+      {/* Rim strips: thin bright bars that carve a premium edge on the silhouette. */}
+      <Lightformer
+        form="rect"
+        intensity={3.2}
+        color="#ffffff"
+        position={[-3, 3, -5]}
+        scale={[0.4, 6, 1]}
+        target={[0, 1, 0]}
+      />
+      <Lightformer
+        form="rect"
+        intensity={2.2}
+        color="#dbe7ff"
+        position={[4, 1, -5]}
+        scale={[0.4, 6, 1]}
+        target={[0, 1, 0]}
+      />
+      {/* Subtle top ambient bar for a soft overhead sheen on bone. */}
+      <Lightformer
+        form="rect"
+        intensity={1.1}
+        color="#eef4ff"
+        position={[0, 6, 1]}
+        scale={[6, 2, 1]}
+        rotation={[Math.PI / 2, 0, 0]}
+        target={[0, 1, 0]}
+      />
+    </Environment>
+  );
+}
+
+function RigLoaderOverlay({ progress }: { progress: number }) {
+  const pct = Math.min(100, Math.round(progress));
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-ink-950/80 backdrop-blur-sm animate-fade-in">
+      <div className="flex flex-col items-center gap-5">
+        <div className="relative h-12 w-12">
+          <div className="absolute inset-0 rounded-full border-2 border-slate-700" />
+          <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-accent animate-spin" />
+          <div className="absolute inset-2 rounded-full bg-accent/10" />
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <span className="font-display text-sm font-medium tracking-wide text-slate-200">
+            Cargando rig biomecánico
+          </span>
+          <span className="font-mono text-xs text-slate-500">cuerpo-rig.glb · {pct}%</span>
+        </div>
+        <div className="h-1 w-56 overflow-hidden rounded-full bg-slate-800">
+          <div
+            className="shimmer-bar h-full animate-shimmer rounded-full transition-[width] duration-300 ease-out"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProgressReporter({ onProgress }: { onProgress: (p: number) => void }) {
+  const { progress } = useProgress();
+  useEffect(() => {
+    onProgress(progress);
+  }, [progress, onProgress]);
+  return null;
+}
+
+export function RigViewer() {
+  const [progress, setProgress] = useState(0);
+  const [ready, setReady] = useState(false);
+
+  // The rig itself reports when it's loaded AND styled (onReady). We dismiss the
+  // loader on that signal -- NOT on drei's progress reaching 100, which never
+  // happens on a cached reload and would freeze the overlay over a live model.
+  // A safety timeout dismisses it regardless so the overlay can never get stuck.
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 8000);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div className="relative h-full w-full viewer-bg">
+      <Canvas
+        camera={{ position: [2, 1.5, 4], fov: 45, near: 0.05, far: 100 }}
+        dpr={RIG_DPR}
+        gl={{
+          antialias: true,
+          powerPreference: 'high-performance',
+          // ACES filmic gives the muscle reds and ivory bone a richer, more
+          // cinematic roll-off than the flat Neutral curve; slightly under 1.0
+          // exposure keeps highlights from blowing out under the studio env.
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 0.95,
+          outputColorSpace: THREE.SRGBColorSpace,
+        }}
+      >
+        {/* Image-based studio lighting (reflections + soft fill). */}
+        <StudioEnvironment />
+        {/* Analytic key/fill/rim on top of the IBL for crisp directional shaping. */}
+        <hemisphereLight args={[0xbfdfff, 0x0a0f1a, 0.35]} />
+        <directionalLight position={[3, 6, 4]} intensity={1.15} color="#fff4e8" />
+        <directionalLight position={[-4, 2, -3]} intensity={0.5} color="#cdddff" />
+        <directionalLight position={[-2, 3, -5]} intensity={0.7} color="#ffffff" />
+        <ambientLight intensity={0.12} />
+
+        <Suspense fallback={null}>
+          <ProgressReporter onProgress={setProgress} />
+          <RigModel onReady={() => setReady(true)} />
+          <RigOverlays />
+          <AutoFit />
+        </Suspense>
+
+        <CameraControls makeDefault minDistance={0.2} maxDistance={50} smoothTime={0.5} />
+      </Canvas>
+
+      {/* Premium depth: a soft radial spotlight behind the model and a vignette
+          in front, both pointer-events-none so the canvas stays fully draggable. */}
+      <div className="pointer-events-none absolute inset-0 rig-stage-glow" />
+      <div className="pointer-events-none absolute inset-0 rig-vignette" />
+
+      {!ready && <RigLoaderOverlay progress={progress} />}
+    </div>
+  );
+}
