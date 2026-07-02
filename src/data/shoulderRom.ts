@@ -37,6 +37,41 @@ const abduction: RomMovement = {
   overview:
     'La elevación del brazo en el plano frontal hasta 180° no es solo glenohumeral: combina movimiento en la articulación glenohumeral y rotación de la escápula sobre el tórax, en una proporción aproximada de 2:1 (ritmo escapulohumeral). Distintos músculos lideran en distintos tramos del arco.',
   region: 'shoulder',
+  // Frontal plane -> rig local Z. Advisory data for markers/camera framing.
+  rig: { axis: [0, 0, 1] },
+  // Lab-only: the arc continues past neutral into cross-body ADDUCTION, so the
+  // lab can sweep a signed abduccion/aduccion arc through 0.
+  labReverse: {
+    name: 'Aducción',
+    minDeg: -30,
+    phases: [
+      {
+        startDeg: -30,
+        endDeg: 0,
+        label: 'Aducción',
+        description:
+          'Desde la abducción, llevar el brazo hacia la línea media (y cruzarla) es trabajo del pectoral mayor, el dorsal ancho y el redondo mayor. El subescapular acompaña centrando la cabeza humeral.',
+        muscles: [
+          {
+            muscleId: 'pectoralis-major',
+            role: 'prime-mover',
+            note: 'Aductor potente, sobre todo al cruzar la línea media.',
+          },
+          {
+            muscleId: 'latissimus-dorsi',
+            role: 'prime-mover',
+            note: 'Aductor y extensor; desciende y aproxima el húmero.',
+          },
+          { muscleId: 'teres-major', role: 'assistant' },
+          { muscleId: 'subscapularis', role: 'stabilizer' },
+        ],
+        cite: [
+          { ref: 'kapandji', pageVerified: false },
+          { ref: 'oatis', pageVerified: false },
+        ],
+      },
+    ],
+  },
   phases: [
     {
       startDeg: 0,
@@ -137,6 +172,42 @@ const flexion: RomMovement = {
   overview:
     'Elevación del brazo hacia adelante en el plano sagital. Como en la abducción, los últimos grados dependen de la rotación superior de la escápula.',
   region: 'shoulder',
+  // Sagittal plane -> rig local X.
+  rig: { axis: [1, 0, 0] },
+  // Lab-only: the arc continues past neutral into EXTENSION, so a flexion in the
+  // lab arranca desde la extensión máxima y barre hasta la flexión completa.
+  labReverse: {
+    name: 'Extensión',
+    minDeg: -60,
+    phases: [
+      {
+        startDeg: -60,
+        endDeg: 0,
+        label: 'Extensión',
+        description:
+          'Llevar el brazo hacia atrás en el plano sagital lo realizan el dorsal ancho, el redondo mayor y la porción espinal (posterior) del deltoides; la porción larga del tríceps asiste desde la escápula.',
+        muscles: [
+          {
+            muscleId: 'latissimus-dorsi',
+            role: 'prime-mover',
+            note: 'Principal extensor del hombro desde la flexión.',
+          },
+          {
+            muscleId: 'deltoid',
+            role: 'prime-mover',
+            note: 'Porción espinal (posterior): extensor y rotador externo.',
+          },
+          { muscleId: 'teres-major', role: 'assistant' },
+          {
+            muscleId: 'triceps-brachii',
+            role: 'assistant',
+            note: 'Porción larga; cruza el hombro y asiste la extensión.',
+          },
+        ],
+        cite: [{ ref: 'kapandji', pageVerified: false }],
+      },
+    ],
+  },
   phases: [
     {
       startDeg: 0,
@@ -201,6 +272,34 @@ const externalRotation: RomMovement = {
   overview:
     'Rotación del húmero hacia afuera, evaluada con el codo flexionado a 90° y pegado al cuerpo. Rango aproximado de 80°, variable entre fuentes y sujetos.',
   region: 'shoulder',
+  // Transverse plane -> rig local Y.
+  rig: { axis: [0, 1, 0] },
+  // Lab-only: the transverse arc continues past neutral into INTERNAL rotation,
+  // so the rotation gesture sweeps the full internal<->external range.
+  labReverse: {
+    name: 'Rotación interna',
+    minDeg: -100,
+    phases: [
+      {
+        startDeg: -100,
+        endDeg: 0,
+        label: 'Rotación interna',
+        description:
+          'Hacia el lado interno del arco transversal, el subescapular es el rotador interno del manguito y el pectoral mayor, el dorsal ancho y el redondo mayor aportan potencia.',
+        muscles: [
+          {
+            muscleId: 'subscapularis',
+            role: 'prime-mover',
+            note: 'Único componente anterior del manguito.',
+          },
+          { muscleId: 'pectoralis-major', role: 'assistant' },
+          { muscleId: 'latissimus-dorsi', role: 'assistant' },
+          { muscleId: 'teres-major', role: 'assistant' },
+        ],
+        cite: [{ ref: 'kapandji', pageVerified: false }],
+      },
+    ],
+  },
   phases: [
     {
       startDeg: 0,
@@ -239,6 +338,32 @@ const internalRotation: RomMovement = {
   overview:
     'Rotación del húmero hacia adentro. El rango efectivo es mayor que el de la rotación externa, en parte porque el tronco deja de limitar cuando la mano pasa por detrás.',
   region: 'shoulder',
+  // Transverse plane -> rig local Y.
+  rig: { axis: [0, 1, 0] },
+  // Lab-only: the arc continues past neutral into EXTERNAL rotation.
+  labReverse: {
+    name: 'Rotación externa',
+    minDeg: -80,
+    phases: [
+      {
+        startDeg: -80,
+        endDeg: 0,
+        label: 'Rotación externa',
+        description:
+          'Hacia el lado externo del arco transversal, el infraespinoso y el redondo menor son los rotadores externos principales; el deltoides posterior asiste.',
+        muscles: [
+          { muscleId: 'infraspinatus', role: 'prime-mover' },
+          { muscleId: 'teres-minor', role: 'prime-mover' },
+          {
+            muscleId: 'deltoid',
+            role: 'assistant',
+            note: 'Porción espinal (posterior).',
+          },
+        ],
+        cite: [{ ref: 'kapandji', pageVerified: false }],
+      },
+    ],
+  },
   phases: [
     {
       startDeg: 0,

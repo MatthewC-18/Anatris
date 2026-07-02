@@ -64,6 +64,42 @@ export interface RomPhase {
 }
 
 /**
+ * Movement-lab-only extension describing the arc CONTINUING PAST NEUTRAL into
+ * the opposite gesture, so the lab slider can sweep a SIGNED range through 0.
+ *
+ * IMPORTANT: this is consumed ONLY by the movement lab (MovementControls +
+ * RigModel). Explore/Learn (RomPanel, the pedagogy tracks) never read it, so
+ * adding it does not change any existing screen or citation.
+ */
+export interface RomReverseArc {
+  /** Opposite gesture display name, Spanish (e.g. "Extensión", "Aducción"). */
+  name: string;
+  /** Most-negative reachable angle, in degrees (e.g. -60 for extension). */
+  minDeg: number;
+  /**
+   * Negative-side phases, authored ASCENDING toward 0 (e.g. a phase with
+   * startDeg -60 / endDeg 0). Concatenated before the positive phases to build
+   * the lab's continuous signed arc.
+   */
+  phases: RomPhase[];
+}
+
+/**
+ * Optional rig hint kept as DATA (per the design spec convention). The runtime
+ * drives the skinned rig through src/lib/boneMap.ts; this documents the plane's
+ * rotation axis and pivot so the didactic markers and per-plane camera framing
+ * can orient themselves off data rather than a hardcoded axis.
+ */
+export interface RomRigHint {
+  /** Rotation axis (rig local bone space), e.g. [0,0,1] for the frontal plane. */
+  axis: [number, number, number];
+  /** Optional pivot in world space; defaults to the joint's pivot. */
+  pivot?: [number, number, number];
+  /** Positive sign of the gesture (advisory). */
+  sign?: 1 | -1;
+}
+
+/**
  * A complete ROM movement: the joint, the plane/axis it happens in, the total
  * normal range, and the phase breakdown.
  */
@@ -86,6 +122,20 @@ export interface RomMovement {
   phases: RomPhase[];
   /** Optional region id this movement belongs to (e.g. "shoulder"). */
   region?: string;
+  /**
+   * Movement-lab-only: the opposite-direction arc, so the lab can play the
+   * gesture from its anatomical START extreme (a flexion that begins in
+   * extension). Ignored by Explore/Learn. See RomReverseArc.
+   */
+  labReverse?: RomReverseArc;
+  /**
+   * Movement-lab-only: which extreme of the signed arc the slider starts at
+   * ('min' = the opposite gesture's extreme, the default when labReverse is
+   * present; 'max' = this gesture's extreme). Ignored by Explore/Learn.
+   */
+  labStartAt?: 'min' | 'max';
+  /** Optional rig hint for markers/camera framing (see RomRigHint). */
+  rig?: RomRigHint;
 }
 
 export type RomMovementIndex = Record<string, RomMovement>;

@@ -24,3 +24,13 @@ export function romForRegion(region: string | null): RomMovement[] {
   }
   return SHOULDER_ROM_LIST;
 }
+
+/** Find a movement by its id across every region (movement ids are unique). */
+export function movementById(id: string | null | undefined): RomMovement | undefined {
+  if (!id) return undefined;
+  for (const list of Object.values(ROM_BY_REGION)) {
+    const hit = list.find((m) => m.id === id);
+    if (hit) return hit;
+  }
+  return undefined;
+}

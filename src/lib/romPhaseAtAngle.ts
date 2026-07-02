@@ -16,6 +16,39 @@ export interface PhaseAtAngle {
 }
 
 /**
+ * The continuous SIGNED arc the movement lab sweeps for a movement. When the
+ * movement carries a `labReverse`, the negative-side phases are concatenated
+ * before the positive ones and the range extends below 0; otherwise it is the
+ * plain 0..max arc. `startAt` is the slider's initial angle so the gesture reads
+ * from its anatomical start (a flexion that begins in extension). This is a
+ * LAB-only view; Explore/Learn keep using movement.phases / totalRangeDeg as-is.
+ */
+export interface LabArc {
+  min: number;
+  max: number;
+  /** Full phase list across the signed arc, ascending by degree. */
+  phases: RomPhase[];
+  /** Initial slider angle for the gesture. */
+  startDeg: number;
+  /** True when the arc crosses 0 (has an opposite-gesture side). */
+  bidirectional: boolean;
+}
+
+export function buildLabArc(movement: RomMovement): LabArc {
+  const rev = movement.labReverse;
+  const posMax = movement.totalRangeDeg.max;
+  const min = rev ? rev.minDeg : movement.totalRangeDeg.min;
+  const phases = rev ? [...rev.phases, ...movement.phases] : movement.phases;
+  const bidirectional = min < 0 && posMax > 0;
+  // Default: start at the opposite extreme (min) so the gesture reads from its
+  // anatomical start (a flexion that begins in extension). For a plain 0..max
+  // arc that is simply 0.
+  const startAt = movement.labStartAt ?? 'min';
+  const startDeg = startAt === 'max' ? posMax : min;
+  return { min, max: posMax, phases, startDeg, bidirectional };
+}
+
+/**
  * The phase whose degree sub-range contains `angle`. Boundaries are inclusive;
  * at a shared boundary the EARLIER phase wins. Returns the last phase when the
  * angle is past the final boundary, and null only for an empty movement.
@@ -24,7 +57,19 @@ export function phaseAtAngle(
   movement: RomMovement,
   angle: number,
 ): PhaseAtAngle | null {
-  const phases = movement.phases;
+  return phaseAtAngleIn(movement.phases, angle);
+}
+
+/**
+ * Same as phaseAtAngle but over an EXPLICIT phase list (e.g. the lab's combined
+ * signed arc from buildLabArc). Boundaries inclusive; earlier phase wins at a
+ * shared boundary; last phase past the final boundary. Works with negative
+ * degrees as long as the phases are ordered ascending.
+ */
+export function phaseAtAngleIn(
+  phases: RomPhase[],
+  angle: number,
+): PhaseAtAngle | null {
   if (phases.length === 0) return null;
   for (let i = 0; i < phases.length; i++) {
     if (angle <= phases[i].endDeg) {
