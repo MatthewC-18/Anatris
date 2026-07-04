@@ -142,6 +142,36 @@ function hideOverlapDuplicates(candidates: DupCandidate[]): number {
 }
 
 // ---------------------------------------------------------------------------
+// Distal-extremity hiding.
+//
+// The movement lab only ever drives PROXIMAL joints (shoulder, elbow, knee,
+// spine); the hand and the foot are never articulated. Rendered as bare
+// muscle+bone (RigModel strips the cartilage / ligaments / skin that hold them
+// together), the ~27 tiny carpal/metacarpal/phalanx bones plus the thin
+// intrinsic muscle slips read as a "shattered", broken-looking cluster even
+// though -- verified -- they neither explode under skinning nor duplicate. So we
+// hide the whole distal block: the forearm ends cleanly at the wrist and the leg
+// at the ankle, which looks far more premium than a bare, disarticulated hand.
+// Flip HIDE_DISTAL_EXTREMITIES to false to bring them back.
+// ---------------------------------------------------------------------------
+const HIDE_DISTAL_EXTREMITIES = true;
+
+/** Distal hand/foot bone-name tokens (carpals, tarsals, metacarpals, phalanges). */
+const DISTAL_TOKENS: readonly string[] = [
+  'metacarpal', 'metatarsal', 'phalanx',
+  'capitate', 'lunate', 'scaphoid', 'triquetrum', 'pisiform',
+  'trapezium', 'trapezoid', 'hamate',
+  'talus', 'calcaneus', 'calcaneous', 'navicular', 'cuboid', 'cuneiform',
+] as const;
+
+/** True for a hand/foot distal mesh (bones by name, intrinsics via "of hand/foot"). */
+function isDistalExtremityMesh(name: string): boolean {
+  const s = name.toLowerCase();
+  if (s.includes('of_hand') || s.includes('of_foot')) return true;
+  return DISTAL_TOKENS.some((t) => s.includes(t));
+}
+
+// ---------------------------------------------------------------------------
 // Channel: the DOM control panel commands the in-canvas rig through this.
 // ---------------------------------------------------------------------------
 /** One muscle to emphasize in the scene, with its role (drives the glow color). */
@@ -281,6 +311,12 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       if (!mesh.isMesh) return;
       const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
       const matName = first?.name ?? '';
+      // Hide the distal hand/foot block: it is never articulated by the lab and
+      // reads as a shattered cluster of bare bones (see note above).
+      if (HIDE_DISTAL_EXTREMITIES && isDistalExtremityMesh(mesh.name)) {
+        mesh.visible = false;
+        return;
+      }
       const base = colorForMaterial(matName);
       // Z-Anatomy ORGANIZATIONAL CONTAINERS (the ".g" group nodes like
       // "Muscular_systemg001", "Bones_of_handg001", "Joints_of_lower_limbg001"
