@@ -142,33 +142,37 @@ function hideOverlapDuplicates(candidates: DupCandidate[]): number {
 }
 
 // ---------------------------------------------------------------------------
-// Distal-extremity hiding.
+// Distal intrinsic-muscle cleanup (hands and feet stay VISIBLE).
 //
-// The movement lab only ever drives PROXIMAL joints (shoulder, elbow, knee,
-// spine); the hand and the foot are never articulated. Rendered as bare
-// muscle+bone (RigModel strips the cartilage / ligaments / skin that hold them
-// together), the ~27 tiny carpal/metacarpal/phalanx bones plus the thin
-// intrinsic muscle slips read as a "shattered", broken-looking cluster even
-// though -- verified -- they neither explode under skinning nor duplicate. So we
-// hide the whole distal block: the forearm ends cleanly at the wrist and the leg
-// at the ankle, which looks far more premium than a bare, disarticulated hand.
-// Flip HIDE_DISTAL_EXTREMITIES to false to bring them back.
+// The hand/foot BONES render fine -- verified against the real GPU-skinned
+// geometry: each hand is a compact ~14 cm cluster with zero displaced or
+// mis-oriented pieces (no export/skinning bug). What read as "shattered" were
+// the thin INTRINSIC muscle slips (interossei, thenar/hypothenar, plantar): with
+// no skin to hold them they show as scattered red slivers between the little
+// bones. So we KEEP the whole hand/foot skeleton (a clean, recognisable hand)
+// and drop only those intrinsic muscle slivers.
+//
+// We pick them by REST-POSE region + muscle tissue rather than by name, because
+// the intrinsics are named inconsistently (pollicis / hallucis / digiti minimi /
+// "of hand") and a token list misses some. The forearm/leg muscle BELLIES sit
+// proximal to these regions, so they are never caught. Rest pose is fixed at
+// mount, before any movement, so the region test is stable.
+// Set HIDE_DISTAL_MUSCLES to false to bring the intrinsic slivers back.
 // ---------------------------------------------------------------------------
-const HIDE_DISTAL_EXTREMITIES = true;
+const HIDE_DISTAL_MUSCLES = true;
 
-/** Distal hand/foot bone-name tokens (carpals, tarsals, metacarpals, phalanges). */
-const DISTAL_TOKENS: readonly string[] = [
-  'metacarpal', 'metatarsal', 'phalanx',
-  'capitate', 'lunate', 'scaphoid', 'triquetrum', 'pisiform',
-  'trapezium', 'trapezoid', 'hamate',
-  'talus', 'calcaneus', 'calcaneous', 'navicular', 'cuboid', 'cuneiform',
-] as const;
-
-/** True for a hand/foot distal mesh (bones by name, intrinsics via "of hand/foot"). */
-function isDistalExtremityMesh(name: string): boolean {
-  const s = name.toLowerCase();
-  if (s.includes('of_hand') || s.includes('of_foot')) return true;
-  return DISTAL_TOKENS.some((t) => s.includes(t));
+/**
+ * True when a rest-pose world center lies in the hand or foot cluster (three.js
+ * coords: hands ~(+-0.26, 0.80, 0.03), feet low with y < ~0.12). Forearm/leg
+ * muscle bellies are more proximal (higher y for the hand band, y > 0.14 above
+ * the foot band) and fall outside.
+ */
+function inDistalRegion(c: THREE.Vector3): boolean {
+  // Hand band stops at y < 0.82 (below the wrist) so the distal FOREARM muscles
+  // -- pronator quadratus, the carpi/brachioradialis insertions -- are kept.
+  const hand = c.y > 0.7 && c.y < 0.82 && Math.abs(c.x) > 0.17;
+  const foot = c.y < 0.1;
+  return hand || foot;
 }
 
 // ---------------------------------------------------------------------------
@@ -311,12 +315,6 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       if (!mesh.isMesh) return;
       const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
       const matName = first?.name ?? '';
-      // Hide the distal hand/foot block: it is never articulated by the lab and
-      // reads as a shattered cluster of bare bones (see note above).
-      if (HIDE_DISTAL_EXTREMITIES && isDistalExtremityMesh(mesh.name)) {
-        mesh.visible = false;
-        return;
-      }
       const base = colorForMaterial(matName);
       // Z-Anatomy ORGANIZATIONAL CONTAINERS (the ".g" group nodes like
       // "Muscular_systemg001", "Bones_of_handg001", "Joints_of_lower_limbg001"
@@ -352,6 +350,13 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       const dom = dominantBoneName(mesh);
       const hex = colorForMaterialMesh(matName, mesh.name) ?? base;
       const tissue = tissueClassForMaterial(matName);
+      const center = meshWorldCenter(mesh);
+      // Drop the thin intrinsic hand/foot MUSCLE slips (the scattered red
+      // slivers). The distal BONES stay, so the hand/foot skeleton reads whole.
+      if (HIDE_DISTAL_MUSCLES && tissue === 'muscle' && inDistalRegion(center)) {
+        mesh.visible = false;
+        return;
+      }
       // Dispose the original physical material(s) before swapping.
       const old = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       mesh.material = flatMat(hex, tissue);
@@ -359,7 +364,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // This mesh is kept -- record it for the duplicate-overlap pass.
       dupCandidates.push({
         mesh,
-        center: meshWorldCenter(mesh),
+        center,
         vcount: mesh.geometry.getAttribute('position')?.count ?? 0,
         bone: dom,
       });
