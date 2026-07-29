@@ -203,14 +203,42 @@ export const BONE_MAP: Record<string, BoneControl> = {
       // arc. The scapulohumeral rhythm remains; only the trunk lean is dropped.
     ],
   },
+  // Sagittal elevation is ALSO scapulohumeral (~2:1), like abduction: the scapula
+  // upwardly rotates and the humerus externally rotates past 90 deg. Reuses the
+  // SAME chain decomposition (shoulderChain is plane-agnostic in MAGNITUDE); the
+  // only difference from abduction is that the humerus's own rotation lands on
+  // local X (sagittal flexion) instead of Z (frontal abduction). Making flexion a
+  // chain (a) drives the scapula so its upward rotation is VISIBLE during flexion
+  // and (b) lets the RhythmReadout show the humero-escapular split for flexion (it
+  // gates on kind === 'chain'). The negative arc (extension, to -60) is a pure GH
+  // sweep -- scapula/ER are 0 there -- so it behaves exactly as the old joint did.
+  // needsVisualCheck: the scapula carry was CALIBRATED for the frontal plane; in
+  // the sagittal plane the arm may need the scapula gain tuned so it reaches a
+  // clean vertical without drifting out of plane. Verify in the lab, then flip.
   'glenohumeral-flexion': {
-    kind: 'joint',
-    armatureBase: 'Shoulder_Armature',
-    bone: 'humerus_gh',
-    axis: 'x',
-    // Flexion is -X on both sides per the handoff table.
-    sign: { R: -1, L: -1 },
+    kind: 'chain',
     clinicalRange: { min: 0, max: 180 },
+    decompose: (deg, side, mod) => {
+      const p = shoulderChain(deg, side, mod);
+      // shoulderChain signs the GH rotation for the ABDUCTION axis (local Z:
+      // R:-1, L:+1). Recover the unsigned magnitude and re-sign it for the
+      // FLEXION axis (local X: -1 both sides, matching the old joint mapping).
+      const abdSideSign = side === 'R' ? -1 : 1;
+      const ghMag = p.glenohumeralRot * abdSideSign; // >=0 in flexion, <0 in extension
+      const flexSign = -1; // -X on both sides
+      const erSign = side === 'R' ? 1 : -1; // matches glenohumeral-external-rotation
+      return {
+        humerus: ghMag * flexSign, // local-X (sagittal flexion / extension)
+        humeralER: p.humeralExtRot * erSign, // local-Y (obligatory ER past 90 deg)
+        scapula: p.scapulaUpwardRot, // local-X (upward rotation, + both sides)
+      };
+    },
+    targets: [
+      { key: 'humerus', target: { armature: 'shoulder', bones: ['humerus_gh'], axis: 'x' } },
+      { key: 'humeralER', target: { armature: 'shoulder', bones: ['humerus_gh'], axis: 'y' } },
+      { key: 'scapula', target: { armature: 'shoulder', bones: ['scapula'], axis: 'x' } },
+    ],
+    needsVisualCheck: true,
   },
   'glenohumeral-external-rotation': {
     kind: 'joint',

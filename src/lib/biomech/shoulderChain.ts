@@ -126,10 +126,11 @@ export function shoulderChain(
     mod?.elevationCapDeg != null && elevationDeg > mod.elevationCapDeg
       ? mod.elevationCapDeg
       : elevationDeg;
-  // Allow a small NEGATIVE range for cross-body ADDUCTION (movement lab sweeps a
-  // signed abduction/adduction arc). Adduction from neutral is essentially
-  // glenohumeral: no scapular upward rotation, no humeral ER, no thoracic lean.
-  const E = Math.max(-40, Math.min(180, capped)) * DEG;
+  // Allow a NEGATIVE range for cross-body ADDUCTION (abduction arc, to -30) and
+  // shoulder EXTENSION (flexion arc, to -60). Below neutral the motion is
+  // essentially glenohumeral: no scapular upward rotation, no humeral ER, no
+  // thoracic lean, so this negative branch is a pure GH sweep either way.
+  const E = Math.max(-60, Math.min(180, capped)) * DEG;
   // Scapular rhythm / ER / spine lean only engage on POSITIVE elevation.
   const Ep = Math.max(0, E);
 
