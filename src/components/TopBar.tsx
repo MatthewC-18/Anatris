@@ -177,7 +177,7 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
       {/* Module nav -- the single region selector. Inline on desktop; on mobile
           it collapses into MobileRegionMenu (below) so the header fits. */}
       <MobileRegionMenu />
-      <nav className="hidden shrink-0 items-center gap-1 lg:flex">
+      <nav className="hidden shrink-0 items-center gap-1 min-[1860px]:flex">
         {MODULES.map((m) => {
           // Spine entry: a button that opens a sub-region submenu.
           if (m.spine) {
@@ -286,7 +286,7 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
           <circle cx="11" cy="11" r="7" />
           <path d="M21 21l-4.3-4.3" strokeLinecap="round" />
         </svg>
-        <span className="hidden lg:inline">Buscar estructura</span>
+        <span className="hidden min-[1860px]:inline">Buscar estructura</span>
         <span className="kbd ml-2">{String.fromCharCode(0x2318)}K</span>
       </button>
 
@@ -302,7 +302,7 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
           <path d="M9.2 9.3a2.8 2.8 0 0 1 5.4 1c0 1.8-2.6 2.2-2.6 3.7" strokeLinecap="round" />
           <path d="M12 17.2h.01" strokeLinecap="round" />
         </svg>
-        <span className="hidden lg:inline">Guía</span>
+        <span className="hidden min-[1860px]:inline">Guía</span>
         {!guideSeen && (
           <span
             className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-ink-950 bg-accent"
@@ -316,7 +316,7 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
         <button
           type="button"
           onClick={() => setOverlay('pricing')}
-          className="hidden shrink-0 rounded-lg bg-accent/15 px-2.5 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/25 lg:block"
+          className="hidden shrink-0 rounded-lg bg-accent/15 px-2.5 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/25 min-[1860px]:block"
         >
           Planes
         </button>
@@ -326,21 +326,21 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
       <button
         type="button"
         onClick={() => setOverlay('about')}
-        className="hidden shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:text-slate-200 lg:block"
+        className="hidden shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:text-slate-200 min-[1860px]:block"
       >
         Acerca de
       </button>
       <button
         type="button"
         onClick={() => setOverlay('legal')}
-        className="hidden shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:text-slate-200 lg:block"
+        className="hidden shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:text-slate-200 min-[1860px]:block"
       >
         Legal
       </button>
 
       {/* Mode toggle: segmented control on desktop, dropdown on mobile. */}
       <MobileModeMenu mode={mode} setMode={setMode} />
-      <div className="hidden shrink-0 items-center gap-1 rounded-xl border border-slate-800/60 bg-slate-900/60 p-1 lg:flex">
+      <div className="hidden shrink-0 items-center gap-1 rounded-xl border border-slate-800/60 bg-slate-900/60 p-1 min-[1860px]:flex">
         <ModeButton id="explore" label="Explorar" mode={mode} setMode={setMode} />
         <ModeButton id="learn" label="Aprender" mode={mode} setMode={setMode} />
         <ModeButton id="study" label="Estudiar" mode={mode} setMode={setMode} />
@@ -422,9 +422,10 @@ function useDismiss(
 }
 
 /**
- * MOBILE region selector: the 7-module inline nav does not fit below `lg`, so
- * on small screens the regions collapse into this single dropdown (spine
- * expanded into cervical/torácica/lumbar). Desktop keeps the inline nav.
+ * MOBILE/LAPTOP region selector: the 7-module inline nav + 4-mode segmented +
+ * account need ~1808px, so below the custom `min-[1860px]` breakpoint the
+ * regions collapse into this single dropdown (spine expanded into cervical/
+ * torácica/lumbar). Only wide monitors (>=1860px) get the inline nav.
  */
 function MobileRegionMenu() {
   const region = useAnatomyStore((s) => s.region);
@@ -441,7 +442,7 @@ function MobileRegionMenu() {
     isRegionPremium(regionId) && !entitlement.canAccessRegion(regionId);
 
   return (
-    <div ref={ref} className="relative shrink-0 lg:hidden">
+    <div ref={ref} className="relative shrink-0 min-[1860px]:hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -489,8 +490,9 @@ function MobileRegionMenu() {
   );
 }
 
-/** MOBILE mode selector: the 4-button segmented control moves into a dropdown
- *  below `lg` so the header fits. Desktop keeps the segmented control. */
+/** MOBILE/LAPTOP mode selector: the 4-button segmented control moves into a
+ *  dropdown below the `min-[1860px]` breakpoint so the header fits. Wide
+ *  monitors keep the segmented control. */
 function MobileModeMenu({
   mode,
   setMode,
@@ -504,7 +506,7 @@ function MobileModeMenu({
   const label = MODE_ITEMS.find((m) => m.id === mode)?.label ?? 'Modo';
 
   return (
-    <div ref={ref} className="relative shrink-0 lg:hidden">
+    <div ref={ref} className="relative shrink-0 min-[1860px]:hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
