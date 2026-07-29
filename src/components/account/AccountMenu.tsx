@@ -44,6 +44,17 @@ export function AccountMenu({
   }
 
   const initial = snapshot.user.email.charAt(0).toUpperCase() || '?';
+  // A trialing subscription is premium, but flag it distinctly so the user knows
+  // they're on a free trial and when it converts to a paid charge.
+  const sub = snapshot.subscription;
+  const isTrialing = sub.status === 'trialing';
+  const trialEnd =
+    isTrialing && sub.currentPeriodEnd
+      ? new Date(sub.currentPeriodEnd).toLocaleDateString('es', {
+          day: 'numeric',
+          month: 'long',
+        })
+      : null;
 
   return (
     <div ref={ref} className="relative shrink-0">
@@ -57,10 +68,14 @@ export function AccountMenu({
         </span>
         <span
           className={`hidden rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide lg:inline ${
-            isPremium ? 'bg-emerald-600/20 text-emerald-300' : 'bg-slate-800 text-slate-400'
+            isTrialing
+              ? 'bg-amber-500/20 text-amber-300'
+              : isPremium
+                ? 'bg-emerald-600/20 text-emerald-300'
+                : 'bg-slate-800 text-slate-400'
           }`}
         >
-          {isPremium ? 'Premium' : 'Free'}
+          {isTrialing ? 'Prueba' : isPremium ? 'Premium' : 'Free'}
         </span>
       </button>
 
@@ -71,7 +86,9 @@ export function AccountMenu({
               {snapshot.user.email}
             </p>
             <p className="text-xs text-slate-500">
-              Plan {isPremium ? 'Premium' : 'Gratuito'}
+              {isTrialing
+                ? `Prueba Premium${trialEnd ? ` · termina el ${trialEnd}` : ''}`
+                : `Plan ${isPremium ? 'Premium' : 'Gratuito'}`}
             </p>
           </div>
           <div className="my-1 h-px bg-slate-800/60" />

@@ -17,6 +17,7 @@ import type {
   Subscription,
 } from './types';
 import { FREE_SUBSCRIPTION } from './types';
+import { TRIAL_DAYS } from '../lib/pricing';
 
 const USER_KEY = 'anatris.mockauth.user';
 const SUB_KEY = 'anatris.mockauth.subscription';
@@ -134,12 +135,24 @@ export function createMockBackend(): AuthBackend {
       if (!user) {
         return { ok: false, error: 'Inicia sesión para suscribirte.' };
       }
-      // Simulate a successful Stripe Checkout: grant premium immediately.
-      const sub: Subscription = {
-        plan: 'premium',
-        status: 'active',
-        currentPeriodEnd: new Date(Date.now() + 30 * 864e5).toISOString(),
-      };
+      // Simulate a successful Stripe Checkout. First-time subscribers land in the
+      // 'trialing' state (mirrors the real trial the create-checkout function
+      // grants) so the whole trial UX -- badge, account-menu end date, unlock --
+      // is demoable end to end; a returning subscriber goes straight to 'active'.
+      const prior = read<Subscription>(SUB_KEY, FREE_SUBSCRIPTION);
+      const firstTime = prior.status === 'none';
+      const sub: Subscription =
+        firstTime && TRIAL_DAYS > 0
+          ? {
+              plan: 'premium',
+              status: 'trialing',
+              currentPeriodEnd: new Date(Date.now() + TRIAL_DAYS * 864e5).toISOString(),
+            }
+          : {
+              plan: 'premium',
+              status: 'active',
+              currentPeriodEnd: new Date(Date.now() + 30 * 864e5).toISOString(),
+            };
       write(SUB_KEY, sub);
       emit();
       return { ok: true };

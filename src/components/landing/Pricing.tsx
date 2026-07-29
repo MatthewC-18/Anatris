@@ -14,6 +14,7 @@ import { useAuth, useEntitlement } from '../../auth/AuthContext';
 import {
   CURRENCIES,
   CURRENCY_ORDER,
+  TRIAL_DAYS,
   detectCurrency,
   formatPrice,
   type CurrencyCode,
@@ -54,6 +55,9 @@ export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
   const perMonth = annual ? plan.annual / 12 : plan.monthly;
   const priceLabel = formatPrice(plan, perMonth);
   const annualLabel = useMemo(() => formatPrice(plan, plan.annual), [plan]);
+  // Trial CTA only for users who never subscribed ('none'); returning users pay now.
+  const trialEligible =
+    TRIAL_DAYS > 0 && !isPremium && snapshot.subscription.status === 'none';
 
   async function goPremium() {
     if (isPremium) return;
@@ -147,6 +151,11 @@ export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
           <p className="text-xs text-slate-500">
             {annual ? `Facturado ${annualLabel} al año` : 'Facturación mensual'}
           </p>
+          {trialEligible && (
+            <p className="mt-2 w-fit rounded-full bg-emerald-600/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300">
+              {TRIAL_DAYS} días gratis, sin cargo hoy
+            </p>
+          )}
           <ul className="mt-5 flex flex-1 flex-col gap-2">
             {PREMIUM_FEATURES.map((f) => (
               <Feature key={f} text={f} highlight />
@@ -163,15 +172,20 @@ export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
               : busy
                 ? 'Procesando…'
                 : snapshot.user
-                  ? 'Suscribirme'
-                  : 'Crear cuenta y suscribirme'}
+                  ? trialEligible
+                    ? `Empezar ${TRIAL_DAYS} días gratis`
+                    : 'Suscribirme'
+                  : trialEligible
+                    ? `Crear cuenta · ${TRIAL_DAYS} días gratis`
+                    : 'Crear cuenta y suscribirme'}
           </button>
         </div>
       </div>
 
       <p className="mt-5 text-center text-[11px] text-slate-600">
-        Cancela cuando quieras. Pago seguro con Stripe. Solo con fines educativos;
-        no sustituye el criterio clínico profesional.
+        {trialEligible ? `Empieza con ${TRIAL_DAYS} días gratis. ` : ''}Cancela cuando
+        quieras. Pago seguro con Stripe. Solo con fines educativos; no sustituye el
+        criterio clínico profesional.
       </p>
     </div>
   );
