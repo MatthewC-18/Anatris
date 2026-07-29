@@ -20,6 +20,12 @@ const flexion: RomMovement = {
       startDeg: 0,
       endDeg: 25,
       label: 'Inicio (motor abdominal y estabilización profunda)',
+      flag: {
+        label: 'Estabilización profunda',
+        detail:
+          'El transverso crea presión intraabdominal ANTES del gesto (feed-forward); el multífido se atrofia selectivamente tras la lumbalgia aguda.',
+        tone: 'pearl',
+      },
       description:
         'El recto del abdomen y los oblicuos inician la flexión concéntrica. El transverso del abdomen genera presión intraabdominal previa al movimiento, estabilizando el núcleo. El multífido lumbar controla excéntricamente el deslizamiento segmentario.',
       muscles: [
@@ -46,6 +52,85 @@ const flexion: RomMovement = {
       cite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'oatis', pageVerified: false }],
     },
   ],
+  activations: [
+    {
+      muscleId: 'transversus-abdominis',
+      role: 'stabilizer',
+      note: 'Presión intraabdominal anticipatoria (feed-forward): se activa ANTES del movimiento.',
+      curve: [
+        { deg: 0, level: 0.6 },
+        { deg: 25, level: 0.55 },
+        { deg: 60, level: 0.5 },
+      ],
+    },
+    {
+      muscleId: 'rectus-abdominis',
+      role: 'prime-mover',
+      note: 'Motor concéntrico de la flexión; aproxima el tórax a la pelvis en el inicio.',
+      curve: [
+        { deg: 0, level: 0.7 },
+        { deg: 25, level: 0.8 },
+        { deg: 60, level: 0.45 },
+      ],
+    },
+    {
+      muscleId: 'external-oblique',
+      role: 'assistant',
+      note: 'Colabora en la flexión y controla la rotación durante el movimiento.',
+      curve: [
+        { deg: 0, level: 0.4 },
+        { deg: 25, level: 0.5 },
+        { deg: 60, level: 0.35 },
+      ],
+    },
+    {
+      muscleId: 'internal-oblique',
+      role: 'assistant',
+      note: 'Colabora en la flexión y aumenta la presión intraabdominal.',
+      curve: [
+        { deg: 0, level: 0.4 },
+        { deg: 25, level: 0.5 },
+        { deg: 60, level: 0.35 },
+      ],
+    },
+    {
+      muscleId: 'iliocostalis-lumborum',
+      role: 'prime-mover',
+      note: 'Superado el equilibrio, frena excéntricamente el descenso: domina el tramo final.',
+      curve: [
+        { deg: 0, level: 0.2 },
+        { deg: 25, level: 0.5 },
+        { deg: 60, level: 0.95 },
+      ],
+    },
+    {
+      muscleId: 'multifidus-lumborum',
+      role: 'stabilizer',
+      note: 'Control excéntrico segmentario; se atrofia selectivamente tras lumbalgia aguda.',
+      curve: [
+        { deg: 0, level: 0.35 },
+        { deg: 60, level: 0.7 },
+      ],
+    },
+    {
+      muscleId: 'psoas-major',
+      role: 'stabilizer',
+      note: 'Comprime la columna lumbar; influye en la lordosis durante la flexión.',
+      curve: [
+        { deg: 25, level: 0.3 },
+        { deg: 60, level: 0.5 },
+      ],
+    },
+    {
+      muscleId: 'quadratus-lumborum',
+      role: 'stabilizer',
+      note: 'Fija la base lumbopélvica y estabiliza L4-L5.',
+      curve: [
+        { deg: 25, level: 0.3 },
+        { deg: 60, level: 0.45 },
+      ],
+    },
+  ],
 };
 
 const extension: RomMovement = {
@@ -66,6 +151,12 @@ const extension: RomMovement = {
       startDeg: 0,
       endDeg: 20,
       label: 'Inicio-medio (erector lumbar)',
+      flag: {
+        label: 'Base de McKenzie',
+        detail:
+          'La extensión lumbar repetida es el pilar del método McKenzie para el síndrome de disfunción/derangement posterior.',
+        tone: 'pearl',
+      },
       description:
         'El iliocostal lumbar extiende la columna concéntricamente aumentando la lordosis. Los multífidos estabilizan cada segmento y el cuadrado lumbar fija la base lumbopélvica.',
       muscles: [
@@ -88,6 +179,55 @@ const extension: RomMovement = {
         { muscleId: 'psoas-major', role: 'stabilizer', note: 'Tensión anterior que limita la extensión excesiva y protege los discos.' },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'oatis', pageVerified: false }],
+    },
+  ],
+  activations: [
+    {
+      muscleId: 'iliocostalis-lumborum',
+      role: 'prime-mover',
+      note: 'Motor concéntrico de la extensión lumbar; aumenta la lordosis.',
+      curve: [
+        { deg: 0, level: 0.8 },
+        { deg: 20, level: 1 },
+        { deg: 35, level: 0.75 },
+      ],
+    },
+    {
+      muscleId: 'multifidus-lumborum',
+      role: 'prime-mover',
+      note: 'Extensión segmentaria fina; estabiliza hasta el límite facetario, domina el rango final.',
+      curve: [
+        { deg: 0, level: 0.4 },
+        { deg: 20, level: 0.6 },
+        { deg: 35, level: 0.9 },
+      ],
+    },
+    {
+      muscleId: 'quadratus-lumborum',
+      role: 'stabilizer',
+      note: 'Fija la base lumbopélvica durante la extensión.',
+      curve: [
+        { deg: 0, level: 0.35 },
+        { deg: 35, level: 0.5 },
+      ],
+    },
+    {
+      muscleId: 'transversus-abdominis',
+      role: 'stabilizer',
+      note: 'Presión intraabdominal que estabiliza el raquis en la extensión final.',
+      curve: [
+        { deg: 20, level: 0.3 },
+        { deg: 35, level: 0.5 },
+      ],
+    },
+    {
+      muscleId: 'psoas-major',
+      role: 'stabilizer',
+      note: 'Tensión anterior que limita la extensión excesiva y protege los discos.',
+      curve: [
+        { deg: 20, level: 0.3 },
+        { deg: 35, level: 0.55 },
+      ],
     },
   ],
 };
@@ -134,6 +274,63 @@ const lateralFlexion: RomMovement = {
       cite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'oatis', pageVerified: false }],
     },
   ],
+  activations: [
+    {
+      muscleId: 'quadratus-lumborum',
+      role: 'prime-mover',
+      note: 'Motor principal: aproxima cresta ilíaca y costillas del mismo lado; inicia la inclinación.',
+      curve: [
+        { deg: 0, level: 0.8 },
+        { deg: 12, level: 0.95 },
+        { deg: 25, level: 0.85 },
+      ],
+    },
+    {
+      muscleId: 'iliocostalis-lumborum',
+      role: 'assistant',
+      note: 'Asiste la inclinación ipsilateral desde la capa posterior.',
+      curve: [
+        { deg: 0, level: 0.45 },
+        { deg: 25, level: 0.6 },
+      ],
+    },
+    {
+      muscleId: 'external-oblique',
+      role: 'assistant',
+      note: 'Aproxima el tórax a la pelvis del mismo lado.',
+      curve: [
+        { deg: 0, level: 0.4 },
+        { deg: 25, level: 0.55 },
+      ],
+    },
+    {
+      muscleId: 'multifidus-lumborum',
+      role: 'assistant',
+      note: 'Inclinación y estabilización segmentaria en el rango final.',
+      curve: [
+        { deg: 12, level: 0.3 },
+        { deg: 25, level: 0.6 },
+      ],
+    },
+    {
+      muscleId: 'internal-oblique',
+      role: 'assistant',
+      note: 'Colabora en la inclinación ipsilateral.',
+      curve: [
+        { deg: 12, level: 0.3 },
+        { deg: 25, level: 0.55 },
+      ],
+    },
+    {
+      muscleId: 'transversus-abdominis',
+      role: 'stabilizer',
+      note: 'Estabilización del núcleo durante la inclinación.',
+      curve: [
+        { deg: 0, level: 0.3 },
+        { deg: 25, level: 0.45 },
+      ],
+    },
+  ],
 };
 
 const rotation: RomMovement = {
@@ -154,6 +351,12 @@ const rotation: RomMovement = {
       startDeg: 0,
       endDeg: 5,
       label: 'Arco completo (muy limitado)',
+      flag: {
+        label: 'Rotación mínima (riesgo discal)',
+        detail:
+          'Solo 3-5° por el bloqueo sagital de las carillas; forzarla concentra la carga en el anillo fibroso posterior (factor de hernia).',
+        tone: 'warn',
+      },
       description:
         'En los escasos grados disponibles, los multífidos contralaterales y los oblicuos cruzados producen el movimiento. El transverso del abdomen genera el corsé intraabdominal que protege el disco. La orientación sagital de las carillas actúa como tope mecánico.',
       muscles: [
@@ -164,6 +367,53 @@ const rotation: RomMovement = {
         { muscleId: 'intertransversarii', role: 'stabilizer', note: 'Estabilización segmentaria; propioceptores del movimiento intervertebral.' },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'oatis', pageVerified: false }],
+    },
+  ],
+  activations: [
+    {
+      muscleId: 'multifidus-lumborum',
+      role: 'prime-mover',
+      note: 'Rotación contralateral segmentaria; muy limitada por la geometría sagital de las carillas.',
+      curve: [
+        { deg: 0, level: 0.6 },
+        { deg: 5, level: 0.8 },
+      ],
+    },
+    {
+      muscleId: 'external-oblique',
+      role: 'assistant',
+      note: 'Par rotador del tronco: el externo gira hacia el lado opuesto.',
+      curve: [
+        { deg: 0, level: 0.4 },
+        { deg: 5, level: 0.6 },
+      ],
+    },
+    {
+      muscleId: 'internal-oblique',
+      role: 'assistant',
+      note: 'Par rotador del tronco: el interno gira hacia el mismo lado.',
+      curve: [
+        { deg: 0, level: 0.4 },
+        { deg: 5, level: 0.6 },
+      ],
+    },
+    {
+      muscleId: 'transversus-abdominis',
+      role: 'stabilizer',
+      note: 'Presión intraabdominal que protege el disco intervertebral durante la rotación.',
+      curve: [
+        { deg: 0, level: 0.5 },
+        { deg: 5, level: 0.55 },
+      ],
+    },
+    {
+      muscleId: 'intertransversarii',
+      role: 'stabilizer',
+      note: 'Estabilización segmentaria; propioceptores del movimiento intervertebral.',
+      curve: [
+        { deg: 0, level: 0.4 },
+        { deg: 5, level: 0.5 },
+      ],
     },
   ],
 };

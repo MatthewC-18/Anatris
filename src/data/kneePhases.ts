@@ -109,9 +109,9 @@ const FLEXION_GUIDE: GestureGuide = {
     {
       id: 'flexion-end',
       title: 'Final del arco',
-      rangeLabel: 'Final (90-140 grados)',
+      rangeLabel: 'Final (90-105 grados)',
       caption: {
-        text: 'Cerca de la flexión máxima el movimiento lo frenan el contacto de la pantorrilla con el muslo y la tensión del cuádriceps. Los isquiotibiales trabajan acortados, con eficacia decreciente por insuficiencia activa.',
+        text: 'El modelo pliega hasta unos 105 grados, donde la pantorrilla contacta el muslo (se detiene ahí para no atravesarlo). De pie (cadera extendida), la flexión activa real se frena hacia los 120 grados por la tensión del recto femoral y del resto del cuádriceps. Los isquiotibiales trabajan acortados, con eficacia decreciente por insuficiencia activa. Con la cadera flexionada el arco llega a ~140 grados, limitado por el choque de la pantorrilla con el muslo.',
         cite: [{ ref: 'kapandji', pageVerified: false }],
       },
       muscles: [

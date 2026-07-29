@@ -88,9 +88,9 @@ const ABDUCTION_GUIDE: GestureGuide = {
     {
       id: 'setting-phase',
       title: 'Fase de ajuste',
-      rangeLabel: '0-15 grados',
+      rangeLabel: '0-30 grados',
       caption: {
-        text: 'El supraespinoso inicia la abducción y, junto con el resto del manguito, comprime y centra la cabeza humeral en la glenoides. En este primer tramo la escápula apenas se mueve (fase de ajuste): su posición es variable y todavia no contribuye al arco. Esta estabilizacion es la condición previa para que el deltoides pueda elevar el brazo sin que la cabeza ascienda contra el acromion.',
+        text: 'El supraespinoso y el deltoides se activan juntos desde el primer grado: el supraespinoso, con mejor brazo de palanca a 0°, inicia la abducción y —con el resto del manguito— comprime y centra la cabeza humeral en la glenoides. El deltoides ya trabaja, pero rinde poco torque cerca de la vertical. En este primer tramo la escápula apenas se mueve (fase de ajuste): busca una posición estable y todavía no contribuye al arco. Esa estabilización es la condición previa para que el deltoides eleve el brazo sin que la cabeza ascienda contra el acromion.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       muscles: [
@@ -106,9 +106,9 @@ const ABDUCTION_GUIDE: GestureGuide = {
     {
       id: 'deltoid-takes-over',
       title: 'El deltoides toma el relevo',
-      rangeLabel: '15-30 grados',
+      rangeLabel: '30-90 grados',
       caption: {
-        text: 'A partir de los ~15 grados la parte acromial (media) del deltoides se convierte en el motor principal de la abducción. El manguito sigue activo como depresor y centrador de la cabeza humeral: forma con el deltoides un par de fuerzas que evita el ascenso de la cabeza y el pinzamiento subacromial. En este tramo el aporte escapular todavia es escaso; el movimiento es predominantemente glenohumeral.',
+        text: 'A partir de los ~30 grados la parte acromial (media) del deltoides es el motor principal de la abducción y alcanza su máxima ventaja mecánica cerca de los 90 grados. El manguito sigue activo como depresor y centrador de la cabeza humeral: forma con el deltoides un par de fuerzas que evita el ascenso de la cabeza y el pinzamiento subacromial. La escápula empieza aquí su rotación superior, pero el movimiento sigue siendo predominantemente glenohumeral. Es en este tramo donde comienza el arco doloroso (60-120 grados).',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       muscles: [
@@ -124,9 +124,9 @@ const ABDUCTION_GUIDE: GestureGuide = {
     {
       id: 'scapulohumeral-rhythm',
       title: 'Ritmo escapulohumeral',
-      rangeLabel: '30-90 grados',
+      rangeLabel: '90-120 grados',
       caption: {
-        text: 'Superada la fase de ajuste, la escápula rota hacia arriba acompañando al húmero. Esta rotación no es un tramo aparte: ocurre a la vez que el deltoides sigue elevando el brazo. La proporción global del movimiento es de aproximadamente 2 a 1 (dos grados glenohumerales por cada grado escapular); de los ~180 grados de elevación total, alrededor de 120 son glenohumerales y 60 escapulares. El trapecio y el serrato anterior forman el par de fuerzas que produce esa rotación superior; sin ella, la elevación completa no es posible.',
+        text: 'Pasados los 90 grados la elevación depende cada vez más de la rotación superior de la escápula, que acompaña al húmero sin ser un tramo aparte. La proporción global del movimiento es de aproximadamente 2 a 1 (dos grados glenohumerales por cada grado escapular): de los ~180 grados de elevación total, alrededor de 120 son glenohumerales y 60 escapulares. El trapecio y el serrato anterior forman el par de fuerzas que produce esa rotación superior; a la vez el húmero rota externamente para hacer rodar el troquíter y liberarlo del arco coracoacromial. Sin esa rotación escapular la elevación completa no es posible.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       muscles: [
@@ -142,15 +142,15 @@ const ABDUCTION_GUIDE: GestureGuide = {
     {
       id: 'overhead',
       title: 'Elevación completa',
-      rangeLabel: '90-180 grados',
+      rangeLabel: '120-180 grados',
       caption: {
-        text: 'En el tramo final el deltoides y el supraespinoso completan la elevación mientras la rotación superior de la escápula, sostenida por trapecio y serrato, orienta la glenoides hacia arriba para mantener la congruencia y dejar espacio al troquíter. Un fallo del control escapular en esta fase reproduce el conflicto subacromial.',
+        text: 'En el tramo final la articulación glenohumeral se acerca a su techo (~120 grados), así que la rotación superior de la escápula predomina para completar el arco: el serrato anterior y el trapecio inferior orientan la glenoides hacia arriba para mantener la congruencia y dejar espacio al troquíter, mientras el deltoides y el supraespinoso terminan de elevar. Un fallo del control escapular en esta fase reproduce el conflicto subacromial.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       muscles: [
-        { id: 'deltoid', role: 'prime-mover' },
-        { id: 'serratus-anterior', role: 'assistant' },
-        { id: 'trapezius', role: 'assistant' },
+        { id: 'serratus-anterior', role: 'prime-mover' },
+        { id: 'trapezius', role: 'prime-mover' },
+        { id: 'deltoid', role: 'assistant' },
         { id: 'supraspinatus', role: 'stabilizer' },
       ],
       view: 'three-quarter',

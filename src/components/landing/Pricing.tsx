@@ -1,27 +1,28 @@
 // src/components/landing/Pricing.tsx
 //
-// Pricing surface: Free vs Premium with a monthly/annual toggle. Reused both on
-// the marketing landing and as an in-app "Planes" overlay. The premium CTA is
-// wired to the existing auth/billing seam (useAuth.startCheckout) so it works on
-// the mock today and on real Stripe once configured.
+// Pricing surface: Free vs Premium with a monthly/annual toggle and a per-market
+// currency selector. Reused both on the marketing landing and as an in-app
+// "Planes" overlay. The premium CTA is wired to the existing auth/billing seam
+// (useAuth.startCheckout) so it works on the mock today and on real Stripe once
+// configured — and it charges in the SAME currency it displays.
 //
-// EDIT ME: the amounts/currency below are placeholders. Set your real prices —
-// and consider local currency for your market (MXN / COP / EUR ...).
+// Prices live in src/lib/pricing.ts and MUST match the Stripe prices'
+// currency_options (see supabase/README.md).
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth, useEntitlement } from '../../auth/AuthContext';
-
-const PRICING = {
-  currency: 'USD',
-  symbol: '$',
-  monthly: 7.99,
-  annual: 59, // ~ 4.92 / mes (ahorro frente al mensual)
-};
+import {
+  CURRENCIES,
+  CURRENCY_ORDER,
+  detectCurrency,
+  formatPrice,
+  type CurrencyCode,
+} from '../../lib/pricing';
 
 const PREMIUM_FEATURES = [
   'Repaso inteligente con repetición espaciada en todas las regiones',
   'Casos clínicos interactivos de razonamiento',
-  'Todas las regiones: hombro, codo, columna y rodilla',
+  'Todas las regiones: hombro, codo, cadera, rodilla, tobillo y columna',
   'Laboratorio de movimiento (biomecánica interactiva)',
   'Racha diaria, metas y seguimiento de dominio',
   'Progreso sincronizado en todos tus dispositivos',
@@ -46,9 +47,13 @@ export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
   const { isPremium } = useEntitlement();
   const [annual, setAnnual] = useState(true);
   const [busy, setBusy] = useState(false);
+  // Currency defaults to the visitor's market; they can override it.
+  const [currency, setCurrency] = useState<CurrencyCode>(() => detectCurrency());
 
-  const price = annual ? PRICING.annual / 12 : PRICING.monthly;
-  const priceLabel = `${PRICING.symbol}${price.toFixed(2)}`;
+  const plan = CURRENCIES[currency];
+  const perMonth = annual ? plan.annual / 12 : plan.monthly;
+  const priceLabel = formatPrice(plan, perMonth);
+  const annualLabel = useMemo(() => formatPrice(plan, plan.annual), [plan]);
 
   async function goPremium() {
     if (isPremium) return;
@@ -57,35 +62,53 @@ export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
       return;
     }
     setBusy(true);
-    await startCheckout();
+    await startCheckout(annual ? 'annual' : 'monthly', currency);
     setBusy(false);
   }
 
   return (
     <div className="mx-auto w-full max-w-3xl px-2">
-      {/* Billing period toggle */}
-      <div className="mb-6 flex items-center justify-center gap-3">
-        <span className={`text-sm ${!annual ? 'text-slate-200' : 'text-slate-500'}`}>
-          Mensual
-        </span>
-        <button
-          type="button"
-          onClick={() => setAnnual((a) => !a)}
-          className="relative h-6 w-11 rounded-full border border-slate-700 bg-slate-800 transition-colors"
-          aria-label="Cambiar periodo de facturación"
-        >
-          <span
-            className={`absolute top-0.5 h-4 w-4 rounded-full bg-accent transition-all ${
-              annual ? 'left-[1.4rem]' : 'left-0.5'
-            }`}
-          />
-        </button>
-        <span className={`text-sm ${annual ? 'text-slate-200' : 'text-slate-500'}`}>
-          Anual
-          <span className="ml-1 rounded bg-emerald-600/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
-            ahorra
+      {/* Currency selector + billing period toggle */}
+      <div className="mb-6 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
+        <label className="flex items-center gap-2 text-sm text-slate-400">
+          Moneda
+          <select
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+            className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-sm text-slate-200 focus:border-accent focus:outline-none"
+            aria-label="Elegir moneda"
+          >
+            {CURRENCY_ORDER.map((code) => (
+              <option key={code} value={code}>
+                {CURRENCIES[code].label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="flex items-center gap-3">
+          <span className={`text-sm ${!annual ? 'text-slate-200' : 'text-slate-500'}`}>
+            Mensual
           </span>
-        </span>
+          <button
+            type="button"
+            onClick={() => setAnnual((a) => !a)}
+            className="relative h-6 w-11 rounded-full border border-slate-700 bg-slate-800 transition-colors"
+            aria-label="Cambiar periodo de facturación"
+          >
+            <span
+              className={`absolute top-0.5 h-4 w-4 rounded-full bg-accent transition-all ${
+                annual ? 'left-[1.4rem]' : 'left-0.5'
+              }`}
+            />
+          </button>
+          <span className={`text-sm ${annual ? 'text-slate-200' : 'text-slate-500'}`}>
+            Anual
+            <span className="ml-1 rounded bg-emerald-600/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+              ahorra
+            </span>
+          </span>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -94,7 +117,7 @@ export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
           <h3 className="font-display text-lg font-bold text-slate-100">Gratis</h3>
           <p className="mt-1 text-sm text-slate-500">Para empezar a estudiar hoy.</p>
           <p className="mt-4 font-display text-3xl font-bold text-slate-50">
-            {PRICING.symbol}0
+            {formatPrice(plan, 0)}
           </p>
           <ul className="mt-5 flex flex-1 flex-col gap-2">
             {FREE_FEATURES.map((f) => (
@@ -122,9 +145,7 @@ export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
             <span className="text-sm text-slate-500">/ mes</span>
           </p>
           <p className="text-xs text-slate-500">
-            {annual
-              ? `Facturado ${PRICING.symbol}${PRICING.annual.toFixed(2)} al año`
-              : 'Facturación mensual'}
+            {annual ? `Facturado ${annualLabel} al año` : 'Facturación mensual'}
           </p>
           <ul className="mt-5 flex flex-1 flex-col gap-2">
             {PREMIUM_FEATURES.map((f) => (

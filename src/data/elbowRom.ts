@@ -86,6 +86,12 @@ const flexion: RomMovement = {
       startDeg: 30,
       endDeg: 100,
       label: 'Rango medio',
+      flag: {
+        label: 'Estabilidad al valgo',
+        detail:
+          'La masa flexora-pronadora protege dinámicamente el ligamento colateral medial (clave en el gesto de lanzamiento).',
+        tone: 'pearl',
+      },
       description:
         'Tramo de mayor ventaja mecánica. El bíceps y el braquial trabajan juntos como motores; el braquiorradial se suma con eficacia, sobre todo con el antebrazo en posición neutra (pulgar arriba) y contra carga.',
       muscles: [
@@ -125,6 +131,50 @@ const flexion: RomMovement = {
       cite: [
         { ref: 'kapandji', pageVerified: false },
         { ref: 'oatis', pageVerified: false },
+      ],
+    },
+  ],
+  activations: [
+    {
+      muscleId: 'brachialis',
+      role: 'prime-mover',
+      note: 'Flexor puro y constante ("caballo de tiro"): trabaja en todo el arco, con independencia del antebrazo.',
+      curve: [
+        { deg: 0, level: 0.7 },
+        { deg: 60, level: 1 },
+        { deg: 145, level: 0.85 },
+      ],
+    },
+    {
+      muscleId: 'biceps-brachii',
+      role: 'prime-mover',
+      note: 'Máxima eficacia hacia el rango medio (~90°) y con el antebrazo supinado.',
+      curve: [
+        { deg: 0, level: 0.5 },
+        { deg: 30, level: 0.7 },
+        { deg: 90, level: 1 },
+        { deg: 145, level: 0.7 },
+      ],
+    },
+    {
+      muscleId: 'brachioradialis',
+      role: 'assistant',
+      note: 'Se suma hacia el rango medio, eficaz en posición neutra y contra resistencia.',
+      curve: [
+        { deg: 0, level: 0.15 },
+        { deg: 30, level: 0.4 },
+        { deg: 100, level: 0.75 },
+        { deg: 145, level: 0.6 },
+      ],
+    },
+    {
+      muscleId: 'common-flexor-pronator-origin',
+      role: 'stabilizer',
+      note: 'No flexiona el codo: estabiliza la cara medial frente al valgo en todo el arco.',
+      curve: [
+        { deg: 0, level: 0.3 },
+        { deg: 60, level: 0.4 },
+        { deg: 145, level: 0.35 },
       ],
     },
   ],
@@ -208,6 +258,37 @@ const extension: RomMovement = {
       cite: [{ ref: 'kapandji', pageVerified: false }],
     },
   ],
+  activations: [
+    {
+      muscleId: 'triceps-brachii',
+      role: 'prime-mover',
+      note: 'Extensor principal; la cabeza medial es la trabajadora constante, las cabezas lateral y larga se reclutan contra resistencia.',
+      curve: [
+        { deg: 0, level: 0.75 },
+        { deg: 30, level: 0.85 },
+        { deg: 100, level: 1 },
+        { deg: 145, level: 0.9 },
+      ],
+    },
+    {
+      muscleId: 'anconeus',
+      role: 'assistant',
+      note: 'Asiste al tríceps y estabiliza el cúbito en todo el arco.',
+      curve: [
+        { deg: 0, level: 0.35 },
+        { deg: 145, level: 0.4 },
+      ],
+    },
+    {
+      muscleId: 'common-extensor-origin',
+      role: 'stabilizer',
+      note: 'No extiende el codo: estabiliza la cara lateral frente al varo.',
+      curve: [
+        { deg: 0, level: 0.3 },
+        { deg: 145, level: 0.32 },
+      ],
+    },
+  ],
 };
 
 /* ===========================================================================
@@ -245,6 +326,12 @@ const pronation: RomMovement = {
       startDeg: 40,
       endDeg: 85,
       label: 'Rango medio-final',
+      flag: {
+        label: 'Síndrome del pronador redondo',
+        detail:
+          'El nervio mediano pasa entre las dos cabezas del pronador redondo; su compresión aquí imita un túnel carpiano.',
+        tone: 'warn',
+      },
       description:
         'Para los movimientos rápidos o contra resistencia se recluta el pronador redondo, motor de la pronación potente. El nervio mediano pasa entre sus dos cabezas (síndrome del pronador redondo).',
       muscles: [
@@ -265,6 +352,37 @@ const pronation: RomMovement = {
         },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }],
+    },
+  ],
+  activations: [
+    {
+      muscleId: 'pronator-quadratus',
+      role: 'prime-mover',
+      note: 'Pronador primario: inicia y sostiene la pronación en todo el arco, con bajo coste.',
+      curve: [
+        { deg: 0, level: 0.75 },
+        { deg: 40, level: 0.85 },
+        { deg: 85, level: 0.9 },
+      ],
+    },
+    {
+      muscleId: 'pronator-teres',
+      role: 'assistant',
+      note: 'Se recluta para la pronación rápida y contra resistencia (se suma hacia los ~40°).',
+      curve: [
+        { deg: 0, level: 0.2 },
+        { deg: 40, level: 0.55 },
+        { deg: 85, level: 0.9 },
+      ],
+    },
+    {
+      muscleId: 'common-flexor-pronator-origin',
+      role: 'stabilizer',
+      note: 'La masa flexora-pronadora colabora y estabiliza la cara medial.',
+      curve: [
+        { deg: 0, level: 0.3 },
+        { deg: 85, level: 0.4 },
+      ],
     },
   ],
 };
@@ -319,6 +437,27 @@ const supination: RomMovement = {
         },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }],
+    },
+  ],
+  activations: [
+    {
+      muscleId: 'supinator',
+      role: 'prime-mover',
+      note: 'Motor constante de la supinación en movimientos lentos y sin resistencia, en cualquier ángulo.',
+      curve: [
+        { deg: 0, level: 0.7 },
+        { deg: 90, level: 0.85 },
+      ],
+    },
+    {
+      muscleId: 'biceps-brachii',
+      role: 'assistant',
+      note: 'Supinador potente con el codo flexionado y contra resistencia (se suma tras los ~45°).',
+      curve: [
+        { deg: 0, level: 0.2 },
+        { deg: 45, level: 0.55 },
+        { deg: 90, level: 0.9 },
+      ],
     },
   ],
 };

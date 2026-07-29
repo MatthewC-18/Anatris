@@ -172,9 +172,56 @@ const MUSCLE_ALIASES: Record<string, string[]> = {
   plantaris: ['plantaris'],
   popliteus: ['popliteus'],
 
-  // ----- Pes anserinus -----
+  // ----- Pes anserinus (also hip flexors; shared with the hip region) -----
   sartorius: ['sartorius'],
   gracilis: ['gracilis'],
+
+  // ===========================================================================
+  // HIP
+  // rectus-femoris / sartorius / gracilis are already aliased above (knee) and
+  // resolve for the hip region too, so they are not repeated here.
+  // ===========================================================================
+  // ----- Flexors -----
+  // 'Psoas_major' has NO "_muscle" suffix, so the marker erosion eats the trailing
+  // "...major" down to "psoas_maj" (same failure mode as the supinator -> "supinat"
+  // above). Alias the eroded slug so a click on the psoas belly still resolves.
+  'psoas-major': ['psoas_major', 'psoas_maj'],
+  iliacus: ['iliacus', 'iliopsoas'],
+  'tensor-fasciae-latae': ['tensor_fasciae_latae'],
+  pectineus: ['pectineus'],
+
+  // ----- Gluteal group -----
+  'gluteus-maximus': ['gluteus_maximus'],
+  'gluteus-medius': ['gluteus_medius'],
+  'gluteus-minimus': ['gluteus_minimus'],
+
+  // ----- Adductors -----
+  'adductor-longus': ['adductor_longus'],
+  'adductor-brevis': ['adductor_brevis'],
+  'adductor-magnus': ['adductor_magnus', 'adductor_minimus'],
+
+  // ----- Deep six external rotators -----
+  piriformis: ['piriformis'],
+  'obturator-internus': ['obturator_internus'],
+  'obturator-externus': ['obturator_externus'],
+  'superior-gemellus': ['superior_gemellus'],
+  'inferior-gemellus': ['inferior_gemellus'],
+  'quadratus-femoris': ['quadratus_femoris'],
+
+  // ===========================================================================
+  // ANKLE / FOOT
+  // gastrocnemius / soleus / plantaris are already aliased above (knee) and
+  // resolve for the ankle region too, so they are not repeated here.
+  // ===========================================================================
+  'tibialis-anterior': ['tibialis_anterior'],
+  'tibialis-posterior': ['tibialis_posterior'],
+  'extensor-digitorum-longus': ['extensor_digitorum_longus'],
+  'extensor-hallucis-longus': ['extensor_hallucis_longus'],
+  'flexor-digitorum-longus': ['flexor_digitorum_longus'],
+  'flexor-hallucis-longus': ['flexor_hallucis_longus'],
+  'fibularis-longus': ['fibularis_longus'],
+  'fibularis-brevis': ['fibularis_brevis'],
+  'fibularis-tertius': ['fibularis_tertius'],
 };
 
 /** Non-muscle entities whose names embed a muscle name as a qualifier.

@@ -1,20 +1,20 @@
 // src/components/movement/MovementControls.tsx
 //
-// Region-aware PREMIUM control panel for the movement lab. It drives the skinned
-// rig (RigModel, via rigChannel) by clinical movementId + side + SIGNED angle,
-// and reads the SAME live angle against the ROM phase data to show -- in sync --
-// which phase of the arc the joint is in and which muscles work, by role. That
-// synced "see the muscles change through the range" readout is the clinical
-// payload that sets this apart from a plain animation.
+// Compact CONTROLLER for the movement lab (bottom-left). It drives the skinned
+// rig (RigModel, via rigChannel) by clinical movementId + side + SIGNED angle and
+// owns playback; the live clinical READOUT (goniometer sectors, humero-escapulo-
+// raquideo rhythm, protagonist muscle) lives in RhythmReadout (top-left), a
+// read-only twin fed by the SAME rigChannel. Keeping the readout OUT of this
+// panel is what stopped the old floating card from covering the model.
+//
+// This panel still computes the live per-muscle recruitment (activeMusclesAt) and
+// pushes it as the scene highlight so the real rig meshes glow as the arc sweeps;
+// it just no longer renders the muscle list itself.
 //
 // BIDIRECTIONAL: when a movement carries a labReverse arc (shoulder), the slider
 // spans a SIGNED range through 0 (neutral marked) and STARTS at the opposite
-// anatomical extreme -- a flexion begins in extension and sweeps to full flexion.
-// Playback (rAF) sweeps the arc min<->max with speed / loop / return-to-neutral,
-// and honors prefers-reduced-motion.
-//
-// It also feeds RigOverlays the active muscles (with role) so their REAL rig
-// meshes glow in the scene, and toggles the rotation-axis marker.
+// anatomical extreme. Playback (rAF) sweeps min<->max with speed / loop, honors
+// prefers-reduced-motion.
 //
 // Mounted with key={region} by MovementView, so its initial state is derived
 // straight from the active region with no cross-region staleness.
@@ -25,25 +25,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { rigChannel, type RigHighlight } from './RigModel';
 import { romForRegion } from '../../data/romByRegion';
 import { getBoneControl, isDrivable, type Side } from '../../lib/boneMap';
-import { ROM_ROLE_LABEL, type RomMuscleRole, type RomMovement } from '../../types/rom';
-import {
-  buildLabArc,
-  phaseAtAngleIn,
-  muscleNameById,
-} from '../../lib/romPhaseAtAngle';
-
-/** Tailwind classes per muscle role (amber / sky / violet, matching the app). */
-const ROLE_STYLE: Record<RomMuscleRole, string> = {
-  'prime-mover': 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  assistant: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-  stabilizer: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
-};
-/** Solid dot color per role, for the always-on legend swatches. */
-const ROLE_DOT: Record<RomMuscleRole, string> = {
-  'prime-mover': 'bg-amber-400',
-  assistant: 'bg-sky-400',
-  stabilizer: 'bg-violet-400',
-};
+import type { RomMovement } from '../../types/rom';
+import { buildLabArc, phaseAtAngleIn } from '../../lib/romPhaseAtAngle';
+import { activeMusclesAt, type ActiveMuscle } from '../../lib/romActivation';
+import { pathologiesForMovement, pathologyById } from '../../data/pathologies';
+import { musclesForRomLookup } from '../../data/musclesByRegion';
+import { REGIONS } from '../../data/regiones';
+import { exportPatientCard, type PatientCardInfo } from '../../lib/patientExport';
+import { patientInstruction } from '../../lib/patientPhrase';
 
 const SIDE_LABEL: Record<Side, string> = { R: 'Derecho', L: 'Izquierdo' };
 
@@ -57,8 +46,7 @@ const SPEEDS = [
 /** Live subscription to prefers-reduced-motion. */
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState<boolean>(() =>
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function'
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
       ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
       : false,
   );
@@ -72,30 +60,14 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-/** Always-visible, keyboard-focusable role legend (AA contrast). */
-function RoleLegend() {
-  return (
-    <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1" aria-label="Leyenda de roles musculares">
-      {(Object.keys(ROLE_DOT) as RomMuscleRole[]).map((role) => (
-        <li
-          key={role}
-          tabIndex={0}
-          aria-label={ROM_ROLE_LABEL[role]}
-          className="flex items-center gap-1.5 rounded px-0.5 text-[11px] text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent"
-        >
-          <span className={`h-2 w-2 rounded-full ${ROLE_DOT[role]}`} aria-hidden="true" />
-          {ROM_ROLE_LABEL[role]}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 interface MovementControlsProps {
   region: string | null;
+  /** When true, render the big, simplified PATIENT bar instead of the clinician
+   *  panel (same underlying state, so toggling preserves the current pose). */
+  patientMode?: boolean;
 }
 
-export function MovementControls({ region }: MovementControlsProps) {
+export function MovementControls({ region, patientMode = false }: MovementControlsProps) {
   const movements = useMemo(() => romForRegion(region), [region]);
   const reducedMotion = usePrefersReducedMotion();
 
@@ -109,47 +81,202 @@ export function MovementControls({ region }: MovementControlsProps) {
   const [loop, setLoop] = useState(true);
   const [speedIdx, setSpeedIdx] = useState(1);
   const [showMarkers, setShowMarkers] = useState(true);
+  // Manual-resistance mode: draw the therapist's hands + force arrow opposing the
+  // gesture and load the agonists harder. See RigOverlays / the readout below.
+  const [resistance, setResistance] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [hovered, setHovered] = useState<RigHighlight | null>(null);
+  // P1: active pathological preset (null = Normal). Only the elevation chain
+  // supports it; reset to Normal whenever the movement changes.
+  const [pathologyId, setPathologyId] = useState<string | null>(null);
 
   const movement: RomMovement | null =
     movements.find((m) => m.id === movementId) ?? null;
   const control = movementId ? getBoneControl(movementId) : undefined;
   const drivable = control != null && control.kind !== 'unsupported';
   const isSpine = control?.kind === 'spine';
-  const muscleRegion = movement?.region ?? region ?? 'shoulder';
+  const regionName = (region && REGIONS[region]?.name) || movement?.joint || '';
+
+  /** Cycle to the previous / next movement of this region (patient-mode arrows). */
+  const goToMovement = (dir: -1 | 1) => {
+    if (movements.length === 0) return;
+    const idx = movements.findIndex((m) => m.id === movementId);
+    const base = idx < 0 ? 0 : idx;
+    const next = movements[(base + dir + movements.length) % movements.length];
+    if (next) setMovementId(next.id);
+  };
 
   // The continuous signed arc this movement sweeps in the lab.
   const arc = useMemo(() => (movement ? buildLabArc(movement) : null), [movement]);
-  const at = arc ? phaseAtAngleIn(arc.phases, angle) : null;
+
+  // Pathology presets available for THIS movement (empty = none). A preset may cap
+  // the reachable max (ROM loss) or raise the reachable min (extension lag), so the
+  // slider + playback bound to [effMin, effMax] instead of the full arc.
+  const pathologyOptions = useMemo(
+    () => pathologiesForMovement(movementId),
+    [movementId],
+  );
+  const supportsPathology = pathologyOptions.length > 0;
+  const pathology = supportsPathology ? pathologyById(pathologyId) : null;
+  const cap = pathology?.rangeCapDeg ?? null;
+  const floor = pathology?.rangeFloorDeg ?? null;
+  // Structures implicated by the active pathology, to emphasize in the scene.
+  const implicated = useMemo(
+    () => (supportsPathology ? pathologyById(pathologyId)?.implicated ?? [] : []),
+    [supportsPathology, pathologyId],
+  );
+  const effMax = arc ? (cap != null ? Math.min(arc.max, cap) : arc.max) : 0;
+  const effMin = arc ? (floor != null ? Math.max(arc.min, floor) : arc.min) : 0;
+
+  // Live per-muscle recruitment at the current angle (premium activation model).
+  // Falls back to the current phase's muscle list (level 1) for movements without
+  // activation envelopes. Pushed to the rig as the scene highlight (auto glow).
+  const liveMuscles: ActiveMuscle[] = useMemo(() => {
+    if (!movement) return [];
+    const active = activeMusclesAt(movement, angle);
+    if (active.length > 0) return active;
+    const phase = arc ? phaseAtAngleIn(arc.phases, angle) : null;
+    return (phase?.phase.muscles ?? []).map((m) => ({
+      muscleId: m.muscleId,
+      role: m.role,
+      level: 1,
+      note: m.note,
+    }));
+  }, [movement, angle, arc]);
+
+  // muscleId -> Spanish name, so the resistance readout can list which muscles the
+  // therapist is loading (the glow shows WHERE; the readout says WHO + how).
+  const muscleNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of musclesForRomLookup(region)) map.set(m.id, m.name);
+    return map;
+  }, [region]);
+
+  // Prime movers loaded under manual resistance, by name (deduped, max 3 shown).
+  const resistedNames = useMemo(() => {
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const m of liveMuscles) {
+      if (m.role !== 'prime-mover') continue;
+      const name = muscleNameById.get(m.muscleId);
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      names.push(name);
+    }
+    return names;
+  }, [liveMuscles, muscleNameById]);
+
+  // --- Patient export ("Exportar para paciente"): capture the current pose into a
+  // clean, plain-language PNG handout the physio can print or send. Client-side. ---
+  const [note, setNote] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
+
+  const onExport = async () => {
+    if (!movement) return;
+    const prime =
+      resistedNames.length > 0
+        ? resistedNames
+        : [
+            ...new Set(
+              liveMuscles.map((m) => muscleNameById.get(m.muscleId) ?? m.muscleId),
+            ),
+          ];
+    const rng = movement.totalRangeDeg;
+    const facts: PatientCardInfo['facts'] = [
+      { label: 'Zona', value: regionName },
+      {
+        label: 'Movimiento',
+        value: movement.plane
+          ? `${movement.name} (plano ${movement.plane.toLowerCase()})`
+          : movement.name,
+      },
+      { label: 'Lado', value: SIDE_LABEL[side] },
+      {
+        label: 'Rango objetivo',
+        value: `${Math.round(rng.min)}–${Math.round(rng.max)}°`,
+      },
+    ];
+    if (prime.length > 0) {
+      facts.push({ label: 'Músculos', value: prime.slice(0, 4).join(', ') });
+    }
+    const info: PatientCardInfo = {
+      title: `${movement.name} · ${regionName}`,
+      instruction: patientInstruction(movement, regionName),
+      note,
+      facts,
+      fileStem: `anatris-${region ?? 'lab'}-${movement.id}`,
+    };
+    setExporting(true);
+    setExportMsg(null);
+    try {
+      await exportPatientCard(info);
+      setExportMsg('Imagen descargada ✓');
+    } catch (e) {
+      setExportMsg(e instanceof Error ? e.message : 'No se pudo exportar.');
+    } finally {
+      setExporting(false);
+      window.setTimeout(() => setExportMsg(null), 4000);
+    }
+  };
 
   // Reset the angle to the gesture's anatomical START whenever the movement
-  // changes, and stop any playback.
+  // changes, stop any playback, and clear the pathology back to Normal.
   useEffect(() => {
     setPlaying(false);
     setAngle(arc ? arc.startDeg : 0);
+    setPathologyId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [movementId]);
+
+  // Pathology range clamp: if the reachable window shrinks past the current angle
+  // (selecting a preset that caps the max or floors the min), pull the pose into it.
+  useEffect(() => {
+    setAngle((a) => (a > effMax ? effMax : a < effMin ? effMin : a));
+  }, [effMax, effMin]);
 
   // --- Push the live state to the rig (drive + scene highlight + markers).
   useEffect(() => {
     if (!drivable || !arc) {
-      rigChannel.set({ movementId: null, angleDeg: 0, highlight: [], showMarkers });
+      rigChannel.set({ movementId: null, angleDeg: 0, highlight: [], showMarkers, implicated: [] });
       return;
     }
-    const phase = phaseAtAngleIn(arc.phases, angle);
-    const highlight: RigHighlight[] = hovered
-      ? [hovered]
-      : (phase?.phase.muscles ?? []).map((m) => ({
-          muscleId: m.muscleId,
-          role: m.role,
-        }));
-    rigChannel.set({ movementId, side, angleDeg: angle, highlight, showMarkers });
-  }, [movementId, side, angle, drivable, arc, showMarkers, hovered]);
+    // Under manual resistance the agonists recruit harder, so brighten the glow
+    // (clamped to 1). Reflects the extra effort the therapist demands.
+    const levelBoost = resistance ? 1.4 : 1;
+    const highlight: RigHighlight[] = liveMuscles.map((m) => ({
+      muscleId: m.muscleId,
+      role: m.role,
+      level: Math.min(1, (m.level ?? 1) * levelBoost),
+    }));
+    rigChannel.set({
+      movementId,
+      side,
+      angleDeg: Math.max(effMin, Math.min(angle, effMax)),
+      highlight,
+      showMarkers,
+      pathologyId: supportsPathology ? pathologyId : null,
+      implicated,
+      resistance,
+    });
+  }, [
+    movementId,
+    side,
+    angle,
+    drivable,
+    arc,
+    showMarkers,
+    liveMuscles,
+    supportsPathology,
+    pathologyId,
+    effMax,
+    effMin,
+    implicated,
+    resistance,
+  ]);
 
   // Return to rest when leaving the lab so re-entry starts clean.
   useEffect(() => {
-    return () => rigChannel.set({ movementId: null, angleDeg: 0, highlight: [] });
+    return () => rigChannel.set({ movementId: null, angleDeg: 0, highlight: [], implicated: [] });
   }, []);
 
   // --- Playback loop (requestAnimationFrame). Sweeps min<->max; loops or stops
@@ -159,7 +286,8 @@ export function MovementControls({ region }: MovementControlsProps) {
   const lastTsRef = useRef<number>(0);
   useEffect(() => {
     if (!playing || !arc || reducedMotion) return;
-    const { min, max } = arc;
+    const min = effMin; // pathology floor bounds the sweep (extension lag)
+    const max = effMax; // pathology cap bounds the sweep (ROM loss)
     const dps = SPEEDS[speedIdx].dps;
     lastTsRef.current = 0;
     const tick = (ts: number) => {
@@ -176,7 +304,6 @@ export function MovementControls({ region }: MovementControlsProps) {
           if (loop) {
             dirRef.current = 1;
           } else {
-            // one full bounce done -> stop at the start extreme
             window.cancelAnimationFrame(rafRef.current);
             setPlaying(false);
             return min;
@@ -188,18 +315,16 @@ export function MovementControls({ region }: MovementControlsProps) {
     };
     rafRef.current = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(rafRef.current);
-  }, [playing, arc, speedIdx, loop, reducedMotion]);
+  }, [playing, arc, speedIdx, loop, reducedMotion, effMax, effMin]);
 
   const togglePlay = () => {
     if (!arc) return;
     if (reducedMotion) {
-      // No continuous motion: jump to the opposite extreme.
-      setAngle((prev) => (prev <= (arc.min + arc.max) / 2 ? arc.max : arc.min));
+      setAngle((prev) => (prev <= (effMin + effMax) / 2 ? effMax : effMin));
       return;
     }
-    // When (re)starting from an extreme, sweep inward correctly.
     if (!playing) {
-      dirRef.current = angle <= arc.min + 0.5 ? 1 : angle >= arc.max - 0.5 ? -1 : dirRef.current;
+      dirRef.current = angle <= effMin + 0.5 ? 1 : angle >= effMax - 0.5 ? -1 : dirRef.current;
     }
     setPlaying((p) => !p);
   };
@@ -209,20 +334,82 @@ export function MovementControls({ region }: MovementControlsProps) {
     setAngle(0);
   };
 
-  // Arc geometry for the progress bar (percent along min..max).
-  const pct = (v: number): number => {
-    if (!arc || arc.max === arc.min) return 0;
-    return ((v - arc.min) / (arc.max - arc.min)) * 100;
-  };
-
   const displayAngle = Math.round(angle);
   const gestureName =
     arc && angle < 0 && movement?.labReverse ? movement.labReverse.name : movement?.name;
 
+  // ---- PATIENT MODE: one big, plain-language bar (same state as the clinician
+  // panel, so entering/leaving keeps the current pose). Rendered by MovementView
+  // centered at the bottom; the clinician overlays are hidden while it is on. ----
+  if (patientMode) {
+    const sliderVal = Math.round(Math.max(effMin, Math.min(angle, effMax)));
+    return (
+      <div className="pointer-events-auto w-[min(94vw,54rem)] rounded-2xl border border-slate-700/60 bg-ink-950/85 px-5 py-4 shadow-2xl backdrop-blur">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => goToMovement(-1)}
+            aria-label="Ejercicio anterior"
+            className="shrink-0 rounded-full border border-slate-700 px-3.5 py-2 text-xl leading-none text-slate-300 transition-colors hover:bg-slate-800"
+          >
+            ‹
+          </button>
+          <div className="min-w-0 flex-1 text-center">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+              {regionName}
+            </div>
+            <div className="truncate text-lg font-bold text-white sm:text-2xl">
+              {movement?.name}
+            </div>
+            {movement && (
+              <p className="mt-1 text-sm text-slate-300 sm:text-lg">
+                {patientInstruction(movement, regionName)}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => goToMovement(1)}
+            aria-label="Siguiente ejercicio"
+            className="shrink-0 rounded-full border border-slate-700 px-3.5 py-2 text-xl leading-none text-slate-300 transition-colors hover:bg-slate-800"
+          >
+            ›
+          </button>
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={togglePlay}
+            disabled={!drivable}
+            className="shrink-0 rounded-xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-sky-500 disabled:opacity-50 sm:text-base"
+          >
+            {playing ? '⏸ Pausar' : '▶ Ver movimiento'}
+          </button>
+          <input
+            type="range"
+            min={effMin}
+            max={effMax}
+            step={1}
+            value={sliderVal}
+            onChange={(e) => {
+              setPlaying(false);
+              setAngle(Number(e.target.value));
+            }}
+            aria-label="Ángulo del movimiento"
+            className="h-2.5 flex-1 cursor-pointer accent-sky-500"
+          />
+          <span className="w-14 shrink-0 text-right font-mono text-base text-slate-100">
+            {displayAngle}°
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pointer-events-auto w-[21rem] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-800/70 bg-ink-950/90 shadow-2xl backdrop-blur">
       {/* Header / goniometer */}
-      <div className="flex items-start justify-between gap-3 p-4 pb-3">
+      <div className="flex items-start justify-between gap-3 p-3 pb-2">
         <div className="min-w-0">
           <h2 className="font-display text-sm font-bold text-slate-50">
             Laboratorio de movimiento
@@ -234,16 +421,11 @@ export function MovementControls({ region }: MovementControlsProps) {
         </div>
         <div className="flex items-center gap-2">
           {drivable && (
-            <div className="text-right leading-none">
-              <div className="font-display text-2xl font-bold tabular-nums text-slate-100">
+            <div className="rounded-lg border border-slate-800 bg-slate-900/60 px-2 py-1 text-right leading-none">
+              <span className="font-display text-base font-bold tabular-nums text-slate-100">
                 {displayAngle}
-                <span className="text-base text-slate-400">°</span>
-              </div>
-              {at && (
-                <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
-                  Fase {at.index + 1}/{at.total}
-                </div>
-              )}
+                <span className="text-xs text-slate-400">°</span>
+              </span>
             </div>
           )}
           <button
@@ -258,8 +440,12 @@ export function MovementControls({ region }: MovementControlsProps) {
         </div>
       </div>
 
-      {/* Body (collapsible on mobile so it never covers the gesture) */}
-      <div className={`${collapsed ? 'hidden' : 'block'} px-4 pb-4`}>
+      {/* Body (collapsible on mobile so it never covers the gesture). On phones
+          it is also height-capped + scrollable so the expanded panel can't grow
+          tall enough to overlap the right-side stack; desktop is unchanged. */}
+      <div
+        className={`${collapsed ? 'hidden' : 'block'} max-h-[42vh] overflow-y-auto px-3 pb-3 sm:max-h-none sm:overflow-visible`}
+      >
         {/* Movement selector */}
         <label className="text-xs font-medium text-slate-400" htmlFor="mov-select">
           Movimiento
@@ -312,8 +498,97 @@ export function MovementControls({ region }: MovementControlsProps) {
                 onChange={(e) => setShowMarkers(e.target.checked)}
                 className="accent-accent"
               />
-              Eje de rotación
+              Arco en el modelo
             </label>
+          </div>
+        )}
+
+        {/* MANUAL RESISTANCE toggle -- the physio's interaction (hands + force
+            arrow opposing the gesture). Hidden for the spine (the limb joints
+            drive the 3D hands). */}
+        {drivable && !isSpine && (
+          <button
+            type="button"
+            onClick={() => setResistance((r) => !r)}
+            aria-pressed={resistance}
+            className={`mt-3 flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors ${
+              resistance
+                ? 'border-[#ff8c1a]/50 bg-[#ff8c1a]/12 text-[#ffcf9a]'
+                : 'border-slate-700 bg-slate-900/60 text-slate-300 hover:bg-slate-800'
+            }`}
+          >
+            <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6">
+              <path d="M10 3v9" strokeLinecap="round" />
+              <path d="M6.5 8.5L10 12l3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M4 15.5h12" strokeLinecap="round" />
+            </svg>
+            <span className="flex-1 text-xs font-semibold">Resistencia manual</span>
+            <span
+              className={`text-[10px] font-bold uppercase ${
+                resistance ? 'text-[#ff8c1a]' : 'text-slate-600'
+              }`}
+            >
+              {resistance ? 'On' : 'Off'}
+            </span>
+          </button>
+        )}
+        {drivable && !isSpine && resistance && (
+          <div className="mt-2 rounded-lg border border-[#ff8c1a]/25 bg-[#ff8c1a]/8 px-2.5 py-2 text-[10px] leading-snug text-[#ffcf9a]/90">
+            <p className="font-semibold text-[#ffcf9a]">Prueba resistida — cómo se hace</p>
+            <p className="mt-1">
+              <span className="text-[#7ef0c4]">1.</span> Pídele al paciente que realice{' '}
+              <span className="font-semibold">{(gestureName ?? 'el movimiento').toLowerCase()}</span>.
+            </p>
+            <p className="mt-0.5">
+              <span className="text-[#ffb877]">2.</span> Aplica resistencia con la mano en el segmento distal
+              (donde se apoya la <span className="font-semibold">mano del fisio</span> en el modelo), oponiéndote al movimiento.
+            </p>
+            <p className="mt-1 text-[#ffe0bf]/80">
+              Contracción {playing ? 'concéntrica contra resistencia' : 'isométrica (posición mantenida)'}
+              {resistedNames.length > 0 && (
+                <> · trabaja: <span className="font-semibold">{resistedNames.join(', ')}</span></>
+              )}
+            </p>
+          </div>
+        )}
+
+        {/* P1: Normal vs Patologico. Shown for any movement that has presets
+            (shoulder elevation, knee flexo-extension, ...). */}
+        {drivable && supportsPathology && (
+          <div className="mt-3">
+            <span className="text-xs font-medium text-slate-400">Estado</span>
+            <div className="mt-1 flex flex-wrap gap-1">
+              <button
+                type="button"
+                onClick={() => setPathologyId(null)}
+                className={`rounded-lg border px-2 py-1 text-[11px] font-medium transition-colors ${
+                  pathologyId === null
+                    ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200'
+                    : 'border-slate-700 bg-slate-900 text-slate-400 hover:bg-slate-800'
+                }`}
+              >
+                Normal
+              </button>
+              {pathologyOptions.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setPathologyId(p.id)}
+                  className={`rounded-lg border px-2 py-1 text-[11px] font-medium transition-colors ${
+                    pathologyId === p.id
+                      ? 'border-amber-500/45 bg-amber-500/15 text-amber-200'
+                      : 'border-slate-700 bg-slate-900 text-slate-400 hover:bg-slate-800'
+                  }`}
+                >
+                  {p.chip}
+                </button>
+              ))}
+            </div>
+            {pathology && (
+              <p className="mt-1.5 text-[10px] leading-snug text-amber-200/80">
+                {pathology.summary}
+              </p>
+            )}
           </div>
         )}
 
@@ -324,67 +599,22 @@ export function MovementControls({ region }: MovementControlsProps) {
           </p>
         )}
 
-        {/* Slider + goniometer arc */}
+        {/* Slider */}
         {drivable && arc && (
           <>
-            <div className="mt-3 mb-1 flex items-baseline justify-between">
-              <span className="text-xs font-medium text-slate-400">
-                Recorrido {arc.bidirectional ? '(rango firmado)' : ''}
-              </span>
-              <span className="font-mono text-[11px] text-slate-500">
-                {arc.min}° … {arc.max}°
-              </span>
-            </div>
-
-            {/* Arc progress bar: phase-boundary ticks + neutral (0) marker. */}
-            <div className="relative mb-1 h-2 w-full rounded-full bg-slate-800">
-              <div
-                className="absolute inset-y-0 left-0 rounded-full bg-accent/60"
-                style={{ width: `${pct(angle)}%` }}
-              />
-              {/* Phase boundary ticks */}
-              {arc.phases.map((p) => (
-                <span
-                  key={`b-${p.endDeg}`}
-                  className="absolute top-1/2 h-3 w-px -translate-y-1/2 bg-slate-600"
-                  style={{ left: `${pct(p.endDeg)}%` }}
-                  aria-hidden="true"
-                />
-              ))}
-              {/* Neutral (0) marker */}
-              {arc.min < 0 && arc.max > 0 && (
-                <span
-                  className="absolute -top-1 bottom-[-0.35rem] w-px bg-emerald-400/80"
-                  style={{ left: `${pct(0)}%` }}
-                  aria-hidden="true"
-                />
-              )}
-              {/* Thumb */}
-              <span
-                className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent bg-ink-950 shadow"
-                style={{ left: `${pct(angle)}%` }}
-                aria-hidden="true"
-              />
-            </div>
-            <div className="mb-1 flex justify-between text-[10px] text-slate-500">
-              <span>{arc.min}°</span>
-              {arc.min < 0 && arc.max > 0 && <span className="text-emerald-400/90">0° neutra</span>}
-              <span>{arc.max}°</span>
-            </div>
-
             <input
               id="mov-angle"
               type="range"
-              min={arc.min}
-              max={arc.max}
+              min={effMin}
+              max={effMax}
               step={1}
-              value={Math.round(angle)}
+              value={Math.round(Math.max(effMin, Math.min(angle, effMax)))}
               onChange={(e) => {
                 setPlaying(false);
                 setAngle(Number(e.target.value));
               }}
               aria-label="Ángulo del movimiento"
-              className="w-full accent-accent"
+              className="mt-3 w-full accent-accent"
             />
 
             {/* Playback controls */}
@@ -437,61 +667,35 @@ export function MovementControls({ region }: MovementControlsProps) {
           </>
         )}
 
-        {/* Live phase readout (premium, synced, with notes + hover highlight) */}
-        {drivable && at && (
-          <div className="mt-3 rounded-xl border border-slate-800/60 bg-slate-900/40 p-3 transition-all duration-300">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-accent">
-                {at.phase.label}
-              </span>
-              <span className="font-mono text-[11px] text-slate-500">
-                {at.phase.startDeg}–{at.phase.endDeg}°
-              </span>
-            </div>
-            {/* Fixed-height, scrollable region: the description and muscle list
-                change length as the arc sweeps, so pinning the height keeps the
-                whole (bottom-anchored) panel from resizing frame-to-frame during
-                playback -- which is what made the controls jump and become
-                un-clickable. */}
-            <div className="mt-1.5 h-[188px] overflow-y-auto pr-1">
-              <p className="text-xs leading-relaxed text-slate-300">
-                {at.phase.description}
-              </p>
-
-              <div className="mt-3 flex flex-col gap-1.5">
-                {at.phase.muscles.map((m) => (
-                <button
-                  type="button"
-                  key={m.muscleId}
-                  onMouseEnter={() => setHovered({ muscleId: m.muscleId, role: m.role })}
-                  onFocus={() => setHovered({ muscleId: m.muscleId, role: m.role })}
-                  onMouseLeave={() => setHovered(null)}
-                  onBlur={() => setHovered(null)}
-                  className="flex items-start gap-2 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-slate-800/60 focus:bg-slate-800/60 focus:outline-none"
-                >
-                  <span
-                    className={`mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold ${ROLE_STYLE[m.role]}`}
-                  >
-                    {ROM_ROLE_LABEL[m.role]}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-xs text-slate-200">
-                      {muscleNameById(muscleRegion, m.muscleId)}
-                    </span>
-                    {m.note && (
-                      <span className="block text-[11px] leading-snug text-slate-500">
-                        {m.note}
-                      </span>
-                    )}
-                  </span>
-                </button>
-                ))}
-              </div>
-            </div>
-
-            <RoleLegend />
-          </div>
-        )}
+        {/* PATIENT EXPORT: snapshot the current pose into a plain-language PNG the
+            physio can hand to the patient. Turns the lab into a consultation tool. */}
+        <div className="mt-3 border-t border-slate-800/70 pt-3">
+          <label
+            htmlFor="patient-note"
+            className="block text-[11px] font-medium text-slate-400"
+          >
+            Nota para el paciente (opcional)
+          </label>
+          <textarea
+            id="patient-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            placeholder="Ej.: 3 series de 10, 2 veces al día, sin dolor."
+            className="mt-1 w-full resize-none rounded-lg border border-slate-700 bg-slate-900/60 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:border-accent focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={onExport}
+            disabled={exporting || !movement}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {exporting ? 'Generando…' : '⬇  Exportar para paciente (PNG)'}
+          </button>
+          {exportMsg && (
+            <p className="mt-1 text-center text-[10px] text-slate-400">{exportMsg}</p>
+          )}
+        </div>
       </div>
     </div>
   );

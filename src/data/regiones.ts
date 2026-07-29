@@ -28,6 +28,18 @@ export interface RegionDef {
   include: string[];
   /** ...unless it ALSO contains one of these (lowercase). Optional. */
   exclude?: string[];
+  /**
+   * HERO FRAMING (optional). Keywords identifying the COMPACT JOINT CORE the
+   * camera should frame on when this region loads. The whole region stays
+   * visible (isolate model), but for long-limb regions the bones are single
+   * meshes spanning the entire limb (a "knee" drags the whole femur+tibia =
+   * hip-to-ankle), so fitting the full bounds shrinks the actual joint to a
+   * speck. Framing on this joint-core subset (patella/menisci/ligaments, the
+   * elbow articulations, …) gives a premium, composed close-up of the joint
+   * with the limb as context around it. Omit for regions whose full extent
+   * already frames well (shoulder girdle, spine sub-regions).
+   */
+  focus?: string[];
 }
 
 /* ---------------------------------------------------------------------------
@@ -163,6 +175,9 @@ const shoulder: RegionDef = {
 const elbow: RegionDef = {
   id: 'elbow',
   name: 'Codo',
+  // No hero `focus`: the arm (humerus + radius/ulna) is short enough that the
+  // full region frames as a balanced, premium view once the distal wrist/finger
+  // tendons are hidden. Only the much longer leg (knee) needs joint-focus.
   include: [
     // --- bones / bony landmarks (full shafts as context) ---
     'humer', // humerus + distal landmarks (trochlea/capitulum/epicondyles)
@@ -254,6 +269,7 @@ const elbow: RegionDef = {
 
     // --- wrist structures sharing "ulnar_collateral_ligament" / "ulna" ---
     'ulnar_collateral_ligament_of_wrist',
+    'radial_collateral_ligament_of_wrist', // wrist-side; would float distal to the elbow
     'ulnar_styloid',
     'ulnar_notch',
     'articular_disc_of_distal_radio-ulnar', // TFCC disc - wrist-side, optional
@@ -281,6 +297,21 @@ const elbow: RegionDef = {
     // --- distal forearm / wrist bony landmarks of radius/ulna we don't want ---
     'styloid_process_of_radius',
     'styloid_process_of_ulna',
+
+    // --- distal forearm TENDONS ("_1" = Tendon material) of the epicondylar
+    //     wrist / finger movers. Their bellies STAY (they teach the common
+    //     flexor/extensor origin = golfer's / tennis elbow), but the long
+    //     tendons run all the way to the wrist and fingers and dangle as thin
+    //     white "wires" past the elbow, which read as broken. Hiding just the
+    //     distal tendons keeps the elbow view clean without losing the
+    //     epicondylitis teaching. (Finger insertion slips like
+    //     "...superficialise1l" are already tucked away by the marker rule.) ---
+    'flexor_carpi_radialis_1',
+    'flexor_carpi_ulnaris_1',
+    'extensor_carpi_radialis_longus_1',
+    'extensor_carpi_radialis_brevis_1',
+    'extensor_carpi_ulnaris_1',
+    'flexor_digitorum_superficialis_1',
   ],
 };
 
@@ -467,6 +498,20 @@ const lumbar: RegionDef = {
 const knee: RegionDef = {
   id: 'knee',
   name: 'Rodilla',
+  // Frame on the knee joint (patella + menisci + cruciates/collaterals +
+  // tibiofemoral/tibiofibular joint), so the camera opens on the knee close-up
+  // instead of the whole leg (femur+tibia+fibula span hip-to-ankle).
+  focus: [
+    'knee_joint',
+    'patella',
+    'meniscus',
+    'cruciate',
+    'tibial_collateral_ligament',
+    'fibular_collateral_ligament',
+    'patellar_ligament',
+    'oblique_popliteal',
+    'arcuate_popliteal',
+  ],
   include: [
     // --- bones / bony landmarks (full shafts as context) ---
     'femur',
@@ -481,7 +526,12 @@ const knee: RegionDef = {
 
     // --- ligaments / capsule / menisci ---
     'cruciate',
-    'collateral_ligament',
+    // Specific knee collaterals only. The generic "collateral_ligament" fragment
+    // used to leak the elbow/wrist/ankle/finger collateral ligaments into the
+    // knee (they floated as stray white bits at arm height), so name the two
+    // knee collaterals explicitly instead.
+    'tibial_collateral_ligament',
+    'fibular_collateral_ligament',
     'meniscus',
     'meniscotibial',
     'meniscofemoral',
@@ -556,6 +606,242 @@ const knee: RegionDef = {
   ],
 };
 
+/* ---------------------------------------------------------------------------
+ * HIP
+ * Bones: hip bone (ilium/ischium/pubis), femur (proximal - head/neck/greater +
+ *   lesser trochanter; the shaft comes along as context), sacrum/coccyx as the
+ *   pelvic ring backdrop.
+ * Joint + ligaments: coxofemoral (ball-and-socket), acetabular labrum, articular
+ *   capsule, iliofemoral (Y of Bigelow), pubofemoral, ischiofemoral, ligament of
+ *   the head of the femur (teres), transverse acetabular ligament.
+ * Muscles: hip flexors (iliopsoas = psoas major + iliacus, rectus femoris,
+ *   sartorius, tensor fasciae latae, pectineus), extensors (gluteus maximus;
+ *   hamstrings are biarticular and taught mainly with the knee), abductors
+ *   (gluteus medius/minimus + TFL), adductors (longus, brevis, magnus, gracilis,
+ *   pectineus) and the DEEP SIX external rotators (piriformis, obturator
+ *   internus/externus, superior/inferior gemellus, quadratus femoris).
+ *
+ * NOTE on shared keywords (verified against the real mesh dump):
+ *   - "adductor" alone also matches adductor HALLUCIS (foot) and adductor
+ *     POLLICIS (hand) -> excluded explicitly.
+ *   - "quadratus" alone matches quadratus lumborum/plantae -> we key the full
+ *     "quadratus_femoris".
+ *   - "femur"/"femoris" rides in the whole femur + biceps femoris (a knee mover)
+ *     -> "biceps_femoris" excluded (hamstrings live in the knee region).
+ *   - distal knee structures (patella, menisci, cruciates, tibia, fibula) are
+ *     excluded so the region frames on the COXOFEMORAL joint, not the knee.
+ * ------------------------------------------------------------------------- */
+const hip: RegionDef = {
+  id: 'hip',
+  name: 'Cadera',
+  // Frame on the coxofemoral joint core (acetabulum + femoral head/neck + labrum
+  // + capsule/iliofemoral ligament), not the whole hip-to-knee femur.
+  focus: [
+    'hip_joint',
+    'acetabul',
+    'head_of_femur',
+    'neck_of_femur',
+    'acetabular_labrum',
+    'articular_capsule_of_hip',
+    'iliofemoral',
+    'greater_trochanter',
+  ],
+  include: [
+    // --- bones / bony landmarks (pelvic ring + full femur as context) ---
+    'hip_bone',
+    'ilium',
+    'iliac',
+    'ischium',
+    'ischial',
+    'pubis',
+    'pubic',
+    'acetabul',
+    'femur',
+    'greater_trochanter',
+    'lesser_trochanter',
+    'sacrum',
+    'coccyx',
+
+    // --- joint / labrum ---
+    'hip_joint',
+    'acetabular_labrum',
+
+    // --- ligaments / capsule ---
+    'articular_capsule_of_hip',
+    'iliofemoral',
+    'pubofemoral',
+    'ischiofemoral',
+    'ligament_of_head_of_femur',
+    'transverse_acetabular',
+
+    // --- muscles: flexors ---
+    'iliacus',
+    'psoas_major',
+    'iliopsoas',
+    'rectus_femoris',
+    'sartorius',
+    'tensor_fasciae_latae',
+    'pectineus',
+
+    // --- muscles: extensor / abductors ---
+    'gluteus',
+    'gluteal',
+
+    // --- muscles: adductors ---
+    'adductor_longus',
+    'adductor_brevis',
+    'adductor_magnus',
+    'adductor_minimus',
+    'gracilis',
+
+    // --- muscles: deep external rotators (the "deep six") ---
+    'piriformis',
+    'obturator_internus',
+    'obturator_externus',
+    'superior_gemellus',
+    'inferior_gemellus',
+    'quadratus_femoris',
+
+    // --- neurovascular of the region ---
+    'femoral_artery',
+    'femoral_vein',
+    'femoral_nerve',
+    'obturator_nerve',
+    'sciatic_nerve',
+    'superior_gluteal',
+    'inferior_gluteal',
+  ],
+  exclude: [
+    // foot / hand structures sharing "adductor" / "obturator" wording
+    'adductor_hallucis',
+    'adductor_pollicis',
+    // hamstrings + distal knee structures (they belong to the knee region)
+    'biceps_femoris',
+    'semitendinosus',
+    'semimembranosus',
+    'patella',
+    'patellar',
+    'meniscus',
+    'cruciate',
+    'tibia',
+    'fibula',
+    'vastus',
+    // spine side-benders sharing "quadratus"
+    'quadratus_lumborum',
+    'quadratus_plantae',
+    // ankle/foot muscles that share "tensor"/"fascia" or ride the femur nerve
+    'fibularis',
+    'tibialis',
+  ],
+};
+
+/* ---------------------------------------------------------------------------
+ * ANKLE / FOOT
+ * Bones: distal tibia + fibula (malleoli, as context), talus, calcaneus,
+ *   navicular, cuboid, cuneiforms, metatarsals, phalanges of the foot.
+ * Joints + ligaments: talocrural (ankle mortise), subtalar (talocalcaneal),
+ *   the lateral collateral complex (anterior/posterior talofibular,
+ *   calcaneofibular) and the medial deltoid ligament, plus the distal
+ *   tibiofibular syndesmosis.
+ * Muscles: dorsiflexors (tibialis anterior, extensor digitorum/hallucis longus,
+ *   fibularis tertius), plantarflexors (gastrocnemius, soleus, plantaris,
+ *   tibialis posterior, flexor digitorum/hallucis longus), evertors (fibularis
+ *   longus/brevis) and invertors (tibialis anterior/posterior).
+ *
+ * NOTE on shared keywords:
+ *   - "extensor/flexor digitorum" and "hallucis" also exist in the HAND -> we
+ *     key the foot-specific longus/brevis bellies and exclude the hand's
+ *     "...pollicis"/"...indicis".
+ *   - the proximal femur/knee is excluded so the region frames on the ANKLE
+ *     mortise, not the whole leg.
+ * ------------------------------------------------------------------------- */
+const ankle: RegionDef = {
+  id: 'ankle',
+  name: 'Tobillo y pie',
+  // Frame on the talocrural mortise (talus + malleoli + collateral ligaments).
+  focus: [
+    'talus',
+    'talo',
+    'ankle_joint',
+    'malleol',
+    'talofibular',
+    'calcaneofibular',
+    'deltoid_ligament',
+    'medial_ligament_of_ankle',
+  ],
+  include: [
+    // --- bones (distal leg + foot) ---
+    'malleol',
+    'talus',
+    'calcaneus',
+    'calcaneal',
+    'navicular',
+    'cuboid',
+    'cuneiform',
+    'tarsal',
+    'metatarsal',
+    'finger_of_foot',
+    'sesamoid_bones_of_foot',
+
+    // --- joints ---
+    'ankle_joint',
+    'talocalcaneal',
+    'talonavicular',
+    'calcaneocuboid',
+    'subtalar',
+    'distal_tibiofibular',
+    'inferior_tibiofibular',
+
+    // --- ligaments (lateral complex + deltoid + syndesmosis + plantar) ---
+    'talofibular',
+    'calcaneofibular',
+    'deltoid_ligament',
+    'medial_ligament_of_ankle',
+    'tibiofibular_ligament',
+    'plantar_calcaneonavicular',
+    'long_plantar',
+    'plantar_aponeurosis',
+
+    // --- muscles: dorsiflexors / evertors / plantarflexors of the ankle ---
+    'tibialis_anterior',
+    'tibialis_posterior',
+    'fibularis',
+    'extensor_digitorum_longus',
+    'extensor_hallucis_longus',
+    'extensor_digitorum_brevis',
+    'extensor_hallucis_brevis',
+    'flexor_digitorum_longus',
+    'flexor_hallucis_longus',
+    'gastrocnemius',
+    'soleus',
+    'plantaris',
+
+    // --- neurovascular of the region ---
+    'tibial_nerve',
+    'deep_fibular_nerve',
+    'superficial_fibular_nerve',
+    'dorsalis_pedis',
+    'posterior_tibial_artery',
+  ],
+  exclude: [
+    // hand structures sharing digit-muscle wording
+    'pollicis',
+    'indicis',
+    'digiti_minimi_of_hand',
+    // proximal leg / knee (keep the frame on the ankle, not the whole limb)
+    'patella',
+    'patellar',
+    'meniscus',
+    'cruciate',
+    'knee_joint',
+    'popliteal',
+    'genicular',
+    // hip structures sharing "tibialis" nerve roots etc.
+    'gluteus',
+    'gluteal',
+  ],
+};
+
 /** All defined regions, keyed by id. */
 export const REGIONS: Record<string, RegionDef> = {
   shoulder,
@@ -563,7 +849,9 @@ export const REGIONS: Record<string, RegionDef> = {
   cervical,
   thoracic,
   lumbar,
+  hip,
   knee,
+  ankle,
 };
 
 /**
@@ -588,4 +876,30 @@ export function resolveRegionMeshes(
     if (inc.some((frag) => lower.includes(frag))) result.add(name);
   }
   return result;
+}
+
+/**
+ * Resolve a region's HERO-FRAMING focus meshes: the compact joint-core subset
+ * the camera should frame on. Returns null when the region defines no `focus`
+ * (the caller then frames the full visible bounds, the previous behaviour). The
+ * region's own `exclude` still applies, so a focus keyword can't drag in a
+ * neighbour the region deliberately drops.
+ *
+ * @param region    a RegionDef
+ * @param allNames  every mesh name in the loaded model
+ */
+export function resolveRegionFocus(
+  region: RegionDef,
+  allNames: Iterable<string>,
+): Set<string> | null {
+  if (!region.focus || region.focus.length === 0) return null;
+  const foc = region.focus.map((s) => s.toLowerCase());
+  const exc = (region.exclude ?? []).map((s) => s.toLowerCase());
+  const result = new Set<string>();
+  for (const name of allNames) {
+    const lower = name.toLowerCase();
+    if (exc.some((frag) => lower.includes(frag))) continue;
+    if (foc.some((frag) => lower.includes(frag))) result.add(name);
+  }
+  return result.size > 0 ? result : null;
 }

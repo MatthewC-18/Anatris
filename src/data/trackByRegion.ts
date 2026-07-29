@@ -13,7 +13,9 @@ import { ELBOW_TRACK } from './elbowPhases';
 import { CERVICAL_TRACK } from './cervicalPhases';
 import { THORACIC_TRACK } from './thoracicPhases';
 import { LUMBAR_TRACK } from './lumbarPhases';
+import { HIP_TRACK } from './hipPhases';
 import { KNEE_TRACK } from './kneePhases';
+import { ANKLE_TRACK } from './anklePhases';
 
 /** region id -> pedagogical track. Keys match regiones.ts / store.region. */
 export const TRACK_BY_REGION: Record<string, RegionTrack> = {
@@ -22,7 +24,9 @@ export const TRACK_BY_REGION: Record<string, RegionTrack> = {
   cervical: CERVICAL_TRACK,
   thoracic: THORACIC_TRACK,
   lumbar: LUMBAR_TRACK,
+  hip: HIP_TRACK,
   knee: KNEE_TRACK,
+  ankle: ANKLE_TRACK,
 };
 
 /**

@@ -62,7 +62,12 @@ import { musclesForRegion } from '../data/musclesByRegion';
 import { REGIONS, resolveRegionMeshes } from '../data/regiones';
 import { isConceptModule } from '../data/conceptByRegion';
 import type { RomMuscleRole } from '../types/rom';
-const MODEL_URL = '/modelo-opt.glb';
+// modelo-opt.dec.glb = modelo-opt.glb decimated ~56% (6.4M -> 2.8M tris) + tighter
+// meshopt quantize -> 47 MB -> 27 MB, for a faster first load. Static (non-skinned)
+// so decimation is safe; the 0.5%-AABB error bound keeps surfaces smooth and all
+// 3388 mesh names are preserved so anatomy-index selection is unchanged. Regenerate
+// with `node scripts/decimate-glb.mjs public/modelo-opt.glb public/modelo-opt.dec.glb 0.3`.
+const MODEL_URL = '/modelo-opt.dec.glb';
 useGLTF.preload(MODEL_URL);
 
 // Highlight color: bright amber/orange. Chosen because the muscle atlas color
@@ -126,6 +131,23 @@ const SPINE_REGION_IDS = new Set(['cervical', 'thoracic', 'lumbar']);
 // Skin appearance: a faint translucent "ghost".
 const SKIN_COLOR = 0xbcd4e6;
 const SKIN_OPACITY = 0.16;
+
+// PREMIUM PER-TISSUE SHADING. Under the studio environment (Viewer3D), each
+// tissue reads best with its own roughness + envMapIntensity, mirroring the
+// movement lab: bone is polished ivory (low roughness, strong env sheen),
+// muscle is matte and wet-looking (high roughness, weak env so it doesn't go
+// plasticky), connective/ligaments are glossy. envMapIntensity is inert until
+// scene.environment is set, so this is safe with or without the env map.
+const TISSUE_PBR: Partial<Record<AnatomyEntry['layer'], { roughness: number; env: number }>> = {
+  bones: { roughness: 0.42, env: 0.7 },
+  muscles: { roughness: 0.72, env: 0.22 },
+  ligaments: { roughness: 0.3, env: 0.55 },
+  nerves: { roughness: 0.5, env: 0.3 },
+  vessels: { roughness: 0.5, env: 0.35 },
+  organs: { roughness: 0.6, env: 0.3 },
+};
+const DEFAULT_PBR = { roughness: 0.55, env: 0.35 };
+const SKIN_ENV = 0.35;
 
 interface AnatomyModelProps {
   byMesh: Map<string, AnatomyEntry>;
@@ -340,6 +362,7 @@ export function AnatomyModel({
           if ('emissive' in std && std.emissive) std.emissive.setHex(0x000000);
           if ('roughness' in std) std.roughness = 0.9;
           if ('metalness' in std) std.metalness = 0.0;
+          if ('envMapIntensity' in std) std.envMapIntensity = SKIN_ENV;
           std.needsUpdate = true;
         };
         if (Array.isArray(mesh.material)) mesh.material.forEach(apply);
@@ -347,6 +370,7 @@ export function AnatomyModel({
         mesh.renderOrder = 10;
       } else {
         const atlasColor = colorForMaterialMesh(entry.materialName, mesh.name);
+        const pbr = TISSUE_PBR[entry.layer] ?? DEFAULT_PBR;
         const tune = (m: THREE.Material) => {
           const std = m as THREE.MeshStandardMaterial;
           if (atlasColor !== null && 'color' in std && std.color) {
@@ -355,8 +379,9 @@ export function AnatomyModel({
             std.color.setHex(atlasColor);
             if ('emissive' in std && std.emissive) std.emissive.setHex(0x000000);
           }
-          if ('roughness' in std) std.roughness = 0.55;
+          if ('roughness' in std) std.roughness = pbr.roughness;
           if ('metalness' in std) std.metalness = 0.0;
+          if ('envMapIntensity' in std) std.envMapIntensity = pbr.env;
           std.needsUpdate = true;
         };
         if (Array.isArray(mesh.material)) mesh.material.forEach(tune);

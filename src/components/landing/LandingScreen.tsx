@@ -10,10 +10,13 @@
 // is the app's actual 7-phase clinical track rather than a row of identical
 // feature cards.
 
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { Pricing } from './Pricing';
 import { BrandMark, RoleLegend } from '../BrandMark';
 import { Goniometer } from './Goniometer';
+import { LegalModal, type LegalTab } from '../LegalScreen';
+import { EVENTS, track } from '../../lib/analytics';
 
 interface LandingScreenProps {
   /** Enter the app on the free tier. */
@@ -24,8 +27,8 @@ interface LandingScreenProps {
 
 /** Concrete figures — specifics read as a real product, not marketing filler. */
 const STATS: { value: string; label: string }[] = [
-  { value: '4', label: 'Regiones · hombro, codo, columna, rodilla' },
-  { value: '80+', label: 'Músculos con datos clínicos' },
+  { value: '6', label: 'Regiones · hombro, codo, cadera, rodilla, tobillo, columna' },
+  { value: '110+', label: 'Músculos con datos clínicos' },
   { value: '7', label: 'Fases clínicas por región' },
 ];
 
@@ -42,6 +45,11 @@ const PHASES: { n: string; label: string; dot: string }[] = [
 
 export function LandingScreen({ onEnter, onOpenAuth }: LandingScreenProps) {
   const { snapshot } = useAuth();
+  // Which legal tab (if any) is open in the footer modal.
+  const [legalTab, setLegalTab] = useState<LegalTab | null>(null);
+
+  // Funnel step 1: the visitor saw the landing.
+  useEffect(() => track(EVENTS.landingViewed), []);
 
   return (
     <div className="clinical-grid h-screen w-screen overflow-y-auto text-slate-200">
@@ -276,7 +284,38 @@ export function LandingScreen({ onEnter, onOpenAuth }: LandingScreenProps) {
             sustituye el diagnóstico ni el criterio clínico profesional.
           </p>
         </div>
+
+        {/* Legal links */}
+        <nav className="mx-auto mt-6 flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-800/40 pt-6 text-xs text-slate-500">
+          {LEGAL_LINKS.map((l) => (
+            <button
+              key={l.tab}
+              type="button"
+              onClick={() => setLegalTab(l.tab)}
+              className="transition-colors hover:text-slate-300"
+            >
+              {l.label}
+            </button>
+          ))}
+          <span className="ml-auto text-slate-700">
+            © {new Date().getFullYear()} Anatris
+          </span>
+        </nav>
       </footer>
+
+      <LegalModal
+        open={legalTab !== null}
+        defaultTab={legalTab ?? 'terminos'}
+        onClose={() => setLegalTab(null)}
+      />
     </div>
   );
 }
+
+/** Footer legal entries, each opening the corresponding tab in the modal. */
+const LEGAL_LINKS: { tab: LegalTab; label: string }[] = [
+  { tab: 'terminos', label: 'Términos' },
+  { tab: 'privacidad', label: 'Privacidad' },
+  { tab: 'reembolsos', label: 'Reembolsos' },
+  { tab: 'aviso', label: 'Aviso médico' },
+];

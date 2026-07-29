@@ -3,7 +3,8 @@
 import { useState } from 'react';
 
 const TOUR_KEY = 'anatris.tour.done';
-const TOUR_VERSION = '1';
+// Bump when the tour content changes materially so returning users see it again.
+const TOUR_VERSION = '2';
 
 export function readTourDone(): boolean {
   try {
@@ -30,31 +31,37 @@ const STEPS: TourStep[] = [
   {
     icon: <IconModel />,
     title: 'Anatomía clínica en 3D',
-    body: 'Haz clic en cualquier músculo del modelo para ver su origen, inserción, inervación, acciones y notas clínicas relevantes para la fisioterapia.',
+    body: 'Toca cualquier estructura del modelo para ver su origen, inserción, inervación, acciones y notas clínicas relevantes para la fisioterapia.',
     highlight: 'Modo Explorar',
   },
   {
     icon: <IconRegions />,
-    title: 'Estudia por región',
-    body: 'Navega entre Hombro, Codo, Columna y Rodilla desde la barra superior. Cada región tiene su propio contenido clínico completo.',
-    highlight: 'Hombro · Codo · Columna · Rodilla',
+    title: 'Seis regiones clínicas',
+    body: 'Estudia Hombro, Codo, Cadera, Rodilla, Tobillo y Columna (cervical, torácica y lumbar) desde la barra superior. Cada región tiene su contenido clínico completo.',
+    highlight: 'Hombro · Codo · Cadera · Rodilla · Tobillo · Columna',
+  },
+  {
+    icon: <IconMovement />,
+    title: 'Laboratorio de movimiento',
+    body: 'Mueve la articulación y observa qué músculo trabaja en cada grado del recorrido, con su rol y su nivel de activación. La biomecánica, en movimiento.',
+    highlight: 'Modo Movimiento',
   },
   {
     icon: <IconTrack />,
-    title: 'El track de 7 fases',
+    title: 'Aprende por fases',
     body: 'El modo Aprender te guía por 7 etapas clínicas por región: Anatomía → Biomecánica → Palpación → Tests → Patología → Tratamiento → Caso clínico.',
     highlight: 'Modo Aprender',
   },
   {
-    icon: <IconStudy />,
-    title: 'Practica y refuerza',
-    body: 'El modo Estudiar genera quizzes y flashcards automáticamente a partir del contenido clínico de cada región. Ideal para preparar exámenes.',
-    highlight: 'Modo Estudiar',
+    icon: <IconClinical />,
+    title: 'Tests, evidencia y neuro',
+    body: 'Tests ortopédicos con sensibilidad y especificidad y modo examen, evidencia con referencias citadas, y dermatomas, miotomas y reflejos por raíz.',
+    highlight: 'Rigor clínico',
   },
   {
-    icon: <IconStart />,
-    title: 'Empieza ahora',
-    body: 'El módulo de Hombro y Fundamentos están disponibles de forma gratuita. El resto de regiones se desbloquean con el plan Premium.',
+    icon: <IconStudy />,
+    title: 'Practica y refuerza',
+    body: 'El modo Estudiar genera cuestionarios y tarjetas con repetición espaciada desde el contenido de cada región. Hombro y Fundamentos son gratis; el resto y el laboratorio se desbloquean con Premium.',
     highlight: 'Hombro gratis · Premium para todo',
   },
 ];
@@ -226,20 +233,27 @@ function IconStudy() {
   );
 }
 
-function IconStart() {
+function IconMovement() {
   return (
     <svg width="40" height="40" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <circle cx="24" cy="24" r="18" fill="currentColor" opacity="0.1" />
-      <path
-        d="M24 8l3.5 9H42l-11.5 8 3.5 9L24 28l-10 6 3.5-9L6 17h14.5z"
-        strokeLinejoin="round"
-        fill="currentColor"
-        opacity="0.2"
-      />
-      <path
-        d="M24 8l3.5 9H42l-11.5 8 3.5 9L24 28l-10 6 3.5-9L6 17h14.5z"
-        strokeLinejoin="round"
-      />
+      {/* Goniometer arc + swinging limb: the movement lab. */}
+      <circle cx="14" cy="34" r="2.5" fill="currentColor" stroke="none" />
+      <path d="M14 34L34 20" strokeLinecap="round" />
+      <path d="M14 34L36 34" strokeLinecap="round" opacity="0.5" />
+      <path d="M34 34a20 20 0 0 0-6-14" strokeLinecap="round" opacity="0.6" />
+      <path d="M30 12l4 8-8 1" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
+    </svg>
+  );
+}
+
+function IconClinical() {
+  return (
+    <svg width="40" height="40" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.5">
+      {/* Clipboard with a check + pulse: tests, evidence, neuro. */}
+      <rect x="12" y="8" width="24" height="32" rx="3" />
+      <rect x="18" y="5" width="12" height="6" rx="2" fill="currentColor" opacity="0.15" />
+      <path d="M17 20l3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M17 30h4l2-4 2 8 2-4h4" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
     </svg>
   );
 }

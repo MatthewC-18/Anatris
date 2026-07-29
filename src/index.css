@@ -84,6 +84,15 @@
       radial-gradient(ellipse 120% 120% at 50% 120%, #0b1120, #070b14 70%);
   }
 
+  /* 3D canvases must own touch gestures: without this the browser treats a
+     one-finger drag as a page scroll/zoom and the model never orbits on
+     mobile/tablet. Applies to the movement-lab rig canvas and the Explorar
+     viewer alike. */
+  #rig-gl-canvas,
+  canvas {
+    touch-action: none;
+  }
+
   /* Faint measurement grid — gives the landing an "instrument / blueprint"
      texture instead of a generic SaaS gradient. Cyan haze at the top, fine grid
      below, over the ink base. */
@@ -130,4 +139,25 @@
     rgba(34, 211, 238, 0.2) 100%
   );
   background-size: 200% 100%;
+}
+
+/* Movement-lab "stage": a soft cool spotlight blooming behind the model so it
+   reads as lit on a premium studio backdrop rather than floating on flat ink. */
+.rig-stage-glow {
+  background: radial-gradient(
+    ellipse 55% 60% at 50% 42%,
+    rgba(120, 170, 220, 0.16),
+    rgba(80, 130, 190, 0.05) 45%,
+    transparent 70%
+  );
+}
+
+/* Cinematic vignette: darkens the corners to focus the eye on the anatomy.
+   Mix-blend keeps it from muddying the model's midtones. */
+.rig-vignette {
+  background: radial-gradient(
+    ellipse 75% 85% at 50% 48%,
+    transparent 55%,
+    rgba(4, 7, 14, 0.45) 100%
+  );
 }

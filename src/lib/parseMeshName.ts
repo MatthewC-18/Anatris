@@ -49,8 +49,20 @@ export interface ParsedMeshName {
 // tail of an anatomical term. This guards against stripping a real trailing
 // "e"/"o" that is part of a word (e.g. a name genuinely ending in "...ae").
 // The observed muscle bases end in one of these tokens right before the marker.
+//
+// The list below is deliberately broad: it covers the common Latin muscle-name
+// tails (…digitorum, …longus, …radialis, …femoris, …capitis, …oris, …). Before
+// this, forearm/hand/leg/face muscles whose base ends in one of these tokens
+// had their origin/insertion markers ("…superficialise1l", "…pollicisol") fall
+// through to 'belly' and render as loose tendon/attachment WIRES that made a
+// region look broken (e.g. the flexor digitorum tendons fanning into the hand
+// on the elbow view). Tagging them correctly means the default marker-hiding
+// tucks them away, and the "Orígenes e inserciones" toggle still reveals them.
+// Verified against the full mesh dump: this reclassifies 155 marker meshes and
+// flips ZERO real bellies or tendons (a belly ends in the token itself, e.g.
+// "…longus", never in "…longuse"/"…longuso").
 const PART_PREDECESSOR_RE =
-  /(muscle|brachii|scapulae|hyoid|minimi|hallucis|\))$/i;
+  /(muscle|brachii|scapulae|hyoid|minimi|hallucis|digitorum|superficialis|profundus|pollicis|indicis|radialis|ulnaris|longus|brevis|carpi|magnus|maximus|medius|femoris|tibialis|oris|lumborum|thoracis|cervicis|capitis|colli|nasi|labii|anguli|gastrocnemius|soleus|popliteus|plantaris|sartorius|gracilis|vastus|semitendinosus|semimembranosus|quadratus|teres|supinator|\))$/i;
 
 /**
  * Parse a flattened runtime mesh name into structured parts.

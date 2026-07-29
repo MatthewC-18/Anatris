@@ -19,6 +19,7 @@ import {
 import * as THREE from 'three';
 import { RigModel } from './RigModel';
 import { RigOverlays } from './RigOverlays';
+import { ShoulderRhythmArc } from './ShoulderRhythmArc';
 
 // The rig is 1300+ skinned meshes; skinning is vertex-heavy and each mesh is a
 // draw call. Cap DPR low so mid-range physio laptops stay smooth -- geometry,
@@ -65,6 +66,59 @@ function AutoFit() {
       if (raf2) cancelAnimationFrame(raf2);
     };
   }, [controls, scene]);
+
+  return null;
+}
+
+/**
+ * DOUBLE-CLICK TO FOCUS. Free-navigation companion to dollyToCursor: double-click
+ * any muscle/bone and the camera flies in and frames THAT structure, so you can
+ * inspect any part up close without hunting with the wheel. Skin (body envelope +
+ * distal caps) is skipped so you focus the structure underneath, not the glass
+ * shell. Skinned-mesh raycasting is CPU work, but a double-click is rare.
+ */
+function DoubleClickFocus() {
+  const { scene, camera, gl } = useThree();
+  const controls = useThree((s) => s.controls) as CameraControls | null;
+
+  useEffect(() => {
+    if (!controls) return;
+    const el = gl.domElement;
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    const box = new THREE.Box3();
+
+    const onDblClick = (e: MouseEvent) => {
+      const rect = el.getBoundingClientRect();
+      ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObjects(scene.children, true);
+      const hit = hits.find((h) => {
+        const m = h.object as THREE.Mesh;
+        // Only solid anatomy: skip the translucent skin shell and its distal caps
+        // so the click lands on the muscle/bone the user is pointing at.
+        return (
+          m.isMesh &&
+          m.visible &&
+          m.userData.rigLayer !== 'skin' &&
+          m.userData.rigLayer !== 'hidden'
+        );
+      });
+      if (!hit) return;
+      box.setFromObject(hit.object);
+      if (box.isEmpty() || !isFinite(box.min.x)) return;
+      void controls.fitToBox(box, true, {
+        paddingTop: 0.35,
+        paddingBottom: 0.35,
+        paddingLeft: 0.35,
+        paddingRight: 0.35,
+      });
+    };
+
+    el.addEventListener('dblclick', onDblClick);
+    return () => el.removeEventListener('dblclick', onDblClick);
+  }, [controls, scene, camera, gl]);
 
   return null;
 }
@@ -179,10 +233,14 @@ export function RigViewer() {
   return (
     <div className="relative h-full w-full viewer-bg">
       <Canvas
+        // Tagged so the "Exportar para paciente" feature can grab this exact
+        // WebGL canvas (preserveDrawingBuffer is on, so toDataURL/drawImage work).
+        id="rig-gl-canvas"
         camera={{ position: [2, 1.5, 4], fov: 45, near: 0.05, far: 100 }}
         dpr={RIG_DPR}
         gl={{
           antialias: true,
+          preserveDrawingBuffer: true,
           powerPreference: 'high-performance',
           // ACES filmic gives the muscle reds and ivory bone a richer, more
           // cinematic roll-off than the flat Neutral curve; slightly under 1.0
@@ -196,19 +254,33 @@ export function RigViewer() {
         <StudioEnvironment />
         {/* Analytic key/fill/rim on top of the IBL for crisp directional shaping. */}
         <hemisphereLight args={[0xbfdfff, 0x0a0f1a, 0.35]} />
-        <directionalLight position={[3, 6, 4]} intensity={1.15} color="#fff4e8" />
+        <directionalLight position={[3, 6, 4]} intensity={1.2} color="#fff4e8" />
         <directionalLight position={[-4, 2, -3]} intensity={0.5} color="#cdddff" />
-        <directionalLight position={[-2, 3, -5]} intensity={0.7} color="#ffffff" />
+        {/* Back/rim key: raised (was 0.7) so muscle silhouettes get a brighter edge
+            and separate from the dark stage — the G1 "flat on black" fix. */}
+        <directionalLight position={[-2, 3, -5]} intensity={0.95} color="#ffffff" />
         <ambientLight intensity={0.12} />
 
         <Suspense fallback={null}>
           <ProgressReporter onProgress={setProgress} />
           <RigModel onReady={() => setReady(true)} />
           <RigOverlays />
+          <ShoulderRhythmArc />
           <AutoFit />
+          <DoubleClickFocus />
         </Suspense>
 
-        <CameraControls makeDefault minDistance={0.2} maxDistance={50} smoothTime={0.5} />
+        {/* Free navigation: dollyToCursor makes the wheel zoom TOWARD the pointer
+            (point at a muscle and scroll in), and a small minDistance lets the
+            camera get right up to a single muscle. Right-drag trucks (pans) up/
+            down/sideways; double-click flies to a structure (DoubleClickFocus). */}
+        <CameraControls
+          makeDefault
+          dollyToCursor
+          minDistance={0.05}
+          maxDistance={50}
+          smoothTime={0.4}
+        />
       </Canvas>
 
       {/* Premium depth: a soft radial spotlight behind the model and a vignette

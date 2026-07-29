@@ -32,7 +32,8 @@ const C = {
   muscle: 0xc23b3b,
   muscleDeep: 0xa12f30, // deeper layer muscles, reads "behind"
   muscleOrigin: 0xc06a52, // tendon-ish transition at attachment
-  tendon: 0xeae4d6, // off-white sinew
+  tendon: 0xe6e9ee, // pearly cool sinew — deliberately BLUER than the warm bone
+  // ivory so a visible tendon reads as sinew, never as a "loose bone".
   fascia: 0xdacfba,
 
   // Connective — pale, slightly bluish whites.
@@ -174,6 +175,92 @@ const MUSCLE_BASE_COLORS = new Set<number>([
   C.muscleDeep,
   C.muscleOrigin,
 ]);
+
+/** Base colors that represent BONE tissue (ivory family). */
+const BONE_BASE_COLORS = new Set<number>([C.bone, C.boneCool, C.teeth]);
+
+/**
+ * Base colors that represent the CONNECTIVE tissue that visually JOINS the
+ * joints — tendon, ligament, articular capsule, cartilage. Showing these on top
+ * of bone + muscle turns a scattered pile of little distal bones into a
+ * recognisable, connected hand/foot (the "anatómica conectada" look). We
+ * deliberately do NOT include the neurovascular swarm (nerve/artery/vein),
+ * fascia, bursa or skin here — those stay hidden so the biomechanics read clean.
+ */
+const CONNECTIVE_BASE_COLORS = new Set<number>([
+  C.tendon,
+  C.ligament,
+  C.capsule,
+  C.cartilage,
+]);
+
+/**
+ * True when a material is MUSCLE or BONE — the two layers the movement lab
+ * animates.
+ */
+export function materialIsMuscleOrBone(name: string | undefined | null): boolean {
+  const base = colorForMaterial(name);
+  if (base === null) return false;
+  return MUSCLE_BASE_COLORS.has(base) || BONE_BASE_COLORS.has(base);
+}
+
+/** True when a material is joint-connecting connective tissue (see set above). */
+export function materialIsConnective(name: string | undefined | null): boolean {
+  const base = colorForMaterial(name);
+  if (base === null) return false;
+  return CONNECTIVE_BASE_COLORS.has(base);
+}
+
+/**
+ * True when a material is the SKIN envelope (Skin-1..8 patches + finger/toe
+ * Nail plates). The body hides these globally (heavy overdraw, occludes the
+ * muscles/bones the lab animates), but the movement lab shows them for the
+ * HANDS and FEET only: the distal Z-Anatomy internals export as a shattered
+ * pile of tiny bones + spike tendons, whereas the skin patches form one clean,
+ * recognisable hand/foot. RigModel uses this to cap the extremities with skin.
+ */
+export function materialIsSkin(name: string | undefined | null): boolean {
+  if (!name) return false;
+  return name.startsWith('Skin') || name.startsWith('Nail');
+}
+
+/**
+ * True for every tissue the movement lab SHOWS: muscle, bone, and the
+ * joint-connecting connective layer. Everything else (nerve, artery, vein,
+ * fascia, bursa, organ, skin, reference geometry) stays hidden.
+ */
+export function materialIsVisibleAnatomy(name: string | undefined | null): boolean {
+  return materialIsMuscleOrBone(name) || materialIsConnective(name);
+}
+
+/** Tissue class of a material, for premium per-tissue shading (roughness etc.). */
+export type TissueClass = 'bone' | 'muscle' | 'connective' | 'other';
+export function tissueClassForMaterial(name: string | undefined | null): TissueClass {
+  const base = colorForMaterial(name);
+  if (base === null) return 'other';
+  if (BONE_BASE_COLORS.has(base)) return 'bone';
+  if (MUSCLE_BASE_COLORS.has(base)) return 'muscle';
+  if (CONNECTIVE_BASE_COLORS.has(base)) return 'connective';
+  return 'other';
+}
+
+/**
+ * PEELABLE display layer a material belongs to, or null when the material is
+ * never shown in the movement lab (nerve, vessel, fascia, bursa, organ, and all
+ * reference geometry). The movement lab groups every visible mesh into one of
+ * these four layers and lets the user toggle each on/off ("quitar capas"):
+ *   skin       -> the outer envelope (Skin-* patches + Nail plates)
+ *   muscle     -> the red muscle bellies + their action slips
+ *   bone       -> the ivory skeleton
+ *   connective -> the joint-connecting tendon/ligament/capsule/cartilage
+ */
+export type AnatomyLayer = 'skin' | 'muscle' | 'bone' | 'connective';
+export function layerForMaterial(name: string | undefined | null): AnatomyLayer | null {
+  if (materialIsSkin(name)) return 'skin';
+  const t = tissueClassForMaterial(name);
+  if (t === 'muscle' || t === 'bone' || t === 'connective') return t;
+  return null;
+}
 
 /**
  * Resolve a display color for a material name. Returns null when the material

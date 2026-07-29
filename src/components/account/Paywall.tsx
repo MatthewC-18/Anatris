@@ -4,12 +4,16 @@
 // Drives the upgrade funnel: sign in (if needed) -> subscribe -> unlock. On the
 // mock backend "Suscribirme" grants premium instantly so the flow is demoable.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { REGIONS } from '../../data/regiones';
+import { EVENTS, track } from '../../lib/analytics';
+import { CURRENCIES, detectCurrency, formatPrice } from '../../lib/pricing';
+
+type Interval = 'monthly' | 'annual';
 
 const PREMIUM_BENEFITS = [
-  'Todas las regiones: hombro, codo, columna y rodilla',
+  'Todas las regiones: hombro, codo, cadera, rodilla, tobillo y columna',
   'Cuestionarios y tarjetas de estudio de cada región',
   'Rangos de movimiento y guías de biomecánica',
   'Tu progreso sincronizado en todos tus dispositivos',
@@ -25,7 +29,16 @@ export function Paywall({
   const { snapshot, startCheckout } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Default to annual: it's the better value for the user and higher LTV for us.
+  const [interval, setInterval] = useState<Interval>('annual');
+  const [currency] = useState(() => detectCurrency());
   const regionName = REGIONS[region]?.name ?? 'esta región';
+
+  const plan = CURRENCIES[currency];
+  const perMonth = interval === 'annual' ? plan.annual / 12 : plan.monthly;
+
+  // Funnel step: the visitor hit the paywall for a premium region.
+  useEffect(() => track(EVENTS.paywallViewed, { region }), [region]);
 
   async function upgrade() {
     if (!snapshot.user) {
@@ -34,7 +47,8 @@ export function Paywall({
     }
     setBusy(true);
     setError(null);
-    const res = await startCheckout();
+    track(EVENTS.checkoutStarted, { region, interval });
+    const res = await startCheckout(interval, currency);
     setBusy(false);
     if (!res.ok) setError(res.error ?? 'No se pudo iniciar el pago.');
   }
@@ -61,6 +75,25 @@ export function Paywall({
             </li>
           ))}
         </ul>
+
+        {/* Billing period toggle + price (annual offered right at the wall). */}
+        <div className="mt-6 flex flex-col items-center gap-2">
+          <div className="flex items-center gap-1 rounded-full border border-slate-800/70 bg-slate-900/40 p-1">
+            <IntervalBtn id="monthly" label="Mensual" interval={interval} setInterval={setInterval} />
+            <IntervalBtn id="annual" label="Anual" interval={interval} setInterval={setInterval} />
+          </div>
+          <p className="mt-1 flex items-baseline gap-1">
+            <span className="font-display text-2xl font-bold text-slate-50">
+              {formatPrice(plan, perMonth)}
+            </span>
+            <span className="text-xs text-slate-500">/ mes</span>
+          </p>
+          <p className="text-[11px] text-slate-500">
+            {interval === 'annual'
+              ? `Facturado ${formatPrice(plan, plan.annual)} al año · ahorra ${savingsPct(plan)}%`
+              : 'Facturación mensual · cancela cuando quieras'}
+          </p>
+        </div>
 
         {error && (
           <p className="mt-4 rounded-lg border border-rose-900/40 bg-rose-950/30 px-3 py-2 text-xs text-rose-300">
@@ -102,5 +135,35 @@ function CheckIcon() {
     <svg className="mt-0.5 shrink-0 text-emerald-400" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
       <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+/** Discount of the annual plan vs paying monthly, as a rounded percentage. */
+function savingsPct(plan: { monthly: number; annual: number }): number {
+  return Math.round((1 - plan.annual / 12 / plan.monthly) * 100);
+}
+
+function IntervalBtn({
+  id,
+  label,
+  interval,
+  setInterval,
+}: {
+  id: Interval;
+  label: string;
+  interval: Interval;
+  setInterval: (i: Interval) => void;
+}) {
+  const active = interval === id;
+  return (
+    <button
+      type="button"
+      onClick={() => setInterval(id)}
+      className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+        active ? 'bg-accent/20 text-accent' : 'text-slate-400 hover:text-slate-200'
+      }`}
+    >
+      {label}
+    </button>
   );
 }

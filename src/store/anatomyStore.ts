@@ -9,9 +9,17 @@
 // IMPORTANT — default layers:
 // Skin is a CONTEXT layer that occludes everything behind it, so it is OFF by
 // default. Likewise `reference` (1100+ text labels, planes, axes) is OFF by
-// default. The model boots showing only real anatomy (bones, muscles,
-// ligaments, nerves, vessels, organs), which is what a dissection-style view
-// for physiotherapy needs.
+// default.
+//
+// The model boots on a CLEAN musculoskeletal view — bones + muscles +
+// ligaments — because that is the premium "atlas" read a physiotherapist wants
+// first: solid, uncluttered structures with no loose ends. Nerves, vessels and
+// organs are OFF by default (toggleable in the Capas panel): when a region is
+// cut out of the whole-body atlas, the nerve/vessel branches that leave the
+// region trail off into mid-air (e.g. the brachial plexus floating above the
+// shoulder), which reads as broken. Keeping them opt-in makes every region look
+// intentional and clean, and lets the user add innervation/vasculature when
+// they are actually studying it.
 //
 // ROM HIGHLIGHTING (drives the ROM panel + 3D):
 // The ROM panel has TWO view modes:
@@ -35,11 +43,18 @@
 // (new phase, new muscle, clearing ROM) must reset it to null.
 
 import { create } from 'zustand';
-import { ANATOMICAL_LAYERS } from '../lib/anatomyMeta';
 import type { AnatomyLayer, CameraView } from '../types/anatomy';
 import type { RomMuscleRole } from '../types/rom';
 import type { ConceptOverlay } from '../types/concept';
 import type { PhaseId } from '../types/pedagogy';
+
+/**
+ * Layers shown on first boot: a clean musculoskeletal atlas. Nerves, vessels
+ * and organs are intentionally excluded here (still toggleable in the Capas
+ * panel) so a region cut out of the whole body doesn't show branches trailing
+ * off into empty space. See the default-layers note above.
+ */
+const DEFAULT_LAYERS: AnatomyLayer[] = ['bones', 'muscles', 'ligaments'];
 
 /** The side-filter values exposed in the UI. */
 export type SideFilter = 'both' | 'right' | 'left';
@@ -162,7 +177,7 @@ interface AnatomyState {
 
 export const useAnatomyStore = create<AnatomyState>((set) => ({
   /* ----- layers ----- */
-  activeLayers: new Set<AnatomyLayer>(ANATOMICAL_LAYERS),
+  activeLayers: new Set<AnatomyLayer>(DEFAULT_LAYERS),
 
   toggleLayer: (layer) =>
     set((s) => {

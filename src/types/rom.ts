@@ -45,6 +45,22 @@ export interface RomMuscleRef {
 }
 
 /**
+ * A highlighted clinical takeaway for a phase — a caution ("red flag") or a
+ * teaching PEARL a clinician should register at a glance, kept SEPARATE from the
+ * descriptive prose so the lab can promote it to a banner. Same discipline as the
+ * rest of the ROM data: modelled/sourced (it inherits the phase's `cite`), not
+ * invented. Example: the subacromial painful arc that lives in abduction 60-120°.
+ */
+export interface RomClinicalFlag {
+  /** Short headline, Spanish, e.g. "Arco doloroso". */
+  label: string;
+  /** Optional one-line detail, Spanish, e.g. "Conflicto subacromial (60-120°)". */
+  detail?: string;
+  /** Visual tone: 'warn' = caution/red-flag (amber), 'pearl' = insight (teal). */
+  tone: 'warn' | 'pearl';
+}
+
+/**
  * One phase of a movement's arc: a degree sub-range with its players and a
  * short biomechanical description.
  */
@@ -59,6 +75,11 @@ export interface RomPhase {
   description: string;
   /** Muscles active in this phase, with their role. */
   muscles: RomMuscleRef[];
+  /**
+   * Optional highlighted clinical takeaway for this phase (caution or pearl),
+   * rendered as a banner in the lab. Backed by this phase's `cite`.
+   */
+  flag?: RomClinicalFlag;
   /** Supporting citation(s) for this phase's claims. */
   cite: Citation[];
 }
@@ -82,6 +103,49 @@ export interface RomReverseArc {
    * the lab's continuous signed arc.
    */
   phases: RomPhase[];
+}
+
+/**
+ * One knot of a muscle's activation envelope: at `deg` (SIGNED, along the lab's
+ * continuous arc) the muscle is recruited to `level` in [0..1] (0 = silent, 1 =
+ * peak effort). Between knots the level is linearly interpolated; OUTSIDE the
+ * first/last knot it is CLAMP-HELD at that end's level (so a single knot means a
+ * constant level across the whole arc, and a muscle that must be silent before it
+ * is recruited simply starts with a knot at level 0).
+ */
+export interface ActivationKnot {
+  /** Angle along the SIGNED lab arc, degrees (may be negative on the reverse side). */
+  deg: number;
+  /** Recruitment level at this angle, 0..1. */
+  level: number;
+}
+
+/**
+ * A muscle's EMG-like activation across the movement's SIGNED lab arc. This is
+ * the "premium" per-muscle layer: instead of every muscle in a phase switching on
+ * together, each muscle has its OWN recruitment envelope, so the lab can glow it
+ * smoothly (intensity tracks level) and show at exactly what degree it enters and
+ * peaks.
+ *
+ * MODEL, NOT PAGE-EXACT: the knot degrees are a didactic envelope grounded in the
+ * standard kinesiology sources (Kapandji / Oatis / Neumann) and the movement's
+ * own phase reasoning, NOT a claim of a literature-exact EMG onset in degrees
+ * (which varies by study, load and plane). It follows the same honesty discipline
+ * as ./biomech/shoulderChain: clinically modelled, not free invention.
+ *
+ * LAB-ONLY: consumed by the movement lab (MovementControls + RigOverlays via
+ * src/lib/romActivation.ts). Explore/Learn (RomPanel, romIndex) keep using
+ * `phases`, so adding this changes no existing screen.
+ */
+export interface RomMuscleActivation {
+  /** Muscle id, kebab-case — matches the ids used in this movement's phases. */
+  muscleId: string;
+  /** Dominant role across the arc; sets the glow/label color. */
+  role: RomMuscleRole;
+  /** Activation envelope, ascending by `deg`, at least one knot. */
+  curve: ActivationKnot[];
+  /** Optional one-line nuance about this muscle's recruitment, Spanish. */
+  note?: string;
 }
 
 /**
@@ -134,6 +198,14 @@ export interface RomMovement {
    * present; 'max' = this gesture's extreme). Ignored by Explore/Learn.
    */
   labStartAt?: 'min' | 'max';
+  /**
+   * Movement-lab-only: per-muscle EMG-like activation envelopes across the SIGNED
+   * arc, so the lab can glow each muscle smoothly and show at what degree it
+   * enters/peaks (instead of every phase muscle switching on together). Ignored by
+   * Explore/Learn. When absent, the lab falls back to the phase muscle list. See
+   * RomMuscleActivation and src/lib/romActivation.ts.
+   */
+  activations?: RomMuscleActivation[];
   /** Optional rig hint for markers/camera framing (see RomRigHint). */
   rig?: RomRigHint;
 }

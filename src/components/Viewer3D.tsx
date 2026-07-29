@@ -7,7 +7,12 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { CameraControls, useProgress } from '@react-three/drei';
+import {
+  CameraControls,
+  Environment,
+  Lightformer,
+  useProgress,
+} from '@react-three/drei';
 import * as THREE from 'three';
 
 import { AnatomyModel } from './AnatomyModel';
@@ -17,6 +22,7 @@ import { ConceptOverlay3D } from './ConceptOverlay3D';
 import { ShoulderRotationRig } from './ShoulderRotationPrototype';
 import { MuscleBands } from './movement/MuscleBands';
 import { CanvasLoader } from './CanvasLoader';
+import { ViewerHud } from './ViewerHud';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { parseMeshName } from '../lib/parseMeshName';
 import { VIEW_META } from '../lib/anatomyMeta';
@@ -26,6 +32,12 @@ import type { MuscleResolution } from '../lib/muscleResolver';
 interface Viewer3DProps {
   byMesh: Map<string, AnatomyEntry>;
   regionMeshes?: Set<string> | null;
+  /**
+   * Optional compact "joint core" subset the camera should frame on when the
+   * region changes (hero framing for long-limb regions like knee/elbow). When
+   * null/absent, the camera frames the full visible region bounds as before.
+   */
+  regionFocusMeshes?: Set<string> | null;
   resolution: MuscleResolution;
   /**
    * When true, mount the interactive movement rig (rigid bone rotation of the
@@ -39,6 +51,11 @@ interface Viewer3DProps {
 // context (you see the surrounding bone/zone); smaller = fills the screen.
 // 0.6 ~ "close but with context around it".
 const FOCUS_PADDING = 0.6;
+
+// Padding (world units) around the region's joint-core when hero-framing a
+// long-limb region. Generous so the joint reads as a composed close-up WITH a
+// good stretch of the surrounding limb as context, not a tight crop.
+const REGION_FOCUS_PADDING = 0.45;
 
 // Tighter padding when zooming to an attachment marker -- we want to get close
 // to the landmark, but keep a little surrounding bone for context.
@@ -68,11 +85,74 @@ function useIsCompact(): boolean {
 }
 
 /**
+ * Premium studio lighting baked into an image-based environment map — the same
+ * setup the movement lab uses, so the Explorar model gets the identical soft
+ * reflections and pearly rim highlights. Pure Lightformers (no HDR file → fully
+ * offline), rendered ONCE (frames={1}) into a small env map: a broad warm key
+ * softbox, a cool fill that opens the shadows, and two thin rim strips that
+ * carve a premium edge on the bone/muscle silhouette. `background={false}`
+ * keeps our CSS gradient + stage glow behind the model.
+ */
+function StudioEnvironment() {
+  return (
+    <Environment frames={1} resolution={256} background={false}>
+      <Lightformer
+        form="rect"
+        intensity={2.4}
+        color="#fff6ec"
+        position={[3, 4, 5]}
+        scale={[8, 8, 1]}
+        target={[0, 1, 0]}
+      />
+      <Lightformer
+        form="rect"
+        intensity={0.9}
+        color="#cfe0ff"
+        position={[-5, 2, -2]}
+        scale={[6, 8, 1]}
+        target={[0, 1, 0]}
+      />
+      <Lightformer
+        form="rect"
+        intensity={3.2}
+        color="#ffffff"
+        position={[-3, 3, -5]}
+        scale={[0.4, 6, 1]}
+        target={[0, 1, 0]}
+      />
+      <Lightformer
+        form="rect"
+        intensity={2.2}
+        color="#dbe7ff"
+        position={[4, 1, -5]}
+        scale={[0.4, 6, 1]}
+        target={[0, 1, 0]}
+      />
+      <Lightformer
+        form="rect"
+        intensity={1.1}
+        color="#eef4ff"
+        position={[0, 6, 1]}
+        scale={[6, 2, 1]}
+        rotation={[Math.PI / 2, 0, 0]}
+        target={[0, 1, 0]}
+      />
+    </Environment>
+  );
+}
+
+/**
  * Bridge component living *inside* the Canvas. It holds the CameraControls ref,
  * recomputes framing when the visible mesh set changes, and reacts to camera
  * view requests from the store.
  */
-function SceneContents({ byMesh, regionMeshes, resolution, movement }: Viewer3DProps) {
+function SceneContents({
+  byMesh,
+  regionMeshes,
+  regionFocusMeshes,
+  resolution,
+  movement,
+}: Viewer3DProps) {
   const { scene } = useThree();
   const controlsRef = useRef<CameraControls | null>(null);
   const boundsRef = useRef<{ box: THREE.Box3; radius: number } | null>(null);
@@ -124,23 +204,41 @@ function SceneContents({ byMesh, regionMeshes, resolution, movement }: Viewer3DP
         const controls = controlsRef.current;
         if (!controls) return;
         scene.updateWorldMatrix(true, true);
-        const box = new THREE.Box3();
+
+        // Full visible region bounds (fallback + used when no joint focus).
+        const fullBox = new THREE.Box3();
+        // Joint-core bounds for HERO FRAMING of long-limb regions: only the
+        // meshes named in regionFocusMeshes (patella/menisci/ligaments, elbow
+        // articulations, …). Null when the region defines no focus.
+        const focusBox = regionFocusMeshes ? new THREE.Box3() : null;
         const tmp = new THREE.Box3();
         scene.traverse((o) => {
           const m = o as THREE.Mesh;
           if (!m.isMesh || !m.visible) return;
           tmp.setFromObject(m);
-          if (isFinite(tmp.min.x) && !tmp.isEmpty()) box.union(tmp);
+          if (!isFinite(tmp.min.x) || tmp.isEmpty()) return;
+          fullBox.union(tmp);
+          if (focusBox && regionFocusMeshes!.has(m.name)) focusBox.union(tmp);
         });
-        if (box.isEmpty() || !isFinite(box.min.x)) return;
+        if (fullBox.isEmpty() || !isFinite(fullBox.min.x)) return;
+
+        // Prefer the joint-core box when it resolved to something; otherwise
+        // fall back to the full region bounds (the previous behaviour).
+        const useFocus = !!focusBox && !focusBox.isEmpty() && isFinite(focusBox.min.x);
+        const framingBox = useFocus ? (focusBox as THREE.Box3) : fullBox;
+        const pad = useFocus ? REGION_FOCUS_PADDING : 0.1;
+
         const sphere = new THREE.Sphere();
-        box.getBoundingSphere(sphere);
-        boundsRef.current = { box: box.clone(), radius: sphere.radius };
-        void controls.fitToBox(box, true, {
-          paddingTop: 0.1,
-          paddingBottom: 0.1,
-          paddingLeft: 0.1,
-          paddingRight: 0.1,
+        framingBox.getBoundingSphere(sphere);
+        // boundsRef drives the toolbar's predefined views, so store the SAME
+        // box we hero-frame on — anterior/posterior/… then stay centered on the
+        // joint rather than jumping out to the whole limb.
+        boundsRef.current = { box: framingBox.clone(), radius: sphere.radius };
+        void controls.fitToBox(framingBox, true, {
+          paddingTop: pad,
+          paddingBottom: pad,
+          paddingLeft: pad,
+          paddingRight: pad,
         });
       });
     });
@@ -148,7 +246,7 @@ function SceneContents({ byMesh, regionMeshes, resolution, movement }: Viewer3DP
       cancelAnimationFrame(raf1);
       if (raf2) cancelAnimationFrame(raf2);
     };
-  }, [region, scene]);
+  }, [region, regionFocusMeshes, scene]);
 
   // Respond to predefined-view requests.
   useEffect(() => {
@@ -285,13 +383,18 @@ function SceneContents({ byMesh, regionMeshes, resolution, movement }: Viewer3DP
 
   return (
     <>
-      {/* Soft multi-point lighting for clean clinical modeling (no network
-          dependency -- purely analytic lights so it works offline). */}
-      <hemisphereLight args={[0xbfdfff, 0x0a0f1a, 0.6]} />
-      <directionalLight position={[3, 6, 4]} intensity={1.4} />
-      <directionalLight position={[-4, 2, -3]} intensity={0.6} />
-      <directionalLight position={[0, -3, 2]} intensity={0.3} />
-      <ambientLight intensity={0.2} />
+      {/* Image-based studio lighting (soft reflections + fill) that the tissue
+          materials pick up through their per-tissue envMapIntensity. */}
+      <StudioEnvironment />
+      {/* Analytic key/fill/rim on top of the IBL for crisp directional shaping,
+          warmed on the key and cooled on the fill to match the lab's premium
+          modeling. Lower than before because the environment now carries the
+          base illumination. */}
+      <hemisphereLight args={[0xbfdfff, 0x0a0f1a, 0.35]} />
+      <directionalLight position={[3, 6, 4]} intensity={1.15} color="#fff4e8" />
+      <directionalLight position={[-4, 2, -3]} intensity={0.5} color="#cdddff" />
+      <directionalLight position={[-2, 3, -5]} intensity={0.7} color="#ffffff" />
+      <ambientLight intensity={0.12} />
 
       <AnatomyModel
         byMesh={byMesh}
@@ -318,10 +421,13 @@ function SceneContents({ byMesh, regionMeshes, resolution, movement }: Viewer3DP
       {movement && <ShoulderRotationRig />}
       {movement && <MuscleBands resolution={resolution} />}
 
+      {/* dollyToCursor zooms the wheel TOWARD the pointer so you can dive into any
+          muscle; the small minDistance lets the camera get right up to it. */}
       <CameraControls
         ref={controlsRef}
         makeDefault
-        minDistance={0.2}
+        dollyToCursor
+        minDistance={0.05}
         maxDistance={50}
         smoothTime={0.5}
       />
@@ -338,7 +444,13 @@ function ProgressReporter({ onProgress }: { onProgress: (p: number) => void }) {
   return null;
 }
 
-export function Viewer3D({ byMesh, regionMeshes, resolution, movement }: Viewer3DProps) {
+export function Viewer3D({
+  byMesh,
+  regionMeshes,
+  regionFocusMeshes,
+  resolution,
+  movement,
+}: Viewer3DProps) {
   const [progress, setProgress] = useState(0);
   const [ready, setReady] = useState(false);
   const compact = useIsCompact();
@@ -352,19 +464,25 @@ export function Viewer3D({ byMesh, regionMeshes, resolution, movement }: Viewer3
 
   return (
     <div className="relative h-full w-full viewer-bg">
+      {/* Soft cool spotlight bloom behind the model + cinematic corner vignette.
+          Both pointer-events-none so the canvas stays fully draggable; they sit
+          under the toolbar/HUD (no z-index) but over the flat viewer-bg, giving
+          the exploration canvas the same premium studio depth as the lab. */}
+      <div className="pointer-events-none absolute inset-0 rig-stage-glow" />
       <Canvas
         camera={{ position: [2, 1.5, 4], fov: 45, near: 0.05, far: 100 }}
         dpr={compact ? DPR_MOBILE : DPR_DESKTOP}
-        // Color pipeline tuned for a flat "atlas" look: we want the assigned
-        // tissue colors to render faithfully, not cinematically. ACES tone
-        // mapping desaturates and washes flat colors toward grey, so we use
-        // neutral tone mapping and sRGB output for accurate, saturated atlas
-        // colors.
+        // Premium studio color pipeline (same as the movement lab): ACES filmic
+        // tone mapping gives the muscle reds and ivory bone a richer, more
+        // cinematic roll-off than the flat Neutral curve, and pairs with the
+        // image-based studio environment for soft, expensive-looking shading.
+        // Exposure slightly under 1.0 keeps highlights from blowing out under
+        // the env; sRGB output keeps the atlas hues faithful.
         gl={{
           antialias: true,
           powerPreference: 'high-performance',
-          toneMapping: THREE.NeutralToneMapping,
-          toneMappingExposure: 1.0,
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 0.95,
           outputColorSpace: THREE.SRGBColorSpace,
         }}
         onPointerMissed={() => useAnatomyStore.getState().clearSelection()}
@@ -374,11 +492,18 @@ export function Viewer3D({ byMesh, regionMeshes, resolution, movement }: Viewer3
           <SceneContents
             byMesh={byMesh}
             regionMeshes={regionMeshes}
+            regionFocusMeshes={regionFocusMeshes}
             resolution={resolution}
             movement={movement}
           />
         </Suspense>
       </Canvas>
+
+      {/* Cinematic corner vignette in front of the canvas, then the ambient HUD
+          (module plate + hover label). Both pointer-events-none, so picking,
+          camera drag and the floating toolbar keep working underneath. */}
+      <div className="pointer-events-none absolute inset-0 rig-vignette" />
+      {ready && <ViewerHud byMesh={byMesh} />}
 
       {!ready && <CanvasLoader progress={progress} />}
     </div>

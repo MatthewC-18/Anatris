@@ -11,20 +11,40 @@
 import type { Muscle } from '../types/muscle';
 import { shoulderMuscles } from './muscles/shoulder';
 import { elbowMuscles } from './muscles/elbow';
+import { hipMuscles } from './muscles/hip';
 import { kneeMuscles } from './muscles/knee';
+import { ankleMuscles } from './muscles/ankle';
 import {
   cervicalMuscles,
   thoracicMuscles,
   lumbarMuscles,
 } from './muscles/spine';
 
+// The anterolateral abdominal wall + quadratus lumborum flex / side-bend / rotate
+// the WHOLE trunk, so the THORACIC ROM (thoracic-flexion / lateral-flexion /
+// rotation) cites them as movers. They are authored once in lumbarMuscles; share
+// those exact records into the thoracic resolver so their glow/markers resolve
+// (audit fix: without this, thoracic ROM referenced muscle ids absent from the
+// thoracic list and the highlight silently no-oped).
+const THORACIC_SHARED_TRUNK = new Set([
+  'rectus-abdominis',
+  'external-oblique',
+  'internal-oblique',
+  'quadratus-lumborum',
+]);
+const thoracicSharedTrunkMuscles = lumbarMuscles.filter((m) =>
+  THORACIC_SHARED_TRUNK.has(m.id),
+);
+
 /** region id -> muscles. Keys match regiones.ts / store.region. */
 export const MUSCLES_BY_REGION: Record<string, Muscle[]> = {
   shoulder: shoulderMuscles,
   elbow: elbowMuscles,
+  hip: hipMuscles,
   knee: kneeMuscles,
+  ankle: ankleMuscles,
   cervical: cervicalMuscles,
-  thoracic: thoracicMuscles,
+  thoracic: [...thoracicMuscles, ...thoracicSharedTrunkMuscles],
   lumbar: lumbarMuscles,
 };
 

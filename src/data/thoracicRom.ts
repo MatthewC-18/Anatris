@@ -51,6 +51,12 @@ const flexion: RomMovement = {
       startDeg: 0,
       endDeg: 20,
       label: 'Inicio (motor abdominal)',
+      flag: {
+        label: 'Motor abdominal',
+        detail:
+          'La flexión del tronco la produce la pared abdominal, no los extensores; el erector solo frena excéntricamente el descenso.',
+        tone: 'pearl',
+      },
       description:
         'La pared abdominal inicia la flexión del tronco concéntricamente: el recto del abdomen aproxima el tórax a la pelvis y los oblicuos colaboran. El erector torácico comienza a frenar excéntricamente.',
       muscles: [
@@ -74,6 +80,66 @@ const flexion: RomMovement = {
         { muscleId: 'rectus-abdominis', role: 'assistant', note: 'Mantiene la tracción del tronco hacia la flexión.' },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'oatis', pageVerified: false }],
+    },
+  ],
+  activations: [
+    {
+      muscleId: 'rectus-abdominis',
+      role: 'prime-mover',
+      note: 'Motor concéntrico: inicia la flexión y mantiene la tracción del tronco.',
+      curve: [
+        { deg: 0, level: 0.7 },
+        { deg: 20, level: 0.85 },
+        { deg: 45, level: 0.5 },
+      ],
+    },
+    {
+      muscleId: 'external-oblique',
+      role: 'assistant',
+      note: 'Pared abdominal: colabora en la flexión del tronco.',
+      curve: [
+        { deg: 0, level: 0.4 },
+        { deg: 20, level: 0.55 },
+        { deg: 45, level: 0.35 },
+      ],
+    },
+    {
+      muscleId: 'internal-oblique',
+      role: 'assistant',
+      note: 'Pared abdominal: colabora en la flexión del tronco.',
+      curve: [
+        { deg: 0, level: 0.4 },
+        { deg: 20, level: 0.55 },
+        { deg: 45, level: 0.35 },
+      ],
+    },
+    {
+      muscleId: 'longissimus-thoracis',
+      role: 'prime-mover',
+      note: 'Superado el equilibrio (~20°), frena excéntricamente el descenso: domina el tramo final.',
+      curve: [
+        { deg: 0, level: 0.25 },
+        { deg: 20, level: 0.5 },
+        { deg: 45, level: 0.9 },
+      ],
+    },
+    {
+      muscleId: 'iliocostalis-thoracis',
+      role: 'assistant',
+      note: 'Frena excéntricamente la flexión junto al longísimo.',
+      curve: [
+        { deg: 20, level: 0.3 },
+        { deg: 45, level: 0.7 },
+      ],
+    },
+    {
+      muscleId: 'multifidus-thoracis',
+      role: 'stabilizer',
+      note: 'Estabilización segmentaria durante la flexión.',
+      curve: [
+        { deg: 0, level: 0.25 },
+        { deg: 45, level: 0.5 },
+      ],
     },
   ],
 };
@@ -116,6 +182,55 @@ const extension: RomMovement = {
       cite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'oatis', pageVerified: false }],
     },
   ],
+  activations: [
+    {
+      muscleId: 'longissimus-thoracis',
+      role: 'prime-mover',
+      note: 'Extensor antigravitatorio principal del tronco; endereza la cifosis.',
+      curve: [
+        { deg: 0, level: 0.8 },
+        { deg: 15, level: 1 },
+        { deg: 25, level: 0.85 },
+      ],
+    },
+    {
+      muscleId: 'iliocostalis-thoracis',
+      role: 'prime-mover',
+      note: 'Extiende la columna torácica.',
+      curve: [
+        { deg: 0, level: 0.75 },
+        { deg: 15, level: 0.95 },
+        { deg: 25, level: 0.8 },
+      ],
+    },
+    {
+      muscleId: 'spinalis-thoracis',
+      role: 'assistant',
+      note: 'Extensión medial.',
+      curve: [
+        { deg: 0, level: 0.4 },
+        { deg: 25, level: 0.55 },
+      ],
+    },
+    {
+      muscleId: 'semispinalis-thoracis',
+      role: 'prime-mover',
+      note: 'Asegura la extensión segmentaria cerca del límite.',
+      curve: [
+        { deg: 10, level: 0.3 },
+        { deg: 25, level: 0.8 },
+      ],
+    },
+    {
+      muscleId: 'multifidus-thoracis',
+      role: 'assistant',
+      note: 'Estabilización y extensión segmentaria.',
+      curve: [
+        { deg: 10, level: 0.3 },
+        { deg: 25, level: 0.6 },
+      ],
+    },
+  ],
 };
 
 const lateralFlexion: RomMovement = {
@@ -156,6 +271,54 @@ const lateralFlexion: RomMovement = {
       cite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'oatis', pageVerified: false }],
     },
   ],
+  activations: [
+    {
+      muscleId: 'iliocostalis-thoracis',
+      role: 'prime-mover',
+      note: 'Inclinación lateral ipsilateral; motor en todo el arco.',
+      curve: [
+        { deg: 0, level: 0.8 },
+        { deg: 15, level: 0.95 },
+        { deg: 30, level: 0.9 },
+      ],
+    },
+    {
+      muscleId: 'external-oblique',
+      role: 'assistant',
+      note: 'Pared abdominal: aproxima la caja torácica a la pelvis del mismo lado.',
+      curve: [
+        { deg: 0, level: 0.45 },
+        { deg: 30, level: 0.6 },
+      ],
+    },
+    {
+      muscleId: 'longissimus-thoracis',
+      role: 'assistant',
+      note: 'Asiste la inclinación ipsilateral.',
+      curve: [
+        { deg: 0, level: 0.4 },
+        { deg: 30, level: 0.6 },
+      ],
+    },
+    {
+      muscleId: 'multifidus-thoracis',
+      role: 'assistant',
+      note: 'Inclinación y estabilización segmentaria en el rango final.',
+      curve: [
+        { deg: 15, level: 0.3 },
+        { deg: 30, level: 0.6 },
+      ],
+    },
+    {
+      muscleId: 'quadratus-lumborum',
+      role: 'stabilizer',
+      note: 'Fija la base lumbopélvica durante la inclinación del tronco.',
+      curve: [
+        { deg: 10, level: 0.3 },
+        { deg: 30, level: 0.55 },
+      ],
+    },
+  ],
 };
 
 const rotation: RomMovement = {
@@ -186,6 +349,12 @@ const rotation: RomMovement = {
       startDeg: 20,
       endDeg: 35,
       label: 'Rango medio-final (motor abdominal)',
+      flag: {
+        label: 'Oblicuos cruzados',
+        detail:
+          'El oblicuo externo de un lado + el interno del opuesto forman el par que rota el tronco; la torácica es la región de mayor rotación del raquis.',
+        tone: 'pearl',
+      },
       description:
         'Los oblicuos cruzados generan la rotación potente del tronco: el oblicuo externo de un lado y el oblicuo interno del lado opuesto forman un par de fuerzas que gira la caja torácica. Es el motor real de gestos como lanzar o girar el tronco.',
       muscles: [
@@ -195,6 +364,65 @@ const rotation: RomMovement = {
         { muscleId: 'longissimus-thoracis', role: 'stabilizer', note: 'Estabiliza el lado ipsilateral durante la rotación.' },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'oatis', pageVerified: false }],
+    },
+  ],
+  activations: [
+    {
+      muscleId: 'rotatores',
+      role: 'prime-mover',
+      note: 'Rotación segmentaria hacia el lado opuesto; sobre todo propioceptivos, afinan el movimiento.',
+      curve: [
+        { deg: 0, level: 0.6 },
+        { deg: 20, level: 0.7 },
+        { deg: 35, level: 0.6 },
+      ],
+    },
+    {
+      muscleId: 'semispinalis-thoracis',
+      role: 'assistant',
+      note: 'Rotación hacia el lado opuesto.',
+      curve: [
+        { deg: 0, level: 0.4 },
+        { deg: 35, level: 0.6 },
+      ],
+    },
+    {
+      muscleId: 'multifidus-thoracis',
+      role: 'assistant',
+      note: 'Rotación contralateral y estabilización.',
+      curve: [
+        { deg: 0, level: 0.4 },
+        { deg: 35, level: 0.6 },
+      ],
+    },
+    {
+      muscleId: 'external-oblique',
+      role: 'prime-mover',
+      note: 'Par rotador del tronco: el externo gira hacia el lado opuesto; motor real, entra hacia los 20°.',
+      curve: [
+        { deg: 15, level: 0.3 },
+        { deg: 20, level: 0.5 },
+        { deg: 35, level: 0.95 },
+      ],
+    },
+    {
+      muscleId: 'internal-oblique',
+      role: 'prime-mover',
+      note: 'Par rotador del tronco: el interno gira hacia el mismo lado; motor real, entra hacia los 20°.',
+      curve: [
+        { deg: 15, level: 0.3 },
+        { deg: 20, level: 0.5 },
+        { deg: 35, level: 0.95 },
+      ],
+    },
+    {
+      muscleId: 'longissimus-thoracis',
+      role: 'stabilizer',
+      note: 'Estabiliza el lado ipsilateral durante la rotación.',
+      curve: [
+        { deg: 15, level: 0.25 },
+        { deg: 35, level: 0.5 },
+      ],
     },
   ],
 };

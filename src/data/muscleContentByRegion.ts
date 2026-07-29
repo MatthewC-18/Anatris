@@ -10,13 +10,17 @@
 import type { MuscleContentIndex } from '../types/muscleContent';
 import { SHOULDER_MUSCLES } from './shoulderMuscles';
 import { ELBOW_MUSCLES } from './elbowMuscles';
+import { HIP_MUSCLES } from './hipMuscleContent';
 import { KNEE_MUSCLES } from './kneeMuscles';
+import { ANKLE_MUSCLES } from './ankleMuscleContent';
 
 /** region id -> muscle content index. Keys match regiones.ts / store.region. */
 export const MUSCLE_CONTENT_BY_REGION: Record<string, MuscleContentIndex> = {
   shoulder: SHOULDER_MUSCLES,
   elbow: ELBOW_MUSCLES,
+  hip: HIP_MUSCLES,
   knee: KNEE_MUSCLES,
+  ankle: ANKLE_MUSCLES,
 };
 
 /**

@@ -42,20 +42,28 @@
 import type { RomMovement, RomMovementIndex } from '../types/rom';
 
 /* ===========================================================================
- * FLEXION (femoro-tibial), 0 -> ~140 deg, sagittal
+ * FLEXION (femoro-tibial), 0 -> ~105 deg SHOWN in the lab, sagittal
+ *
+ * IMPORTANT: 105 deg is a MODEL/mesh limit, not the clinical ROM. The rig folds
+ * the calf as a rigid block with no soft-tissue compression, so past ~110 deg the
+ * calf mesh drives THROUGH the thigh. 105 deg is where this figure's calf meets its
+ * thigh, so the lab stops there and reads clean. The TRUE active ROM is ~120 deg
+ * with the hip extended (rectus femoris limit), ~140 deg with the hip flexed, and
+ * ~160 deg passive (heel to buttock) -- stated in the overview so teaching stays
+ * honest. See boneMap.ts knee-flexion for the interpenetration measurements.
  * ======================================================================== */
 const flexion: RomMovement = {
   id: 'knee-flexion',
   name: 'Flexión',
   joint: 'Femorotibial',
   plane: 'Sagital',
-  totalRangeDeg: { min: 0, max: 140 },
+  totalRangeDeg: { min: 0, max: 105 },
   rangeCite: [
     { ref: 'kapandji', pageVerified: false },
     { ref: 'oatis', pageVerified: false },
   ],
   overview:
-    'Flexión de la pierna sobre el muslo en el plano sagital, hasta unos 140 grados de flexión activa (más con la cadera flexionada, que preestira los isquiotibiales). El poplíteo "desbloquea" la rodilla extendida rotando la tibia internamente; luego los isquiotibiales lideran la flexión. El gastrocnemio asiste solo con el tobillo libre.',
+    'Flexión de la pierna sobre el muslo en el plano sagital. En el modelo el pliegue se muestra hasta unos 105 grados, donde la pantorrilla ya contacta el muslo; más allá, sin la compresión de los tejidos blandos, las mallas rígidas de pantorrilla y muslo se solaparían. En la persona la flexión activa llega a ~120 grados con la cadera extendida (el recto femoral, biarticular, la frena) y a ~140 grados con la cadera flexionada, y de forma pasiva a ~160 grados (talón al glúteo). El poplíteo "desbloquea" la rodilla extendida rotando la tibia internamente; luego los isquiotibiales lideran la flexión. El gastrocnemio asiste solo con el tobillo libre.',
   region: 'knee',
   rig: { axis: [1, 0, 0] },
   phases: [
@@ -63,6 +71,12 @@ const flexion: RomMovement = {
       startDeg: 0,
       endDeg: 20,
       label: 'Desbloqueo (inicio)',
+      flag: {
+        label: 'Desbloqueo',
+        detail:
+          'El poplíteo rota la tibia internamente y deshace el mecanismo de tornillo para que arranque la flexión.',
+        tone: 'pearl',
+      },
       description:
         'Desde la extensión bloqueada, el poplíteo rota la tibia internamente y deshace el mecanismo de tornillo, permitiendo que comience la flexión. Es el "llave de contacto" de la rodilla.',
       muscles: [
@@ -112,10 +126,10 @@ const flexion: RomMovement = {
     },
     {
       startDeg: 90,
-      endDeg: 140,
+      endDeg: 105,
       label: 'Final',
       description:
-        'Al final del arco la flexión la limitan el contacto de la pantorrilla con el muslo y la tensión del cuádriceps (insuficiencia pasiva). Los isquiotibiales mantienen el esfuerzo en posición acortada (insuficiencia activa creciente).',
+        'Cerca de este punto la pantorrilla contacta el muslo (el modelo se detiene aquí para no atravesarlo). De pie (cadera extendida), la flexión activa real se frena hacia los 120 grados por la tensión del recto femoral (insuficiencia pasiva) y los isquiotibiales trabajan acortados (insuficiencia activa creciente). Con la cadera flexionada el recto femoral se relaja y el arco continúa hasta ~140 grados, limitado entonces por el choque de la pantorrilla con el muslo.',
       muscles: [
         { muscleId: 'biceps-femoris', role: 'prime-mover' },
         { muscleId: 'semitendinosus', role: 'assistant' },
@@ -125,20 +139,112 @@ const flexion: RomMovement = {
       cite: [{ ref: 'kapandji', pageVerified: false }],
     },
   ],
+  activations: [
+    {
+      muscleId: 'popliteus',
+      role: 'prime-mover',
+      note: 'Desbloquea la rodilla: rota la tibia internamente en los primeros 20° y luego cede el paso.',
+      curve: [
+        { deg: 0, level: 1 },
+        { deg: 20, level: 0.5 },
+        { deg: 40, level: 0.25 },
+        { deg: 105, level: 0.15 },
+      ],
+    },
+    {
+      muscleId: 'biceps-femoris',
+      role: 'prime-mover',
+      note: 'Motor de la flexión; la cabeza corta flexiona con independencia de la cadera.',
+      curve: [
+        { deg: 0, level: 0.3 },
+        { deg: 20, level: 0.6 },
+        { deg: 90, level: 1 },
+        { deg: 105, level: 0.9 },
+      ],
+    },
+    {
+      muscleId: 'semitendinosus',
+      role: 'prime-mover',
+      note: 'Isquiotibial medial: motor de la flexión en el rango medio.',
+      curve: [
+        { deg: 0, level: 0.3 },
+        { deg: 20, level: 0.6 },
+        { deg: 90, level: 0.95 },
+        { deg: 105, level: 0.7 },
+      ],
+    },
+    {
+      muscleId: 'semimembranosus',
+      role: 'prime-mover',
+      note: 'Isquiotibial medial: motor de la flexión, con creciente insuficiencia activa al final.',
+      curve: [
+        { deg: 10, level: 0.2 },
+        { deg: 20, level: 0.55 },
+        { deg: 90, level: 0.95 },
+        { deg: 105, level: 0.7 },
+      ],
+    },
+    {
+      muscleId: 'gastrocnemius',
+      role: 'assistant',
+      note: 'Flexor de rodilla solo con el tobillo libre; aporte en el rango medio.',
+      curve: [
+        { deg: 0, level: 0.1 },
+        { deg: 20, level: 0.35 },
+        { deg: 90, level: 0.5 },
+        { deg: 105, level: 0.4 },
+      ],
+    },
+    {
+      muscleId: 'sartorius',
+      role: 'assistant',
+      note: 'Flexor débil de la pata de ganso.',
+      curve: [
+        { deg: 0, level: 0.15 },
+        { deg: 40, level: 0.35 },
+        { deg: 105, level: 0.4 },
+      ],
+    },
+    {
+      muscleId: 'gracilis',
+      role: 'assistant',
+      note: 'Flexor débil de la pata de ganso.',
+      curve: [
+        { deg: 0, level: 0.15 },
+        { deg: 40, level: 0.35 },
+        { deg: 105, level: 0.4 },
+      ],
+    },
+    {
+      muscleId: 'plantaris',
+      role: 'assistant',
+      note: 'Aporte menor a la flexión en el rango final.',
+      curve: [
+        { deg: 60, level: 0.1 },
+        { deg: 90, level: 0.25 },
+        { deg: 105, level: 0.3 },
+      ],
+    },
+  ],
 };
 
 /* ===========================================================================
- * EXTENSION (return from flexion), ~140 -> 0 deg, sagittal
+ * EXTENSION (return from flexion), ~105 -> 0 deg SHOWN in the lab, sagittal
+ *
+ * Shares the flexion arc and STARTS at its flexed extreme (labStartAt 'max'), so
+ * it opens on the same clean ~105 deg pose (calf just meeting the thigh), not an
+ * over-folded angle where the calf mesh clips through. See the FLEXION header and
+ * boneMap.ts knee-flexion.
  * ======================================================================== */
 const extension: RomMovement = {
   id: 'knee-extension',
   name: 'Extensión',
   joint: 'Femorotibial',
   plane: 'Sagital',
-  totalRangeDeg: { min: 0, max: 140 },
+  totalRangeDeg: { min: 0, max: 105 },
   rangeCite: [{ ref: 'kapandji', pageVerified: false }],
   overview:
-    'Extensión de la pierna desde la flexión hasta la posición neutra (0 grados). El cuádriceps es el único extensor. En los últimos 30 grados aparece el mecanismo de tornillo: la tibia rota externamente de forma automática y bloquea la rodilla en bipedestación con bajo coste muscular. Un valor negativo indicaría genu recurvatum (hiperextensión).',
+    'Extensión de la pierna desde la flexión hasta la posición neutra (0 grados). El cuádriceps es el único extensor. En los últimos 30 grados aparece el mecanismo de tornillo: la tibia rota externamente de forma automática y bloquea la rodilla en bipedestación con bajo coste muscular. Un valor negativo indicaría genu recurvatum (hiperextensión). En el modelo el recorrido parte de la flexión de contacto pantorrilla-muslo (~105 grados, límite de la malla); en la persona la flexión de partida es de ~120 grados (cadera extendida) a ~140 grados (cadera flexionada).',
   region: 'knee',
   rig: { axis: [1, 0, 0] },
   // Lab: la extension recorre el MISMO arco que la flexion (0 = rodilla recta,
@@ -150,13 +256,22 @@ const extension: RomMovement = {
       startDeg: 0,
       endDeg: 30,
       label: 'Bloqueo final (mecanismo de tornillo)',
+      // NOTE: the live "Mecanismo de tornillo" coupling card in RhythmReadout
+      // (kneeCoupling.ts) already covers this sector richly, so no duplicate flag
+      // here. The "extension lag" caution lives in the prose below.
+      flag: {
+        label: 'Extension lag',
+        detail:
+          'Los últimos 30° son los de peor palanca del cuádriceps; su debilidad deja un déficit de extensión terminal.',
+        tone: 'warn',
+      },
       description:
-        'Los últimos 30 grados son los más exigentes para el cuádriceps (brazo de palanca desfavorable). El vasto medial oblicuo asegura el rastreo medial de la rótula. La tibia rota externamente y bloquea la rodilla: en bipedestación relajada, los ligamentos sostienen la posición casi sin esfuerzo muscular.',
+        'Los últimos ~30 grados son los más exigentes para TODO el cuádriceps: el brazo de palanca es desfavorable y es donde aparece el déficit de extensión ("extension lag") cuando el cuádriceps está débil. A la vez ocurre el mecanismo de tornillo: en los últimos 20-30 grados la tibia rota externamente unos 10-15 grados y tensa ambos ligamentos cruzados, bloqueando la rodilla. En bipedestación relajada los ligamentos sostienen la posición casi sin esfuerzo muscular. El vasto medial oblicuo no "extiende más" que el resto de los vientres: su papel es asegurar el rastreo medial de la rótula.',
       muscles: [
         {
           muscleId: 'vastus-medialis',
           role: 'prime-mover',
-          note: 'El VMO domina los últimos 30 grados y guía la rótula medialmente.',
+          note: 'Guía el rastreo medial de la rótula (frena el deslizamiento lateral). Activo en TODO el arco, no un extensor exclusivo del tramo final; su déficit favorece el maltracking lateral y el dolor femoropatelar.',
         },
         { muscleId: 'rectus-femoris', role: 'prime-mover' },
         { muscleId: 'vastus-lateralis', role: 'prime-mover' },
@@ -180,10 +295,10 @@ const extension: RomMovement = {
     },
     {
       startDeg: 90,
-      endDeg: 140,
+      endDeg: 105,
       label: 'Inicio (desde flexión máxima)',
       description:
-        'Al iniciar la extensión desde la flexión máxima, el recto femoral está preestirado si la cadera está extendida; con la cadera flexionada sufre insuficiencia activa y pierde eficacia. Los vastos, monoarticulares, no dependen de la posición de la cadera.',
+        'Al iniciar la extensión desde la flexión de partida (~105 grados en el modelo; ~120 de pie en la persona), el recto femoral está preestirado si la cadera está extendida; con la cadera flexionada sufre insuficiencia activa y pierde eficacia. Los vastos, monoarticulares, no dependen de la posición de la cadera.',
       muscles: [
         {
           muscleId: 'rectus-femoris',
@@ -195,6 +310,51 @@ const extension: RomMovement = {
         { muscleId: 'vastus-intermedius', role: 'prime-mover' },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }],
+    },
+  ],
+  activations: [
+    {
+      muscleId: 'vastus-lateralis',
+      role: 'prime-mover',
+      note: 'Vasto monoarticular: extiende en todo el arco; máxima demanda en los últimos 30° (extension lag).',
+      curve: [
+        { deg: 0, level: 1 },
+        { deg: 30, level: 0.95 },
+        { deg: 90, level: 0.8 },
+        { deg: 105, level: 0.65 },
+      ],
+    },
+    {
+      muscleId: 'vastus-medialis',
+      role: 'prime-mover',
+      note: 'Guía el rastreo medial de la rótula; activo en todo el arco, énfasis terminal.',
+      curve: [
+        { deg: 0, level: 1 },
+        { deg: 30, level: 0.9 },
+        { deg: 90, level: 0.8 },
+        { deg: 105, level: 0.65 },
+      ],
+    },
+    {
+      muscleId: 'vastus-intermedius',
+      role: 'prime-mover',
+      note: 'Vasto profundo monoarticular: extiende junto al resto del cuádriceps.',
+      curve: [
+        { deg: 0, level: 0.95 },
+        { deg: 90, level: 0.8 },
+        { deg: 105, level: 0.65 },
+      ],
+    },
+    {
+      muscleId: 'rectus-femoris',
+      role: 'prime-mover',
+      note: 'Único cuádriceps biarticular; pierde eficacia con la cadera flexionada (insuficiencia activa).',
+      curve: [
+        { deg: 0, level: 0.9 },
+        { deg: 30, level: 0.85 },
+        { deg: 90, level: 0.75 },
+        { deg: 105, level: 0.6 },
+      ],
     },
   ],
 };
@@ -212,6 +372,7 @@ const internalRotation: RomMovement = {
   overview:
     'Rotación de la tibia hacia dentro, disponible SOLO con la rodilla flexionada (la extensión la bloquea). Se evalúa con la rodilla a 90 grados. La lideran los músculos mediales: poplíteo, semitendinoso, semimembranoso y la pata de ganso (sartorio, gracilis). El rango interno es algo menor que el externo.',
   region: 'knee',
+  rig: { axis: [0, 1, 0] },
   phases: [
     {
       startDeg: 0,
@@ -234,6 +395,12 @@ const internalRotation: RomMovement = {
       startDeg: 15,
       endDeg: 30,
       label: 'Rango final',
+      flag: {
+        label: 'Protección del LCA',
+        detail:
+          'La pata de ganso frena el valgo y la rotación externa forzada, protegiendo el ligamento cruzado anterior.',
+        tone: 'pearl',
+      },
       description:
         'La pata de ganso (sartorio + gracilis, con el semitendinoso) completa la rotación interna. Este grupo es además freno dinámico del valgo y de la rotación externa forzada, protegiendo el ligamento cruzado anterior.',
       muscles: [
@@ -247,6 +414,56 @@ const internalRotation: RomMovement = {
         { muscleId: 'popliteus', role: 'stabilizer' },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }],
+    },
+  ],
+  activations: [
+    {
+      muscleId: 'popliteus',
+      role: 'prime-mover',
+      note: 'Rotador interno primario; desbloquea la rodilla e inicia la rotación.',
+      curve: [
+        { deg: 0, level: 0.9 },
+        { deg: 15, level: 0.6 },
+        { deg: 30, level: 0.4 },
+      ],
+    },
+    {
+      muscleId: 'semitendinosus',
+      role: 'prime-mover',
+      note: 'Medial: completa la rotación interna con la pata de ganso.',
+      curve: [
+        { deg: 0, level: 0.5 },
+        { deg: 15, level: 0.8 },
+        { deg: 30, level: 1 },
+      ],
+    },
+    {
+      muscleId: 'semimembranosus',
+      role: 'assistant',
+      note: 'Medial: asiste la rotación interna.',
+      curve: [
+        { deg: 0, level: 0.4 },
+        { deg: 30, level: 0.7 },
+      ],
+    },
+    {
+      muscleId: 'sartorius',
+      role: 'assistant',
+      note: 'Pata de ganso: rotador interno y freno dinámico del valgo, en el rango final.',
+      curve: [
+        { deg: 10, level: 0.2 },
+        { deg: 15, level: 0.4 },
+        { deg: 30, level: 0.7 },
+      ],
+    },
+    {
+      muscleId: 'gracilis',
+      role: 'assistant',
+      note: 'Pata de ganso: rotador interno en el rango final.',
+      curve: [
+        { deg: 10, level: 0.2 },
+        { deg: 30, level: 0.6 },
+      ],
     },
   ],
 };
@@ -264,6 +481,7 @@ const externalRotation: RomMovement = {
   overview:
     'Rotación de la tibia hacia fuera, disponible solo con la rodilla flexionada y evaluada a 90 grados. El único motor es el bíceps femoral, el isquiotibial lateral. El rango externo es mayor que el interno. En la extensión, esta rotación ocurre de forma automática y pasiva (mecanismo de tornillo), no por acción muscular.',
   region: 'knee',
+  rig: { axis: [0, 1, 0] },
   phases: [
     {
       startDeg: 0,
@@ -295,6 +513,27 @@ const externalRotation: RomMovement = {
         },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }],
+    },
+  ],
+  activations: [
+    {
+      muscleId: 'biceps-femoris',
+      role: 'prime-mover',
+      note: 'Único rotador externo activo de la tibia; motor en todo el arco.',
+      curve: [
+        { deg: 0, level: 0.7 },
+        { deg: 20, level: 0.9 },
+        { deg: 40, level: 1 },
+      ],
+    },
+    {
+      muscleId: 'popliteus',
+      role: 'stabilizer',
+      note: 'Antagonista: frena excéntricamente el final de la rotación externa.',
+      curve: [
+        { deg: 20, level: 0.2 },
+        { deg: 40, level: 0.5 },
+      ],
     },
   ],
 };

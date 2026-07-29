@@ -105,26 +105,48 @@ export function SelectionPanel({ byMesh }: SelectionPanelProps) {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center text-center animate-fade-in">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800/40">
-        <svg
-          width="26"
-          height="26"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          className="text-slate-600"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-          <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-        </svg>
+      {/* Glowing "cursor pick" mark — a soft cyan halo behind a pointer glyph
+          reads as an inviting affordance rather than an empty placeholder. */}
+      <div className="relative mb-5 flex h-16 w-16 items-center justify-center">
+        <span className="absolute inset-0 rounded-2xl bg-accent/10 blur-md" />
+        <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-700/60 bg-gradient-to-b from-slate-800/60 to-slate-900/40 shadow-inner">
+          <svg
+            width="26"
+            height="26"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="text-accent/80"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M5 3l4.5 16 2.5-6.5L18.5 10 5 3z" />
+          </svg>
+        </div>
       </div>
-      <p className="max-w-[220px] text-sm leading-relaxed text-slate-500">
-        Haz click sobre una estructura del modelo para ver su informacion
-        detallada.
+
+      <p className="font-display text-sm font-semibold text-slate-300">
+        Explora el modelo
       </p>
+      <p className="mt-1.5 max-w-[230px] text-sm leading-relaxed text-slate-500">
+        Pasa el cursor para identificar una estructura y haz click para ver su
+        informacion clinica detallada.
+      </p>
+
+      {/* Quick keyboard hints — small, premium instrument-panel touch. */}
+      <div className="mt-6 flex flex-col gap-2 text-xs text-slate-500">
+        <div className="flex items-center gap-2">
+          <span className="kbd">1</span>
+          <span className="kbd">6</span>
+          <span>Vistas de camara</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="kbd">Ctrl</span>
+          <span className="kbd">K</span>
+          <span>Buscar estructura</span>
+        </div>
+      </div>
     </div>
   );
 }

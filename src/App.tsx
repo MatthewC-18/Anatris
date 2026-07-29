@@ -54,16 +54,21 @@ import { AuthModal } from './components/account/AuthModal';
 import { Paywall } from './components/account/Paywall';
 import { LandingScreen } from './components/landing/LandingScreen';
 import { Pricing } from './components/landing/Pricing';
-import { useEntitlement } from './auth/AuthContext';
+import { useAuth, useEntitlement } from './auth/AuthContext';
 import { AttributionScreen } from './components/AttributionScreen';
 import {
   MedicalDisclaimerBanner,
   MedicalDisclaimerScreen,
 } from './components/MedicalDisclaimer';
 import { OnboardingTour, readTourDone } from './components/OnboardingTour';
-import { REGIONS, resolveRegionMeshes } from './data/regiones';
+import { LegalScreen } from './components/LegalScreen';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { GuideHub } from './components/GuideHub';
+import { EvidenceScreen } from './components/EvidenceScreen';
+import { REGIONS, resolveRegionMeshes, resolveRegionFocus } from './data/regiones';
 
 import { isConceptModule } from './data/conceptByRegion';
+import { EVENTS, track } from './lib/analytics';
 
 /** Which mobile drawer (if any) is open. Desktop never opens these. */
 type Drawer = 'none' | 'sidebar' | 'selection';
@@ -200,6 +205,14 @@ export default function App() {
     return resolveRegionMeshes(def, byMesh.keys());
   }, [byMesh, regionId, concept]);
 
+  // Hero-framing focus: the compact joint-core the camera should open on for
+  // long-limb regions (knee/elbow). null = frame the full region bounds.
+  const regionFocusMeshes = useMemo(() => {
+    if (byMesh.size === 0 || concept) return null;
+    const def = REGIONS[regionId] ?? REGIONS.shoulder;
+    return resolveRegionFocus(def, byMesh.keys());
+  }, [byMesh, regionId, concept]);
+
   function acceptDisclaimer(): void {
     writeAccepted();
     setAccepted(true);
@@ -208,6 +221,7 @@ export default function App() {
   function enterApp(): void {
     writeEntered();
     setEntered(true);
+    track(EVENTS.enterApp);
   }
 
   if (!accepted) {
@@ -222,6 +236,7 @@ export default function App() {
       <>
         <LandingScreen onEnter={enterApp} onOpenAuth={() => setAuthOpen(true)} />
         <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+        <CheckoutToast />
       </>
     );
   }
@@ -241,7 +256,10 @@ export default function App() {
       </div>
 
       {/* The 3D views below are lazy-loaded; IndexLoading covers the brief
-          chunk fetch the first time the workspace is shown. */}
+          chunk fetch the first time the workspace is shown. A scoped
+          ErrorBoundary keeps a 3D crash from blanking the whole app and lets
+          the user recover by switching region/mode (resetKeys). */}
+      <ErrorBoundary variant="inline" label="la vista 3D" resetKeys={[regionId, mode]}>
       <Suspense fallback={<IndexLoading />}>
       {locked ? (
         // SUBSCRIPTION GATE: this region needs premium. Replace the whole body
@@ -275,6 +293,7 @@ export default function App() {
                 byMesh={byMesh}
                 regionMeshes={regionMeshes}
                 resolution={resolution}
+                onOpenEvidence={() => setOverlay('evidence')}
               />
             )}
           </main>
@@ -327,6 +346,7 @@ export default function App() {
                   <Viewer3D
                     byMesh={byMesh}
                     regionMeshes={regionMeshes}
+                    regionFocusMeshes={regionFocusMeshes}
                     resolution={resolution}
                   />
                 )}
@@ -358,6 +378,7 @@ export default function App() {
                 <Viewer3D
                   byMesh={byMesh}
                   regionMeshes={regionMeshes}
+                  regionFocusMeshes={regionFocusMeshes}
                   resolution={resolution}
                 />
                 <ViewToolbar />
@@ -372,6 +393,7 @@ export default function App() {
         </div>
       )}
       </Suspense>
+      </ErrorBoundary>
 
       {/* Compact-only floating buttons to open the drawers. */}
       {compact && mode !== 'study' && mode !== 'movement' && !locked && (
@@ -432,8 +454,8 @@ export default function App() {
         </OverlayShell>
       )}
       {overlay === 'legal' && (
-        <OverlayShell title="Aviso legal" onClose={() => setOverlay('none')}>
-          <MedicalDisclaimerScreen />
+        <OverlayShell title="Legal" onClose={() => setOverlay('none')}>
+          <LegalScreen defaultTab="terminos" />
         </OverlayShell>
       )}
       {overlay === 'pricing' && (
@@ -449,6 +471,63 @@ export default function App() {
           </div>
         </OverlayShell>
       )}
+      {overlay === 'guide' && (
+        <OverlayShell title="Guía rápida" onClose={() => setOverlay('none')}>
+          <GuideHub
+            mode={mode}
+            regionId={regionId}
+            onGo={(m) => {
+              setMode(m);
+              setOverlay('none');
+            }}
+            onReopenTour={() => {
+              setOverlay('none');
+              setTourDone(false);
+            }}
+            onOpenPricing={() => setOverlay('pricing')}
+            onOpenEvidence={() => setOverlay('evidence')}
+            onClose={() => setOverlay('none')}
+          />
+        </OverlayShell>
+      )}
+      {overlay === 'evidence' && (
+        <OverlayShell title="Evidencia clínica" onClose={() => setOverlay('none')}>
+          <EvidenceScreen region={regionId} />
+        </OverlayShell>
+      )}
+
+      <CheckoutToast />
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+ * Checkout toast: a soft, auto-dismissing notice after returning from Stripe.
+ * Currently only the 'cancel' case (abandoned checkout); success unlocks the
+ * app on its own via the AuthContext poll.
+ * ------------------------------------------------------------------------ */
+function CheckoutToast() {
+  const { checkoutNotice, clearCheckoutNotice } = useAuth();
+
+  useEffect(() => {
+    if (!checkoutNotice) return;
+    const t = window.setTimeout(clearCheckoutNotice, 6000);
+    return () => window.clearTimeout(t);
+  }, [checkoutNotice, clearCheckoutNotice]);
+
+  if (checkoutNotice !== 'cancel') return null;
+
+  return (
+    <div className="fixed bottom-4 left-1/2 z-[80] flex -translate-x-1/2 items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/95 px-4 py-2.5 text-sm text-slate-200 shadow-xl backdrop-blur">
+      <span>Pago cancelado. Sigues en el plan gratuito.</span>
+      <button
+        type="button"
+        onClick={clearCheckoutNotice}
+        aria-label="Cerrar aviso"
+        className="rounded-md p-0.5 text-slate-500 transition-colors hover:text-slate-200"
+      >
+        <CloseIcon />
+      </button>
     </div>
   );
 }

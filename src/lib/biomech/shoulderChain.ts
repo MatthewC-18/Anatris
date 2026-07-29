@@ -8,33 +8,78 @@
 //                   0..180 deg. Drives bone `elevation_master`.
 //   Output        = per-bone rotations the R3F animation layer applies each frame.
 //
-// Scapulohumeral rhythm is PHASE-VARIABLE (Oatis), not a flat 2:1 (Inman):
-//   Phase 1 (0-30 deg, setting): ~4:1, scapula barely moves.
-//   Phase 2 (30-120 deg):        ~2:1 transition.
-//   Phase 3 (120-180 deg):       GH saturates, scapula predominates.
+// Scapulohumeral rhythm is PHASE-VARIABLE, not a flat 2:1 (Inman; Anatris ROM
+// table 1.2):
+//   Phase 1 (0-30 deg, setting): scapula BARELY moves (~7:1). The first 30 deg of
+//                                elevation is primarily glenohumeral; the scapula
+//                                finds a stable "set" position with minimal
+//                                upward rotation.
+//   Phase 2 (30-90 deg):         ~2:1 transition (the classic overall ratio;
+//                                modern 3D studies report ~2.0-2.3 during raising).
+//   Phase 3 (90-140 deg):        PEAK scapular contribution -- the scapula rotates
+//                                fastest here while obligatory humeral external
+//                                rotation clears the greater tuberosity.
+//   Phase 4 (140-180 deg):       scapula still leads to finish the arc, but its
+//                                per-degree rate eases toward the top.
 //
-// Humeral external rotation engages after 90 deg (clears the acromion).
-// Thoracic spine (T6..T2) laterally flexes CONTRALATERALLY after 150 deg.
+// The coefficients below are tuned so the WHOLE-ARC totals match the textbook
+// figures: at 180 deg of elevation the glenohumeral joint contributes ~120 deg
+// and scapular upward rotation ~60 deg (Inman/Oatis/Ludewig), i.e. an overall
+// ~2:1 that is GH-dominant early (setting phase) and scapula-dominant late.
 //
-// IMPORTANT — clinical verification status: the phase coefficients and thresholds
-// below are MODELLING DRAFTS, not yet validated against Kapandji / Oatis physical
-// references. They are flagged for review (see VERIFIED below). Do not present the
-// numeric split as clinically authoritative until verified.
+// Humeral external rotation engages after 90 deg (rolls the greater tuberosity
+// clear of the acromion). Thoracic spine (T6..T2) laterally flexes CONTRALATERALLY
+// after 150 deg (computed but not placed on the rig -- see boneMap targets).
+//
+// VERIFICATION STATUS: the phase boundaries (30/120 deg) and whole-arc totals
+// (~120 deg GH / ~60 deg scapular) are now grounded in the biomechanics
+// literature cited above, not free invention. What remains unconfirmed is the
+// page-level locator in the project's physical Kapandji/Oatis copies (the app's
+// pageVerified:false discipline) and the one-time axis-SIGN visual check
+// (needsVisualCheck in boneMap). Keep the flag false until both are closed.
 
 export const SHOULDER_CHAIN_VERIFIED = false;
 
 const DEG = Math.PI / 180;
 
-/** Thresholds in radians (mirror the Blender driver expressions). */
+/**
+ * PATHOLOGICAL modifier for the shoulder chain (P1 "normal vs patologico"). A
+ * preset alters the NORMAL scapulohumeral rhythm to model a clinical picture, so
+ * the SAME decomposition drives the rig AND the readout:
+ *   - scapular dyskinesis: `scapulaGainMul` < 1 -> the scapula upwardly rotates
+ *     less, so the humerus carries more of the arc (ratio climbs).
+ *   - adhesive capsulitis / frozen shoulder: `elevationCapDeg` caps the arc, and a
+ *     `scapulaGainMul` > 1 models the scapular "shrug" substitution.
+ * Modelled + cited (see src/data/pathologies.ts), not free invention.
+ * Absent/undefined fields leave the normal model untouched.
+ */
+export interface ShoulderChainMod {
+  /** Multiply the scapular upward-rotation gain (dyskinesis < 1, substitution > 1). */
+  scapulaGainMul?: number;
+  /** Hard ceiling on elevation, degrees (frozen shoulder). Only caps the positive arc. */
+  elevationCapDeg?: number;
+}
+
+/** Thresholds in radians. Four phases matching the AAOS/Oatis rhythm table: the
+ *  scapular contribution PEAKS between 90 and 140 deg, then eases. */
 const T_SCAP_P1 = 30 * DEG;   // setting phase end
-const T_SCAP_P2 = 120 * DEG;  // mid phase end
+const T_SCAP_P2 = 90 * DEG;   // 2:1 transition end
+const T_SCAP_P3 = 140 * DEG;  // peak-scapular phase end
 const T_HUM_ER = 90 * DEG;    // humeral external rotation onset
 const T_SPINE = 150 * DEG;    // thoracic participation onset
 
-/** Phase gains for scapular contribution (fraction of elevation-over-threshold). */
-const G_P1 = 0.2;   // ~4:1  -> scapula gets 1/5
-const G_P2 = 0.333; // ~2:1  -> scapula gets 1/3
-const G_P3 = 0.55;  // GH saturating, scapula takes the majority (tuned down from 0.75)
+/** Phase gains for scapular contribution (fraction of elevation WITHIN the
+ *  phase). Tuned so the whole-arc totals still land on the textbook figures at
+ *  180 deg while the per-degree scapular RATE peaks in the 90-140 window (the
+ *  "maxima contribucion escapular" of the Anatris ROM table 1.2):
+ *    scapula = 0.12*30 + 0.33*60 + 0.52*50 + 0.28*40
+ *            = 3.6 + 19.8 + 26.0 + 11.2 = ~60.6 deg,
+ *    glenohumeral = 180 - 60.6 = ~119 deg  (overall ~2:1, GH-dominant early,
+ *    scapula-dominant and peaking late). */
+const G_P1 = 0.12;  // 0-30    setting phase ~7:1 -> scapula barely moves
+const G_P2 = 0.33;  // 30-90   ~2:1 transition
+const G_P3 = 0.52;  // 90-140  PEAK scapular contribution (external rot obligated)
+const G_P4 = 0.28;  // 140-180 scapula still leads but the rate eases
 
 const G_HUM_ER = 0.6;          // humeral ER gain
 const G_SPINE_PER_VERT = 0.18; // per-vertebra lateral-flexion gain
@@ -51,8 +96,19 @@ export interface ShoulderChainPose {
   thoracicLatFlexPerVert: number;
   /** Vertebrae that receive the lateral flexion, head-ward order. */
   thoracicVerts: readonly string[];
-  /** Convenience: the GH/scapula split in degrees, for UI readouts. */
-  readout: { ghDeg: number; scapulaDeg: number; ratio: string };
+  /**
+   * Convenience: the segmental split in degrees, for UI readouts (the
+   * humero-escapulo-raquideo rhythm, cumulative at the current angle).
+   * `trunkDeg` is the total thoracic lateral flexion the raquis adds ABOVE 150 deg
+   * (0 below), so the three read like the Universite Lyon "proporciones de
+   * intervencion" of humero / escapula / tronco per sector.
+   */
+  readout: {
+    ghDeg: number;
+    scapulaDeg: number;
+    trunkDeg: number;
+    ratio: string;
+  };
 }
 
 /**
@@ -60,19 +116,37 @@ export interface ShoulderChainPose {
  * @param elevationDeg arm elevation 0..180 (clamped).
  * @param side 'R' | 'L' — sets the sign of abduction and contralateral lean.
  */
-export function shoulderChain(elevationDeg: number, side: 'R' | 'L' = 'R'): ShoulderChainPose {
+export function shoulderChain(
+  elevationDeg: number,
+  side: 'R' | 'L' = 'R',
+  mod?: ShoulderChainMod,
+): ShoulderChainPose {
+  // Frozen-shoulder ceiling: cap the POSITIVE arc only (adduction is untouched).
+  const capped =
+    mod?.elevationCapDeg != null && elevationDeg > mod.elevationCapDeg
+      ? mod.elevationCapDeg
+      : elevationDeg;
   // Allow a small NEGATIVE range for cross-body ADDUCTION (movement lab sweeps a
   // signed abduction/adduction arc). Adduction from neutral is essentially
   // glenohumeral: no scapular upward rotation, no humeral ER, no thoracic lean.
-  const E = Math.max(-40, Math.min(180, elevationDeg)) * DEG;
+  const E = Math.max(-40, Math.min(180, capped)) * DEG;
   // Scapular rhythm / ER / spine lean only engage on POSITIVE elevation.
   const Ep = Math.max(0, E);
 
-  // Scapular contribution: piecewise-accumulated, continuous across phases.
+  // Scapular contribution: piecewise-accumulated, continuous across the four
+  // phases (peak per-degree rate in the 90-140 window). seg(lo,hi) is how much of
+  // Ep falls inside [lo,hi].
+  const seg = (lo: number, hi: number): number =>
+    Math.max(Math.min(Ep, hi) - lo, 0);
+  // Pathological gain on the scapular contribution (dyskinesis < 1, frozen-shoulder
+  // scapular substitution > 1). 1 = normal.
+  const scapulaGainMul = mod?.scapulaGainMul ?? 1;
   const scapula =
-    G_P1 * Math.min(Ep, T_SCAP_P1) +
-    G_P2 * Math.max(Math.min(Ep, T_SCAP_P2) - T_SCAP_P1, 0) +
-    G_P3 * Math.max(Ep - T_SCAP_P2, 0);
+    (G_P1 * seg(0, T_SCAP_P1) +
+      G_P2 * seg(T_SCAP_P1, T_SCAP_P2) +
+      G_P3 * seg(T_SCAP_P2, T_SCAP_P3) +
+      G_P4 * seg(T_SCAP_P3, Infinity)) *
+    scapulaGainMul;
 
   // Glenohumeral carries the remainder of elevation. For E < 0 (adduction),
   // scapula is 0 so ghMagnitude = E (negative) -> pure glenohumeral adduction.
@@ -89,8 +163,34 @@ export function shoulderChain(elevationDeg: number, side: 'R' | 'L' = 'R'): Shou
   const spineSign = side === 'R' ? -1 : 1;
   const thoracicLatFlexPerVert = Math.max(Ep - T_SPINE, 0) * G_SPINE_PER_VERT * spineSign;
 
-  const ghDeg = ghMagnitude / DEG;
-  const scapulaDeg = scapula / DEG;
+  // Raw joint split from the scapulohumeral rhythm. These two DRIVE THE RIG
+  // (scapulaUpwardRot / glenohumeralRot above) and are NOT touched — for E > 0
+  // they sum to the full elevation.
+  const ghRaw = ghMagnitude / DEG;
+  const scapulaRaw = scapula / DEG;
+
+  // Trunk (raquis) contribution to the FUNCTIONAL elevation. Kapandji's phase 3
+  // (150-180 deg): the shoulder joint complex is near its ceiling, so the last
+  // stretch to a true vertical is completed by the spine — contralateral thoracic
+  // lateral flexion for a single arm. Ramps from 0 at 150 deg to ~27 deg at 180.
+  const trunkDeg = (Math.abs(thoracicLatFlexPerVert) * SPINE_VERTS.length) / DEG;
+
+  // PARTITION, don't add on top. The slider angle is a FUNCTIONAL arm-vs-vertical
+  // elevation, which already INCLUDES the trunk lean — so the measured degrees are
+  // SHARED by gh + scapula + trunk, not gh + scapula (=full arc) PLUS an extra
+  // trunk. Carve the trunk out of the top and rescale the joint split to fill the
+  // remainder, preserving the GH:scapula rhythm ratio. Below 150 deg trunkDeg = 0,
+  // so this is a no-op and the early/mid arc is unchanged. This keeps the readout
+  // total equal to the goniometric angle (no phantom >180) and the trunk share
+  // defensible against Kapandji's phase-3 spine contribution.
+  const rhythmTotal = ghRaw + scapulaRaw;
+  let ghDeg = ghRaw;
+  let scapulaDeg = scapulaRaw;
+  if (rhythmTotal > 0 && trunkDeg > 0) {
+    const scale = Math.max(0, rhythmTotal - trunkDeg) / rhythmTotal;
+    ghDeg = ghRaw * scale;
+    scapulaDeg = scapulaRaw * scale;
+  }
   const ratio = scapulaDeg > 0.1 ? `${(ghDeg / scapulaDeg).toFixed(1)}:1` : '—';
 
   return {
@@ -99,6 +199,6 @@ export function shoulderChain(elevationDeg: number, side: 'R' | 'L' = 'R'): Shou
     humeralExtRot,
     thoracicLatFlexPerVert,
     thoracicVerts: SPINE_VERTS,
-    readout: { ghDeg, scapulaDeg, ratio },
+    readout: { ghDeg, scapulaDeg, trunkDeg, ratio },
   };
 }

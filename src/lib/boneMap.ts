@@ -27,7 +27,7 @@
 // live in a DIFFERENT armature. Those use `kind: 'chain'`, whose decomposition
 // is the pure, clinically-modelled function in ./biomech/shoulderChain.
 
-import { shoulderChain } from './biomech/shoulderChain';
+import { shoulderChain, type ShoulderChainMod } from './biomech/shoulderChain';
 
 export type RigAxis = 'x' | 'y' | 'z';
 export type Side = 'R' | 'L';
@@ -104,7 +104,12 @@ export interface ChainTarget {
  */
 export interface ChainControl {
   kind: 'chain';
-  decompose: (clinicalDeg: number, side: Side) => Record<string, number>;
+  /**
+   * Pure clinical-angle -> named-radian-outputs. Accepts an optional pathological
+   * modifier (P1) so the SAME decomposition that drives the rig also reflects a
+   * preset (dyskinesis / frozen shoulder); undefined = the normal model.
+   */
+  decompose: (clinicalDeg: number, side: Side, mod?: ShoulderChainMod) => Record<string, number>;
   targets: { key: string; target: ChainTarget }[];
   clinicalRange: { min: number; max: number };
   needsVisualCheck?: boolean;
@@ -152,14 +157,10 @@ const CERVICAL_BONES = [
   'vert_C7', 'vert_C6', 'vert_C5', 'vert_C4', 'vert_C3', 'vert_C2', 'vert_C1',
 ];
 
-// Thoracic vertebrae that take the contralateral lean during high shoulder
-// elevation (>150 deg), head-ward. Each receives the SAME per-level angle that
-// shoulderChain returns (thoracicLatFlexPerVert). Must match shoulderChain's own
-// SPINE_VERTS list.
-// (A prior GLB mis-skin -- Vertebra_T10/T11/T12 weighted to vert_T1 -- made any
-// upper-thoracic rotation drag those vertebrae out of place; that was re-skinned
-// in copia_fisio.blend and cuerpo-rig.glb was re-exported, so the lean is safe.)
-const ABDUCTION_THORACIC = ['vert_T6', 'vert_T5', 'vert_T4', 'vert_T3', 'vert_T2'];
+// (The thoracic contralateral lean during high shoulder elevation is no longer
+// placed on the rig -- see the abduction chain's `targets` for why. The
+// shoulderChain still COMPUTES thoracicLatFlexPerVert; it is simply not consumed,
+// so the trunk/neck stay put through the whole arc.)
 
 // ---------------------------------------------------------------------------
 // THE MAP: clinical movementId (from *Rom.ts) -> bone control.
@@ -174,13 +175,14 @@ export const BONE_MAP: Record<string, BoneControl> = {
   // decomposition; here we only place each output on the rig. Several outputs
   // hit humerus_gh on different axes (abduction Z, external rotation Y), so the
   // primary (humerus Z) is listed first and the runtime composes in order.
-  // SHOULDER_CHAIN_VERIFIED is still false: keep needsVisualCheck on.
+  // Axis SIGNS visually calibrated in the lab (abduction elevates + and out, the
+  // scapula upwardly rotates ~49 deg at 140 deg). SHOULDER_CHAIN_VERIFIED stays
+  // false only for the textbook phase-model locators, not the rig direction.
   'glenohumeral-abduction': {
     kind: 'chain',
     clinicalRange: { min: 0, max: 180 },
-    needsVisualCheck: true,
-    decompose: (deg, side) => {
-      const p = shoulderChain(deg, side);
+    decompose: (deg, side, mod) => {
+      const p = shoulderChain(deg, side, mod);
       // External rotation sign matches glenohumeral-external-rotation below
       // (R: +1, L: -1). shoulderChain returns it unsigned.
       const erSign = side === 'R' ? 1 : -1;
@@ -195,7 +197,10 @@ export const BONE_MAP: Record<string, BoneControl> = {
       { key: 'humerus', target: { armature: 'shoulder', bones: ['humerus_gh'], axis: 'z' } },
       { key: 'humeralER', target: { armature: 'shoulder', bones: ['humerus_gh'], axis: 'y' } },
       { key: 'scapula', target: { armature: 'shoulder', bones: ['scapula'], axis: 'x' } },
-      { key: 'thoracic', target: { armature: 'spine', bones: ABDUCTION_THORACIC, axis: 'z' } },
+      // Thoracic contralateral lean (>150 deg) intentionally NOT placed: with the
+      // body now fully skinned, leaning the T-spine while the head (rigid on
+      // vert_C1) stayed put tore the NECK skin off the trunk at the top of the
+      // arc. The scapulohumeral rhythm remains; only the trunk lean is dropped.
     ],
   },
   'glenohumeral-flexion': {
@@ -214,7 +219,6 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'y',
     sign: { R: 1, L: -1 },
     clinicalRange: { min: 0, max: 80 },
-    needsVisualCheck: true,
   },
   'glenohumeral-internal-rotation': {
     kind: 'joint',
@@ -223,7 +227,6 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'y',
     sign: { R: -1, L: 1 },
     clinicalRange: { min: 0, max: 100 },
-    needsVisualCheck: true,
   },
 
   // --- ELBOW (forearm_flex flexion; forearm_rot pronosupination)
@@ -255,7 +258,6 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'y',
     sign: { R: 1, L: -1 },
     clinicalRange: { min: 0, max: 85 },
-    needsVisualCheck: true,
   },
   'elbow-supination': {
     kind: 'joint',
@@ -264,17 +266,27 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'y',
     sign: { R: -1, L: 1 },
     clinicalRange: { min: 0, max: 90 },
-    needsVisualCheck: true,
   },
 
   // --- KNEE (shin_flex flexion; patella couples)
+  // RANGE = 105 deg, NOT the 120-140 deg clinical maximum -- a MESH limit, not a
+  // biomechanical one. The rig folds the calf as a RIGID block about the knee with
+  // no soft-tissue compression, so past ~110 deg the calf/gastrocnemius mesh drives
+  // THROUGH the thigh (measured offline on the GLB: deep interpenetration is ~0 up
+  // to 105 deg, then climbs -- 0.5% of calf verts >3 cm inside the thigh at 120 deg,
+  // 2.3% at 140 deg). 105 deg is where this figure's calf first meets its thigh, so
+  // it reads as a real deep-flexion pose that stops at soft-tissue apposition rather
+  // than clipping. The TRUE active ROM (~120 deg hip-extended, ~140 deg hip-flexed,
+  // ~160 deg passive heel-to-buttock; Kapandji/Neumann) is taught in kneeRom.ts.
+  // knee-extension shares this arc and starts at its flexed extreme, so it too opens
+  // on the clean 105 deg pose instead of an over-folded, clipping one.
   'knee-flexion': {
     kind: 'joint',
     armatureBase: 'Leg_Armature',
     bone: 'shin_flex',
     axis: 'x',
     sign: { R: -1, L: 1 },
-    clinicalRange: { min: 0, max: 140 },
+    clinicalRange: { min: 0, max: 105 },
     couplings: [patellarGlide],
   },
   'knee-extension': {
@@ -287,21 +299,160 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // RETURN toward 0 (shown with the quadriceps and started from the flexed
     // end), NOT a rotation past 0, which would kick the shin up into an
     // impossible forward hyperextension.
+    // Max 105 deg, matching knee-flexion (a MESH-clipping limit, not a clinical
+    // one): extension starts at that clean flexed pose where the calf just meets
+    // the thigh, not an over-folded angle where the calf mesh clips through it.
+    // See knee-flexion for the offline interpenetration measurements.
     sign: { R: -1, L: 1 },
-    clinicalRange: { min: 0, max: 140 },
+    clinicalRange: { min: 0, max: 105 },
     couplings: [patellarGlide],
   },
-  // The rig has no dedicated tibial-rotation bone (Leg_Armature stops at
-  // shin_flex/foot_flex), so axial tibial rotation cannot be reproduced.
+  // Tibial rotation: twist the shin bone about its LONG axis (shin_flex local Y
+  // is the tibial long axis, verified from the rig; local X is the knee-flexion
+  // axis). This rolls the shin + foot (foot_flex is its child) about the tibia,
+  // carrying the foot -- the same "isolate the axis" convention used for forearm
+  // pronation (shown with the knee straight; clinically it is assessed at 90 deg
+  // of flexion, per the ROM overview). Signs visually calibrated in the lab:
+  // internal turns the foot medially (popliteus), external laterally (biceps
+  // femoris).
   'knee-internal-rotation': {
-    kind: 'unsupported',
-    reason:
-      'La rotacion tibial no esta riggeada en este modelo (la pierna llega hasta flexion de rodilla y tobillo).',
+    kind: 'joint',
+    armatureBase: 'Leg_Armature',
+    bone: 'shin_flex',
+    axis: 'y',
+    sign: { R: 1, L: -1 },
+    clinicalRange: { min: 0, max: 30 },
   },
   'knee-external-rotation': {
-    kind: 'unsupported',
-    reason:
-      'La rotacion tibial no esta riggeada en este modelo (la pierna llega hasta flexion de rodilla y tobillo).',
+    kind: 'joint',
+    armatureBase: 'Leg_Armature',
+    bone: 'shin_flex',
+    axis: 'y',
+    sign: { R: -1, L: 1 },
+    clinicalRange: { min: 0, max: 40 },
+  },
+
+  // --- HIP (femur_base is the coxofemoral driver, the ROOT of Leg_Armature and
+  // the PARENT of shin_flex/patella, so hip motion carries the whole leg). The
+  // femur points hip -> knee (distally down), sharing shin_flex's local frame:
+  //   x = sagittal (flexion/extension), z = frontal (abduction/adduction),
+  //   y = longitudinal (internal/external rotation).
+  // SIGNS are the physiological best-guess mirrored off the knee (same armature,
+  // same axis convention) and flagged needsVisualCheck: the KINEMATICS (axis +
+  // range) are correct; only the +/- direction is calibrated once in the lab,
+  // exactly as the shoulder rotations / lateral flexions were. Ranges follow
+  // Kapandji / Neumann active norms.
+  'hip-flexion': {
+    kind: 'joint',
+    armatureBase: 'Leg_Armature',
+    bone: 'femur_base',
+    axis: 'x',
+    // Flexion swings the distal femur ANTERIORLY -> opposite local sign to knee
+    // flexion (which folds the shin posteriorly on the same axis).
+    sign: { R: 1, L: -1 },
+    // RANGE = 90, NOT the 120 clinical maximum: the rig raises the WHOLE leg with
+    // the knee STRAIGHT (no knee-flexion coupling), so this is a straight-leg
+    // raise, limited to ~90 deg by the hamstrings before the pelvis tilts. 120
+    // deg is only reachable with the knee flexed; posing the straight rig at 120
+    // reads as an inhuman over-kick. The true 120 deg (knee-flexed) is taught in
+    // hipRom.ts's overview.
+    clinicalRange: { min: 0, max: 90 },
+    needsVisualCheck: true,
+  },
+  'hip-extension': {
+    kind: 'joint',
+    armatureBase: 'Leg_Armature',
+    bone: 'femur_base',
+    axis: 'x',
+    // A REAL movement past neutral (unlike the knee, where extension only
+    // returns toward 0): the thigh travels posteriorly, so the sign is the
+    // opposite of hip flexion.
+    sign: { R: -1, L: 1 },
+    clinicalRange: { min: 0, max: 20 },
+    needsVisualCheck: true,
+  },
+  'hip-abduction': {
+    kind: 'joint',
+    armatureBase: 'Leg_Armature',
+    bone: 'femur_base',
+    axis: 'z',
+    // Frontal plane: distal femur swings AWAY from the midline. Sign visually
+    // CALIBRATED: the first guess drove the leg medially (through the stance
+    // leg), so it is flipped -> R:-1 / L:+1 abducts outward.
+    sign: { R: -1, L: 1 },
+    clinicalRange: { min: 0, max: 45 },
+  },
+  'hip-adduction': {
+    kind: 'joint',
+    armatureBase: 'Leg_Armature',
+    bone: 'femur_base',
+    axis: 'z',
+    // Toward / across the midline: opposite of (the calibrated) abduction.
+    // Capped at 20 deg because the rig keeps BOTH legs present with the knee
+    // straight, so any adduction drives the moving leg into the stance leg;
+    // 20 deg reads as a real cross-over without deep mesh interpenetration.
+    sign: { R: 1, L: -1 },
+    clinicalRange: { min: 0, max: 20 },
+  },
+  'hip-internal-rotation': {
+    kind: 'joint',
+    armatureBase: 'Leg_Armature',
+    bone: 'femur_base',
+    axis: 'y',
+    // Longitudinal roll; mirrors the knee's tibial rotation sign convention.
+    sign: { R: 1, L: -1 },
+    clinicalRange: { min: 0, max: 40 },
+    needsVisualCheck: true,
+  },
+  'hip-external-rotation': {
+    kind: 'joint',
+    armatureBase: 'Leg_Armature',
+    bone: 'femur_base',
+    axis: 'y',
+    sign: { R: -1, L: 1 },
+    clinicalRange: { min: 0, max: 45 },
+    needsVisualCheck: true,
+  },
+
+  // --- ANKLE (foot_flex is the talocrural driver, CHILD of shin_flex, so it
+  // follows the knee/leg). Dorsi/plantarflexion is the sagittal hinge; inversion
+  // /eversion is the subtalar frontal component. Same needsVisualCheck discipline
+  // as the hip: axes + ranges are correct, the +/- is calibrated once in the lab.
+  'ankle-dorsiflexion': {
+    kind: 'joint',
+    armatureBase: 'Leg_Armature',
+    bone: 'foot_flex',
+    axis: 'x',
+    sign: { R: 1, L: -1 },
+    clinicalRange: { min: 0, max: 20 },
+    needsVisualCheck: true,
+  },
+  'ankle-plantarflexion': {
+    kind: 'joint',
+    armatureBase: 'Leg_Armature',
+    bone: 'foot_flex',
+    axis: 'x',
+    sign: { R: -1, L: 1 },
+    clinicalRange: { min: 0, max: 50 },
+    needsVisualCheck: true,
+  },
+  'ankle-inversion': {
+    kind: 'joint',
+    armatureBase: 'Leg_Armature',
+    bone: 'foot_flex',
+    axis: 'y',
+    sign: { R: 1, L: -1 },
+    clinicalRange: { min: 0, max: 35 },
+    needsVisualCheck: true,
+  },
+  'ankle-eversion': {
+    kind: 'joint',
+    armatureBase: 'Leg_Armature',
+    bone: 'foot_flex',
+    axis: 'y',
+    sign: { R: -1, L: 1 },
+    clinicalRange: { min: 0, max: 15 },
+    needsVisualCheck: true,
   },
 
   // --- SPINE: regional angle distributed across that region's vertebrae.
@@ -316,11 +467,11 @@ export const BONE_MAP: Record<string, BoneControl> = {
   },
   'lumbar-lateral-flexion': {
     kind: 'spine', armature: 'Spine_Armature', bones: LUMBAR_BONES,
-    axis: 'z', sign: 1, clinicalRange: { min: 0, max: 25 }, needsVisualCheck: true,
+    axis: 'z', sign: 1, clinicalRange: { min: 0, max: 25 },
   },
   'lumbar-rotation': {
     kind: 'spine', armature: 'Spine_Armature', bones: LUMBAR_BONES,
-    axis: 'y', sign: 1, clinicalRange: { min: 0, max: 5 }, needsVisualCheck: true,
+    axis: 'y', sign: 1, clinicalRange: { min: 0, max: 5 },
   },
 
   'thoracic-flexion': {
@@ -333,11 +484,11 @@ export const BONE_MAP: Record<string, BoneControl> = {
   },
   'thoracic-lateral-flexion': {
     kind: 'spine', armature: 'Spine_Armature', bones: THORACIC_BONES,
-    axis: 'z', sign: 1, clinicalRange: { min: 0, max: 30 }, needsVisualCheck: true,
+    axis: 'z', sign: 1, clinicalRange: { min: 0, max: 30 },
   },
   'thoracic-rotation': {
     kind: 'spine', armature: 'Spine_Armature', bones: THORACIC_BONES,
-    axis: 'y', sign: 1, clinicalRange: { min: 0, max: 35 }, needsVisualCheck: true,
+    axis: 'y', sign: 1, clinicalRange: { min: 0, max: 35 },
   },
 
   'cervical-flexion': {
@@ -350,11 +501,16 @@ export const BONE_MAP: Record<string, BoneControl> = {
   },
   'cervical-lateral-flexion': {
     kind: 'spine', armature: 'Spine_Armature', bones: CERVICAL_BONES,
-    axis: 'z', sign: 1, clinicalRange: { min: 0, max: 45 }, needsVisualCheck: true,
+    axis: 'z', sign: 1, clinicalRange: { min: 0, max: 45 },
   },
+  // ~50% of cervical axial rotation happens at the atlanto-axial joint (C1-C2),
+  // not uniformly along the neck (Anatris ROM 3.2: "no animar la rotacion como un
+  // giro uniforme"). CERVICAL_BONES runs C7..C1, so the last two entries (C2, C1)
+  // carry half the total between them and the head leads the twist.
   'cervical-rotation': {
     kind: 'spine', armature: 'Spine_Armature', bones: CERVICAL_BONES,
-    axis: 'y', sign: 1, clinicalRange: { min: 0, max: 80 }, needsVisualCheck: true,
+    axis: 'y', sign: 1, clinicalRange: { min: 0, max: 80 },
+    weights: [0.09, 0.09, 0.1, 0.1, 0.12, 0.25, 0.25],
   },
 };
 
