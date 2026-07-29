@@ -33,6 +33,14 @@ export const CURRENCIES: Record<CurrencyCode, CurrencyPlan> = {
 /** Order shown in the currency selector. */
 export const CURRENCY_ORDER: CurrencyCode[] = ['usd', 'eur', 'mxn', 'cop'];
 
+/**
+ * Free-trial length (days) offered to FIRST-TIME subscribers at checkout, shown
+ * in the paywall / pricing CTAs. This is the DISPLAY value; the trial is actually
+ * created by the create-checkout edge function, so it MUST match its
+ * STRIPE_TRIAL_DAYS secret (default 7). Set to 0 to disable the trial everywhere.
+ */
+export const TRIAL_DAYS = 7;
+
 /** Regions we bill in EUR (a pragmatic eurozone subset). */
 const EUR_REGIONS = new Set([
   'ES', 'DE', 'FR', 'IT', 'PT', 'NL', 'IE', 'AT', 'BE', 'FI', 'GR',
