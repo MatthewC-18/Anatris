@@ -20,5 +20,7 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "// tests": "Unit tests run under vitest (its own transform), so keep them out of the app production typecheck/build.",
+  "exclude": ["src/**/*.test.ts", "src/**/__tests__/**"]
 }

@@ -4,7 +4,7 @@
 //   npx tsx --tsconfig tsconfig.scripts.json scripts/build-anatomy-index.ts
 // (or `npm run build-anatomy`)
 //
-// Reads public/modelo-opt.glb through Three.js GLTFLoader — the same loader
+// Reads rig-src/modelo-opt.glb through Three.js GLTFLoader — the same loader
 // the runtime viewer uses — so that every entry's `meshName` is guaranteed
 // to match what `THREE.Mesh.name` returns in the browser.
 //
@@ -45,7 +45,7 @@ import type {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '..');
-const INPUT = resolve(projectRoot, 'public', 'modelo-opt.glb');
+const INPUT = resolve(projectRoot, 'rig-src', 'modelo-opt.glb');
 const OUTPUT = resolve(projectRoot, 'data', 'anatomy-index.json');
 // Copy alongside the GLB so the viewer can fetch it from /anatomy-index.json
 const OUTPUT_PUBLIC = resolve(projectRoot, 'public', 'anatomy-index.json');

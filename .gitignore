@@ -30,3 +30,11 @@ desktop.ini
 # Backups and scratch dumps
 *.bak
 *.local
+
+# Blender/rig source material — huge (.blend + backup .glb). The RUNTIME models
+# live in public/; these sources stay local (back them up separately).
+rig-src/
+*-bones.txt
+
+# Local Claude Code tooling / preview config
+.claude/
