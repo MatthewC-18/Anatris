@@ -413,6 +413,12 @@ const flexion: RomMovement = {
       startDeg: 60,
       endDeg: 120,
       label: 'Rango medio',
+      flag: {
+        label: 'Pinzamiento anterior (Neer)',
+        detail:
+          'La flexión hacia adelante lleva el troquíter y el supraespinoso bajo el arco coracoacromial: es la base del signo de Neer.',
+        tone: 'warn',
+      },
       description:
         'El deltoides anterior sostiene la elevación mientras la escápula suma su rotación superior en el ritmo escapulohumeral (~2:1): el trapecio y el serrato anterior orientan la glenoides hacia arriba. El manguito mantiene centrada la cabeza humeral.',
       muscles: [
@@ -441,8 +447,14 @@ const flexion: RomMovement = {
       startDeg: 120,
       endDeg: 180,
       label: 'Final',
+      flag: {
+        label: 'Rotación superior escapular obligada',
+        detail:
+          'Sin la báscula de la escápula (serrato anterior + trapecio inferior) el brazo no alcanza la vertical; su fallo limita la flexión y reproduce el conflicto.',
+        tone: 'pearl',
+      },
       description:
-        'La rotación superior de la escápula (trapecio y serrato anterior) permite alcanzar la vertical.',
+        'En el último tercio la glenohumeral se acerca a su techo, de modo que la rotación superior de la escápula predomina para completar el arco: el serrato anterior y el trapecio inferior orientan la glenoides hacia arriba y llevan la mano a la vertical. El manguito mantiene centrada la cabeza humeral hasta el final.',
       muscles: [
         { muscleId: 'trapezius', role: 'prime-mover' },
         { muscleId: 'serratus-anterior', role: 'prime-mover' },
@@ -613,6 +625,12 @@ const externalRotation: RomMovement = {
       startDeg: 0,
       endDeg: 80,
       label: 'Arco completo',
+      flag: {
+        label: 'Estabilidad anterior',
+        detail:
+          'El manguito posterior (infraespinoso, redondo menor) frena la traslación anterior de la cabeza humeral; su déficit se asocia a aprensión anterior.',
+        tone: 'pearl',
+      },
       description:
         'El infraespinoso y el redondo menor son los rotadores externos principales en todo el arco; el deltoides posterior asiste.',
       muscles: [
@@ -752,6 +770,12 @@ const internalRotation: RomMovement = {
       startDeg: 0,
       endDeg: 100,
       label: 'Arco completo',
+      flag: {
+        label: 'Déficit de rotación interna (GIRD)',
+        detail:
+          'En deportistas de lanzamiento, la pérdida de rotación interna glenohumeral por rigidez capsular posterior (GIRD) se asocia a lesión del labrum y pinzamiento interno.',
+        tone: 'warn',
+      },
       description:
         'El subescapular es el rotador interno principal del manguito; el pectoral mayor, el dorsal ancho y el redondo mayor son rotadores internos potentes que asisten.',
       muscles: [
