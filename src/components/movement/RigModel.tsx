@@ -202,6 +202,12 @@ const SHOULDER_SPINE_ANCHOR = 'vert_T3';
 // The distal hand/foot caps keep their own solid material (they'd look hollow if
 // faded, since their internals are intentionally hidden). See the fade useFrame.
 const BODY_SKIN_GHOST_OPACITY = 0.16; // opacity while muscles are active
+// Faint cool emissive lift applied ONLY as the skin ghosts, so the translucent
+// shell reads as luminous edge-lit GLASS (paired with the material's Fresnel
+// sheen) instead of a muddy gray film over the muscles. Scaled by the ghost
+// amount in the fade useFrame; 0 when the skin is solid, so it never tints the
+// distal hand/foot caps (they keep the solid skinMat, emissiveIntensity 0).
+const BODY_SKIN_GHOST_EMISSIVE = 0.45;
 
 // Emissive tint for the click-to-dissect SELECTION (sky-300): shows what the
 // "Diseccionar" button will remove without repainting the muscle's own color.
@@ -915,14 +921,30 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         }
         return m;
       };
+      // PREMIUM LIVING SKIN (G1). MeshPhysicalMaterial so we get two cheap upgrades
+      // over matte plastic, both without a transmission pass (that pass re-renders
+      // the whole scene per frame -- too costly for the 1300-mesh rig on physio
+      // laptops): (1) a CLEARCOAT lobe -> a soft dewy sheen over the diffuse that
+      // reads as living tissue; (2) a stronger SHEEN, which is a built-in Fresnel
+      // term -> it lights the silhouette's grazing edge so the body reads as a
+      // luminous envelope (the signature "ghost skin" look of Complete Anatomy /
+      // Visible Body). Applies ONLY to skin meshes (body shell + distal caps), not
+      // the muscle bellies, so the extra shader cost is bounded. Reversible: was
+      // roughness 0.62 / env 0.35 / sheen 0.4, no clearcoat, no emissive.
       const skinMat = new THREE.MeshPhysicalMaterial({
         color: 0xd7a88f,
-        roughness: 0.62,
+        roughness: 0.6,
         metalness: 0.0,
-        envMapIntensity: 0.35,
-        sheen: 0.4,
-        sheenRoughness: 0.8,
-        sheenColor: new THREE.Color(0xffd8c2),
+        envMapIntensity: 0.42,
+        clearcoat: 0.35,
+        clearcoatRoughness: 0.6,
+        sheen: 0.6,
+        sheenRoughness: 0.75,
+        sheenColor: new THREE.Color(0xffdcc6),
+        // Cool base tint the ghost fade scales up (see BODY_SKIN_GHOST_EMISSIVE);
+        // intensity 0 here so the always-solid distal caps stay untinted.
+        emissive: new THREE.Color(0x1a2740),
+        emissiveIntensity: 0.0,
         side: THREE.DoubleSide,
       });
       // Body skin gets its OWN material instance so it can fade to a translucent
@@ -1594,6 +1616,10 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
     skinFadeRef.current = next;
     const opacity = 1 - next * (1 - BODY_SKIN_GHOST_OPACITY);
     mat.opacity = opacity;
+    // Glass, not gray film: lift the shell's emissive as it ghosts so the
+    // translucent envelope glows softly (edge-lit by its Fresnel sheen) instead of
+    // reading as a dull veil over the muscles. Rides back to 0 as it re-solidifies.
+    mat.emissiveIntensity = next * BODY_SKIN_GHOST_EMISSIVE;
     // Stop writing depth once translucent so the muscles behind are not occluded.
     mat.depthWrite = opacity > 0.92;
   });
