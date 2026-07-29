@@ -6,11 +6,19 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth, useEntitlement } from '../../auth/AuthContext';
+import { SetPasswordModal } from './SetPasswordModal';
 
-export function AccountMenu({ onOpenAuth }: { onOpenAuth: () => void }) {
-  const { snapshot, signOut, startCheckout, manageBilling } = useAuth();
+export function AccountMenu({
+  onOpenAuth,
+  onOpenPricing,
+}: {
+  onOpenAuth: () => void;
+  onOpenPricing: () => void;
+}) {
+  const { snapshot, signOut, manageBilling } = useAuth();
   const { isPremium } = useEntitlement();
   const [open, setOpen] = useState(false);
+  const [changePw, setChangePw] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,7 +37,8 @@ export function AccountMenu({ onOpenAuth }: { onOpenAuth: () => void }) {
         onClick={onOpenAuth}
         className="shrink-0 rounded-lg border border-slate-800/80 px-3 py-1.5 text-sm font-medium text-slate-300 transition-colors hover:border-slate-700 hover:text-slate-100"
       >
-        Iniciar sesión
+        <span className="sm:hidden">Entrar</span>
+        <span className="hidden sm:inline">Iniciar sesión</span>
       </button>
     );
   }
@@ -71,9 +80,9 @@ export function AccountMenu({ onOpenAuth }: { onOpenAuth: () => void }) {
             <MenuItem
               label="Mejorar a Premium"
               accent
-              onClick={async () => {
+              onClick={() => {
                 setOpen(false);
-                await startCheckout();
+                onOpenPricing();
               }}
             />
           ) : (
@@ -86,6 +95,13 @@ export function AccountMenu({ onOpenAuth }: { onOpenAuth: () => void }) {
             />
           )}
           <MenuItem
+            label="Cambiar contraseña"
+            onClick={() => {
+              setOpen(false);
+              setChangePw(true);
+            }}
+          />
+          <MenuItem
             label="Cerrar sesión"
             onClick={async () => {
               setOpen(false);
@@ -94,6 +110,12 @@ export function AccountMenu({ onOpenAuth }: { onOpenAuth: () => void }) {
           />
         </div>
       )}
+
+      <SetPasswordModal
+        open={changePw}
+        mode="change"
+        onClose={() => setChangePw(false)}
+      />
     </div>
   );
 }

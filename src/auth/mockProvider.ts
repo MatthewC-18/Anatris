@@ -66,6 +66,10 @@ export function createMockBackend(): AuthBackend {
       return snapshot();
     },
 
+    async refresh() {
+      return snapshot();
+    },
+
     onChange(cb) {
       listeners.add(cb);
       return () => listeners.delete(cb);
@@ -86,6 +90,34 @@ export function createMockBackend(): AuthBackend {
     async signUp(email, password): Promise<AuthResult> {
       // In the mock, sign up and sign in are equivalent.
       return this.signIn(email, password);
+    },
+
+    async signInWithGoogle(): Promise<AuthResult> {
+      // No real OAuth in the mock: sign a demo Google account in immediately so
+      // the whole funnel is demoable.
+      const email = 'demo.google@anatris.app';
+      write(USER_KEY, { id: `mock-google-${email}`, email });
+      emit();
+      return { ok: true };
+    },
+
+    async resetPassword(email): Promise<AuthResult> {
+      if (!isValidEmail(email)) {
+        return { ok: false, error: 'Introduce un correo válido.' };
+      }
+      return {
+        ok: true,
+        message:
+          'Modo demo: en producción te llegaría un enlace para restablecer la contraseña.',
+      };
+    },
+
+    async updatePassword(newPassword): Promise<AuthResult> {
+      // The mock never stored a password; accept any valid new one.
+      if (newPassword.length < 6) {
+        return { ok: false, error: 'La contraseña debe tener al menos 6 caracteres.' };
+      }
+      return { ok: true, message: 'Contraseña actualizada (demo).' };
     },
 
     async signOut() {

@@ -13,6 +13,9 @@
 
 import type { StudyCloud } from '../lib/studyState';
 
+/** Billing period the user picks at checkout. */
+export type BillingInterval = 'monthly' | 'annual';
+
 /** The signed-in user, reduced to what the UI needs. */
 export interface AuthUser {
   id: string;
@@ -42,6 +45,8 @@ export interface AuthResult {
   ok: boolean;
   /** User-facing (Spanish) error message when ok is false. */
   error?: string;
+  /** User-facing (Spanish) confirmation message when ok is true (e.g. "revisa tu correo"). */
+  message?: string;
 }
 
 /**
@@ -56,6 +61,13 @@ export interface AuthBackend {
   /** Resolve the initial snapshot (e.g. restore an existing session). */
   init(): Promise<AuthSnapshot>;
 
+  /**
+   * Re-resolve the current snapshot on demand (same shape as init). Used after
+   * returning from Stripe Checkout to pick up the webhook's subscription write
+   * without waiting for a page reload or an auth event.
+   */
+  refresh(): Promise<AuthSnapshot>;
+
   /** Subscribe to snapshot changes. Returns an unsubscribe function. */
   onChange(cb: (snap: AuthSnapshot) => void): () => void;
 
@@ -64,10 +76,40 @@ export interface AuthBackend {
   signOut(): Promise<void>;
 
   /**
-   * Begin the upgrade flow. In production this redirects to Stripe Checkout;
-   * in the mock it immediately grants premium so the funnel can be demoed.
+   * Federated sign-in with Google (OAuth). In production this redirects the
+   * browser to Google and back; the mock signs a demo Google account in
+   * immediately so the funnel is demoable without OAuth configured.
    */
-  startCheckout(): Promise<AuthResult>;
+  signInWithGoogle(): Promise<AuthResult>;
+
+  /**
+   * Send a password-recovery email. Resolves ok even when we can't confirm the
+   * address exists (to avoid leaking which emails are registered); the UI shows
+   * a neutral "revisa tu correo" message from `message`.
+   */
+  resetPassword(email: string): Promise<AuthResult>;
+
+  /**
+   * Set a new password for the CURRENTLY authenticated session. Used both after
+   * following a recovery link (recovery session) and from the account menu.
+   */
+  updatePassword(newPassword: string): Promise<AuthResult>;
+
+  /**
+   * Subscribe to the "arrived via a password-recovery link" event so the app can
+   * prompt the user to choose a new password. Returns an unsubscribe function.
+   * Optional: the mock has no real recovery flow and omits it.
+   */
+  onPasswordRecovery?(cb: () => void): () => void;
+
+  /**
+   * Begin the upgrade flow for the chosen billing period (default: monthly) and
+   * optional currency (a lowercase ISO code the Stripe price supports via
+   * currency_options; omitted -> the price's default currency). In production
+   * this redirects to Stripe Checkout; in the mock it immediately grants premium
+   * so the funnel can be demoed.
+   */
+  startCheckout(interval?: BillingInterval, currency?: string): Promise<AuthResult>;
 
   /** Open the billing/management portal (Stripe portal in production). */
   manageBilling?(): Promise<AuthResult>;

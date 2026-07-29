@@ -22,6 +22,8 @@ import type { StudyCloud } from '../lib/studyState';
 import { createMockBackend } from './mockProvider';
 import { createSupabaseBackend } from './supabaseProvider';
 import { canAccessRegion, isPremiumActive, type Plan } from './entitlements';
+import { hasAllAccess } from './devAccess';
+import { EVENTS, identifyUser, resetAnalytics, track } from '../lib/analytics';
 
 /** True when the Supabase env vars are present at build time. */
 export function isSupabaseConfigured(): boolean {
@@ -41,16 +43,35 @@ function resolveBackend(): AuthBackend {
   return createMockBackend();
 }
 
+/** A one-shot notice to surface after returning from Stripe Checkout. */
+export type CheckoutNotice = 'cancel' | null;
+
 interface AuthContextValue {
   loading: boolean;
   snapshot: AuthSnapshot;
   /** 'mock' or 'supabase' — handy for a dev badge. */
   backend: AuthBackend['name'];
+  /** Set to 'cancel' when the user returns from an abandoned checkout. */
+  checkoutNotice: CheckoutNotice;
+  /** Dismiss the checkout notice (e.g. after the toast auto-hides). */
+  clearCheckoutNotice: () => void;
   signIn: AuthBackend['signIn'];
   signUp: AuthBackend['signUp'];
   signOut: AuthBackend['signOut'];
+  signInWithGoogle: AuthBackend['signInWithGoogle'];
+  resetPassword: AuthBackend['resetPassword'];
+  updatePassword: AuthBackend['updatePassword'];
   startCheckout: AuthBackend['startCheckout'];
   manageBilling: () => Promise<AuthResult>;
+  /** Re-fetch the snapshot on demand (e.g. after returning from Checkout). */
+  refresh: () => Promise<void>;
+  /**
+   * True when the user opened the app via a password-recovery link and must
+   * choose a new password. The app surfaces a "set new password" dialog.
+   */
+  recoveryMode: boolean;
+  /** Dismiss the recovery prompt (after setting a password or cancelling). */
+  clearRecovery: () => void;
   /** Cloud transport for study-progress sync, or null on the local-only mock. */
   studyCloud: StudyCloud | null;
 }
@@ -67,6 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [snapshot, setSnapshot] = useState<AuthSnapshot>(EMPTY_SNAPSHOT);
   const [loading, setLoading] = useState(true);
+  const [checkoutNotice, setCheckoutNotice] = useState<CheckoutNotice>(null);
+  const [recoveryMode, setRecoveryMode] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -81,27 +104,125 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = backend.onChange((snap) => {
       if (alive) setSnapshot(snap);
     });
+    // Surface the "arrived via recovery link" event so the app can prompt for a
+    // new password. No-op on the mock (method omitted).
+    const unsubRecovery = backend.onPasswordRecovery
+      ? backend.onPasswordRecovery(() => {
+          if (alive) setRecoveryMode(true);
+        })
+      : () => {};
     return () => {
       alive = false;
       unsubscribe();
+      unsubRecovery();
     };
   }, [backend]);
+
+  // Post-checkout return: Stripe redirects back to `/?checkout=success|cancel`.
+  // The subscription is written by the webhook ASYNCHRONOUSLY, so on `success`
+  // we poll refresh() a few times until premium flips on (or we give up), which
+  // unlocks the app without the user having to reload. The param is stripped
+  // immediately so a manual reload can't re-trigger the poll.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let url: URL;
+    try {
+      url = new URL(window.location.href);
+    } catch {
+      return;
+    }
+    const status = url.searchParams.get('checkout');
+    if (!status) return;
+
+    url.searchParams.delete('checkout');
+    window.history.replaceState({}, '', url.toString());
+    if (status !== 'success') {
+      // 'cancel' -> nothing to unlock, but let the UI acknowledge it.
+      if (status === 'cancel') setCheckoutNotice('cancel');
+      return;
+    }
+
+    let alive = true;
+    let tries = 0;
+    const tick = async (): Promise<void> => {
+      if (!alive) return;
+      tries += 1;
+      const snap = await backend.refresh().catch(() => null);
+      if (!alive) return;
+      if (snap) {
+        setSnapshot(snap);
+        if (isPremiumActive(snap.subscription)) return; // premium is live
+      }
+      if (tries < 8) window.setTimeout(() => void tick(), 1500);
+    };
+    void tick();
+    return () => {
+      alive = false;
+    };
+  }, [backend]);
+
+  // Funnel analytics: identify the user, reset on sign-out, and fire
+  // `premium_activated` exactly once when the subscription crosses into premium.
+  // Seeded on the first snapshot so an already-premium returning user does NOT
+  // count as a fresh activation.
+  const prevPremiumRef = useRef(false);
+  const seededRef = useRef(false);
+  const identifiedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const user = snapshot.user;
+    if (user && identifiedRef.current !== user.id) {
+      identifyUser(user.id, { email: user.email });
+      identifiedRef.current = user.id;
+    } else if (!user && identifiedRef.current) {
+      resetAnalytics();
+      identifiedRef.current = null;
+    }
+    const isPremium = isPremiumActive(snapshot.subscription);
+    if (seededRef.current && isPremium && !prevPremiumRef.current) {
+      track(EVENTS.premiumActivated);
+    }
+    seededRef.current = true;
+    prevPremiumRef.current = isPremium;
+  }, [snapshot]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       loading,
       snapshot,
       backend: backend.name,
-      signIn: backend.signIn.bind(backend),
-      signUp: backend.signUp.bind(backend),
+      checkoutNotice,
+      clearCheckoutNotice: () => setCheckoutNotice(null),
+      signIn: async (email: string, password: string) => {
+        const res = await backend.signIn(email, password);
+        if (res.ok) track(EVENTS.signIn);
+        return res;
+      },
+      signUp: async (email: string, password: string) => {
+        const res = await backend.signUp(email, password);
+        if (res.ok) track(EVENTS.signUp);
+        return res;
+      },
+      signInWithGoogle: async () => {
+        const res = await backend.signInWithGoogle();
+        if (res.ok) track(EVENTS.signIn, { method: 'google' });
+        return res;
+      },
+      resetPassword: backend.resetPassword.bind(backend),
+      updatePassword: backend.updatePassword.bind(backend),
       signOut: backend.signOut.bind(backend),
       startCheckout: backend.startCheckout.bind(backend),
       manageBilling: backend.manageBilling
         ? backend.manageBilling.bind(backend)
         : async () => ({ ok: false, error: 'No disponible.' }),
+      refresh: async () => {
+        const snap = await backend.refresh();
+        setSnapshot(snap);
+      },
+      recoveryMode,
+      clearRecovery: () => setRecoveryMode(false),
       studyCloud: backend.studyCloud ? backend.studyCloud() : null,
     }),
-    [backend, loading, snapshot],
+    [backend, loading, snapshot, checkoutNotice, recoveryMode],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -126,12 +247,16 @@ export function useEntitlement(): Entitlement {
   const { snapshot } = useAuth();
   const sub = snapshot.subscription;
   return useMemo<Entitlement>(() => {
-    const isPremium = isPremiumActive(sub);
+    // Owner all-access override unlocks every region and silences the upgrade
+    // prompts, while normal users keep the free/premium funnel intact.
+    const override = hasAllAccess();
+    const isPremium = override || isPremiumActive(sub);
     return {
       plan: isPremium ? 'premium' : 'free',
       isPremium,
       subscription: sub,
-      canAccessRegion: (region: string) => canAccessRegion(region, sub),
+      canAccessRegion: (region: string) =>
+        override || canAccessRegion(region, sub),
     };
   }, [sub]);
 }

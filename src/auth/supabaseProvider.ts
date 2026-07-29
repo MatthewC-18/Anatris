@@ -20,6 +20,7 @@ import type {
   AuthResult,
   AuthSnapshot,
   AuthUser,
+  BillingInterval,
   Subscription,
 } from './types';
 import { FREE_SUBSCRIPTION } from './types';
@@ -115,6 +116,11 @@ export function createSupabaseBackend(url: string, anonKey: string): AuthBackend
       return snapshotFor(data.session?.user ?? null);
     },
 
+    async refresh() {
+      const { data } = await supabase.auth.getSession();
+      return snapshotFor(data.session?.user ?? null);
+    },
+
     onChange(cb) {
       const { data } = supabase.auth.onAuthStateChange((_event, session) => {
         // The callback must stay sync; resolve the snapshot then emit.
@@ -129,18 +135,69 @@ export function createSupabaseBackend(url: string, anonKey: string): AuthBackend
     },
 
     async signUp(email, password): Promise<AuthResult> {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) return { ok: false, error: friendly(error) };
+      // With "Confirm email" ON in Supabase, no session is returned until the
+      // user confirms — so tell them instead of silently appearing signed out.
+      // With confirmation OFF (recommended for launch), a session comes back
+      // immediately and the funnel continues straight to checkout.
+      if (!data.session) {
+        return {
+          ok: false,
+          error: 'Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.',
+        };
+      }
+      return { ok: true };
+    },
+
+    async signInWithGoogle(): Promise<AuthResult> {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+          queryParams: { prompt: 'select_account' },
+        },
+      });
+      // On success the browser is redirected to Google; nothing more to do here.
       return error ? { ok: false, error: friendly(error) } : { ok: true };
+    },
+
+    async resetPassword(email): Promise<AuthResult> {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      if (error) return { ok: false, error: friendly(error) };
+      return {
+        ok: true,
+        message:
+          'Si ese correo tiene una cuenta, te enviamos un enlace para restablecer la contraseña. Revisa tu bandeja (y el spam).',
+      };
+    },
+
+    async updatePassword(newPassword): Promise<AuthResult> {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) return { ok: false, error: friendly(error) };
+      return { ok: true, message: 'Contraseña actualizada.' };
+    },
+
+    onPasswordRecovery(cb) {
+      const { data } = supabase.auth.onAuthStateChange((event) => {
+        if (event === 'PASSWORD_RECOVERY') cb();
+      });
+      return () => data.subscription.unsubscribe();
     },
 
     async signOut() {
       await supabase.auth.signOut();
     },
 
-    async startCheckout(): Promise<AuthResult> {
+    async startCheckout(
+      interval: BillingInterval = 'monthly',
+      currency?: string,
+    ): Promise<AuthResult> {
       const { data, error } = await supabase.functions.invoke<{ url: string }>(
         'create-checkout',
-        { body: { returnUrl: window.location.origin } },
+        { body: { returnUrl: window.location.origin, interval, currency } },
       );
       if (error || !data?.url) {
         return { ok: false, error: 'No se pudo iniciar el pago. Inténtalo de nuevo.' };
