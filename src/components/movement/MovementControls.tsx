@@ -84,7 +84,11 @@ export function MovementControls({ region, patientMode = false }: MovementContro
   // Manual-resistance mode: draw the therapist's hands + force arrow opposing the
   // gesture and load the agonists harder. See RigOverlays / the readout below.
   const [resistance, setResistance] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  // Start collapsed on phones so the model is visible; expanded on desktop.
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 639px)').matches;
+  });
   // P1: active pathological preset (null = Normal). Only the elevation chain
   // supports it; reset to Normal whenever the movement changes.
   const [pathologyId, setPathologyId] = useState<string | null>(null);
@@ -408,9 +412,16 @@ export function MovementControls({ region, patientMode = false }: MovementContro
 
   return (
     <div className="pointer-events-auto w-[21rem] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-800/70 bg-ink-950/90 shadow-2xl backdrop-blur">
-      {/* Header / goniometer */}
-      <div className="flex items-start justify-between gap-3 p-3 pb-2">
-        <div className="min-w-0">
+      {/* Header = the always-visible handle bar. On phones the whole title
+          toggles collapse, and a play/pause + chevron sit on the right so the
+          user can run the movement with the panel collapsed and the model in
+          full view. On desktop the title is inert and the panel stays open. */}
+      <div className="flex items-center justify-between gap-2 p-3 pb-2">
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          className="min-w-0 flex-1 text-left lg:pointer-events-none"
+        >
           <h2 className="font-display text-sm font-bold text-slate-50">
             Laboratorio de movimiento
           </h2>
@@ -418,8 +429,8 @@ export function MovementControls({ region, patientMode = false }: MovementContro
             {gestureName ?? 'Selecciona un movimiento'}
             {movement?.plane ? ` · plano ${movement.plane.toLowerCase()}` : ''}
           </p>
-        </div>
-        <div className="flex items-center gap-2">
+        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
           {drivable && (
             <div className="rounded-lg border border-slate-800 bg-slate-900/60 px-2 py-1 text-right leading-none">
               <span className="font-display text-base font-bold tabular-nums text-slate-100">
@@ -427,6 +438,16 @@ export function MovementControls({ region, patientMode = false }: MovementContro
                 <span className="text-xs text-slate-400">°</span>
               </span>
             </div>
+          )}
+          {drivable && (
+            <button
+              type="button"
+              onClick={togglePlay}
+              aria-label={playing ? 'Pausar' : 'Reproducir'}
+              className="rounded-lg bg-accent/20 px-2.5 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/30 lg:hidden"
+            >
+              {reducedMotion ? '↹' : playing ? '⏸' : '▶'}
+            </button>
           )}
           <button
             type="button"
@@ -444,7 +465,7 @@ export function MovementControls({ region, patientMode = false }: MovementContro
           it is also height-capped + scrollable so the expanded panel can't grow
           tall enough to overlap the right-side stack; desktop is unchanged. */}
       <div
-        className={`${collapsed ? 'hidden' : 'block'} max-h-[42vh] overflow-y-auto px-3 pb-3 sm:max-h-none sm:overflow-visible`}
+        className={`${collapsed ? 'hidden' : 'block'} max-h-[46vh] overflow-y-auto px-3 pb-3 sm:max-h-none sm:overflow-visible lg:block`}
       >
         {/* Movement selector */}
         <label className="text-xs font-medium text-slate-400" htmlFor="mov-select">

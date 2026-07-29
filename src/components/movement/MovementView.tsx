@@ -104,8 +104,11 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
           title="Vista simplificada para mostrar al paciente"
           // Top-LEFT on phones (the RhythmReadout there is hidden < sm, so the
           // corner is free) to avoid overlapping the top-right Tests pill;
-          // top-center from sm up, where there is room.
-          className="pointer-events-auto absolute top-3 left-3 z-30 -translate-x-0 rounded-full border border-slate-700 bg-ink-950/80 px-4 py-1.5 text-xs font-medium text-slate-200 shadow-lg backdrop-blur transition-colors hover:bg-slate-800 sm:left-1/2 sm:-translate-x-1/2"
+          // top-center from sm up. Hidden on phones while a right sheet
+          // (tests/neuro) is open so it never sits under that sheet's header.
+          className={`pointer-events-auto absolute top-3 left-3 z-30 -translate-x-0 rounded-full border border-slate-700 bg-ink-950/80 px-4 py-1.5 text-xs font-medium text-slate-200 shadow-lg backdrop-blur transition-colors hover:bg-slate-800 sm:left-1/2 sm:-translate-x-1/2 ${
+            rightPanel !== 'none' ? 'hidden sm:block' : ''
+          }`}
         >
           👤 Modo paciente
         </button>
@@ -139,7 +142,9 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
           (tests / neuro / layer peel). All hidden in patient mode. */}
       {!patientMode && (
         <>
-          <div className="pointer-events-none absolute bottom-3 left-1/2 z-30 -translate-x-1/2">
+          {/* Raised on phones so the dissection card clears the collapsed
+              controls bar at the bottom and stays visible. */}
+          <div className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 sm:bottom-3">
             <DissectionPanel />
           </div>
           <div className="pointer-events-none absolute top-4 right-4 bottom-4 z-20 flex flex-col items-end gap-3">
