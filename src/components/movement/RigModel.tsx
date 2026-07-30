@@ -695,6 +695,10 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
   const rig = useMemo(() => {
     const byArmature = new Map<string, Map<string, THREE.Object3D>>();
     const restQuat = new Map<THREE.Object3D, THREE.Quaternion>();
+    // Rest LOCAL positions. Bones are rotation-only EXCEPT the latissimus helpers,
+    // which are also translated onto the humeral head (see driveLatsHelpers), so
+    // every reset restores position as well as rotation.
+    const restPos = new Map<THREE.Object3D, THREE.Vector3>();
     // Rest-pose WORLD matrices, used by the shoulder-yoke carry to compute the
     // vertebra's rest->posed delta and where the shoulder root should ride.
     const restWorld = new Map<THREE.Object3D, THREE.Matrix4>();
@@ -724,6 +728,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         const base = o.name.replace(/_\d+$/, '');
         if (!bones.has(base)) bones.set(base, o);
         if (!restQuat.has(o)) restQuat.set(o, o.quaternion.clone());
+        if (!restPos.has(o)) restPos.set(o, o.position.clone());
       });
       byArmature.set(armName, bones);
       // Capture the root's rest world matrix + local TRS for the carry.
@@ -737,7 +742,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
     // Capture the shoulder-anchor vertebra's rest world matrix.
     const anchor = byArmature.get('Spine_Armature')?.get(SHOULDER_SPINE_ANCHOR);
     if (anchor) restWorld.set(anchor, anchor.matrixWorld.clone());
-    return { byArmature, restQuat, restWorld, restRootLocal };
+    return { byArmature, restQuat, restPos, restWorld, restRootLocal };
   }, [scene]);
 
   // Tagged, kept meshes grouped by peelable layer. Built once in the prepare
@@ -1315,7 +1320,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
 
   const apply = useCallback(
     (cmd: RigCommand) => {
-      const { byArmature, restQuat, restWorld, restRootLocal } = rig;
+      const { byArmature, restQuat, restPos, restWorld, restRootLocal } = rig;
 
       // Glass skin: fade the body skin out while muscles are highlighted (or when
       // a demo forces it) so the movement reads through, and back to solid when
@@ -1327,6 +1332,8 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       for (const b of touchedRef.current) {
         const rq = restQuat.get(b);
         if (rq) b.quaternion.copy(rq);
+        const rp = restPos.get(b);
+        if (rp) b.position.copy(rp);
       }
       touchedRef.current.clear();
       // Restore any shoulder armature roots carried by the previous spine command.
@@ -1352,11 +1359,22 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       const done = () => scene.updateMatrixWorld(true);
 
       // Make each latissimus helper bone (Spine_Armature) take its side's humerus
-      // WORLD rotation, so the lats' humeral-insertion fibers ride the arm. Runs
-      // every command: at rest the humerus is at rest, so the helper is too (the
-      // lats returns to its spine-bound shape). Requires world matrices current.
+      // WORLD rotation AND world POSITION, so the lats' humeral-insertion fibers
+      // ride the arm. Runs every command: at rest the humerus is at rest, so the
+      // helper is too (the lats returns to its spine-bound shape). Requires world
+      // matrices current.
+      // Position matters because the glenohumeral joint TRANSLATES: the elevation
+      // chain upwardly rotates the scapula (~49 deg at 140), and the GH head sits
+      // ~4 cm from that pivot, so the joint travels ~3 cm at the top of the arc.
+      // Rotation alone left the insertion anchored at the REST glenoid -> a visible
+      // gap at the axilla. Same for spine movements: the helpers hang off the
+      // Spine_Armature ROOT (not a vertebra), so without the position copy the
+      // insertion stayed behind while the trunk bent. Helper and humerus are
+      // COINCIDENT at rest (verified in the GLB, dist 0.000), so this is a no-op at
+      // neutral. restPos restores it (see the reset loops).
       const _qHum = new THREE.Quaternion();
       const _qParent = new THREE.Quaternion();
+      const _pHum = new THREE.Vector3();
       const driveLatsHelpers = () => {
         const spineBones = byArmature.get('Spine_Armature');
         if (!spineBones) return;
@@ -1373,6 +1391,11 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           hum.getWorldQuaternion(_qHum);
           helper.parent.getWorldQuaternion(_qParent);
           helper.quaternion.copy(_qParent.invert().multiply(_qHum));
+          // World position of the humeral head, expressed in the helper's parent
+          // space (worldToLocal handles the armature root's own transform).
+          hum.getWorldPosition(_pHum);
+          helper.parent.worldToLocal(_pHum);
+          helper.position.copy(_pHum);
           touchedRef.current.add(helper);
         }
       };
@@ -1567,7 +1590,8 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // in Blender a Copy-Rotation makes two spine helper bones (latshum_l/r)
       // track each side's humerus, but glTF drops constraints, so we replicate it
       // here (same pattern as the scapulohumeral chain). Each helper takes its
-      // humerus's WORLD rotation; at rest the humerus is at rest so the helper is
+      // humerus's WORLD rotation AND position (the GH joint travels ~3 cm as the
+      // scapula upwardly rotates); at rest the humerus is at rest so the helper is
       // too. See rig-latissimus-cross-armature. No-op if the bones aren't in the
       // GLB yet (older rig export).
       scene.updateMatrixWorld(true);
@@ -1586,6 +1610,8 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       for (const b of touchedRef.current) {
         const rq = rig.restQuat.get(b);
         if (rq) b.quaternion.copy(rq);
+        const rp = rig.restPos.get(b);
+        if (rp) b.position.copy(rp);
       }
       touchedRef.current.clear();
       // Restore any carried shoulder armature roots too.
