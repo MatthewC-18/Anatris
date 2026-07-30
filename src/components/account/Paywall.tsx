@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { REGIONS } from '../../data/regiones';
 import { EVENTS, track } from '../../lib/analytics';
-import { CURRENCIES, detectCurrency, formatPrice } from '../../lib/pricing';
+import { CURRENCIES, TRIAL_DAYS, detectCurrency, formatPrice } from '../../lib/pricing';
 
 type Interval = 'monthly' | 'annual';
 
@@ -36,6 +36,9 @@ export function Paywall({
 
   const plan = CURRENCIES[currency];
   const perMonth = interval === 'annual' ? plan.annual / 12 : plan.monthly;
+  // Offer the trial only to users who have NEVER subscribed ('none'); a returning
+  // canceled user ('canceled') pays immediately (the backend denies repeat trials).
+  const trialEligible = TRIAL_DAYS > 0 && snapshot.subscription.status === 'none';
 
   // Funnel step: the visitor hit the paywall for a premium region.
   useEffect(() => track(EVENTS.paywallViewed, { region }), [region]);
@@ -88,6 +91,11 @@ export function Paywall({
             </span>
             <span className="text-xs text-slate-500">/ mes</span>
           </p>
+          {trialEligible && (
+            <p className="mt-1 rounded-full bg-emerald-600/15 px-3 py-1 text-[11px] font-semibold text-emerald-300">
+              {TRIAL_DAYS} días gratis, luego {formatPrice(plan, perMonth)}/mes
+            </p>
+          )}
           <p className="text-[11px] text-slate-500">
             {interval === 'annual'
               ? `Facturado ${formatPrice(plan, plan.annual)} al año · ahorra ${savingsPct(plan)}%`
@@ -109,13 +117,19 @@ export function Paywall({
         >
           {busy
             ? 'Procesando…'
-            : snapshot.user
-              ? 'Suscribirme a Premium'
-              : 'Inicia sesión para suscribirte'}
+            : !snapshot.user
+              ? trialEligible
+                ? `Inicia sesión y prueba ${TRIAL_DAYS} días gratis`
+                : 'Inicia sesión para suscribirte'
+              : trialEligible
+                ? `Empezar ${TRIAL_DAYS} días gratis`
+                : 'Suscribirme a Premium'}
         </button>
 
         <p className="mt-3 text-[11px] text-slate-600">
-          Cancela cuando quieras. El pago se procesa de forma segura con Stripe.
+          {trialEligible
+            ? `Sin cargo hoy. Cancela antes de que terminen los ${TRIAL_DAYS} días y no se te cobra.`
+            : 'Cancela cuando quieras. El pago se procesa de forma segura con Stripe.'}
         </p>
       </div>
     </div>

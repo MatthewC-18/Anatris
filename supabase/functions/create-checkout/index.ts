@@ -12,6 +12,9 @@
 //   STRIPE_PRICE_PREMIUM_ANNUAL     price_...   (annual recurring price)
 //   STRIPE_PRICE_PREMIUM            price_...   (legacy fallback: used for both
 //                                                if the two above are unset)
+//   STRIPE_TRIAL_DAYS              (optional) free-trial days for FIRST-TIME
+//                                  subscribers; default 7, 0 disables. MUST match
+//                                  TRIAL_DAYS in src/lib/pricing.ts (the UI copy).
 //   SUPABASE_URL                    (auto-injected in functions)
 //   SUPABASE_SERVICE_ROLE_KEY       (auto-injected in functions)
 //
@@ -28,6 +31,10 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!);
 const LEGACY = Deno.env.get('STRIPE_PRICE_PREMIUM');
 const PRICE_MONTHLY = Deno.env.get('STRIPE_PRICE_PREMIUM_MONTHLY') ?? LEGACY;
 const PRICE_ANNUAL = Deno.env.get('STRIPE_PRICE_PREMIUM_ANNUAL') ?? LEGACY;
+
+// Free-trial length for FIRST-TIME subscribers (must match TRIAL_DAYS in
+// src/lib/pricing.ts). 0 or unset-to-7 disables/sets the trial.
+const TRIAL_DAYS = Number(Deno.env.get('STRIPE_TRIAL_DAYS') ?? '7');
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -79,10 +86,11 @@ Deno.serve(async (req) => {
 
     const base = returnUrl ?? new URL(req.url).origin;
 
-    // Reuse an existing Stripe customer for this user if we have one.
+    // Reuse an existing Stripe customer for this user if we have one. Also read
+    // any prior subscription id so the trial is only granted to first-timers.
     const { data: existing } = await supabase
       .from('subscriptions')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, stripe_subscription_id')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -102,6 +110,16 @@ Deno.serve(async (req) => {
         .upsert({ user_id: user.id, stripe_customer_id: customerId });
     }
 
+    // Free trial ONLY for first-time subscribers (no prior subscription on
+    // record), so a returning/resubscribing customer can't farm repeat trials.
+    // The webhook already treats a `trialing` subscription as premium, and the
+    // customer portal lets them cancel before the first charge.
+    const isReturning = !!existing?.stripe_subscription_id;
+    const trialDays =
+      !isReturning && Number.isFinite(TRIAL_DAYS) && TRIAL_DAYS > 0
+        ? Math.floor(TRIAL_DAYS)
+        : undefined;
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
@@ -115,7 +133,12 @@ Deno.serve(async (req) => {
       // So the webhook can map the event back to our user even if metadata on
       // the customer is missing.
       client_reference_id: user.id,
-      subscription_data: { metadata: { supabase_user_id: user.id } },
+      subscription_data: {
+        metadata: { supabase_user_id: user.id },
+        // Card is still collected up front (Checkout default); the customer isn't
+        // charged until the trial ends, and the subscription starts `trialing`.
+        ...(trialDays ? { trial_period_days: trialDays } : {}),
+      },
     });
 
     return json({ url: session.url });
