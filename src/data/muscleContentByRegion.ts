@@ -23,18 +23,29 @@ export const MUSCLE_CONTENT_BY_REGION: Record<string, MuscleContentIndex> = {
   ankle: ANKLE_MUSCLES,
 };
 
+/** Shared empty index for regions with no rich content authored yet. */
+const NO_CONTENT: MuscleContentIndex = {};
+
 /**
- * Resolve the muscle content index for the active region. Falls back to the
- * shoulder index when no region is set (whole-body / initial boot), preserving
- * the previous behaviour where the panel always read SHOULDER_MUSCLES.
+ * Resolve the muscle content index for the active region.
+ *
+ * A region that is NOT in the registry above (today: the three spine
+ * sub-regions) gets an EMPTY index, not the shoulder's. The old fallback
+ * returned SHOULDER_MUSCLES for any unknown region, so any muscle whose id
+ * exists in both places rendered the shoulder's clinical card while the user was
+ * studying another region -- `levator-scapulae` did exactly that in cervical,
+ * which is a PAID region showing the free region's content. Callers already
+ * handle a missing entry by falling back to the muscle's own fields
+ * (SelectionPanel's BasicDetail), so an empty index degrades correctly.
+ *
+ * Only the null region (whole-body / initial boot) still defaults to the
+ * shoulder, which is the app's default region anyway.
  *
  * @param region the store's current region id (null = whole body)
  */
 export function muscleContentForRegion(
   region: string | null,
 ): MuscleContentIndex {
-  if (region && MUSCLE_CONTENT_BY_REGION[region]) {
-    return MUSCLE_CONTENT_BY_REGION[region];
-  }
-  return SHOULDER_MUSCLES;
+  if (region == null) return SHOULDER_MUSCLES;
+  return MUSCLE_CONTENT_BY_REGION[region] ?? NO_CONTENT;
 }

@@ -48,7 +48,7 @@ export function AttributionScreen(): JSX.Element {
     <div className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-8">
       <header>
         <h1 className="font-display text-2xl font-semibold text-slate-50">
-          Creditos y licencias
+          Créditos y licencias
         </h1>
         <p className="mt-1 text-sm leading-relaxed text-slate-400">
           Esta aplicacion utiliza recursos de terceros bajo licencias abiertas.

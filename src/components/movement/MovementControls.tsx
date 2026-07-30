@@ -33,6 +33,8 @@ import { musclesForRomLookup } from '../../data/musclesByRegion';
 import { REGIONS } from '../../data/regiones';
 import { exportPatientCard, type PatientCardInfo } from '../../lib/patientExport';
 import { patientInstruction } from '../../lib/patientPhrase';
+import { LockGlyph, useFeatureGate } from '../account/PremiumGate';
+import { FREE_MOVEMENT_QUOTA } from '../../auth/entitlements';
 
 const SIDE_LABEL: Record<Side, string> = { R: 'Derecho', L: 'Izquierdo' };
 
@@ -70,6 +72,23 @@ interface MovementControlsProps {
 export function MovementControls({ region, patientMode = false }: MovementControlsProps) {
   const movements = useMemo(() => romForRegion(region), [region]);
   const reducedMotion = usePrefersReducedMotion();
+
+  // CAPABILITY GATES. The free tier drives a DEMO of the lab (the first drivable
+  // movement) so the rig proves itself, but the tools a physio uses in front of a
+  // patient -- the full arc library, manual resistance, pathological presets --
+  // are premium. Locked entries stay listed with a lock, never hidden.
+  const labGate = useFeatureGate('movement-full');
+  const resistanceGate = useFeatureGate('resistance');
+  const pathologyGate = useFeatureGate('pathologies');
+
+  /** Movement ids the current plan may drive. */
+  const allowedIds = useMemo(() => {
+    if (labGate.unlocked) return null; // null = no restriction
+    const free = movements.filter((m) => isDrivable(m.id)).slice(0, FREE_MOVEMENT_QUOTA);
+    return new Set(free.map((m) => m.id));
+  }, [labGate.unlocked, movements]);
+
+  const isLockedMovement = (id: string) => allowedIds != null && !allowedIds.has(id);
 
   const [movementId, setMovementId] = useState<string>(() => {
     const drivable = movements.find((m) => isDrivable(m.id));
@@ -467,24 +486,50 @@ export function MovementControls({ region, patientMode = false }: MovementContro
       <div
         className={`${collapsed ? 'hidden' : 'block'} max-h-[46vh] overflow-y-auto px-3 pb-3 sm:max-h-none sm:overflow-visible lg:block`}
       >
-        {/* Movement selector */}
+        {/* Movement selector. Premium arcs stay LISTED (marked "Premium") rather
+            than filtered out, so the free user can see the size of the library;
+            picking one opens pricing and the selection snaps back. */}
         <label className="text-xs font-medium text-slate-400" htmlFor="mov-select">
           Movimiento
         </label>
         <select
           id="mov-select"
           value={movementId}
-          onChange={(e) => setMovementId(e.target.value)}
+          onChange={(e) => {
+            const next = e.target.value;
+            if (isLockedMovement(next)) {
+              labGate.requestUpgrade();
+              return; // value prop keeps the select on the allowed movement
+            }
+            setMovementId(next);
+          }}
           className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100 focus:border-accent focus:outline-none"
         >
           {movements.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}
               {m.labReverse ? ` / ${m.labReverse.name}` : ''}
-              {!isDrivable(m.id) ? ' (no disponible)' : ''}
+              {!isDrivable(m.id)
+                ? ' (no disponible)'
+                : isLockedMovement(m.id)
+                  ? ' — Premium'
+                  : ''}
             </option>
           ))}
         </select>
+        {allowedIds != null && (
+          <button
+            type="button"
+            onClick={labGate.requestUpgrade}
+            className="mt-1.5 flex w-full items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-500/[0.07] px-2 py-1.5 text-left text-[10px] leading-snug text-amber-200/90 transition-colors hover:bg-amber-400/12"
+          >
+            <LockGlyph className="shrink-0" />
+            <span>
+              Versión gratuita: 1 movimiento de demostración. Premium abre los{' '}
+              {movements.filter((m) => isDrivable(m.id)).length} arcos de esta región.
+            </span>
+          </button>
+        )}
 
         {/* Side toggle (paired limbs only) + markers toggle */}
         {drivable && (
@@ -530,12 +575,18 @@ export function MovementControls({ region, patientMode = false }: MovementContro
         {drivable && !isSpine && (
           <button
             type="button"
-            onClick={() => setResistance((r) => !r)}
-            aria-pressed={resistance}
+            onClick={
+              resistanceGate.unlocked
+                ? () => setResistance((r) => !r)
+                : resistanceGate.requestUpgrade
+            }
+            aria-pressed={resistanceGate.unlocked ? resistance : undefined}
             className={`mt-3 flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors ${
-              resistance
-                ? 'border-[#ff8c1a]/50 bg-[#ff8c1a]/12 text-[#ffcf9a]'
-                : 'border-slate-700 bg-slate-900/60 text-slate-300 hover:bg-slate-800'
+              !resistanceGate.unlocked
+                ? 'border-amber-500/30 bg-amber-500/[0.07] text-amber-200 hover:bg-amber-400/12'
+                : resistance
+                  ? 'border-[#ff8c1a]/50 bg-[#ff8c1a]/12 text-[#ffcf9a]'
+                  : 'border-slate-700 bg-slate-900/60 text-slate-300 hover:bg-slate-800'
             }`}
           >
             <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -544,16 +595,20 @@ export function MovementControls({ region, patientMode = false }: MovementContro
               <path d="M4 15.5h12" strokeLinecap="round" />
             </svg>
             <span className="flex-1 text-xs font-semibold">Resistencia manual</span>
-            <span
-              className={`text-[10px] font-bold uppercase ${
-                resistance ? 'text-[#ff8c1a]' : 'text-slate-600'
-              }`}
-            >
-              {resistance ? 'On' : 'Off'}
-            </span>
+            {!resistanceGate.unlocked ? (
+              <LockGlyph />
+            ) : (
+              <span
+                className={`text-[10px] font-bold uppercase ${
+                  resistance ? 'text-[#ff8c1a]' : 'text-slate-600'
+                }`}
+              >
+                {resistance ? 'On' : 'Off'}
+              </span>
+            )}
           </button>
         )}
-        {drivable && !isSpine && resistance && (
+        {drivable && !isSpine && resistance && resistanceGate.unlocked && (
           <div className="mt-2 rounded-lg border border-[#ff8c1a]/25 bg-[#ff8c1a]/8 px-2.5 py-2 text-[10px] leading-snug text-[#ffcf9a]/90">
             <p className="font-semibold text-[#ffcf9a]">Prueba resistida — cómo se hace</p>
             <p className="mt-1">
@@ -594,14 +649,21 @@ export function MovementControls({ region, patientMode = false }: MovementContro
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => setPathologyId(p.id)}
-                  className={`rounded-lg border px-2 py-1 text-[11px] font-medium transition-colors ${
-                    pathologyId === p.id
-                      ? 'border-amber-500/45 bg-amber-500/15 text-amber-200'
-                      : 'border-slate-700 bg-slate-900 text-slate-400 hover:bg-slate-800'
+                  onClick={
+                    pathologyGate.unlocked
+                      ? () => setPathologyId(p.id)
+                      : pathologyGate.requestUpgrade
+                  }
+                  className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium transition-colors ${
+                    !pathologyGate.unlocked
+                      ? 'border-amber-500/25 bg-amber-500/[0.07] text-amber-200/80 hover:bg-amber-400/12'
+                      : pathologyId === p.id
+                        ? 'border-amber-500/45 bg-amber-500/15 text-amber-200'
+                        : 'border-slate-700 bg-slate-900 text-slate-400 hover:bg-slate-800'
                   }`}
                 >
                   {p.chip}
+                  {!pathologyGate.unlocked && <LockGlyph />}
                 </button>
               ))}
             </div>

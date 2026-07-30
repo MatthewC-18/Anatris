@@ -71,7 +71,7 @@ export function SelectionPanel({ byMesh }: SelectionPanelProps) {
     <aside className="flex h-full w-[340px] shrink-0 flex-col border-l border-slate-800/60 bg-ink-900/60">
       <header className="flex items-center justify-between px-5 pb-3 pt-5">
         <h2 className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Seleccion
+          Selección
         </h2>
         {entry && (
           <button

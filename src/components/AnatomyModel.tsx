@@ -196,6 +196,14 @@ export function AnatomyModel({
     return list;
   }, [scene]);
 
+  // name -> mesh, so the hover fast path in the appearance effect can reach the
+  // two meshes it needs without traversing the whole atlas.
+  const meshByName = useMemo(() => {
+    const map = new Map<string, THREE.Mesh>();
+    for (const m of meshes) map.set(m.name, m);
+    return map;
+  }, [meshes]);
+
   // Per-instance laterality from world-space X position.
   //   +X = body's LEFT, -X = body's RIGHT (verified visually).
   const sideByUuid = useMemo(() => {
@@ -452,6 +460,32 @@ export function AnatomyModel({
     showOriginInsertion,
   ]);
 
+  // Identity that changes whenever anything OTHER than hover feeds the
+  // appearance pass. The effect compares it against the last full repaint to
+  // decide whether a hover change can take the two-mesh fast path.
+  const paintKey = useMemo(
+    () => ({}),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      meshes,
+      byMesh,
+      selectedMeshName,
+      selectedMuscleId,
+      selectedDepth,
+      muscleIdByUuid,
+      muscleDepthByUuid,
+      partByUuid,
+      partFocus,
+      partFocusHasMeshes,
+      romHighlight,
+      romFocusMuscleId,
+      spineContextMeshes,
+      activeSpineMeshes,
+    ],
+  );
+  const lastPaintKeyRef = useRef<object | null>(null);
+  const lastHoverRef = useRef<string | null>(null);
+
   // Highlight + isolate + part focus + ROM phase. Runs whenever selection /
   // hover / muscle / part / ROM changes. Robust: it never skips a mesh for lack
   // of a cached original — it falls back to black.
@@ -474,18 +508,23 @@ export function AnatomyModel({
       romFocusMuscleId != null &&
       romHighlight!.has(romFocusMuscleId);
 
-    for (const mesh of meshes) {
+    const paintMesh = (mesh: THREE.Mesh): void => {
       const entry = byMesh.get(mesh.name);
       // Only touch meshes that belong to a real, highlightable anatomical
       // layer. Skip skin, reference labels, groups, and anything unclassified —
       // these may share a material instance with visible meshes, and tinting
       // their emissive would bleed the highlight onto invisible siblings.
-      if (!entry) continue;
-      if (entry.layer === 'skin') continue;
-      if (entry.layer === 'reference') continue;
+      if (!entry) return;
+      if (entry.layer === 'skin') return;
+      if (entry.layer === 'reference') return;
 
       const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
-      if (!mat || !('emissive' in mat)) continue;
+      if (!mat || !('emissive' in mat)) return;
+
+      // `transparent` is part of the shader program cache key, so it is the one
+      // property here that needs a material version bump -- and only when it
+      // actually flips. See the note at the end of this function.
+      const wasTransparent = mat.transparent;
 
       const orig = map.get(mesh.uuid);
       const origEmissive = orig ? orig.emissive : new THREE.Color(0x000000);
@@ -546,7 +585,7 @@ export function AnatomyModel({
           mat.opacity = SPINE_CONTEXT_OPACITY;
           mat.depthWrite = false;
           mesh.renderOrder = 1;
-          continue;
+          return;
         }
         // In the active sub-region: fall through to normal (solid) appearance.
       }
@@ -652,10 +691,46 @@ export function AnatomyModel({
           }
         }
       }
-      mat.needsUpdate = true;
+
+      // NOTE: no `mat.needsUpdate = true` here, on purpose.
+      //
+      // Everything this function writes -- emissive, emissiveIntensity, color,
+      // opacity, renderOrder, depthTest -- is a uniform or a render-state flag
+      // that three.js re-reads every frame. `needsUpdate` bumps the material
+      // version, which makes the renderer re-derive program parameters and hit
+      // the program cache for that material. Doing that for every mesh in the
+      // atlas (each one owns a CLONED material) on every hover change was the
+      // single biggest source of the drag stutter. The one property that does
+      // belong to the program key is `transparent`, so it is bumped below and
+      // only when it actually flipped.
+      if (mat.transparent !== wasTransparent) mat.needsUpdate = true;
+    };
+
+    // HOVER FAST PATH.
+    // A pointer sweep across the model changes `hoveredMeshName` many times a
+    // second, and repainting the whole atlas each time is what made the model
+    // feel like it was catching. When hover is the ONLY thing that moved, only
+    // two meshes can change appearance: the one we left and the one we entered.
+    // Everything else would be repainted to the value it already has.
+    const prevHover = lastHoverRef.current;
+    lastHoverRef.current = hoveredMeshName;
+    const hoverOnly =
+      lastPaintKeyRef.current === paintKey && prevHover !== hoveredMeshName;
+
+    if (hoverOnly) {
+      for (const name of [prevHover, hoveredMeshName]) {
+        if (!name) continue;
+        const mesh = meshByName.get(name);
+        if (mesh) paintMesh(mesh);
+      }
+    } else {
+      lastPaintKeyRef.current = paintKey;
+      for (const mesh of meshes) paintMesh(mesh);
     }
   }, [
     meshes,
+    meshByName,
+    paintKey,
     byMesh,
     selectedMeshName,
     hoveredMeshName,
@@ -838,6 +913,10 @@ export function AnatomyModel({
       e.intersections as unknown as ThreeEvent<MouseEvent>['intersections'],
     );
     if (!mesh) return;
+    // r3f fires pointerover per intersected object, so a single sweep can call
+    // this several times with the SAME winning mesh. Writing the store anyway
+    // re-rendered every subscriber for nothing; bail when it hasn't changed.
+    if (useAnatomyStore.getState().hoveredMeshName === mesh.name) return;
     setHovered(mesh.name);
     // FOCUS — if a ROM highlight is active and the hovered mesh belongs to one
     // of its muscles, set the spotlight on that muscle (3D -> list direction of

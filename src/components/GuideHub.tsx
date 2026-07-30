@@ -13,7 +13,7 @@
 // UI strings Spanish LATAM; code/ids ASCII.
 
 import { useAnatomyStore } from '../store/anatomyStore';
-import type { AppMode } from './TopBar';
+import { shortcutLabel, type AppMode } from './TopBar';
 
 const REGION_LABELS: Record<string, string> = {
   fundamentos: 'Fundamentos',
@@ -97,6 +97,8 @@ interface GuideHubProps {
   onOpenPricing: () => void;
   /** Open the region's "Evidencia" page (all sources + PubMed links). */
   onOpenEvidence: () => void;
+  /** Open the credits / legal overlays (they moved out of the header bar). */
+  onOpenOverlay?: (overlay: 'about' | 'legal') => void;
   /** Close the guide. */
   onClose: () => void;
 }
@@ -108,6 +110,7 @@ export function GuideHub({
   onReopenTour,
   onOpenPricing,
   onOpenEvidence,
+  onOpenOverlay,
   onClose,
 }: GuideHubProps) {
   const setPaletteOpen = useAnatomyStore((s) => s.setPaletteOpen);
@@ -211,7 +214,7 @@ export function GuideHub({
         </GuideTip>
         <GuideTip>
           <b className="text-slate-200">Buscar cualquier estructura</b>: el botón «Buscar» o el
-          atajo <span className="kbd">⌘K</span>.
+          atajo <span className="kbd">{shortcutLabel()}</span>.
         </GuideTip>
       </ul>
 
@@ -223,7 +226,7 @@ export function GuideHub({
           className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:border-accent/40 hover:text-accent"
         >
           <IconSearch />
-          Buscar (⌘K)
+          Buscar ({shortcutLabel()})
         </button>
         <button
           type="button"
@@ -255,6 +258,36 @@ export function GuideHub({
           Ver planes
         </button>
       </div>
+
+      {/* Acerca de / Legal live here (and in the account menu) rather than in the
+          header bar: the bar needed that width for the mode switcher and the
+          upgrade CTA, and this hub is reachable at every breakpoint, signed in
+          or not — which the account menu is not. */}
+      {onOpenOverlay && (
+        <div className="mt-3 flex items-center gap-3 border-t border-slate-800/60 pt-3">
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onOpenOverlay('about');
+            }}
+            className="text-[11px] text-slate-500 transition-colors hover:text-slate-300"
+          >
+            Acerca de y créditos
+          </button>
+          <span className="text-slate-700">·</span>
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onOpenOverlay('legal');
+            }}
+            className="text-[11px] text-slate-500 transition-colors hover:text-slate-300"
+          >
+            Aviso legal y privacidad
+          </button>
+        </div>
+      )}
     </div>
   );
 }

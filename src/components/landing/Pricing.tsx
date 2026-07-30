@@ -20,20 +20,24 @@ import {
   type CurrencyCode,
 } from '../../lib/pricing';
 
+// The two lists MUST describe what src/auth/entitlements.ts actually enforces.
+// They are the promise; the entitlements file is the contract. If you change one,
+// change the other in the same commit.
 const PREMIUM_FEATURES = [
-  'Repaso inteligente con repetición espaciada en todas las regiones',
-  'Casos clínicos interactivos de razonamiento',
-  'Todas las regiones: hombro, codo, cadera, rodilla, tobillo y columna',
-  'Laboratorio de movimiento (biomecánica interactiva)',
-  'Racha diaria, metas y seguimiento de dominio',
+  'Tests ortopédicos: sensibilidad, especificidad, Fagan, clusters y modo examen',
+  'Laboratorio de movimiento completo: todos los arcos, resistencia manual y presets patológicos',
+  'Modo paciente a pantalla completa y tarjeta para llevarse a casa',
+  'Panel neurológico: dermatomas, miotomas y reflejos por raíz',
+  'Todas las regiones: codo, cadera, rodilla, tobillo y columna',
+  'Evidencia clínica con enlaces a los estudios originales',
   'Progreso sincronizado en todos tus dispositivos',
-  'Contenido clínico con referencias',
 ];
 
 const FREE_FEATURES = [
-  'Región del hombro completa',
+  'Región del hombro completa: 17 músculos con su ficha clínica y citas',
   'Módulo de Fundamentos',
   'Repaso espaciado, cuestionarios y tarjetas del hombro',
+  'Laboratorio de movimiento en demostración (un arco)',
 ];
 
 interface PricingProps {

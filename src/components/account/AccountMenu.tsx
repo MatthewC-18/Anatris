@@ -11,9 +11,14 @@ import { SetPasswordModal } from './SetPasswordModal';
 export function AccountMenu({
   onOpenAuth,
   onOpenPricing,
+  onOpenOverlay,
 }: {
   onOpenAuth: () => void;
   onOpenPricing: () => void;
+  /** Open an app overlay ("about" / "legal"). These moved out of the header bar
+   *  so the four modes and the upgrade CTA fit on a laptop; they are also
+   *  reachable from the always-visible Guía hub for signed-out visitors. */
+  onOpenOverlay?: (overlay: 'about' | 'legal') => void;
 }) {
   const { snapshot, signOut, manageBilling } = useAuth();
   const { isPremium } = useEntitlement();
@@ -118,6 +123,26 @@ export function AccountMenu({
               setChangePw(true);
             }}
           />
+          {onOpenOverlay && (
+            <>
+              <div className="my-1 h-px bg-slate-800/60" />
+              <MenuItem
+                label="Acerca de"
+                onClick={() => {
+                  setOpen(false);
+                  onOpenOverlay('about');
+                }}
+              />
+              <MenuItem
+                label="Legal"
+                onClick={() => {
+                  setOpen(false);
+                  onOpenOverlay('legal');
+                }}
+              />
+              <div className="my-1 h-px bg-slate-800/60" />
+            </>
+          )}
           <MenuItem
             label="Cerrar sesión"
             onClick={async () => {

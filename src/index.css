@@ -161,3 +161,39 @@
     rgba(4, 7, 14, 0.45) 100%
   );
 }
+
+/* ---------------------------------------------------------------------------
+ * KEYBOARD FOCUS
+ * ---------------------------------------------------------------------------
+ * The app had no focus styling at all, so a keyboard or switch user navigating
+ * the ~110 controls of a single screen could not tell where they were. Scoped to
+ * :focus-visible so pointer users never see a ring on click, and drawn with an
+ * outline + offset (not a border) so it can't shift any layout.
+ * ------------------------------------------------------------------------ */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.85);
+  outline-offset: 2px;
+  border-radius: 0.35rem;
+}
+
+/* The 3D canvas takes focus for keyboard orbiting but must not be ringed on
+   every pointer interaction with the scene. */
+canvas:focus,
+canvas:focus-visible {
+  outline: none;
+}
+
+/* Visually hidden but announced by screen readers (labels for icon-only and
+   filter inputs). Tailwind ships `sr-only`; this is the same contract for the
+   plain-CSS call sites. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

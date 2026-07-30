@@ -110,7 +110,7 @@ export function RomPanel({ resolution }: RomPanelProps) {
         {(
           [
             { value: 'movement', label: 'Por movimiento' },
-            { value: 'muscle', label: 'Por musculo' },
+            { value: 'muscle', label: 'Por músculo' },
           ] as Array<{ value: RomViewMode; label: string }>
         ).map((opt) => (
           <button

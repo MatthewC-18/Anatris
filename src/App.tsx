@@ -52,6 +52,7 @@ const MovementView = lazy(() =>
 );
 import { AuthModal } from './components/account/AuthModal';
 import { Paywall } from './components/account/Paywall';
+import { UpgradeProvider } from './components/account/PremiumGate';
 import { LandingScreen } from './components/landing/LandingScreen';
 import { Pricing } from './components/landing/Pricing';
 import { useAuth, useEntitlement } from './auth/AuthContext';
@@ -241,7 +242,13 @@ export default function App() {
     );
   }
 
+  // "Evidencia" is a premium capability, so the lab's link to it routes through
+  // the paywall instead of opening the overlay when the plan doesn't cover it.
+  const openEvidence = () =>
+    setOverlay(entitlement.canUseFeature('evidence') ? 'evidence' : 'pricing');
+
   return (
+    <UpgradeProvider onOpenPricing={() => setOverlay('pricing')}>
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
       <TopBar
         mode={mode}
@@ -251,7 +258,7 @@ export default function App() {
       />
 
       {/* Persistent educational disclaimer. */}
-      <div className="shrink-0 px-4 py-2">
+      <div className="shrink-0 px-3 py-1 sm:px-4">
         <MedicalDisclaimerBanner />
       </div>
 
@@ -293,7 +300,7 @@ export default function App() {
                 byMesh={byMesh}
                 regionMeshes={regionMeshes}
                 resolution={resolution}
-                onOpenEvidence={() => setOverlay('evidence')}
+                onOpenEvidence={openEvidence}
               />
             )}
           </main>
@@ -449,7 +456,7 @@ export default function App() {
 
       {/* Overlays: credits / legal. */}
       {overlay === 'about' && (
-        <OverlayShell title="Creditos y licencias" onClose={() => setOverlay('none')}>
+        <OverlayShell title="Créditos y licencias" onClose={() => setOverlay('none')}>
           <AttributionScreen />
         </OverlayShell>
       )}
@@ -485,7 +492,8 @@ export default function App() {
               setTourDone(false);
             }}
             onOpenPricing={() => setOverlay('pricing')}
-            onOpenEvidence={() => setOverlay('evidence')}
+            onOpenEvidence={openEvidence}
+            onOpenOverlay={setOverlay}
             onClose={() => setOverlay('none')}
           />
         </OverlayShell>
@@ -498,6 +506,7 @@ export default function App() {
 
       <CheckoutToast />
     </div>
+    </UpgradeProvider>
   );
 }
 
@@ -544,7 +553,7 @@ function DisclaimerGate({ onAccept }: { onAccept: () => void }) {
       <div className="shrink-0 border-t border-slate-800/60 bg-ink-950/90 px-6 py-4">
         <div className="mx-auto flex max-w-2xl flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs leading-relaxed text-slate-500">
-            Al continuar confirmas que has leido este aviso y que usaras la
+            Al continuar confirmas que has leído este aviso y que usarás la
             aplicacion solo con fines educativos.
           </p>
           <button
@@ -552,7 +561,7 @@ function DisclaimerGate({ onAccept }: { onAccept: () => void }) {
             onClick={onAccept}
             className="shrink-0 rounded-lg bg-accent/20 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/30"
           >
-            Acepto y continuo
+            Acepto y continúo
           </button>
         </div>
       </div>
@@ -670,7 +679,7 @@ function InfoIcon() {
 function IndexLoading() {
   return (
     <div className="flex h-full items-center justify-center viewer-bg">
-      <p className="font-mono text-xs text-slate-600">Cargando indice anatomico...</p>
+      <p className="font-mono text-xs text-slate-600">Cargando índice anatómico...</p>
     </div>
   );
 }
@@ -680,7 +689,7 @@ function IndexError({ message }: { message: string | null }) {
     <div className="flex h-full items-center justify-center viewer-bg">
       <div className="max-w-sm rounded-xl border border-rose-900/40 bg-rose-950/20 px-5 py-4 text-center">
         <p className="text-sm font-medium text-rose-300">
-          No se pudo cargar el indice anatomico.
+          No se pudo cargar el índice anatómico.
         </p>
         <p className="mt-1 font-mono text-xs text-slate-500">
           {message ?? 'Error desconocido'}

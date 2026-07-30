@@ -21,7 +21,13 @@ import { FREE_SUBSCRIPTION } from './types';
 import type { StudyCloud } from '../lib/studyState';
 import { createMockBackend } from './mockProvider';
 import { createSupabaseBackend } from './supabaseProvider';
-import { canAccessRegion, isPremiumActive, type Plan } from './entitlements';
+import {
+  canAccessRegion,
+  canUseFeature,
+  isPremiumActive,
+  type Plan,
+  type PremiumFeature,
+} from './entitlements';
 import { hasAllAccess } from './devAccess';
 import { EVENTS, identifyUser, resetAnalytics, track } from '../lib/analytics';
 
@@ -240,6 +246,12 @@ export interface Entitlement {
   subscription: Subscription;
   /** Whether the signed-in user can open a given region. */
   canAccessRegion: (region: string) => boolean;
+  /**
+   * Whether a named premium capability is unlocked. Use this for anything that
+   * is premium even inside the FREE regions (orthopedic tests, neuro, patient
+   * mode, the full movement lab...). See src/auth/entitlements.ts.
+   */
+  canUseFeature: (feature: PremiumFeature) => boolean;
 }
 
 /** Derived access info for the current user. */
@@ -257,6 +269,8 @@ export function useEntitlement(): Entitlement {
       subscription: sub,
       canAccessRegion: (region: string) =>
         override || canAccessRegion(region, sub),
+      canUseFeature: (feature: PremiumFeature) =>
+        override || canUseFeature(feature, sub),
     };
   }, [sub]);
 }

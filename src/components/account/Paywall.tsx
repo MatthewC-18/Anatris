@@ -12,10 +12,14 @@ import { CURRENCIES, TRIAL_DAYS, detectCurrency, formatPrice } from '../../lib/p
 
 type Interval = 'monthly' | 'annual';
 
+// Keep in sync with PREMIUM_FEATURES in landing/Pricing.tsx and with what
+// src/auth/entitlements.ts actually enforces. Lead with the tools a physio uses
+// in front of a patient -- that is what converts, not the joint count.
 const PREMIUM_BENEFITS = [
-  'Todas las regiones: hombro, codo, cadera, rodilla, tobillo y columna',
-  'Cuestionarios y tarjetas de estudio de cada región',
-  'Rangos de movimiento y guías de biomecánica',
+  'Tests ortopédicos con sens/espec, Fagan, clusters y modo examen',
+  'Laboratorio de movimiento completo, resistencia manual y presets patológicos',
+  'Modo paciente y tarjeta imprimible para el paciente',
+  'Todas las regiones: codo, cadera, rodilla, tobillo y columna',
   'Tu progreso sincronizado en todos tus dispositivos',
 ];
 
@@ -67,8 +71,8 @@ export function Paywall({
           Desbloquea {regionName} y todo Anatris
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          La región del hombro y Fundamentos son gratuitas. Suscríbete para
-          acceder al resto del cuerpo y a todas las herramientas de estudio.
+          La región del hombro y Fundamentos son gratuitas. Premium abre el resto
+          del cuerpo y las herramientas que usas delante del paciente.
         </p>
 
         <ul className="mx-auto mt-5 flex max-w-xs flex-col gap-2 text-left">

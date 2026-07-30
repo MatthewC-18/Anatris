@@ -22,6 +22,12 @@ import { romForRegion } from '../../data/romByRegion';
 import { hasNeuro } from '../../data/neuro';
 import { isDrivable } from '../../lib/boneMap';
 import { useAnatomyStore } from '../../store/anatomyStore';
+import {
+  LockGlyph,
+  PremiumTeaser,
+  useFeatureGate,
+} from '../account/PremiumGate';
+import type { PremiumFeature } from '../../auth/entitlements';
 import type { AnatomyEntry } from '../../types/anatomy';
 import type { MuscleResolution } from '../../lib/muscleResolver';
 
@@ -37,6 +43,13 @@ interface MovementViewProps {
 export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   const setRegion = useAnatomyStore((s) => s.setRegion);
   const hasDrivable = romForRegion(region).some((m) => isDrivable(m.id));
+
+  // Capability gates. These are premium in EVERY region, including the free
+  // shoulder: they are what a physio uses in front of a patient, which is what
+  // they actually pay for. See src/auth/entitlements.ts.
+  const testsGate = useFeatureGate('orthopedic-tests');
+  const neuroGate = useFeatureGate('neuro');
+  const patientGate = useFeatureGate('patient-mode');
 
   // The right column shows ONE expandable sheet at a time (tests or neuro) plus
   // the layer peel. Whichever sheet is open takes the FULL column height and
@@ -97,6 +110,20 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
         >
           ✕ Salir del modo paciente
         </button>
+      ) : !patientGate.unlocked ? (
+        // Locked: the pill stays VISIBLE with a lock so the free user sees the
+        // capability exists; clicking it goes straight to pricing.
+        <button
+          type="button"
+          onClick={patientGate.requestUpgrade}
+          title="Modo paciente: vista simplificada a pantalla completa (Premium)"
+          className={`pointer-events-auto absolute top-3 left-3 z-30 flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-ink-950/80 px-4 py-1.5 text-xs font-medium text-amber-200 shadow-lg backdrop-blur transition-colors hover:bg-amber-400/10 sm:left-1/2 sm:-translate-x-1/2 ${
+            rightPanel !== 'none' ? 'hidden sm:flex' : ''
+          }`}
+        >
+          <LockGlyph />
+          Modo paciente
+        </button>
       ) : (
         <button
           type="button"
@@ -148,27 +175,137 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
             <DissectionPanel />
           </div>
           <div className="pointer-events-none absolute top-4 right-4 bottom-4 z-20 flex flex-col items-end gap-3">
-            {rightPanel !== 'neuro' && (
-              <OrthopedicTestsPanel
-                key={`tests-${region ?? 'shoulder'}`}
-                region={region}
-                open={rightPanel === 'tests'}
-                onOpenChange={(o) => setRightPanel(o ? 'tests' : 'none')}
-                onOpenEvidence={onOpenEvidence}
-              />
-            )}
-            {rightPanel !== 'tests' && hasNeuro(region) && (
-              <NeuroPanel
-                key={`neuro-${region ?? 'shoulder'}`}
-                region={region}
-                open={rightPanel === 'neuro'}
-                onOpenChange={(o) => setRightPanel(o ? 'neuro' : 'none')}
-              />
-            )}
+            {rightPanel !== 'neuro' &&
+              (testsGate.unlocked ? (
+                <OrthopedicTestsPanel
+                  key={`tests-${region ?? 'shoulder'}`}
+                  region={region}
+                  open={rightPanel === 'tests'}
+                  onOpenChange={(o) => setRightPanel(o ? 'tests' : 'none')}
+                  onOpenEvidence={onOpenEvidence}
+                />
+              ) : (
+                <LockedSheet
+                  feature="orthopedic-tests"
+                  label="Tests ortopédicos"
+                  icon={<TestTubeGlyph />}
+                  open={rightPanel === 'tests'}
+                  onOpenChange={(o) => setRightPanel(o ? 'tests' : 'none')}
+                  lines={[
+                    'Sensibilidad, especificidad y razones de verosimilitud con su estudio de origen.',
+                    'Demostración del test en el modelo 3D y nomograma de Fagan.',
+                    'Clusters diagnósticos y modo examen para autoevaluarte.',
+                  ]}
+                />
+              ))}
+            {rightPanel !== 'tests' &&
+              hasNeuro(region) &&
+              (neuroGate.unlocked ? (
+                <NeuroPanel
+                  key={`neuro-${region ?? 'shoulder'}`}
+                  region={region}
+                  open={rightPanel === 'neuro'}
+                  onOpenChange={(o) => setRightPanel(o ? 'neuro' : 'none')}
+                />
+              ) : (
+                <LockedSheet
+                  feature="neuro"
+                  label="Neuro: dermatomas y miotomas"
+                  icon={<NerveGlyph />}
+                  open={rightPanel === 'neuro'}
+                  onOpenChange={(o) => setRightPanel(o ? 'neuro' : 'none')}
+                  lines={[
+                    'Dermatoma, miotoma y reflejo de cada raíz nerviosa.',
+                    'El miotoma demostrado sobre el rig, raíz por raíz.',
+                    'Mapa esquemático de dermatomas para el examen neurológico.',
+                  ]}
+                />
+              ))}
             {showLayers && <LayerControls />}
           </div>
         </>
       )}
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+ * LockedSheet
+ * ---------------------------------------------------------------------------
+ * Stands in for a premium right-side panel. Deliberately mirrors the real
+ * panel's collapsed pill (same position, same shape, same slot in the stack) so
+ * the free user sees the tool EXISTS and where it lives — then expands into a
+ * teaser that says what it does. Hiding it instead would make the free app look
+ * complete, which is exactly why nobody upgraded.
+ * ------------------------------------------------------------------------ */
+function LockedSheet({
+  feature,
+  label,
+  icon,
+  lines,
+  open,
+  onOpenChange,
+}: {
+  feature: PremiumFeature;
+  label: string;
+  icon: React.ReactNode;
+  lines: string[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenChange(true)}
+        className="pointer-events-auto flex items-center gap-2 rounded-xl border border-amber-500/30 bg-ink-950/90 px-3 py-2 text-xs font-semibold text-amber-200 shadow-2xl backdrop-blur transition-colors hover:bg-amber-400/10"
+      >
+        {icon}
+        {label}
+        <LockGlyph />
+      </button>
+    );
+  }
+
+  return (
+    <div className="pointer-events-auto w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-800/70 bg-ink-950/95 shadow-2xl backdrop-blur">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-800/60 px-4 py-3">
+        <h2 className="flex items-center gap-1.5 font-display text-sm font-bold text-slate-50">
+          {icon}
+          {label}
+        </h2>
+        <button
+          type="button"
+          onClick={() => onOpenChange(false)}
+          aria-label="Cerrar"
+          className="rounded-lg p-1 text-slate-500 transition-colors hover:bg-slate-800/60 hover:text-slate-200"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+      <div className="p-3">
+        <PremiumTeaser feature={feature} title={label} lines={lines} compact />
+      </div>
+    </div>
+  );
+}
+
+function TestTubeGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M9 3h6M10 3v13a2 2 0 0 0 4 0V3" strokeLinecap="round" />
+      <path d="M10 12h4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function NerveGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M5 4c4 0 3 8 7 8s3-8 7-8" strokeLinecap="round" />
+      <path d="M5 20c4 0 3-8 7-8" strokeLinecap="round" />
+    </svg>
   );
 }

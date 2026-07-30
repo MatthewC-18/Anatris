@@ -1,22 +1,31 @@
 // src/components/TopBar.tsx
 //
 // Slim top bar: wordmark, region module navigation, search trigger, and the
-// app-level controls (Acerca de / Legal, Explorar / Aprender). Everything lives
-// INSIDE the header flow now (no floating absolute-positioned controls), so the
-// left nav and the right controls never overlap on narrow widths.
+// app-level controls (Guía, Planes, Explorar / Aprender / Estudiar / Movimiento).
+// Everything lives INSIDE the header flow (no floating absolute-positioned
+// controls), so the left nav and the right controls never overlap.
 //
 // The module nav is the SINGLE region selector: clicking an active module
-// writes store.region, and every region-aware piece follows it. Modules without
-// data yet are shown disabled.
+// writes store.region, and every region-aware piece follows it.
 //
-// The app-level mode (Explorar/Aprender) and overlay (Acerca de/Legal) are
-// owned by App.tsx and passed in as props, so the TopBar stays presentational
-// for those and App keeps a single source of truth.
+// The app-level mode and overlay are owned by App.tsx and passed in as props, so
+// the TopBar stays presentational for those and App keeps a single source of truth.
+//
+// RESPONSIVE PRIORITY (this is a product decision, not just layout):
+//   The four MODES are the primary navigation and the only place the breadth of
+//   the product is visible -- a physio who never sees "Movimiento" never learns
+//   the app has a movement lab. So the mode switcher is a segmented control from
+//   `lg` (1024px) up, and the upgrade CTA shows from `sm` up. Previously both
+//   were gated behind `min-[1860px]`, which meant that on a 1440px laptop -- the
+//   most common width -- a visitor saw neither the modes nor any way to
+//   subscribe. What yields instead is chrome nobody navigates by: "Acerca de"
+//   and "Legal" now live in the account menu and the Guía hub.
 
 import { useEffect, useRef, useState } from 'react';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { useEntitlement } from '../auth/AuthContext';
 import { isRegionPremium } from '../auth/entitlements';
+import { LockGlyph } from './account/PremiumGate';
 import { AccountMenu } from './account/AccountMenu';
 import { BrandMark } from './BrandMark';
 
@@ -40,31 +49,29 @@ function writeGuideSeen(): void {
   }
 }
 
+/**
+ * The command-palette shortcut as this platform writes it. The handler accepts
+ * both meta and ctrl (CommandPalette), but the LABEL used to be a hard-coded Mac
+ * glyph, so Windows and Linux users were told to press a key their keyboard does
+ * not have.
+ */
+export function shortcutLabel(): string {
+  if (typeof navigator === 'undefined') return 'Ctrl K';
+  const platform =
+    (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData
+      ?.platform ??
+    navigator.platform ??
+    '';
+  const isApple = /mac|iphone|ipad|ipod/i.test(platform);
+  return isApple ? `${String.fromCharCode(0x2318)}K` : 'Ctrl K';
+}
+
 interface TopBarProps {
   mode: AppMode;
   setMode: (m: AppMode) => void;
   setOverlay: (o: Overlay) => void;
   /** Open the sign-in / sign-up modal. */
   onOpenAuth: () => void;
-}
-
-/** Small lock glyph appended to premium modules the user can't access yet. */
-function LockGlyph() {
-  return (
-    <svg
-      width="11"
-      height="11"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      className="opacity-70"
-      aria-label="Premium"
-    >
-      <rect x="5" y="11" width="14" height="10" rx="2" />
-      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-    </svg>
-  );
 }
 
 // The spine is three first-class regions (peers of shoulder/elbow in the store)
@@ -95,7 +102,7 @@ const MODULES: {
   { label: 'Tobillo', region: 'ankle', enabled: true },
 ];
 
-// Flattened region list for the MOBILE dropdown (spine expanded into its three
+// Flattened region list for the compact dropdown (spine expanded into its three
 // sub-regions), derived from MODULES + SPINE_SUBREGIONS so it stays in sync.
 const MOBILE_REGIONS: { label: string; region: string }[] = MODULES.flatMap((m) =>
   m.spine
@@ -105,7 +112,7 @@ const MOBILE_REGIONS: { label: string; region: string }[] = MODULES.flatMap((m) 
       : [],
 );
 
-// The four app modes, for the MOBILE mode dropdown.
+// The four app modes.
 const MODE_ITEMS: { id: AppMode; label: string }[] = [
   { id: 'explore', label: 'Explorar' },
   { id: 'learn', label: 'Aprender' },
@@ -165,19 +172,22 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
   };
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800/60 bg-ink-950/90 px-3 sm:gap-4 sm:px-4">
+    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800/60 bg-ink-950/90 px-3 sm:gap-3 sm:px-4">
       {/* Wordmark (mark only on phones to save header width). */}
       <div className="flex shrink-0 items-center gap-2">
         <BrandMark className="h-5 w-5 text-slate-200" title="Anatris" />
-        <span className="hidden font-display text-base font-bold tracking-tight text-slate-50 sm:inline">
+        <h1 className="hidden font-display text-base font-bold tracking-tight text-slate-50 sm:inline">
           Anatris
-        </span>
+        </h1>
       </div>
 
-      {/* Module nav -- the single region selector. Inline on desktop; on mobile
-          it collapses into MobileRegionMenu (below) so the header fits. */}
-      <MobileRegionMenu />
-      <nav className="hidden shrink-0 items-center gap-1 min-[1860px]:flex">
+      {/* Module nav -- the single region selector. Inline on very wide monitors;
+          a labelled dropdown everywhere else. */}
+      <CompactRegionMenu />
+      <nav
+        aria-label="Región anatómica"
+        className="hidden shrink-0 items-center gap-1 min-[1860px]:flex"
+      >
         {MODULES.map((m) => {
           // Spine entry: a button that opens a sub-region submenu.
           if (m.spine) {
@@ -188,6 +198,7 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
                   onClick={() => setSpineOpen((o) => !o)}
                   aria-haspopup="menu"
                   aria-expanded={spineOpen}
+                  aria-current={spineActive ? 'true' : undefined}
                   className={[
                     'flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
                     spineActive
@@ -222,12 +233,13 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
                           key={sub.region}
                           type="button"
                           role="menuitem"
+                          aria-current={isActive ? 'true' : undefined}
                           onClick={() => {
                             selectRegion(sub.region);
                             setSpineOpen(false);
                           }}
                           className={[
-                            'block w-full rounded-lg px-3 py-1.5 text-left text-sm font-medium transition-colors',
+                            'block w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors',
                             isActive
                               ? 'bg-accent/20 text-accent'
                               : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200',
@@ -250,7 +262,8 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
               key={m.label}
               type="button"
               disabled={!m.enabled}
-              title={m.enabled ? undefined : 'Proximamente'}
+              title={m.enabled ? undefined : 'Próximamente'}
+              aria-current={isActive ? 'true' : undefined}
               onClick={() => {
                 if (!m.enabled || m.region == null) return;
                 if (m.region === activeRegion) return;
@@ -280,14 +293,15 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
       <button
         type="button"
         onClick={() => setPaletteOpen(true)}
-        className="hidden shrink-0 items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-1.5 text-sm text-slate-500 transition-colors hover:border-slate-700 hover:text-slate-300 md:flex"
+        aria-label="Buscar estructura"
+        className="hidden shrink-0 items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-900/60 px-2.5 py-1.5 text-sm text-slate-500 transition-colors hover:border-slate-700 hover:text-slate-300 md:flex"
       >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           <circle cx="11" cy="11" r="7" />
           <path d="M21 21l-4.3-4.3" strokeLinecap="round" />
         </svg>
         <span className="hidden min-[1860px]:inline">Buscar estructura</span>
-        <span className="kbd ml-2">{String.fromCharCode(0x2318)}K</span>
+        <span className="kbd ml-1">{shortcutLabel()}</span>
       </button>
 
       {/* Guía: always-visible "where is everything?" hub (all breakpoints). */}
@@ -302,7 +316,7 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
           <path d="M9.2 9.3a2.8 2.8 0 0 1 5.4 1c0 1.8-2.6 2.2-2.6 3.7" strokeLinecap="round" />
           <path d="M12 17.2h.01" strokeLinecap="round" />
         </svg>
-        <span className="hidden min-[1860px]:inline">Guía</span>
+        <span className="hidden lg:inline">Guía</span>
         {!guideSeen && (
           <span
             className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-ink-950 bg-accent"
@@ -311,44 +325,37 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
         )}
       </button>
 
-      {/* Upgrade entry point: only shown while the user is on the free tier. */}
+      {/* Upgrade entry point: shown while the user is on the free tier, from `sm`
+          up. This is the ONLY always-reachable sales surface in the app shell. */}
       {!entitlement.isPremium && (
         <button
           type="button"
           onClick={() => setOverlay('pricing')}
-          className="hidden shrink-0 rounded-lg bg-accent/15 px-2.5 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/25 min-[1860px]:block"
+          className="hidden shrink-0 rounded-lg bg-accent/15 px-2.5 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/25 sm:block"
         >
-          Planes
+          Hazte Premium
         </button>
       )}
 
-      {/* App-level controls: Acerca de / Legal */}
-      <button
-        type="button"
-        onClick={() => setOverlay('about')}
-        className="hidden shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:text-slate-200 min-[1860px]:block"
+      {/* Mode switcher: segmented control from lg up, dropdown below. */}
+      <CompactModeMenu mode={mode} setMode={setMode} />
+      <div
+        role="tablist"
+        aria-label="Modo de trabajo"
+        className="hidden shrink-0 items-center gap-0.5 rounded-xl border border-slate-800/60 bg-slate-900/60 p-1 lg:flex"
       >
-        Acerca de
-      </button>
-      <button
-        type="button"
-        onClick={() => setOverlay('legal')}
-        className="hidden shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:text-slate-200 min-[1860px]:block"
-      >
-        Legal
-      </button>
-
-      {/* Mode toggle: segmented control on desktop, dropdown on mobile. */}
-      <MobileModeMenu mode={mode} setMode={setMode} />
-      <div className="hidden shrink-0 items-center gap-1 rounded-xl border border-slate-800/60 bg-slate-900/60 p-1 min-[1860px]:flex">
-        <ModeButton id="explore" label="Explorar" mode={mode} setMode={setMode} />
-        <ModeButton id="learn" label="Aprender" mode={mode} setMode={setMode} />
-        <ModeButton id="study" label="Estudiar" mode={mode} setMode={setMode} />
-        <ModeButton id="movement" label="Movimiento" mode={mode} setMode={setMode} />
+        {MODE_ITEMS.map((m) => (
+          <ModeButton key={m.id} id={m.id} label={m.label} mode={mode} setMode={setMode} />
+        ))}
       </div>
 
-      {/* Account / subscription */}
-      <AccountMenu onOpenAuth={onOpenAuth} onOpenPricing={() => setOverlay('pricing')} />
+      {/* Account / subscription. Also carries Acerca de / Legal, which used to
+          take ~140px of header width for links nobody navigates by. */}
+      <AccountMenu
+        onOpenAuth={onOpenAuth}
+        onOpenPricing={() => setOverlay('pricing')}
+        onOpenOverlay={setOverlay}
+      />
     </header>
   );
 }
@@ -368,8 +375,10 @@ function ModeButton({
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={isActive}
       onClick={() => setMode(id)}
-      className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+      className={`rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors xl:px-3 ${
         isActive
           ? 'bg-accent/20 text-accent'
           : 'text-slate-400 hover:text-slate-200'
@@ -422,12 +431,11 @@ function useDismiss(
 }
 
 /**
- * MOBILE/LAPTOP region selector: the 7-module inline nav + 4-mode segmented +
- * account need ~1808px, so below the custom `min-[1860px]` breakpoint the
- * regions collapse into this single dropdown (spine expanded into cervical/
- * torácica/lumbar). Only wide monitors (>=1860px) get the inline nav.
+ * Region selector for everything below the inline nav's `min-[1860px]`. Carries
+ * a "Región" caption so it can't be mistaken for the adjacent mode dropdown --
+ * two bare chevrons side by side used to read as one control.
  */
-function MobileRegionMenu() {
+function CompactRegionMenu() {
   const region = useAnatomyStore((s) => s.region);
   const setRegion = useAnatomyStore((s) => s.setRegion);
   const clearSelection = useAnatomyStore((s) => s.clearSelection);
@@ -448,15 +456,19 @@ function MobileRegionMenu() {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-1 rounded-lg bg-slate-800/60 px-2.5 py-1.5 text-sm font-medium text-slate-100"
+        aria-label={`Región: ${activeLabel}`}
+        className="flex items-center gap-1.5 rounded-lg bg-slate-800/60 px-2.5 py-1.5 text-sm font-medium text-slate-100"
       >
+        <span className="hidden text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:inline">
+          Región
+        </span>
         {activeLabel}
         <Chevron open={open} />
       </button>
       {open && (
         <div
           role="menu"
-          className="absolute left-0 top-full z-50 mt-1 max-h-[70vh] min-w-[10rem] overflow-y-auto rounded-xl border border-slate-800/80 bg-ink-950/95 p-1 shadow-xl backdrop-blur"
+          className="absolute left-0 top-full z-50 mt-1 max-h-[70vh] min-w-[11rem] overflow-y-auto rounded-xl border border-slate-800/80 bg-ink-950/95 p-1 shadow-xl backdrop-blur"
         >
           {MOBILE_REGIONS.map((r) => {
             const isActive = r.region === active;
@@ -465,6 +477,7 @@ function MobileRegionMenu() {
                 key={r.region}
                 type="button"
                 role="menuitem"
+                aria-current={isActive ? 'true' : undefined}
                 onClick={() => {
                   if (r.region !== active) {
                     setRegion(r.region);
@@ -479,8 +492,8 @@ function MobileRegionMenu() {
                     : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100',
                 ].join(' ')}
               >
-                {r.label}
-                {showLock(r.region) && <LockGlyph />}
+                <span className="flex-1">{r.label}</span>
+                {showLock(r.region) && <LockGlyph className="text-amber-300" />}
               </button>
             );
           })}
@@ -490,10 +503,8 @@ function MobileRegionMenu() {
   );
 }
 
-/** MOBILE/LAPTOP mode selector: the 4-button segmented control moves into a
- *  dropdown below the `min-[1860px]` breakpoint so the header fits. Wide
- *  monitors keep the segmented control. */
-function MobileModeMenu({
+/** Mode selector below `lg`, where the segmented control no longer fits. */
+function CompactModeMenu({
   mode,
   setMode,
 }: {
@@ -506,14 +517,18 @@ function MobileModeMenu({
   const label = MODE_ITEMS.find((m) => m.id === mode)?.label ?? 'Modo';
 
   return (
-    <div ref={ref} className="relative shrink-0 min-[1860px]:hidden">
+    <div ref={ref} className="relative shrink-0 lg:hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-1 rounded-lg border border-slate-800/60 bg-slate-900/60 px-2.5 py-1.5 text-sm font-medium text-accent"
+        aria-label={`Modo: ${label}`}
+        className="flex items-center gap-1.5 rounded-lg border border-slate-800/60 bg-slate-900/60 px-2.5 py-1.5 text-sm font-medium text-accent"
       >
+        <span className="hidden text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:inline">
+          Modo
+        </span>
         {label}
         <Chevron open={open} />
       </button>
@@ -529,6 +544,7 @@ function MobileModeMenu({
                 key={m.id}
                 type="button"
                 role="menuitem"
+                aria-current={isActive ? 'true' : undefined}
                 onClick={() => {
                   setMode(m.id);
                   setOpen(false);

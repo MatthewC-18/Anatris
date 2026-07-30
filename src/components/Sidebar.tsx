@@ -1,20 +1,32 @@
 // src/components/Sidebar.tsx
 //
-// Left navigation rail. Region-aware: the active module name, the seven phase
-// labels and the muscle list all follow the active region (store.region). The
-// region SWITCH itself lives in the TopBar (the module nav), so this rail no
-// longer carries its own region selector.
+// Left navigation rail for "Explorar". Region-aware: the active module name and
+// the muscle list follow the active region (store.region). The region SWITCH
+// lives in the TopBar.
 //
-// Shows: the active module header with a progress placeholder, the seven
-// pedagogical phases (display-only until the content phase wires them up), the
-// ROM study panel, the layer toggles with live visible-count badges, the side
-// filter, the origin/insertion marker toggle, and the per-muscle list (grouped
-// by function).
+// ACCORDION, NOT A STACK.
+// This rail used to render eight sections open at once -- Módulo, Fases,
+// Profundidad, Rango de movimiento, Capas, Lado, Visualización, Músculos --
+// which measured 3343px of content against 750px of viewport: 4.5 screens of
+// scrolling with no hierarchy, where "Lado" (65px, touched once a session) had
+// the same visual weight as "Músculos" (1639px, touched constantly). Three
+// changes fix it:
+//
+//   1. ONE SECTION OPEN AT A TIME. The open body scrolls inside itself, so the
+//      section headers never scroll out of reach.
+//   2. MERGED VIEW CONTROLS. "Profundidad" and "Capas" were the same truth
+//      twice (the slider is DERIVED from the active layers -- see DepthPeeler),
+//      and "Lado" / "Visualización" are the same kind of setting. They are now
+//      one "Vista" section.
+//   3. FASES REMOVED. Those seven items navigate the *Aprender* mode; clicking
+//      one threw the user out of Explorar. A mode switch disguised as a list
+//      belongs in the mode switcher, not here.
 //
 // RESPONSIVE: on desktop a fixed left column; on compact screens inside a
 // slide-in drawer (see App.tsx). The optional onNavigate callback lets the
 // drawer close itself when the user picks something.
 
+import { useState } from 'react';
 import { useAnatomyStore, type SideFilter } from '../store/anatomyStore';
 import {
   LAYER_META,
@@ -25,9 +37,11 @@ import { MuscleList } from './MuscleList';
 import { DepthPeeler } from './DepthPeeler';
 import { RomPanel } from './RomPanel';
 import { trackForRegion } from '../data/trackByRegion';
-import { PHASE_ORDER, PHASE_META } from '../types/pedagogy';
 import type { AnatomyLayer, AnatomyIndex } from '../types/anatomy';
 import type { MuscleResolution } from '../lib/muscleResolver';
+
+/** The three collapsible sections of the rail. */
+type SectionId = 'muscles' | 'view' | 'rom';
 
 interface SidebarProps {
   index: AnatomyIndex | null;
@@ -35,36 +49,113 @@ interface SidebarProps {
   /** Called when the user activates a navigation item; used to close the
    *  mobile drawer. Optional: omitted on desktop where there is no drawer. */
   onNavigate?: () => void;
-  /** Enter "Aprender" mode (the phase navigator jumps the app to a phase). */
+  /** Kept for call-site compatibility; the phase navigator moved to the mode
+   *  switcher (see the file header). */
   onOpenPhase?: () => void;
 }
 
-export function Sidebar({ index, resolution, onNavigate, onOpenPhase }: SidebarProps) {
+export function Sidebar({ index, resolution, onNavigate }: SidebarProps) {
+  // Muscles first: it is the reason this rail exists.
+  const [open, setOpen] = useState<SectionId>('muscles');
+
   return (
-    <nav className="flex h-full w-[260px] shrink-0 flex-col border-r border-slate-800/60 bg-ink-950/80">
-      <div className="flex-1 overflow-y-auto px-4 py-5">
+    <nav
+      aria-label="Controles de la región"
+      className="flex h-full w-[260px] shrink-0 flex-col border-r border-slate-800/60 bg-ink-950/80"
+    >
+      <div className="shrink-0 px-4 pb-3 pt-5">
         <ModuleHeader />
-        <PhaseList onNavigate={onNavigate} onOpenPhase={onOpenPhase} />
-        <div className="my-5 h-px bg-slate-800/60" />
-        <DepthPeeler />
-        <div className="my-5 h-px bg-slate-800/60" />
-        <RomPanel resolution={resolution} />
-        <div className="my-5 h-px bg-slate-800/60" />
-        <LayerControls index={index} />
-        <div className="my-5 h-px bg-slate-800/60" />
-        <SideControls />
-        <div className="my-5 h-px bg-slate-800/60" />
-        <DisplayControls />
-        <div className="my-5 h-px bg-slate-800/60" />
-        <MuscleList resolution={resolution} />
       </div>
 
-      <footer className="border-t border-slate-800/60 px-4 py-3">
-        <button className="text-xs text-slate-600 transition-colors hover:text-slate-400">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <Section
+          id="muscles"
+          title="Músculos"
+          open={open}
+          setOpen={setOpen}
+        >
+          <MuscleList resolution={resolution} />
+        </Section>
+
+        <Section id="view" title="Vista y capas" open={open} setOpen={setOpen}>
+          <DepthPeeler />
+          <div className="my-4 h-px bg-slate-800/60" />
+          <LayerControls index={index} />
+          <div className="my-4 h-px bg-slate-800/60" />
+          <SideControls />
+          <div className="my-4 h-px bg-slate-800/60" />
+          <DisplayControls />
+        </Section>
+
+        <Section id="rom" title="Rango de movimiento" open={open} setOpen={setOpen}>
+          <RomPanel resolution={resolution} />
+        </Section>
+      </div>
+
+      <footer className="shrink-0 border-t border-slate-800/60 px-4 py-3">
+        <a
+          href="mailto:soporte@anatris.app?subject=Anatris%20%E2%80%94%20reportar%20un%20problema"
+          onClick={onNavigate}
+          className="text-xs text-slate-600 transition-colors hover:text-slate-400"
+        >
           Reportar un problema
-        </button>
+        </a>
       </footer>
     </nav>
+  );
+}
+
+/**
+ * One accordion section. The header stays put; only the open body scrolls, so
+ * the user can always reach the other two sections without scrolling back up.
+ */
+function Section({
+  id,
+  title,
+  open,
+  setOpen,
+  children,
+}: {
+  id: SectionId;
+  title: string;
+  open: SectionId;
+  setOpen: (s: SectionId) => void;
+  children: React.ReactNode;
+}) {
+  const isOpen = open === id;
+  return (
+    <div className={`flex min-h-0 flex-col ${isOpen ? 'flex-1' : 'shrink-0'}`}>
+      <button
+        type="button"
+        onClick={() => setOpen(id)}
+        aria-expanded={isOpen}
+        aria-controls={`section-${id}`}
+        className={`flex w-full shrink-0 items-center gap-2 border-t border-slate-800/60 px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.16em] transition-colors ${
+          isOpen
+            ? 'bg-slate-900/40 text-slate-300'
+            : 'text-slate-600 hover:bg-slate-900/30 hover:text-slate-400'
+        }`}
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          aria-hidden="true"
+          className={`shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+        >
+          <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {title}
+      </button>
+      {isOpen && (
+        <div id={`section-${id}`} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -73,77 +164,14 @@ function ModuleHeader() {
   const track = trackForRegion(region);
 
   return (
-    <div className="mb-5">
+    <div>
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
-        Modulo
+        Módulo
       </p>
       <h2 className="mt-1 font-display text-lg font-semibold text-slate-100">
         {track.regionName}
       </h2>
     </div>
-  );
-}
-
-function PhaseList({
-  onNavigate,
-  onOpenPhase,
-}: {
-  onNavigate?: () => void;
-  /** Switch the app into "Aprender" so the chosen phase is actually shown. */
-  onOpenPhase?: () => void;
-}) {
-  // The seven phase labels come from the canonical PHASE_ORDER + PHASE_META, so
-  // they are identical across regions (the order is fixed by pedagogy). This is
-  // a real navigator: it reflects/sets the active phase in the store, which the
-  // "Aprender" tab strip shares. Clicking a phase enters Aprender at that phase.
-  const learnPhase = useAnatomyStore((s) => s.learnPhase);
-  const setLearnPhase = useAnatomyStore((s) => s.setLearnPhase);
-
-  return (
-    <div>
-      <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
-        Fases
-      </p>
-      <ul className="flex flex-col gap-0.5">
-        {PHASE_ORDER.map((phaseId) => {
-          const meta = PHASE_META[phaseId];
-          const isActive = phaseId === learnPhase;
-          return (
-            <li key={phaseId}>
-              <button
-                onClick={() => {
-                  setLearnPhase(phaseId);
-                  onOpenPhase?.();
-                  onNavigate?.();
-                }}
-                className={[
-                  'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
-                  isActive
-                    ? 'bg-accent/10 text-accent'
-                    : 'text-slate-300 hover:bg-slate-800/40',
-                ].join(' ')}
-              >
-                <PhaseDot index={meta.step} isActive={isActive} />
-                <span className="truncate">{meta.label}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-function PhaseDot({ index, isActive }: { index: number; isActive: boolean }) {
-  return (
-    <span
-      className={[
-        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-[10px]',
-        isActive ? 'bg-accent text-ink-950' : 'bg-slate-800 text-slate-500',
-      ].join(' ')}
-    >
-      {index}
-    </span>
   );
 }
 
@@ -179,32 +207,23 @@ function LayerRow({
   const meta = LAYER_META[layer];
   const count = index?.entriesByLayer[layer] ?? 0;
 
+  // A real <input type="checkbox">, not a button with a drawn box: assistive
+  // tech needs to hear "checkbox, checked", and the drawn version announced
+  // nothing at all.
   return (
-    <button
-      type="button"
-      onClick={() => toggleLayer(layer)}
-      className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-slate-800/40"
-    >
-      <span
-        className={[
-          'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
-          on
-            ? 'border-accent bg-accent'
-            : 'border-slate-600 bg-transparent group-hover:border-slate-500',
-        ].join(' ')}
-      >
-        {on && (
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#070b14" strokeWidth="4">
-            <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
-      </span>
+    <label className="group flex min-h-[2rem] w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-slate-800/40">
+      <input
+        type="checkbox"
+        checked={on}
+        onChange={() => toggleLayer(layer)}
+        className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-600 bg-transparent accent-accent"
+      />
       <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
       <span className={`flex-1 text-sm ${on ? 'text-slate-200' : 'text-slate-500'}`}>
         {meta.label}
       </span>
       <span className="font-mono text-[11px] text-slate-600">{count}</span>
-    </button>
+    </label>
   );
 }
 
@@ -229,8 +248,9 @@ function SideControls() {
             key={opt.value}
             type="button"
             onClick={() => setSideFilter(opt.value)}
+            aria-pressed={sideFilter === opt.value}
             className={[
-              'flex-1 rounded-lg px-2 py-1.5 text-sm font-medium transition-all',
+              'min-h-[2rem] flex-1 rounded-lg px-2 py-1.5 text-sm font-medium transition-all',
               sideFilter === opt.value
                 ? 'bg-accent text-ink-950 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200',
@@ -254,35 +274,23 @@ function DisplayControls() {
   return (
     <div>
       <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
-        Visualizacion
+        Visualización
       </p>
-      <button
-        type="button"
-        onClick={toggleOriginInsertion}
-        className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-slate-800/40"
-      >
-        <span
-          className={[
-            'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
-            showOriginInsertion
-              ? 'border-accent bg-accent'
-              : 'border-slate-600 bg-transparent group-hover:border-slate-500',
-          ].join(' ')}
-        >
-          {showOriginInsertion && (
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#070b14" strokeWidth="4">
-              <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          )}
-        </span>
+      <label className="group flex min-h-[2rem] w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-slate-800/40">
+        <input
+          type="checkbox"
+          checked={showOriginInsertion}
+          onChange={toggleOriginInsertion}
+          className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-600 bg-transparent accent-accent"
+        />
         <span
           className={`flex-1 text-sm ${
             showOriginInsertion ? 'text-slate-200' : 'text-slate-500'
           }`}
         >
-          Origenes e inserciones
+          Orígenes e inserciones
         </span>
-      </button>
+      </label>
     </div>
   );
 }

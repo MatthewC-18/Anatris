@@ -8,6 +8,8 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import {
+  AdaptiveDpr,
+  AdaptiveEvents,
   CameraControls,
   Environment,
   Lightformer,
@@ -154,6 +156,9 @@ function SceneContents({
   movement,
 }: Viewer3DProps) {
   const { scene } = useThree();
+  // Signals "the user is interacting, cheapen the frame" to AdaptiveDpr /
+  // AdaptiveEvents below. r3f restores full quality on its own once idle.
+  const regress = useThree((s) => s.performance.regress);
   const controlsRef = useRef<CameraControls | null>(null);
   const boundsRef = useRef<{ box: THREE.Box3; radius: number } | null>(null);
   const hasFramedRef = useRef(false);
@@ -421,15 +426,37 @@ function SceneContents({
       {movement && <ShoulderRotationRig />}
       {movement && <MuscleBands resolution={resolution} />}
 
+      {/* PERFORMANCE WHILE INTERACTING.
+          The atlas is thousands of meshes, each with its own cloned material, so
+          a drag is the most expensive thing the user can do. `regress()` (fired
+          on every camera change below) flips r3f into its degraded state for a
+          moment, which lets these two components:
+            - AdaptiveDpr:    drop the render resolution while the camera moves
+                              and restore it the instant it settles, so motion
+                              stays smooth and the STILL frame -- the only one
+                              anybody actually looks at -- keeps full quality.
+            - AdaptiveEvents: stop raycasting while the camera moves. Hover
+                              picking against the visible set on every pointer
+                              move was competing with the drag for the same
+                              main thread.
+          Both are no-ops once the scene is idle. */}
+      <AdaptiveDpr pixelated={false} />
+      <AdaptiveEvents />
+
       {/* dollyToCursor zooms the wheel TOWARD the pointer so you can dive into any
-          muscle; the small minDistance lets the camera get right up to it. */}
+          muscle; the small minDistance lets the camera get right up to it.
+          smoothTime was 0.5s, which reads as the model lagging behind the cursor
+          even at a full frame rate; 0.18 (and a tighter value while actually
+          dragging) keeps the inertial feel without the rubber band. */}
       <CameraControls
         ref={controlsRef}
         makeDefault
         dollyToCursor
         minDistance={0.05}
         maxDistance={50}
-        smoothTime={0.5}
+        smoothTime={0.18}
+        draggingSmoothTime={0.08}
+        onChange={regress}
       />
     </>
   );
@@ -472,6 +499,10 @@ export function Viewer3D({
       <Canvas
         camera={{ position: [2, 1.5, 4], fov: 45, near: 0.05, far: 100 }}
         dpr={compact ? DPR_MOBILE : DPR_DESKTOP}
+        // Floor for the adaptive quality drop while the camera is moving (see
+        // AdaptiveDpr in SceneContents). 0.5 halves the pixel count during a
+        // drag, which is where the frame budget actually goes.
+        performance={{ min: 0.5 }}
         // Premium studio color pipeline (same as the movement lab): ACES filmic
         // tone mapping gives the muscle reds and ivory bone a richer, more
         // cinematic roll-off than the flat Neutral curve, and pairs with the

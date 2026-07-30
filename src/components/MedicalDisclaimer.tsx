@@ -19,17 +19,30 @@
 
 const WARN = String.fromCharCode(0x26a0);
 
-/** Compact one-line disclaimer for persistent placement. */
+/**
+ * Compact one-line disclaimer for persistent placement.
+ *
+ * SIZING IS A PRODUCT DECISION: this strip sits under the header on every
+ * screen, forever. Wrapped over three lines on a phone it measured 112px of an
+ * 812px viewport -- 14% of the screen, on top of the 48px header -- for text the
+ * user already read and accepted at the one-time gate. It is now ONE line
+ * (truncated on narrow screens, full text in the title and in Legal), which
+ * keeps the notice permanently visible without taxing every view.
+ */
 export function MedicalDisclaimerBanner(): JSX.Element {
+  const full =
+    'Contenido educativo. No sustituye la formación profesional, el criterio clínico ni la atención sanitaria. No debe usarse para diagnosticar ni tratar a pacientes reales.';
   return (
-    <div className="flex items-start gap-2 rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs leading-relaxed text-amber-200/80">
+    <div
+      title={full}
+      className="flex items-center gap-2 rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-1 text-[11px] leading-snug text-amber-200/75"
+    >
       <span aria-hidden className="shrink-0">
         {WARN}
       </span>
-      <span>
-        Contenido educativo. No sustituye la formacion profesional, el criterio
-        clinico ni la atencion sanitaria. No debe usarse para diagnosticar ni
-        tratar a pacientes reales.
+      <span className="truncate">
+        <span className="font-medium">Contenido educativo.</span> No sustituye la
+        formación profesional, el criterio clínico ni la atención sanitaria.
       </span>
     </div>
   );

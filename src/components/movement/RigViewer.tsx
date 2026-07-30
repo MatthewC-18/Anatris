@@ -11,6 +11,8 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import {
+  AdaptiveDpr,
+  AdaptiveEvents,
   CameraControls,
   Environment,
   Lightformer,
@@ -182,6 +184,43 @@ function StudioEnvironment() {
   );
 }
 
+/**
+ * Camera + interaction budget. Lives inside the Canvas so it can read r3f's
+ * `performance.regress`.
+ *
+ * Every camera change regresses the scene for a moment, which lets AdaptiveDpr
+ * drop the render resolution and AdaptiveEvents stop raycasting WHILE the camera
+ * moves, then restores both the instant it settles. That matters more here than
+ * in the atlas: these are 1300+ SKINNED meshes, so every frame also pays for CPU
+ * skinning, and picking a skinned mesh is the most expensive raycast three.js
+ * does -- it was competing with the drag for the same main thread.
+ *
+ * smoothTime was 0.4s, long enough that the model visibly trailed the cursor and
+ * read as a stutter even when frames were fine.
+ */
+function NavigationRig() {
+  const regress = useThree((s) => s.performance.regress);
+  return (
+    <>
+      <AdaptiveDpr pixelated={false} />
+      <AdaptiveEvents />
+      {/* Free navigation: dollyToCursor makes the wheel zoom TOWARD the pointer
+          (point at a muscle and scroll in), and a small minDistance lets the
+          camera get right up to a single muscle. Right-drag trucks (pans) up/
+          down/sideways; double-click flies to a structure (DoubleClickFocus). */}
+      <CameraControls
+        makeDefault
+        dollyToCursor
+        minDistance={0.05}
+        maxDistance={50}
+        smoothTime={0.18}
+        draggingSmoothTime={0.08}
+        onChange={regress}
+      />
+    </>
+  );
+}
+
 function RigLoaderOverlay({ progress }: { progress: number }) {
   const pct = Math.min(100, Math.round(progress));
   return (
@@ -238,6 +277,9 @@ export function RigViewer() {
         id="rig-gl-canvas"
         camera={{ position: [2, 1.5, 4], fov: 45, near: 0.05, far: 100 }}
         dpr={RIG_DPR}
+        // Floor for the adaptive quality drop while the camera moves. The still
+        // frame -- the only one anyone studies -- keeps full resolution.
+        performance={{ min: 0.5 }}
         gl={{
           antialias: true,
           preserveDrawingBuffer: true,
@@ -270,17 +312,7 @@ export function RigViewer() {
           <DoubleClickFocus />
         </Suspense>
 
-        {/* Free navigation: dollyToCursor makes the wheel zoom TOWARD the pointer
-            (point at a muscle and scroll in), and a small minDistance lets the
-            camera get right up to a single muscle. Right-drag trucks (pans) up/
-            down/sideways; double-click flies to a structure (DoubleClickFocus). */}
-        <CameraControls
-          makeDefault
-          dollyToCursor
-          minDistance={0.05}
-          maxDistance={50}
-          smoothTime={0.4}
-        />
+        <NavigationRig />
       </Canvas>
 
       {/* Premium depth: a soft radial spotlight behind the model and a vignette
