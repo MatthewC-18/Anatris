@@ -27,12 +27,30 @@
 //   - "Acerca de" and "Legal" open the attribution / disclaimer screens as
 //     overlays.
 
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useAnatomyIndex } from './hooks/useAnatomyIndex';
 import { useMuscleResolution } from './hooks/useMuscleResolution';
 import { useAnatomyStore } from './store/anatomyStore';
 import { TopBar, type AppMode, type Overlay } from './components/TopBar';
-import { Sidebar } from './components/Sidebar';
+// CODE SPLITTING — what the ENTRY chunk is allowed to contain.
+//
+// The entry is what every visitor downloads before deciding anything, the
+// marketing landing included. It had grown to 939 KB (234 KB gzip) because the
+// components below are region-aware and statically pull in the clinical data
+// registries (musclesByRegion, romByRegion, muscleContentByRegion,
+// trackByRegion, clinicalCases, evidence...), which between them carry EVERY
+// region -- so a visitor who had not signed up downloaded the knee, hip, ankle
+// and spine content in full.
+//
+// They all render inside the body's <Suspense>, so deferring them is a drop-in.
+// The entry now keeps only the app shell: TopBar, landing, pricing, auth, legal.
+//
+// NOTE: this fixes the DOWNLOAD, not the leak. The paid chunks are still
+// reachable by anyone who asks for them; the gate stays client-side until the
+// content is served behind a server-side entitlement check.
+const Sidebar = lazy(() =>
+  import('./components/Sidebar').then((m) => ({ default: m.Sidebar })),
+);
 // The 3D workspace (Viewer3D + MovementView) is the ONLY path that pulls in
 // three.js / @react-three (~1.4 MB). It is code-split behind React.lazy so the
 // marketing landing, pricing, disclaimer and study views — none of which touch
@@ -41,10 +59,16 @@ const Viewer3D = lazy(() =>
   import('./components/Viewer3D').then((m) => ({ default: m.Viewer3D })),
 );
 import { ViewToolbar } from './components/ViewToolbar';
-import { SelectionPanel } from './components/SelectionPanel';
+const SelectionPanel = lazy(() =>
+  import('./components/SelectionPanel').then((m) => ({ default: m.SelectionPanel })),
+);
 import { CommandPalette } from './components/CommandPalette';
-import { PhaseTrack } from './components/PhaseTrack';
-import { StudyView } from './components/study/StudyView';
+const PhaseTrack = lazy(() =>
+  import('./components/PhaseTrack').then((m) => ({ default: m.PhaseTrack })),
+);
+const StudyView = lazy(() =>
+  import('./components/study/StudyView').then((m) => ({ default: m.StudyView })),
+);
 const MovementView = lazy(() =>
   import('./components/movement/MovementView').then((m) => ({
     default: m.MovementView,
@@ -65,11 +89,14 @@ import { OnboardingTour, readTourDone } from './components/OnboardingTour';
 import { LegalScreen } from './components/LegalScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GuideHub } from './components/GuideHub';
-import { EvidenceScreen } from './components/EvidenceScreen';
+const EvidenceScreen = lazy(() =>
+  import('./components/EvidenceScreen').then((m) => ({ default: m.EvidenceScreen })),
+);
 import { REGIONS, resolveRegionMeshes, resolveRegionFocus } from './data/regiones';
 
 import { isConceptModule } from './data/conceptByRegion';
 import { EVENTS, track } from './lib/analytics';
+import { DEFAULT_REGION, readRoute, writeRoute } from './lib/routing';
 
 /** Which mobile drawer (if any) is open. Desktop never opens these. */
 type Drawer = 'none' | 'sidebar' | 'selection';
@@ -154,12 +181,17 @@ function useIsCompact(): boolean {
 export default function App() {
   const { index, byMesh, status, error } = useAnatomyIndex();
   const resolution = useMuscleResolution(index);
-  const [mode, setMode] = useState<AppMode>('explore');
+  // A deep link decides the opening mode, so it can't be a plain 'explore'.
+  const [mode, setMode] = useState<AppMode>(() => readRoute()?.mode ?? 'explore');
   const [overlay, setOverlay] = useState<Overlay>('none');
   const [drawer, setDrawer] = useState<Drawer>('none');
   const [authOpen, setAuthOpen] = useState<boolean>(false);
   const [accepted, setAccepted] = useState<boolean>(() => readAccepted());
-    const [entered, setEntered] = useState<boolean>(() => readEntered());
+  // A shared link (a colleague sending /rodilla/movimiento) means the visitor
+  // came for a specific thing, not for the pitch — send them straight in.
+  const [entered, setEntered] = useState<boolean>(
+    () => readEntered() || readRoute() != null,
+  );
   const [tourDone, setTourDone] = useState<boolean>(() => readTourDone());
   const compact = useIsCompact();
   const entitlement = useEntitlement();
@@ -182,9 +214,36 @@ export default function App() {
   // replaced by the Paywall regardless of the current mode.
   const locked = !entitlement.canAccessRegion(regionId);
 
+  // ROUTE -> STATE, once on mount. A deep link (/rodilla/movimiento) sets the
+  // region; anything else settles on the default. Runs before the URL sync
+  // below so the first write is a replace, not a spurious history entry.
   useEffect(() => {
-    if (region == null) setRegion('shoulder');
+    if (region != null) return;
+    setRegion(readRoute()?.region ?? DEFAULT_REGION);
   }, [region, setRegion]);
+
+  // STATE -> ROUTE. The first write replaces (normalizing `/` into
+  // `/hombro/explorar` must not create an entry the user's Back button gets
+  // stuck on); every later region/mode change pushes, so Back retraces the path
+  // they actually walked.
+  const routeSyncedRef = useRef(false);
+  useEffect(() => {
+    if (region == null) return;
+    writeRoute({ region, mode }, { replace: !routeSyncedRef.current });
+    routeSyncedRef.current = true;
+  }, [region, mode]);
+
+  // ROUTE -> STATE on Back/Forward.
+  useEffect(() => {
+    const onPop = () => {
+      const next = readRoute();
+      if (!next) return;
+      setRegion(next.region);
+      setMode(next.mode);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [setRegion]);
 
   // Entering a conceptual module (Fundamentos) snaps to "Aprender": the concept
   // renderer (with its "Ver en 3D" overlay action) only lives in that mode.
@@ -429,19 +488,25 @@ export default function App() {
       )}
 
       {/* Mobile drawers. */}
+      {/* The drawers live OUTSIDE the body's Suspense, so the lazy panels need
+          their own boundary here. */}
       {drawer === 'sidebar' && (
         <DrawerShell side="left" onClose={() => setDrawer('none')}>
-          <Sidebar
-            index={index}
-            resolution={resolution}
-            onNavigate={() => setDrawer('none')}
-            onOpenPhase={() => setMode('learn')}
-          />
+          <Suspense fallback={<PanelLoading />}>
+            <Sidebar
+              index={index}
+              resolution={resolution}
+              onNavigate={() => setDrawer('none')}
+              onOpenPhase={() => setMode('learn')}
+            />
+          </Suspense>
         </DrawerShell>
       )}
       {drawer === 'selection' && (
         <DrawerShell side="right" onClose={() => setDrawer('none')}>
-          <SelectionPanel byMesh={byMesh} resolution={resolution} />
+          <Suspense fallback={<PanelLoading />}>
+            <SelectionPanel byMesh={byMesh} resolution={resolution} />
+          </Suspense>
         </DrawerShell>
       )}
 
@@ -500,7 +565,9 @@ export default function App() {
       )}
       {overlay === 'evidence' && (
         <OverlayShell title="Evidencia clínica" onClose={() => setOverlay('none')}>
-          <EvidenceScreen region={regionId} />
+          <Suspense fallback={<PanelLoading />}>
+            <EvidenceScreen region={regionId} />
+          </Suspense>
         </OverlayShell>
       )}
 
@@ -680,6 +747,15 @@ function IndexLoading() {
   return (
     <div className="flex h-full items-center justify-center viewer-bg">
       <p className="font-mono text-xs text-slate-600">Cargando índice anatómico...</p>
+    </div>
+  );
+}
+
+/** Fallback for a lazy panel rendered outside the body's Suspense. */
+function PanelLoading() {
+  return (
+    <div className="flex h-full min-h-[8rem] items-center justify-center px-6 py-8">
+      <p className="font-mono text-xs text-slate-600">Cargando...</p>
     </div>
   );
 }

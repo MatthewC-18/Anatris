@@ -10,7 +10,8 @@ Todos los números de esta auditoría están medidos en el DOM o en el build, no
 | # | Hallazgo | Estado |
 |---|---|---|
 | A1/A2 | Gate solo por región; Pricing contradecía al código | **Arreglado** — gate por capacidad en `entitlements.ts` + copy alineado |
-| A3 | Contenido de pago en el bundle público | Pendiente (P2, cambio arquitectónico) |
+| A3 | Contenido de pago en el bundle público | **Descarga arreglada** (entrada 939 → 337 KB, rodilla/cadera/tobillo/columna fuera); la fuga sigue: falta verificación en servidor |
+| D7 | Sin rutas: todo en una URL | **Arreglado** — `/hombro/movimiento`, atrás/adelante, sitemap.xml |
 | A4/A5 | Sin CTA ni modos visibles <1860px | **Arreglado** — modos desde 1024px, "Hazte Premium" desde 640px |
 | A6 | Columna caía al contenido del hombro | **Arreglado** — índice vacío en vez de `SHOULDER_MUSCLES` |
 | A7 | 0/161 citas de ROM verificadas | Pendiente (trabajo de contenido, no de código) |
@@ -32,6 +33,23 @@ Todos los números de esta auditoría están medidos en el DOM o en el build, no
 | CTA de upgrade visible | no | sí |
 | Chrome fijo en móvil (375) | 160 px (20%) | 81 px (10%) |
 | `<h1>` / `aria-current` / `:focus-visible` | no / 0 / no | sí / sí / sí |
+| Chunk de entrada (todos los visitantes) | 939 KB · 234 KB gzip | 337 KB · 99 KB gzip |
+| Contenido clínico de pago en la entrada | rodilla, cadera, tobillo, columna | ninguno |
+| URLs de la app | 1 | 37 (`/hombro/movimiento`, …) + sitemap |
+
+### Lo que queda, por orden de impacto en la venta
+
+1. **0/161 citas de ROM verificadas** (`npm run audit-data`). Trabajo de
+   contenido: no se pueden inventar números de página, la propia guía de autoría
+   de `shoulderMuscles.ts` lo prohíbe.
+2. **La fuga de contenido sigue abierta.** Partir el bundle arregló la DESCARGA,
+   no el acceso: los chunks de pago siguen siendo accesibles para quien los pida.
+   Solo se cierra sirviendo el contenido tras una verificación de entitlement en
+   servidor (edge function / RLS de Supabase).
+3. **i18n**: decidir `text: Record<Locale,string>` y `group` como enum ANTES de
+   escribir más contenido. Las rutas ya están listas para prefijo de idioma
+   (`routing.ts` separa id interno de slug público, que es el trabajo difícil).
+4. **Columna sin `MuscleContent` rico** (región de pago más pobre que la gratis).
 
 ---
 

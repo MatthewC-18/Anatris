@@ -10,6 +10,7 @@
     "build-anatomy": "tsx --tsconfig tsconfig.scripts.json scripts/build-anatomy-index.ts",
     "audit-data": "tsx --tsconfig tsconfig.scripts.json scripts/audit-clinical-data.mts",
     "gen-pwa-icons": "node scripts/gen-pwa-icons.mjs",
+    "gen-sitemap": "tsx --tsconfig tsconfig.scripts.json scripts/gen-sitemap.mts",
     "test": "vitest run",
     "test:watch": "vitest",
     "optimize-rig": "node scripts/decimate-glb.mjs rig-src/cuerpo-rig.glb public/cuerpo-rig.opt.glb 0.4 --no-quantize",
