@@ -184,13 +184,22 @@ export function NeuroPanel({
   const rafRef = useRef(0);
   useEffect(() => {
     if (!demoId) return;
-    const d = byId.get(demoId)?.demo;
-    if (!d) return;
+    const root = byId.get(demoId);
+    const d = root?.demo;
+    if (!root || !d) return;
     const side = d.side ?? 'R';
     const target = d.angleDeg;
     const highlight = d.highlightMuscleId
       ? [{ muscleId: d.highlightMuscleId, role: 'prime-mover' as const, level: 1 }]
       : [];
+    // Built ONCE per demo, not per frame: the readout compares it by identity to
+    // decide whether anything changed.
+    const demoInfo = {
+      label: `Miotoma ${root.label}`,
+      targetDeg: target,
+      structure: root.myotome.action,
+      note: d.note,
+    };
     const push = (deg: number) =>
       rigChannel.set({
         movementId: d.movementId,
@@ -199,6 +208,9 @@ export function NeuroPanel({
         highlight,
         showMarkers: false,
         ghostSkin: true,
+        // Fixed for the whole demo, so the readout describes the myotome
+        // instead of recomputing (and flickering) its analysis every frame.
+        demo: demoInfo,
       });
     // On stop, RELEASE the channel (only if this demo still owns it): the
     // console reacts by re-pushing its own live state, which restores the pose
@@ -214,7 +226,15 @@ export function NeuroPanel({
       return release;
     }
 
-    const DPS = 55;
+    // Claim the rig straight away, before the first animation frame, so the
+    // readout switches to the myotome the moment the button is pressed.
+    push(0);
+
+    // Exam pace (same as the orthopedic-test demos): slow enough to follow, with
+    // a long hold at the tested position so it can actually be read.
+    const DPS = 26;
+    const HOLD_AT_TARGET_MS = 2800;
+    const HOLD_AT_REST_MS = 800;
     let last = 0;
     let dir: 1 | -1 = 1;
     let angle = 0;
@@ -230,11 +250,11 @@ export function NeuroPanel({
         if (angle >= target) {
           angle = target;
           dir = -1;
-          holdUntil = ts + 1000;
+          holdUntil = ts + HOLD_AT_TARGET_MS;
         } else if (angle <= 0) {
           angle = 0;
           dir = 1;
-          holdUntil = ts + 450;
+          holdUntil = ts + HOLD_AT_REST_MS;
         }
       }
       push(angle);

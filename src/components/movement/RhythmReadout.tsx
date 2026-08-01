@@ -253,7 +253,7 @@ interface RhythmReadoutProps {
 
 export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) {
   const [cmd, setCmd] = useState<
-    Pick<RigCommand, 'movementId' | 'side' | 'angleDeg' | 'pathologyId'>
+    Pick<RigCommand, 'movementId' | 'side' | 'angleDeg' | 'pathologyId' | 'demo'>
   >(() => {
     const c = rigChannel.get();
     return {
@@ -261,6 +261,7 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
       side: c.side,
       angleDeg: c.angleDeg,
       pathologyId: c.pathologyId ?? null,
+      demo: c.demo ?? null,
     };
   });
   useEffect(() => {
@@ -269,13 +270,15 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
         prev.movementId === c.movementId &&
         prev.side === c.side &&
         prev.angleDeg === c.angleDeg &&
-        (prev.pathologyId ?? null) === (c.pathologyId ?? null)
+        (prev.pathologyId ?? null) === (c.pathologyId ?? null) &&
+        (prev.demo ?? null) === (c.demo ?? null)
           ? prev
           : {
               movementId: c.movementId,
               side: c.side,
               angleDeg: c.angleDeg,
               pathologyId: c.pathologyId ?? null,
+              demo: c.demo ?? null,
             },
       ),
     );
@@ -383,6 +386,14 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
   const gestureName =
     angle < 0 && movement?.labReverse ? movement.labReverse.name : movement?.name;
 
+  // A maneuver is being DEMONSTRATED (orthopedic test / myotome). While it runs
+  // the angle sweeps, so every per-angle reading below — the sector, the rhythm,
+  // the recruited muscles and their percentages — would recompute on every frame
+  // and be unreadable. The panel switches to a FIXED description of the maneuver
+  // instead; the dial keeps showing the live angle, because motion is what a dial
+  // is for.
+  const demo = cmd.demo ?? null;
+
   // Dial mapping.
   const span = arc.max - arc.min;
   const t = span === 0 ? 0 : (angle - arc.min) / span;
@@ -413,15 +424,19 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/70" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
           </span>
-          <span className="kicker text-slate-400">Análisis en vivo</span>
+          <span className="kicker text-slate-400">
+            {demo ? 'Demostración' : 'Análisis en vivo'}
+          </span>
         </div>
 
         <div className="mt-2 flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="truncate font-display text-[15px] font-semibold leading-tight text-slate-50">
-              {gestureName}
+              {demo ? demo.label : gestureName}
             </div>
-            <div className="mt-0.5 truncate text-[11px] text-slate-500">{movement?.joint}</div>
+            <div className="mt-0.5 truncate text-[11px] text-slate-500">
+              {demo ? gestureName : movement?.joint}
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-2 pt-1 text-[9px] font-semibold uppercase tracking-[0.12em]">
             {movement?.plane && <span className="text-slate-500">{movement.plane}</span>}
@@ -587,7 +602,48 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
           WebkitMaskImage: 'linear-gradient(180deg, #000 calc(100% - 14px), transparent)',
         }}
       >
-      {at && (
+      {/* DEMO CARD. Fixed for the whole maneuver: what position is being held,
+          on what structure, and — for a resisted test — where the physio pushes.
+          This is what replaces the per-frame analysis while a demo runs. */}
+      {demo && (
+        <>
+          <div className="hairline" />
+          <div className={`px-4 ${padY}`}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="kicker">Posición de prueba</span>
+              <span className="font-mono text-[13px] font-semibold tabular-nums text-accent">
+                {Math.round(demo.targetDeg)}°
+              </span>
+            </div>
+            {demo.structure && (
+              <p className="mt-1.5 text-[11px] leading-snug text-slate-300">
+                Evalúa <span className="font-semibold text-slate-100">{demo.structure}</span>
+              </p>
+            )}
+
+            {demo.resisted && (
+              <div className="mt-2 border-l-2 border-[#ffb877]/70 bg-[#ffb877]/[0.09] py-1.5 pl-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#ffb877]">
+                  Prueba resistida
+                </span>
+                <ol className="mt-1 space-y-1 text-[10.5px] leading-snug text-slate-200">
+                  <li>1. El paciente sostiene la posición y empuja.</li>
+                  <li>
+                    2. Aplica resistencia en el segmento distal, donde se apoya la mano
+                    del fisio en el modelo.
+                  </li>
+                </ol>
+              </div>
+            )}
+
+            {showDescription && demo.note && (
+              <p className="mt-2 text-[10.5px] leading-snug text-slate-400">{demo.note}</p>
+            )}
+          </div>
+        </>
+      )}
+
+      {at && !demo && (
         <>
           <div className="hairline" />
           <div className={`px-4 ${padY}`}>
@@ -646,7 +702,7 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
       )}
 
       {/* Humero-escapulo-raquideo rhythm (shoulder elevation only) */}
-      {rhythm && (
+      {rhythm && !demo && (
         <>
           <div className="hairline" />
           <div className={`px-4 ${padY}`}>
@@ -696,7 +752,7 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
 
       {/* Knee screw-home coupling — the knee's "rhythm equivalent": the coupled
           automatic tibial external rotation that locks the joint in extension. */}
-      {screwHome && (
+      {screwHome && !demo && (
         <>
           <div className="hairline" />
           <div className={`px-4 ${padY}`}>
@@ -741,7 +797,7 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
       )}
 
       {/* Cervical rotation split — the neck's rhythm equivalent (C1-C2 vs C2-C7). */}
-      {cervicalSplit && (
+      {cervicalSplit && !demo && (
         <SegmentSplitCard
           title="Reparto de la rotación"
           ratio={cervicalSplit.ratio}
@@ -770,7 +826,7 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
       )}
 
       {/* Lumbopelvic rhythm — the trunk's rhythm equivalent (lumbar spine + pelvis). */}
-      {lumboPelvic && (
+      {lumboPelvic && !demo && (
         <SegmentSplitCard
           title="Ritmo lumbopélvico"
           ratio={lumboPelvic.ratio}
@@ -808,7 +864,10 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
 
       {/* Protagonist muscle. The role reads as a colored edge plus a word, so the
           muscle's name and its recruitment stay the largest things here. */}
-      {hero && (
+      {/* Hidden during a demo: the recruited muscles and their percentages are
+          per-angle values, so on a sweep they flicker. The demo card above names
+          the structure under test instead, and the model still glows it. */}
+      {hero && !demo && (
         <>
       <div className="hairline" />
       <div className={`shrink-0 border-l-2 px-4 ${padY} ${ROLE_CARD[hero.role]}`}>
@@ -846,15 +905,20 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
       )}
 
       {/* HONEST FRAMING (G3): the %/ratios above are a recruitment MODEL grounded
-          in standard kinesiology, never a measured EMG. Always visible so the
-          numbers can never be read as a measurement — but on the short viewports
-          where the column is tightest it says so in one line instead of three. */}
-      <div className="hairline" />
-      <p className="shrink-0 px-4 py-2 text-[9px] leading-tight text-slate-600">
-        {compact
-          ? 'Modelo de reclutamiento, no medición EMG.'
-          : 'Porcentajes y proporciones: modelo de reclutamiento (Kapandji, Oatis, Neumann), no medición EMG.'}
-      </p>
+          in standard kinesiology, never a measured EMG. Shown whenever a number
+          is on screen, so it can never be read as a measurement — on the short
+          viewports where the column is tightest it says so in one line instead
+          of three. A demo shows no percentages, so it carries no such claim. */}
+      {!demo && (
+        <>
+          <div className="hairline" />
+          <p className="shrink-0 px-4 py-2 text-[9px] leading-tight text-slate-600">
+            {compact
+              ? 'Modelo de reclutamiento, no medición EMG.'
+              : 'Porcentajes y proporciones: modelo de reclutamiento (Kapandji, Oatis, Neumann), no medición EMG.'}
+          </p>
+        </>
+      )}
     </div>
   );
 }

@@ -319,6 +319,7 @@ export function MovementControls({
         implicated: [],
         ghostSkin: false,
         resistance: false,
+        demo: null,
       });
       return;
     }
@@ -335,10 +336,11 @@ export function MovementControls({
       showMarkers,
       pathologyId: supportsPathology ? pathologyId : null,
       implicated,
-      // rigChannel patches state, so explicitly clear the flags only a demo
-      // sets (glass skin, the therapist's resisting hand).
+      // rigChannel patches state, so explicitly clear everything only a demo
+      // sets (glass skin, the therapist's resisting hand, the maneuver card).
       ghostSkin: false,
       resistance: false,
+      demo: null,
     });
   }, [
     movementId,
@@ -368,6 +370,7 @@ export function MovementControls({
         implicated: [],
         ghostSkin: false,
         resistance: false,
+        demo: null,
       });
   }, []);
 

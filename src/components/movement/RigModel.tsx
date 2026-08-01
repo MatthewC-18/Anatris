@@ -636,6 +636,30 @@ export interface RigCommand {
    * the limb joints (shoulder/elbow/knee) draw it.
    */
   resistance?: boolean;
+  /**
+   * The maneuver being DEMONSTRATED (orthopedic test / myotome), or null when
+   * the console is driving. Set by the panel that owns the rig via demoChannel.
+   *
+   * The readout renders this INSTEAD of its live per-angle analysis: during a
+   * demo the angle sweeps continuously, so recomputing the sector, the rhythm
+   * and the recruited muscles every frame produced text that changed ~25 times
+   * a second and could not be read. This is fixed for the whole demo.
+   */
+  demo?: RigDemoInfo | null;
+}
+
+/** Stable description of the maneuver a demo is showing (see RigCommand.demo). */
+export interface RigDemoInfo {
+  /** Test / nerve-root name, e.g. "Lata vacía (Jobe)". */
+  label: string;
+  /** The provocative angle the sweep holds at, in degrees. */
+  targetDeg: number;
+  /** Structure under test, e.g. "Supraespinoso". */
+  structure?: string;
+  /** True when the examiner opposes the patient's effort. */
+  resisted?: boolean;
+  /** What the rig approximation leaves out. */
+  note?: string;
 }
 
 type Listener = (s: RigCommand) => void;

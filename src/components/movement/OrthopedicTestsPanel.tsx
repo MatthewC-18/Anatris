@@ -594,6 +594,12 @@ function TestRow({
                 <span className="shrink-0 font-mono text-emerald-300/90">Es {espec ?? 's/d'}</span>
               </>
             )}
+            {/* Resisted marker on the COLLAPSED row: which tests need the physio's
+                hand is a property of the list, and hiding it inside the expanded
+                detail meant the resisted tests could not be found at all. */}
+            {test.demo?.resisted && (
+              <span className="shrink-0 font-semibold text-[#ffb877]/90">Resistido</span>
+            )}
           </span>
         </button>
       </div>
@@ -616,19 +622,6 @@ function TestRow({
                 <span className="font-mono text-[10px] text-slate-500">
                   LR+ {lrLabel(lrPos)} · LR− {lrLabel(lrNeg, 2)}
                   {derived && <span className="ml-1 text-slate-600">aprox.</span>}
-                </span>
-              )}
-              {test.demo?.resisted && (
-                <span
-                  title="Prueba resistida: en el modelo aparece la mano del fisio oponiéndose al movimiento."
-                  className="inline-flex items-center gap-1 rounded-md border border-[#39a9c4]/50 bg-[#39a9c4]/12 px-2 py-1 text-[10px] font-semibold text-[#8fd6e6]"
-                >
-                  <svg viewBox="0 0 20 20" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6">
-                    <path d="M10 3v9" strokeLinecap="round" />
-                    <path d="M6.5 8.5L10 12l3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M4 15.5h12" strokeLinecap="round" />
-                  </svg>
-                  Resistido
                 </span>
               )}
               {test.demo && (
@@ -663,6 +656,27 @@ function TestRow({
           <Detail label="Objetivo">{test.purpose}</Detail>
           <Detail label="Maniobra">{test.maneuver}</Detail>
           <Detail label="Positivo">{test.positive}</Detail>
+
+          {/* RESISTED TESTS. The manual resistance lives here, in the maneuver
+              that actually calls for it, rather than as a switch on the free
+              movement. Pressing Demostrar shows the same thing on the model:
+              the physio's hand opposing the gesture. */}
+          {test.demo?.resisted && (
+            <div className="border-l-2 border-[#ffb877]/70 bg-[#ffb877]/[0.09] py-1.5 pl-2.5">
+              <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#ffb877]">
+                Prueba resistida
+              </span>
+              <ol className="mt-1 space-y-1 text-[11px] leading-snug text-slate-200">
+                <li>1. El paciente sostiene la posición y empuja.</li>
+                <li>
+                  2. Aplica resistencia en el segmento distal, oponiéndote al movimiento.
+                </li>
+              </ol>
+              <p className="mt-1 text-[10px] text-slate-400">
+                En Demostrar verás la mano del fisio resistiendo sobre el modelo.
+              </p>
+            </div>
+          )}
           {/* Interpretación reveals the intended use (the exam answer); hold it
               until the prediction is revealed. */}
           {!hideMetrics && <Detail label="Interpretación">{test.interpretation}</Detail>}
@@ -797,13 +811,24 @@ export function OrthopedicTestsPanel({
   const rafRef = useRef(0);
   useEffect(() => {
     if (!demoId) return;
-    const d = byId.get(demoId)?.demo;
-    if (!d) return;
+    const test = byId.get(demoId);
+    const d = test?.demo;
+    if (!test || !d) return;
     const side = d.side ?? 'R';
     const target = d.angleDeg;
     const highlight = d.highlightMuscleId
       ? [{ muscleId: d.highlightMuscleId, role: 'prime-mover' as const, level: 1 }]
       : [];
+    // Built ONCE per demo, not per frame: the readout compares it by identity to
+    // decide whether anything changed, so a fresh object every frame would defeat
+    // the very re-render it is meant to stop.
+    const demoInfo = {
+      label: test.name,
+      targetDeg: target,
+      structure: test.target,
+      resisted: d.resisted === true,
+      note: d.note,
+    };
     // ghostSkin: true forces the translucent glass skin for the WHOLE demo, even
     // for tests that glow no muscle, so the body never shows as opaque skin that
     // clips/"se sale" while the joint moves.
@@ -818,6 +843,9 @@ export function OrthopedicTestsPanel({
         // Resisted tests (Jobe, Speed, O'Brien...) show the therapist's hand
         // resisting the movement -- the two-person interaction they really are.
         resistance: d.resisted === true,
+        // Fixed for the whole demo, so the readout can describe the maneuver
+        // instead of recomputing (and flickering) its analysis every frame.
+        demo: demoInfo,
       });
     // On stop, RELEASE the channel (only if this demo still owns it): the
     // console reacts by re-pushing its own live state, which restores the pose
@@ -833,7 +861,19 @@ export function OrthopedicTestsPanel({
       return release;
     }
 
-    const DPS = 55;
+    // Claim the rig for this maneuver straight away, before the first animation
+    // frame: pressing Demostrar switches the readout to the test immediately
+    // instead of after the browser gets round to scheduling a frame.
+    push(0);
+
+    // Exam pace, not animation pace. The old 55 deg/s with a 1 s hold swept a
+    // 90 deg test in under two seconds, which is faster than the position can
+    // be read (and far faster than a physio moves a patient's limb). Half the
+    // speed plus a long hold AT the provocative position is what makes the
+    // maneuver legible.
+    const DPS = 26;
+    const HOLD_AT_TARGET_MS = 2800;
+    const HOLD_AT_REST_MS = 800;
     let last = 0;
     let dir: 1 | -1 = 1;
     let angle = 0;
@@ -849,11 +889,11 @@ export function OrthopedicTestsPanel({
         if (angle >= target) {
           angle = target;
           dir = -1;
-          holdUntil = ts + 1000;
+          holdUntil = ts + HOLD_AT_TARGET_MS;
         } else if (angle <= 0) {
           angle = 0;
           dir = 1;
-          holdUntil = ts + 450;
+          holdUntil = ts + HOLD_AT_REST_MS;
         }
       }
       push(angle);
