@@ -152,6 +152,28 @@ const ARM_CLEARANCE_SIGN: Record<Side, 1 | -1> = { R: -1, L: -1 };
 // clearance ramps linearly to zero (full below 0 deg, none at/above this).
 const ARM_CLEARANCE_FADE_DEG = 75;
 
+// LATISSIMUS FOLLOW. The lats helper bones (latshum_l/r) ride the humeral head so
+// the muscle's insertion stays attached while the arm elevates. POSITION follows
+// 1:1 (the insertion is anchored on the humerus and the glenohumeral joint really
+// does travel), but taking the humerus's full ROTATION flung the muscle out of the
+// flank: the helper's weighted falloff reaches ~20 cm down the posterior axillary
+// fold, so a 150 deg humeral rotation swept those fibers far outside the torso
+// silhouette ("se sale el dorsal"). Anatomically the lats tendon twists around the
+// humerus but its fibers keep pointing back at the thoracolumbar origin, so the
+// insertion twists far LESS than the bone. We therefore follow a fraction of the
+// rotation and hard-cap the total, which keeps the fold reading as a stretched
+// band from the pelvis to the axilla at any elevation.
+const LATS_ROT_FOLLOW = 0.38;
+const LATS_ROT_MAX_DEG = 55;
+
+/** Lats helper bone (Spine_Armature) -> the shoulder armature whose humerus it
+ *  follows. The mesh .l/.r vs armature _R/_L naming is mirrored (verified by the
+ *  X sign of the bone's world position). */
+const LATS_PAIRS: ReadonlyArray<[string, string]> = [
+  ['latshum_l', 'Shoulder_Armature_R'],
+  ['latshum_r', 'Shoulder_Armature_L'],
+];
+
 // ---------------------------------------------------------------------------
 // LUMBOPELVIC COUNTER-BALANCE (standing hip flexion).
 //
@@ -742,6 +764,16 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
     // Capture the shoulder-anchor vertebra's rest world matrix.
     const anchor = byArmature.get('Spine_Armature')?.get(SHOULDER_SPINE_ANCHOR);
     if (anchor) restWorld.set(anchor, anchor.matrixWorld.clone());
+    // Capture the rest world matrices of each latissimus helper and the humerus it
+    // follows, so driveLatsHelpers can copy a DAMPED share of the humerus's
+    // rest->posed rotation instead of its absolute orientation (which flung the
+    // muscle out of the flank at high elevation).
+    for (const [helperName, armName] of LATS_PAIRS) {
+      const helper = byArmature.get('Spine_Armature')?.get(helperName);
+      if (helper) restWorld.set(helper, helper.matrixWorld.clone());
+      const hum = byArmature.get(armName)?.get('humerus_gh');
+      if (hum) restWorld.set(hum, hum.matrixWorld.clone());
+    }
     return { byArmature, restQuat, restPos, restWorld, restRootLocal };
   }, [scene]);
 
@@ -1373,26 +1405,54 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // COINCIDENT at rest (verified in the GLB, dist 0.000), so this is a no-op at
       // neutral. restPos restores it (see the reset loops).
       const _qHum = new THREE.Quaternion();
+      const _qHumRest = new THREE.Quaternion();
+      const _qHelperRest = new THREE.Quaternion();
+      const _qDelta = new THREE.Quaternion();
+      const _qIdentity = new THREE.Quaternion();
       const _qParent = new THREE.Quaternion();
       const _pHum = new THREE.Vector3();
+      const _pScratch = new THREE.Vector3();
+      const _sScratch = new THREE.Vector3();
       const driveLatsHelpers = () => {
         const spineBones = byArmature.get('Spine_Armature');
         if (!spineBones) return;
-        // helper bone -> the shoulder armature whose humerus it follows (the
-        // mesh .l/.r vs armature _R/_L naming is mirrored; verified by X sign).
-        const LATS_PAIRS: ReadonlyArray<[string, string]> = [
-          ['latshum_l', 'Shoulder_Armature_R'],
-          ['latshum_r', 'Shoulder_Armature_L'],
-        ];
         for (const [helperName, armName] of LATS_PAIRS) {
           const helper = spineBones.get(helperName);
           const hum = byArmature.get(armName)?.get('humerus_gh');
           if (!helper || !hum || !helper.parent) continue;
+          const humRest = restWorld.get(hum);
+          const helperRest = restWorld.get(helper);
+
           hum.getWorldQuaternion(_qHum);
-          helper.parent.getWorldQuaternion(_qParent);
-          helper.quaternion.copy(_qParent.invert().multiply(_qHum));
+          helper.parent.getWorldQuaternion(_qParent).invert();
+
+          if (humRest && helperRest) {
+            // How far the humerus has turned in WORLD space since the rest pose.
+            humRest.decompose(_pScratch, _qHumRest, _sScratch);
+            helperRest.decompose(_pScratch, _qHelperRest, _sScratch);
+            _qDelta.copy(_qHum).multiply(_qHumRest.invert());
+            // Follow only a share of that turn, capped in absolute terms, so the
+            // insertion twists with the arm without sweeping the muscle belly out
+            // of the torso at the top of the arc.
+            const angle = 2 * Math.acos(Math.min(1, Math.abs(_qDelta.w)));
+            const maxRad = LATS_ROT_MAX_DEG * DEG2RAD;
+            const share =
+              angle > 1e-4
+                ? Math.min(LATS_ROT_FOLLOW, maxRad / angle)
+                : LATS_ROT_FOLLOW;
+            _qDelta.slerpQuaternions(_qIdentity, _qDelta, share);
+            // world target = dampedDelta * helperRest, then back into local space.
+            helper.quaternion.copy(_qParent).multiply(_qDelta).multiply(_qHelperRest);
+          } else {
+            // Older rig export without captured rest matrices: fall back to the
+            // absolute copy (the pre-damping behaviour).
+            helper.quaternion.copy(_qParent).multiply(_qHum);
+          }
+
           // World position of the humeral head, expressed in the helper's parent
-          // space (worldToLocal handles the armature root's own transform).
+          // space (worldToLocal handles the armature root's own transform). Stays
+          // a full 1:1 follow: the insertion must not leave the humerus, and this
+          // is what closes the gap at the axilla.
           hum.getWorldPosition(_pHum);
           helper.parent.worldToLocal(_pHum);
           helper.position.copy(_pHum);

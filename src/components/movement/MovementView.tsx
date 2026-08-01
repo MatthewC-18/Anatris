@@ -16,6 +16,7 @@ import { RhythmReadout } from './RhythmReadout';
 import { LayerControls } from './LayerControls';
 import { DissectionPanel } from './DissectionPanel';
 import { dissectChannel } from './dissectChannel';
+import { demoChannel } from './demoChannel';
 import { OrthopedicTestsPanel } from './OrthopedicTestsPanel';
 import { NeuroPanel } from './NeuroPanel';
 import { romForRegion } from '../../data/romByRegion';
@@ -30,6 +31,7 @@ import {
 import type { PremiumFeature } from '../../auth/entitlements';
 import type { AnatomyEntry } from '../../types/anatomy';
 import type { MuscleResolution } from '../../lib/muscleResolver';
+import { CloseIcon, PersonIcon } from '../ui/Icons';
 
 interface MovementViewProps {
   region: string | null;
@@ -60,10 +62,16 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   const showLayers = rightPanel === 'none';
 
   // Reset any click-to-dissect peel when the studied region changes or the lab
-  // unmounts, so a new joint always opens with the full model.
+  // unmounts, so a new joint always opens with the full model. Releasing the
+  // demo arbiter here too means a test/myotome demo can never survive a region
+  // change and keep animating the rig behind the new region's console.
   useEffect(() => {
     dissectChannel.reset();
-    return () => dissectChannel.reset();
+    demoChannel.stop();
+    return () => {
+      dissectChannel.reset();
+      demoChannel.stop();
+    };
   }, [region]);
 
   // PATIENT MODE: a clean, full-screen view (big 3D + one plain-language bar) the
@@ -106,9 +114,10 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
         <button
           type="button"
           onClick={() => setPatientMode(false)}
-          className="pointer-events-auto absolute top-4 right-4 z-40 rounded-lg border border-slate-600 bg-ink-950/85 px-3 py-2 text-sm font-medium text-slate-200 shadow-lg backdrop-blur transition-colors hover:bg-slate-800"
+          className="instrument pointer-events-auto absolute top-4 right-4 z-40 flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-slate-200 transition-colors hover:text-white"
         >
-          ✕ Salir del modo paciente
+          <CloseIcon size={14} />
+          Salir del modo paciente
         </button>
       ) : !patientGate.unlocked ? (
         // Locked: the pill stays VISIBLE with a lock so the free user sees the
@@ -117,12 +126,13 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
           type="button"
           onClick={patientGate.requestUpgrade}
           title="Modo paciente: vista simplificada a pantalla completa (Premium)"
-          className={`pointer-events-auto absolute top-3 left-3 z-30 flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-ink-950/80 px-4 py-1.5 text-xs font-medium text-amber-200 shadow-lg backdrop-blur transition-colors hover:bg-amber-400/10 sm:left-1/2 sm:-translate-x-1/2 ${
+          className={`pointer-events-auto absolute top-3 left-3 z-30 flex items-center gap-2 rounded-full border border-amber-500/30 bg-ink-950/85 px-4 py-1.5 text-xs font-medium text-amber-200 shadow-lg backdrop-blur transition-colors hover:bg-amber-400/10 sm:left-1/2 sm:-translate-x-1/2 ${
             rightPanel !== 'none' ? 'hidden sm:flex' : ''
           }`}
         >
-          <LockGlyph />
+          <PersonIcon size={13} />
           Modo paciente
+          <LockGlyph />
         </button>
       ) : (
         <button
@@ -133,37 +143,50 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
           // corner is free) to avoid overlapping the top-right Tests pill;
           // top-center from sm up. Hidden on phones while a right sheet
           // (tests/neuro) is open so it never sits under that sheet's header.
-          className={`pointer-events-auto absolute top-3 left-3 z-30 -translate-x-0 rounded-full border border-slate-700 bg-ink-950/80 px-4 py-1.5 text-xs font-medium text-slate-200 shadow-lg backdrop-blur transition-colors hover:bg-slate-800 sm:left-1/2 sm:-translate-x-1/2 ${
-            rightPanel !== 'none' ? 'hidden sm:block' : ''
+          className={`pointer-events-auto absolute top-3 left-3 z-30 flex -translate-x-0 items-center gap-2 rounded-full border border-slate-700/80 bg-ink-950/85 px-4 py-1.5 text-xs font-medium text-slate-200 shadow-lg backdrop-blur transition-colors hover:border-slate-600 hover:text-white sm:left-1/2 sm:-translate-x-1/2 ${
+            rightPanel !== 'none' ? 'hidden sm:flex' : ''
           }`}
         >
-          👤 Modo paciente
+          <PersonIcon size={13} />
+          Modo paciente
         </button>
       )}
 
-      {/* Clinical readout (sector goniometer + humero-escapulo-raquideo rhythm +
-          protagonist muscle), floated TOP-LEFT in the margin so it never covers
-          the model. Fully drag-through (pointer-events-none), renders nothing in
-          the rest pose, and reads the same rigChannel the controller drives so it
-          never drifts from the glow. Hidden in patient mode. */}
-      {!patientMode && (
-        <div className="pointer-events-none absolute top-3 left-3 z-20 hidden sm:block">
-          <RhythmReadout region={region} />
+      {/* LEFT COLUMN — ONE instrument, two sections. The clinical readout (sector
+          goniometer + rhythm + protagonist muscle) is the top section and the
+          movement console the bottom one, divided by a hairline.
+
+          They used to be two separate frosted cards stacked with a gap, which
+          broke the design system's one-surface-per-corner rule and, worse,
+          printed the same facts twice: the gesture appeared in both headers AND
+          in the sector label, the angle in both the dial and the console header,
+          the arc range in both the sector card and the console. Between the
+          duplicates and the double chrome the column filled ~80% of a laptop
+          screen and stopped being readable. One surface, one identity, each fact
+          once.
+
+          The readout stays drag-through (pointer-events-none) so the model can
+          still be rotated over it; only the console takes the pointer. Below
+          `sm` the readout is hidden and the console carries its own header.
+
+          Patient mode replaces the whole column with the big centered bar. */}
+      {patientMode ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
+          <MovementControls key={region ?? 'shoulder'} region={region} patientMode />
+        </div>
+      ) : (
+        <div className="pointer-events-none absolute top-3 bottom-3 left-3 z-20 flex w-[21.5rem] max-w-[calc(100vw-1.5rem)] flex-col justify-end">
+          <div className="instrument pointer-events-none flex min-h-0 flex-col overflow-hidden animate-scale-in">
+            <div className="hidden min-h-0 flex-1 overflow-hidden sm:flex sm:flex-col">
+              <RhythmReadout region={region} embedded />
+            </div>
+            <div className="hairline hidden shrink-0 sm:block" />
+            <div className="shrink-0">
+              <MovementControls key={region ?? 'shoulder'} region={region} embedded />
+            </div>
+          </div>
         </div>
       )}
-
-      {/* The movement controller. Same instance/state in both modes (so toggling
-          keeps the current pose); only the wrapper placement changes -- compact
-          bottom-left for the clinician, big and centered for the patient. */}
-      <div
-        className={
-          patientMode
-            ? 'pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4'
-            : 'pointer-events-none absolute bottom-3 left-3 z-20'
-        }
-      >
-        <MovementControls key={region ?? 'shoulder'} region={region} patientMode={patientMode} />
-      </div>
 
       {/* Clinician-only overlays: click-to-dissect card + the right-side stack
           (tests / neuro / layer peel). All hidden in patient mode. */}
@@ -258,7 +281,7 @@ function LockedSheet({
       <button
         type="button"
         onClick={() => onOpenChange(true)}
-        className="pointer-events-auto flex items-center gap-2 rounded-xl border border-amber-500/30 bg-ink-950/90 px-3 py-2 text-xs font-semibold text-amber-200 shadow-2xl backdrop-blur transition-colors hover:bg-amber-400/10"
+        className="instrument pointer-events-auto flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-amber-200 transition-colors hover:text-amber-100"
       >
         {icon}
         {label}
@@ -268,9 +291,9 @@ function LockedSheet({
   }
 
   return (
-    <div className="pointer-events-auto w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-800/70 bg-ink-950/95 shadow-2xl backdrop-blur">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-800/60 px-4 py-3">
-        <h2 className="flex items-center gap-1.5 font-display text-sm font-bold text-slate-50">
+    <div className="instrument pointer-events-auto w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <h2 className="flex items-center gap-2 font-display text-sm font-semibold text-slate-50">
           {icon}
           {label}
         </h2>
@@ -278,13 +301,12 @@ function LockedSheet({
           type="button"
           onClick={() => onOpenChange(false)}
           aria-label="Cerrar"
-          className="rounded-lg p-1 text-slate-500 transition-colors hover:bg-slate-800/60 hover:text-slate-200"
+          className="-mr-1 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100/[0.06] hover:text-slate-200"
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-          </svg>
+          <CloseIcon size={15} />
         </button>
       </div>
+      <div className="hairline" />
       <div className="p-3">
         <PremiumTeaser feature={feature} title={label} lines={lines} compact />
       </div>

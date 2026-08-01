@@ -44,33 +44,41 @@
 }
 
 @layer components {
-  /* Frosted-glass panel surface used by floating UI. */
+  /* Frosted-glass panel surfaces used by floating UI. Same recipe as .instrument
+     (see below) so every floating surface in the app -- lab console, viewer
+     toolbar, hover HUD, command palette -- reads as one material; only the corner
+     radius is left to the call site. */
   .glass {
-    background: linear-gradient(
-      to bottom,
-      rgba(20, 29, 48, 0.72),
-      rgba(11, 17, 32, 0.72)
-    );
-    backdrop-filter: blur(16px) saturate(140%);
-    -webkit-backdrop-filter: blur(16px) saturate(140%);
-    border: 1px solid rgba(148, 163, 184, 0.1);
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.035) 0%,
+        rgba(255, 255, 255, 0) 42%
+      ),
+      linear-gradient(180deg, rgba(17, 25, 42, 0.78), rgba(7, 11, 20, 0.8));
+    backdrop-filter: blur(18px) saturate(145%);
+    -webkit-backdrop-filter: blur(18px) saturate(145%);
+    border: 1px solid rgba(148, 163, 184, 0.12);
     box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.45),
-      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      0 16px 40px -14px rgba(0, 0, 0, 0.7),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .glass-strong {
-    background: linear-gradient(
-      to bottom,
-      rgba(20, 29, 48, 0.88),
-      rgba(11, 17, 32, 0.9)
-    );
-    backdrop-filter: blur(24px) saturate(150%);
-    -webkit-backdrop-filter: blur(24px) saturate(150%);
-    border: 1px solid rgba(148, 163, 184, 0.12);
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.045) 0%,
+        rgba(255, 255, 255, 0) 42%
+      ),
+      linear-gradient(180deg, rgba(17, 25, 42, 0.93), rgba(7, 11, 20, 0.95));
+    backdrop-filter: blur(22px) saturate(150%);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    border: 1px solid rgba(148, 163, 184, 0.14);
     box-shadow:
-      0 16px 48px rgba(0, 0, 0, 0.55),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      0 24px 60px -18px rgba(0, 0, 0, 0.75),
+      0 2px 10px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   /* Subtle radial atmosphere behind the 3D canvas. */
@@ -110,6 +118,148 @@
       100% 100%,
       34px 34px,
       34px 34px;
+  }
+
+  /* -------------------------------------------------------------------------
+   * INSTRUMENT SURFACES
+   * -------------------------------------------------------------------------
+   * The lab's floating UI is built from ONE surface per corner, sectioned by
+   * hairlines and typographic rank. Deliberately not a stack of bordered cards:
+   * nested boxes are what made the panels read as a generic dashboard instead of
+   * a clinical instrument.
+   * ---------------------------------------------------------------------- */
+  .instrument {
+    @apply glass-strong;
+    border-radius: 1rem;
+  }
+
+  /* Section divider inside an instrument: a hairline that fades at both ends, so
+     sections read as separated without drawing a box around anything. */
+  .hairline {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(148, 163, 184, 0.18) 12%,
+      rgba(148, 163, 184, 0.18) 88%,
+      transparent
+    );
+  }
+
+  /* Micro label above a value. The whole hierarchy is kicker + value, which is
+     what replaces the old "everything in a titled card" pattern. */
+  .kicker {
+    font-size: 0.5625rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgb(100 116 139);
+  }
+
+  /* Machined range slider: thin recessed track, cyan fill to the thumb, and a
+     milled thumb that lifts on hover. --fill is set inline (0..100). */
+  .range-clinical {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 22px;
+    background: transparent;
+    cursor: pointer;
+  }
+  .range-clinical::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(
+      90deg,
+      rgba(34, 211, 238, 0.85) 0%,
+      rgba(34, 211, 238, 0.85) calc(var(--fill, 0) * 1%),
+      rgba(148, 163, 184, 0.16) calc(var(--fill, 0) * 1%),
+      rgba(148, 163, 184, 0.16) 100%
+    );
+  }
+  .range-clinical::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(
+      90deg,
+      rgba(34, 211, 238, 0.85) 0%,
+      rgba(34, 211, 238, 0.85) calc(var(--fill, 0) * 1%),
+      rgba(148, 163, 184, 0.16) calc(var(--fill, 0) * 1%),
+      rgba(148, 163, 184, 0.16) 100%
+    );
+  }
+  .range-clinical::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    margin-top: -5.5px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #f8fafc, #cbd5e1);
+    border: 1px solid rgba(7, 11, 20, 0.9);
+    box-shadow:
+      0 0 0 3px rgba(34, 211, 238, 0.18),
+      0 2px 6px rgba(0, 0, 0, 0.6);
+    transition:
+      box-shadow 140ms ease,
+      transform 140ms ease;
+  }
+  .range-clinical:hover::-webkit-slider-thumb,
+  .range-clinical:active::-webkit-slider-thumb {
+    box-shadow:
+      0 0 0 5px rgba(34, 211, 238, 0.26),
+      0 2px 8px rgba(0, 0, 0, 0.65);
+    transform: scale(1.06);
+  }
+  .range-clinical::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #f8fafc, #cbd5e1);
+    border: 1px solid rgba(7, 11, 20, 0.9);
+    box-shadow:
+      0 0 0 3px rgba(34, 211, 238, 0.18),
+      0 2px 6px rgba(0, 0, 0, 0.6);
+  }
+  .range-clinical:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  /* Big patient-facing variant of the same slider. */
+  .range-clinical.range-lg {
+    height: 30px;
+  }
+  .range-clinical.range-lg::-webkit-slider-runnable-track,
+  .range-clinical.range-lg::-moz-range-track {
+    height: 6px;
+  }
+  .range-clinical.range-lg::-webkit-slider-thumb {
+    width: 22px;
+    height: 22px;
+    margin-top: -8px;
+  }
+  .range-clinical.range-lg::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Horizontal rail of chips: scrolls without a visible scrollbar so the row
+     reads as one continuous strip of options. */
+  .rail {
+    display: flex;
+    gap: 0.375rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-snap-type: x proximity;
+  }
+  .rail::-webkit-scrollbar {
+    display: none;
+  }
+  .rail > * {
+    scroll-snap-align: start;
   }
 
   /* Keyboard hint chip. */

@@ -16,8 +16,8 @@ type Interval = 'monthly' | 'annual';
 // src/auth/entitlements.ts actually enforces. Lead with the tools a physio uses
 // in front of a patient -- that is what converts, not the joint count.
 const PREMIUM_BENEFITS = [
-  'Tests ortopédicos con sens/espec, Fagan, clusters y modo examen',
-  'Laboratorio de movimiento completo, resistencia manual y presets patológicos',
+  'Tests ortopédicos con sens/espec, Fagan, clusters y maniobras resistidas en 3D',
+  'Laboratorio de movimiento completo y presets patológicos',
   'Modo paciente y tarjeta imprimible para el paciente',
   'Todas las regiones: codo, cadera, rodilla, tobillo y columna',
   'Tu progreso sincronizado en todos tus dispositivos',

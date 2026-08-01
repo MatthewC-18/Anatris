@@ -24,8 +24,8 @@ import {
 // They are the promise; the entitlements file is the contract. If you change one,
 // change the other in the same commit.
 const PREMIUM_FEATURES = [
-  'Tests ortopédicos: sensibilidad, especificidad, Fagan, clusters y modo examen',
-  'Laboratorio de movimiento completo: todos los arcos, resistencia manual y presets patológicos',
+  'Tests ortopédicos: sensibilidad, especificidad, Fagan, clusters, modo examen y maniobras resistidas en 3D',
+  'Laboratorio de movimiento completo: todos los arcos y presets patológicos',
   'Modo paciente a pantalla completa y tarjeta para llevarse a casa',
   'Panel neurológico: dermatomas, miotomas y reflejos por raíz',
   'Todas las regiones: codo, cadera, rodilla, tobillo y columna',

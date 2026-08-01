@@ -31,7 +31,7 @@ export function DissectionPanel() {
   return (
     <div className="pointer-events-none flex w-[min(92vw,27rem)] flex-col items-center gap-2.5">
       {selection && (
-        <div className="pointer-events-auto w-full overflow-hidden rounded-2xl border border-accent/25 bg-ink-900/95 shadow-glass-lg backdrop-blur-xl animate-slide-up">
+        <div className="instrument pointer-events-auto w-full overflow-hidden animate-slide-up">
           {/* Accent hairline across the top for a premium finish. */}
           <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-accent/70 to-transparent" />
           <div className="p-4">
@@ -90,8 +90,8 @@ export function DissectionPanel() {
                   </span>
                 </button>
               ) : (
-                <span className="flex w-full items-center justify-center rounded-xl border border-slate-700 bg-slate-900/60 px-3 py-2.5 text-center text-xs text-slate-500">
-                  Estructura de soporte · no se disecciona
+                <span className="flex w-full items-center justify-center rounded-xl bg-slate-100/[0.05] px-3 py-2.5 text-center text-xs text-slate-500">
+                  Estructura de soporte, no se disecciona
                 </span>
               )}
             </div>
@@ -100,7 +100,7 @@ export function DissectionPanel() {
       )}
 
       {hidden.length > 0 && (
-        <div className="pointer-events-auto flex w-full items-center gap-3 rounded-xl border border-slate-800/70 bg-ink-900/90 px-3 py-2 shadow-glass backdrop-blur-xl animate-fade-in">
+        <div className="instrument pointer-events-auto flex w-full items-center gap-3 px-3.5 py-2 animate-fade-in">
           <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-300">
             <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 text-accent/80" fill="none" stroke="currentColor" strokeWidth="1.6">
               <path d="M3 10c2-3.5 5-5 7-5s5 1.5 7 5c-2 3.5-5 5-7 5s-5-1.5-7-5z" />

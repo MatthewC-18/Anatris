@@ -38,9 +38,12 @@ export type Plan = 'free' | 'premium';
  * - `neuro`             dermatomes / myotomes / reflexes panel.
  * - `patient-mode`      the full-screen patient view + "export for patient" card.
  * - `evidence`          the per-region clinical-evidence screen with PubMed links.
- * - `resistance`        the manual-resistance overlay (physio-patient interaction).
  * - `pathologies`       the pathological ROM presets in the lab.
  * - `sync`              cross-device study progress.
+ *
+ * The manual-resistance overlay is NOT a standalone feature anymore: it only
+ * appears inside the resisted orthopedic-test demos, so `orthopedic-tests`
+ * covers it.
  */
 export type PremiumFeature =
   | 'movement-full'
@@ -48,7 +51,6 @@ export type PremiumFeature =
   | 'neuro'
   | 'patient-mode'
   | 'evidence'
-  | 'resistance'
   | 'pathologies'
   | 'sync';
 
@@ -59,7 +61,6 @@ export const FEATURE_LABEL: Record<PremiumFeature, string> = {
   neuro: 'Panel neurológico',
   'patient-mode': 'Modo paciente',
   evidence: 'Evidencia clínica',
-  resistance: 'Resistencia manual',
   pathologies: 'Presets patológicos',
   sync: 'Sincronización entre dispositivos',
 };

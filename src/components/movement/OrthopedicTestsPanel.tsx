@@ -24,6 +24,18 @@ import type {
 } from '../../types/orthopedicTest';
 import { getReference, formatReference, type ReferenceId } from '../../data/references';
 import { rigChannel } from './RigModel';
+import { demoChannel, useActiveDemo } from './demoChannel';
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  CloseIcon,
+  PlayIcon,
+  StopIcon,
+} from '../ui/Icons';
+
+/** Namespace for this panel's demo ids on the shared demoChannel. */
+const DEMO_NS = 'test:';
 
 /** Color-coded utility (accent bar + dot + one word, tooltip carries the rule). */
 const UTILITY: Record<
@@ -270,7 +282,7 @@ function AxisResult({
       <span className="text-slate-400">{label}</span>
       <span className="flex items-center gap-1.5">
         <span className={ok ? 'text-emerald-300' : 'text-rose-300'}>
-          {ok ? '✓' : '✗'}
+          {ok ? <CheckIcon size={12} /> : <CloseIcon size={12} />}
         </span>
         <span className="font-mono tabular-nums text-slate-200">
           {value}% ({actual})
@@ -434,19 +446,19 @@ function HelpCard({ onDismiss }: { onDismiss: () => void }) {
         </div>
         <div className="flex flex-1 flex-col gap-1.5">
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-600">›</span>
+            <ChevronRightIcon size={11} className="text-slate-600" />
             <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">
               Positivo
             </span>
-            <span className="text-slate-600">›</span>
+            <ChevronRightIcon size={11} className="text-slate-600" />
             <span className="font-mono text-sm font-bold tabular-nums text-emerald-300">44%</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-600">›</span>
+            <ChevronRightIcon size={11} className="text-slate-600" />
             <span className="rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-sky-300">
               Negativo
             </span>
-            <span className="text-slate-600">›</span>
+            <ChevronRightIcon size={11} className="text-slate-600" />
             <span className="font-mono text-sm font-bold tabular-nums text-sky-300">17%</span>
           </div>
         </div>
@@ -473,8 +485,11 @@ function HelpCard({ onDismiss }: { onDismiss: () => void }) {
           cuánto sube la certeza si todos resultan positivos.
         </HelpStep>
         <HelpStep n={5}>
-          <b className="text-accent">▶ Demostrar</b>: reproduce la maniobra en el
-          modelo 3D y resalta la estructura evaluada.
+          <b className="inline-flex items-center gap-1 align-baseline text-accent">
+            <PlayIcon size={10} />
+            Demostrar
+          </b>
+          : reproduce la maniobra en el modelo 3D y resalta la estructura evaluada.
         </HelpStep>
       </ol>
     </div>
@@ -562,9 +577,10 @@ function TestRow({
                   <span className={`text-[11px] font-medium ${u.text}`}>{u.word}</span>
                 </>
               )}
-              <span className={`text-slate-500 transition-transform ${expanded ? 'rotate-180' : ''}`}>
-                ▾
-              </span>
+              <ChevronDownIcon
+                size={12}
+                className={`text-slate-500 transition-transform ${expanded ? 'rotate-180' : ''}`}
+              />
             </span>
           </span>
           <span className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-slate-500">
@@ -619,13 +635,14 @@ function TestRow({
                 <button
                   type="button"
                   onClick={onDemo}
-                  className={`rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                     demoing
-                      ? 'border-rose-500/40 bg-rose-500/15 text-rose-300'
-                      : 'border-accent/40 bg-accent/15 text-accent hover:bg-accent/25'
+                      ? 'bg-rose-500/15 text-rose-300 ring-1 ring-inset ring-rose-500/40'
+                      : 'bg-accent/15 text-accent ring-1 ring-inset ring-accent/40 hover:bg-accent/25'
                   }`}
                 >
-                  {demoing ? '■ Detener' : '▶ Demostrar'}
+                  {demoing ? <StopIcon size={11} /> : <PlayIcon size={11} />}
+                  {demoing ? 'Detener' : 'Demostrar'}
                 </button>
               )}
             </div>
@@ -701,7 +718,11 @@ export function OrthopedicTestsPanel({
   const [pretest, setPretest] = useState(30);
   const [clusterMode, setClusterMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [demoId, setDemoId] = useState<string | null>(null);
+  // The demoChannel arbiter owns which demo (if any) animates the rig. Deriving
+  // demoId from it (instead of local state) means a demo started here stops
+  // cleanly the moment the console or the neuro panel reclaims the rig.
+  const activeDemo = useActiveDemo();
+  const demoId = activeDemo?.startsWith(DEMO_NS) ? activeDemo.slice(DEMO_NS.length) : null;
   const [showHelp, setShowHelp] = useState(() => !readHelpSeen());
   // Exam mode: hide metrics, let the user predict per test, then reveal.
   const [examMode, setExamMode] = useState(false);
@@ -766,12 +787,12 @@ export function OrthopedicTestsPanel({
   }, [selected, byId, pretest]);
 
   const startDemo = (t: OrthopedicTest) => {
-    if (t.demo) setDemoId(t.id);
+    if (t.demo) demoChannel.start(DEMO_NS + t.id);
   };
-  const stopDemo = () => setDemoId(null);
+  const stopDemo = () => demoChannel.stop();
 
   // ANIMATE the active demo: sweep 0 -> target -> 0 (with holds) so the maneuver
-  // is shown MOVING, not snapped. Loops while active; resets on stop/unmount.
+  // is shown MOVING, not snapped. Loops while active; releases on stop/unmount.
   // Honors prefers-reduced-motion (snap to the provocative position).
   const rafRef = useRef(0);
   useEffect(() => {
@@ -783,10 +804,6 @@ export function OrthopedicTestsPanel({
     const highlight = d.highlightMuscleId
       ? [{ muscleId: d.highlightMuscleId, role: 'prime-mover' as const, level: 1 }]
       : [];
-    // Snapshot whatever the lab (MovementControls) had on screen so stopping the
-    // demo returns to EXACTLY that view instead of snapping to a bare neutral
-    // pose -- keeps the skin/muscle look consistent between play and pause.
-    const prev = rigChannel.get();
     // ghostSkin: true forces the translucent glass skin for the WHOLE demo, even
     // for tests that glow no muscle, so the body never shows as opaque skin that
     // clips/"se sale" while the joint moves.
@@ -802,7 +819,10 @@ export function OrthopedicTestsPanel({
         // resisting the movement -- the two-person interaction they really are.
         resistance: d.resisted === true,
       });
-    const reset = () => rigChannel.set({ ...prev, ghostSkin: false });
+    // On stop, RELEASE the channel (only if this demo still owns it): the
+    // console reacts by re-pushing its own live state, which restores the pose
+    // and clears the demo-only flags (ghostSkin, resistance).
+    const release = () => demoChannel.stop(DEMO_NS + demoId);
 
     const reduce =
       typeof window !== 'undefined' &&
@@ -810,7 +830,7 @@ export function OrthopedicTestsPanel({
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) {
       push(target);
-      return reset;
+      return release;
     }
 
     const DPS = 55;
@@ -842,7 +862,7 @@ export function OrthopedicTestsPanel({
     rafRef.current = requestAnimationFrame(step);
     return () => {
       cancelAnimationFrame(rafRef.current);
-      reset();
+      release();
     };
   }, [demoId, byId]);
 
@@ -853,7 +873,7 @@ export function OrthopedicTestsPanel({
       <button
         type="button"
         onClick={() => onOpenChange(true)}
-        className="pointer-events-auto flex items-center gap-2 rounded-xl border border-slate-800/70 bg-ink-950/90 px-3 py-2 text-xs font-semibold text-slate-200 shadow-2xl backdrop-blur transition-colors hover:bg-slate-800/80"
+        className="instrument pointer-events-auto flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-200 transition-colors hover:text-white"
       >
         <TestTubeIcon />
         Tests ortopédicos
@@ -865,7 +885,7 @@ export function OrthopedicTestsPanel({
   }
 
   return (
-    <div className="pointer-events-auto flex min-h-0 w-[24rem] max-w-[calc(100vw-2rem)] flex-1 flex-col overflow-hidden rounded-2xl border border-slate-800/70 bg-ink-950/95 shadow-2xl backdrop-blur">
+    <div className="instrument pointer-events-auto flex min-h-0 w-[24rem] max-w-[calc(100vw-2rem)] flex-1 flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 border-b border-slate-800/60 px-4 py-3">
         <div className="min-w-0">
@@ -913,9 +933,9 @@ export function OrthopedicTestsPanel({
             type="button"
             onClick={() => onOpenChange(false)}
             aria-label="Cerrar tests"
-            className="rounded-lg border border-slate-700 px-2 py-1 text-xs text-slate-300 transition-colors hover:bg-slate-800"
+            className="-mr-1 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100/[0.06] hover:text-slate-200"
           >
-            ✕
+            <CloseIcon size={15} />
           </button>
         </div>
       </div>
@@ -949,13 +969,14 @@ export function OrthopedicTestsPanel({
                 setClusterMode((c) => !c);
                 setSelected(new Set());
               }}
-              className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-semibold transition-colors ${
+              className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors ${
                 clusterMode
-                  ? 'border-accent/40 bg-accent/15 text-accent'
-                  : 'border-slate-700 text-slate-300 hover:bg-slate-800'
+                  ? 'bg-accent/15 text-accent ring-1 ring-inset ring-accent/40'
+                  : 'text-slate-300 ring-1 ring-inset ring-slate-700 hover:bg-slate-100/[0.06]'
               }`}
             >
-              {clusterMode ? '✓ Combinar' : 'Combinar'}
+              {clusterMode && <CheckIcon size={10} />}
+              Combinar
             </button>
           )}
         </div>

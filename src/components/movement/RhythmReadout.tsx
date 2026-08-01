@@ -49,14 +49,15 @@ const ROLE_TEXT: Record<RomMuscleRole, string> = {
   stabilizer: 'text-violet-300',
 };
 const ROLE_CHIP: Record<RomMuscleRole, string> = {
-  'prime-mover': 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  assistant: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-  stabilizer: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+  'prime-mover': 'text-amber-300/90',
+  assistant: 'text-sky-300/90',
+  stabilizer: 'text-violet-300/90',
 };
+/** Left edge of the protagonist section: the role, as a color, without a box. */
 const ROLE_CARD: Record<RomMuscleRole, string> = {
-  'prime-mover': 'border-amber-500/25',
-  assistant: 'border-sky-500/25',
-  stabilizer: 'border-violet-500/25',
+  'prime-mover': 'border-amber-400/70',
+  assistant: 'border-sky-400/70',
+  stabilizer: 'border-violet-400/70',
 };
 
 const SIDE_SHORT: Record<Side, string> = { R: 'Der.', L: 'Izq.' };
@@ -66,12 +67,12 @@ const SIDE_SHORT: Record<Side, string> = { R: 'Der.', L: 'Izq.' };
 // three readouts never blur together.
 const FLAG_TONE = {
   warn: {
-    card: 'border-amber-500/35 bg-amber-500/10',
+    card: 'border-amber-400/70 bg-amber-500/[0.09]',
     dot: 'bg-amber-400',
     text: 'text-amber-200',
   },
   pearl: {
-    card: 'border-teal-500/35 bg-teal-500/10',
+    card: 'border-teal-400/70 bg-teal-500/[0.09]',
     dot: 'bg-teal-400',
     text: 'text-teal-200',
   },
@@ -87,24 +88,24 @@ const SCREW_ZONE: Record<
   locked: {
     label: 'Bloqueada',
     note: 'Rotación externa tibial máxima: los cruzados se tensan y bloquean la rodilla (bipedestación casi sin esfuerzo muscular).',
-    chip: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200',
+    chip: 'text-emerald-300',
     bar: '#34d399',
   },
   unlocking: {
     label: 'Desbloqueando',
     note: 'El poplíteo rota la tibia internamente y deshace el tornillo para que arranque la flexión.',
-    chip: 'border-amber-500/40 bg-amber-500/15 text-amber-200',
+    chip: 'text-amber-300',
     bar: '#fbbf24',
   },
   free: {
     label: 'Libre',
     note: 'Pasados los ~30°, el tornillo ya está deshecho: la rotación acoplada es mínima y la rotación tibial pasa a ser voluntaria.',
-    chip: 'border-slate-600 bg-slate-800 text-slate-300',
+    chip: 'text-slate-300',
     bar: '#64748b',
   },
 };
 
-/** Short source label from a phase's citations, e.g. "Kapandji · Oatis". Dedups
+/** Short source label from a phase's citations, e.g. "Kapandji, Oatis". Dedups
  *  and takes the lead surname so the sector card can name its source honestly
  *  without a full Vancouver string. */
 function citeLabel(cites: Citation[]): string {
@@ -114,7 +115,7 @@ function citeLabel(cites: Citation[]): string {
     const name = ref ? ref.authors.split(/[ ,]/)[0] : c.ref;
     if (!names.includes(name)) names.push(name);
   }
-  return names.join(' · ');
+  return names.join(', ');
 }
 
 // Segment colors for the humero-escapulo-raquideo rhythm bar (distinct from the
@@ -195,50 +196,62 @@ function SegmentSplitCard({
   showNote: boolean;
 }): JSX.Element {
   return (
-    <div className="mt-2 rounded-xl border border-slate-800/70 bg-slate-900/40 p-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-          {title}
-        </span>
-        {ratio && (
-          <span className="font-mono text-[10px] font-semibold text-amber-200">{ratio}</span>
-        )}
-      </div>
-      <div className="mt-1.5 flex h-2 w-full overflow-hidden rounded-full bg-slate-800" aria-hidden="true">
-        {segs.map((s) => (
-          <span
-            key={s.label}
-            className="h-full transition-[width] duration-150"
-            style={{ width: `${s.pct}%`, backgroundColor: s.hex }}
-          />
-        ))}
-      </div>
-      <div className="mt-1.5 flex items-center justify-between gap-1">
-        {segs.map((s) => (
-          <span key={s.label} className="flex items-center gap-1">
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${s.dot}`} />
-            <span className="text-[9px] text-slate-400">{s.label}</span>
-            <span className={`font-mono text-[11px] font-semibold tabular-nums ${s.text}`}>
-              {Math.round(s.deg)}°
+    <>
+      <div className="hairline" />
+      <div className="px-4 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="kicker">{title}</span>
+          {ratio && (
+            <span className="font-mono text-[11px] font-semibold tabular-nums text-amber-200">
+              {ratio}
             </span>
-          </span>
-        ))}
+          )}
+        </div>
+        <div
+          className="mt-2 flex h-[5px] w-full gap-[2px] overflow-hidden rounded-full bg-slate-800/80"
+          aria-hidden="true"
+        >
+          {segs.map((s) => (
+            <span
+              key={s.label}
+              className="h-full rounded-full transition-[width] duration-150"
+              style={{ width: `${s.pct}%`, backgroundColor: s.hex }}
+            />
+          ))}
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-1">
+          {segs.map((s) => (
+            <span key={s.label} className="flex items-baseline gap-1.5">
+              <span className={`h-1.5 w-1.5 shrink-0 translate-y-[-1px] rounded-full ${s.dot}`} />
+              <span className="text-[10px] text-slate-400">{s.label}</span>
+              <span className={`font-mono text-[12px] font-semibold tabular-nums ${s.text}`}>
+                {Math.round(s.deg)}°
+              </span>
+            </span>
+          ))}
+        </div>
+        {showNote && note && (
+          <p className="mt-2 text-[10.5px] leading-snug text-slate-400">{note}</p>
+        )}
+        <p className="mt-2 text-[9px] tracking-[0.08em] text-slate-600">Fuente: {source}</p>
       </div>
-      {showNote && note && (
-        <p className="mt-1.5 text-[10px] leading-snug text-slate-300">{note}</p>
-      )}
-      <div className="mt-1.5 text-[8.5px] uppercase tracking-[0.1em] text-slate-500">
-        Fuente: {source}
-      </div>
-    </div>
+    </>
   );
 }
 
 interface RhythmReadoutProps {
   region: string | null;
+  /**
+   * True when this readout is the TOP SECTION of the left column's single
+   * instrument surface (the console is the bottom section). Embedded, it drops
+   * its own panel chrome so the column reads as one instrument instead of two
+   * stacked cards, and it keeps its header even with no muscle data, because
+   * that header is the whole panel's identity.
+   */
+  embedded?: boolean;
 }
 
-export function RhythmReadout({ region }: RhythmReadoutProps) {
+export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) {
   const [cmd, setCmd] = useState<
     Pick<RigCommand, 'movementId' | 'side' | 'angleDeg' | 'pathologyId'>
   >(() => {
@@ -347,15 +360,24 @@ export function RhythmReadout({ region }: RhythmReadoutProps) {
   // Read viewport height BEFORE any early return so hook order stays stable.
   const vh = useViewportHeight();
 
-  if (!drivable || !arc || live.length === 0) return null;
+  if (!drivable || !arc) return null;
 
-  const hero = live[0];
+  // With no activation data the panel still carries the gesture and the dial;
+  // only the protagonist section drops out. (Returning null there would have
+  // left the embedded console headerless.)
+  const hero = live[0] ?? null;
   const others = live.slice(1, 4);
 
   // Optional rows are shed on short viewports so the readout never collides with
   // the bottom-left controller; on normal screens the full clinical detail shows.
   const showDescription = vh >= 780;
   const showAlso = vh >= 850;
+  // On laptop-height screens the readout shares its column with the console, so it
+  // tightens: smaller dial, tighter sections and no per-section source lines (the
+  // full attribution lives in the region's "Evidencia" screen). The EMG framing at
+  // the foot is never shed.
+  const compact = vh < 860;
+  const padY = compact ? 'py-2' : 'py-3';
 
   const displayAngle = Math.round(angle);
   const gestureName =
@@ -376,54 +398,50 @@ export function RhythmReadout({ region }: RhythmReadoutProps) {
   const sectorT = (deg: number) => (span === 0 ? 0 : (deg - arc.min) / span);
 
   return (
-    <div className="glass-strong pointer-events-none w-[20rem] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-7rem)] overflow-hidden rounded-2xl p-3 shadow-glass-lg animate-scale-in">
-      {/* Live indicator */}
-      <div className="mb-1.5 flex items-center gap-1.5">
-        <span className="relative flex h-1.5 w-1.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/70" />
-          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
-        </span>
-        <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-          Análisis en vivo
-        </span>
-      </div>
-
-      {/* Movement header */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="truncate font-display text-sm font-bold text-slate-50">
-            {gestureName}
-          </div>
-          <div className="truncate text-[10px] text-slate-500">{movement?.joint}</div>
+    // A column, so the pieces that must never be lost (the gesture header, the
+    // goniometer, the protagonist muscle and the EMG framing) keep their space and
+    // only the middle clinical prose gives way when the viewport is short.
+    <div
+      className={`pointer-events-none flex max-h-full w-full flex-col overflow-hidden ${
+        embedded ? '' : 'instrument animate-scale-in'
+      }`}
+    >
+      {/* Header: live indicator, gesture, plane and side. */}
+      <div className={`shrink-0 px-4 ${compact ? 'pt-3 pb-2.5' : 'pt-3.5 pb-3'}`}>
+        <div className="flex items-center gap-1.5">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/70" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
+          </span>
+          <span className="kicker text-slate-400">Análisis en vivo</span>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {movement?.plane && (
-            <span className="rounded border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-slate-300">
-              {movement.plane}
-            </span>
-          )}
-          {!isSpine && (
-            <span className="rounded border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent">
-              {SIDE_SHORT[cmd.side]}
-            </span>
-          )}
+
+        <div className="mt-2 flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="truncate font-display text-[15px] font-semibold leading-tight text-slate-50">
+              {gestureName}
+            </div>
+            <div className="mt-0.5 truncate text-[11px] text-slate-500">{movement?.joint}</div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 pt-1 text-[9px] font-semibold uppercase tracking-[0.12em]">
+            {movement?.plane && <span className="text-slate-500">{movement.plane}</span>}
+            {!isSpine && <span className="text-accent">{SIDE_SHORT[cmd.side]}</span>}
+          </div>
         </div>
       </div>
 
       {/* P1: pathological state banner — what preset is active and WHY it hurts,
           with the implicated structure and its source. Amber = caution. */}
       {pathology && (
-        <div className="mt-2 rounded-xl border border-amber-500/35 bg-amber-500/10 p-2">
-          <div className="flex items-center gap-1.5">
-            <span className="shrink-0 rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-[0.12em] text-amber-200">
-              Patológico
-            </span>
+        <div className={`shrink-0 border-l-2 border-amber-400/70 bg-amber-500/[0.08] px-4 ${padY}`}>
+          <div className="flex items-center gap-2">
+            <span className="kicker text-amber-300/80">Patológico</span>
             <span className="min-w-0 truncate text-[11px] font-semibold text-amber-100">
               {pathology.name}
             </span>
           </div>
           <p
-            className="mt-1 text-[10px] leading-snug text-amber-100/85"
+            className="mt-1.5 text-[10.5px] leading-snug text-amber-100/85"
             style={{
               display: '-webkit-box',
               WebkitLineClamp: showDescription ? 3 : 2,
@@ -434,21 +452,26 @@ export function RhythmReadout({ region }: RhythmReadoutProps) {
             {pathology.whyItHurts}
           </p>
           {pathology.implicated.length > 0 && (
-            <p className="mt-1 text-[9px] text-amber-200/70">
+            <p className="mt-1.5 text-[10px] text-amber-200/70">
               Estructura clave:{' '}
               {pathology.implicated
                 .map((id) => muscleNameById(muscleRegion, id))
-                .join(' · ')}
+                .join(', ')}
             </p>
           )}
-          <div className="mt-1 text-[8.5px] uppercase tracking-[0.1em] text-amber-200/50">
-            Fuente: {citeLabel(pathology.cite)}
-          </div>
+          {!compact && (
+            <p className="mt-1.5 text-[9px] tracking-[0.08em] text-amber-200/50">
+              Fuente: {citeLabel(pathology.cite)}
+            </p>
+          )}
         </div>
       )}
 
       {/* Sector goniometer + big signed angle */}
-      <div className="relative mx-auto mt-0.5 h-[70px] w-full max-w-[208px]">
+      <div className="hairline" />
+      <div
+        className={`relative mx-auto w-full shrink-0 max-w-[208px] ${compact ? 'mt-1.5 h-[62px]' : 'mt-2 h-[74px]'}`}
+      >
         <svg viewBox="0 0 200 100" className="h-full w-full" aria-hidden="true">
           <defs>
             <linearGradient id="rr-arc" x1="0" y1="0" x2="1" y2="0">
@@ -552,44 +575,55 @@ export function RhythmReadout({ region }: RhythmReadoutProps) {
           clinical flag banner (arco doloroso / pearl), the biomechanical prose and
           its source. The flag is tiny and always shows; the prose is shed on short
           viewports so the panel height stays bounded. */}
+      {/* Shrinkable middle: sector prose and the coupling readouts. On a short
+          screen this is what gives way, so its last few pixels fade out: a cut
+          line reads as a rendering bug, a fade reads as "there is more". When
+          nothing is clipped the fade lands on the section's padding and is
+          invisible. */}
+      <div
+        className="min-h-0 flex-1 overflow-hidden"
+        style={{
+          maskImage: 'linear-gradient(180deg, #000 calc(100% - 14px), transparent)',
+          WebkitMaskImage: 'linear-gradient(180deg, #000 calc(100% - 14px), transparent)',
+        }}
+      >
       {at && (
-        <div className="mt-1.5 rounded-xl border border-accent/25 bg-accent/[0.06] p-2">
-          <div className="flex items-start justify-between gap-2">
-            <span className="min-w-0 text-[11px] font-semibold leading-tight text-accent">
+        <>
+          <div className="hairline" />
+          <div className={`px-4 ${padY}`}>
+            {/* Sector label only. The figure that used to sit at the right was
+                the FULL arc, not this sector's range, so next to a sector name
+                it read as a contradiction — and the console prints the arc a
+                few rows below anyway. */}
+            <span className="block text-[12px] font-semibold leading-tight text-accent">
               {at.phase.label}
             </span>
-            <span className="shrink-0 font-mono text-[9px] text-slate-500">
-              {arc.min}° · {arc.max}°
-            </span>
-          </div>
 
-          {/* Clinical flag banner (caution / pearl) */}
-          {at.phase.flag && (
-            <div
-              className={`mt-1.5 flex items-start gap-1.5 rounded-lg border px-2 py-1 ${FLAG_TONE[at.phase.flag.tone].card}`}
-            >
-              <span
-                className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${FLAG_TONE[at.phase.flag.tone].dot}`}
-              />
-              <span className="min-w-0">
-                <span
-                  className={`text-[10px] font-bold uppercase tracking-[0.08em] ${FLAG_TONE[at.phase.flag.tone].text}`}
-                >
-                  {at.phase.flag.label}
-                </span>
-                {at.phase.flag.detail && (
-                  <span className="mt-0.5 block text-[10px] leading-snug text-slate-200">
-                    {at.phase.flag.detail}
+            {/* Clinical flag (caution / pearl): a tinted band with a colored edge,
+                not a box inside a box. */}
+            {at.phase.flag && (
+              <div
+                className={`mt-2 flex items-start gap-2 border-l-2 py-1 pl-2.5 ${FLAG_TONE[at.phase.flag.tone].card}`}
+              >
+                <span className="min-w-0">
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-[0.1em] ${FLAG_TONE[at.phase.flag.tone].text}`}
+                  >
+                    {at.phase.flag.label}
                   </span>
-                )}
-              </span>
-            </div>
-          )}
+                  {at.phase.flag.detail && (
+                    <span className="mt-0.5 block text-[10.5px] leading-snug text-slate-200">
+                      {at.phase.flag.detail}
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
 
-          {/* Biomechanical prose (inline clamp; shed on short viewports). */}
-          {showDescription && at.phase.description && (
+            {/* Biomechanical prose (inline clamp; shed on short viewports). */}
+            {showDescription && at.phase.description && (
             <p
-              className="mt-1.5 text-[11px] leading-snug text-slate-300"
+              className="mt-2 text-[11px] leading-snug text-slate-300"
               style={{
                 display: '-webkit-box',
                 WebkitLineClamp: 4,
@@ -601,100 +635,109 @@ export function RhythmReadout({ region }: RhythmReadoutProps) {
             </p>
           )}
 
-          {/* Source of the sector claim (honest attribution, not a footnote). */}
-          {at.phase.cite.length > 0 && (
-            <div className="mt-1.5 text-[8.5px] uppercase tracking-[0.1em] text-slate-500">
-              Fuente: {citeLabel(at.phase.cite)}
-            </div>
-          )}
-        </div>
+            {/* Source of the sector claim (honest attribution, not a footnote). */}
+            {!compact && at.phase.cite.length > 0 && (
+              <p className="mt-2 text-[9px] tracking-[0.08em] text-slate-600">
+                Fuente: {citeLabel(at.phase.cite)}
+              </p>
+            )}
+          </div>
+        </>
       )}
 
       {/* Humero-escapulo-raquideo rhythm (shoulder elevation only) */}
       {rhythm && (
-        <div className="mt-2 rounded-xl border border-slate-800/70 bg-slate-900/40 p-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-              Ritmo húmero-escápulo-raquídeo
-            </span>
-            <span className="font-mono text-[10px] font-semibold text-amber-200">
-              {rhythm.ratio}
-              {rhythm.normalRatio && (
-                <span className="ml-1 font-normal text-slate-500">
-                  vs {rhythm.normalRatio} normal
-                </span>
-              )}
-            </span>
-          </div>
-          {/* Proportion bar */}
-          <div className="mt-1.5 flex h-2 w-full overflow-hidden rounded-full bg-slate-800" aria-hidden="true">
-            <span className="h-full transition-[width] duration-150" style={{ width: `${rhythm.ghPct}%`, backgroundColor: SEG.humerus.hex }} />
-            <span className="h-full transition-[width] duration-150" style={{ width: `${rhythm.scPct}%`, backgroundColor: SEG.scapula.hex }} />
-            <span className="h-full transition-[width] duration-150" style={{ width: `${rhythm.trPct}%`, backgroundColor: SEG.trunk.hex }} />
-          </div>
-          {/* Legend + degrees (single compact row) */}
-          <div className="mt-1.5 flex items-center justify-between gap-1">
-            {([
-              { s: SEG.humerus, deg: rhythm.gh },
-              { s: SEG.scapula, deg: rhythm.sc },
-              { s: SEG.trunk, deg: rhythm.tr },
-            ] as const).map(({ s, deg }) => (
-              <span key={s.label} className="flex items-center gap-1">
-                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${s.dot}`} />
-                <span className="text-[9px] text-slate-400">{s.label}</span>
-                <span className={`font-mono text-[11px] font-semibold tabular-nums ${s.text}`}>
-                  {Math.round(deg)}°
-                </span>
+        <>
+          <div className="hairline" />
+          <div className={`px-4 ${padY}`}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="kicker">Ritmo húmero-escápulo-raquídeo</span>
+              <span className="font-mono text-[11px] font-semibold tabular-nums text-amber-200">
+                {rhythm.ratio}
+                {rhythm.normalRatio && (
+                  <span className="ml-1 font-normal text-slate-500">
+                    de {rhythm.normalRatio} normal
+                  </span>
+                )}
               </span>
-            ))}
+            </div>
+            {/* Proportion bar */}
+            <div className="mt-2 flex h-[5px] w-full gap-[2px] overflow-hidden rounded-full bg-slate-800/80" aria-hidden="true">
+              <span className="h-full rounded-full transition-[width] duration-150" style={{ width: `${rhythm.ghPct}%`, backgroundColor: SEG.humerus.hex }} />
+              <span className="h-full rounded-full transition-[width] duration-150" style={{ width: `${rhythm.scPct}%`, backgroundColor: SEG.scapula.hex }} />
+              <span className="h-full rounded-full transition-[width] duration-150" style={{ width: `${rhythm.trPct}%`, backgroundColor: SEG.trunk.hex }} />
+            </div>
+            {/* Legend + degrees (single compact row) */}
+            <div className="mt-2 flex items-center justify-between gap-1">
+              {([
+                { s: SEG.humerus, deg: rhythm.gh },
+                { s: SEG.scapula, deg: rhythm.sc },
+                { s: SEG.trunk, deg: rhythm.tr },
+              ] as const).map(({ s, deg }) => (
+                <span key={s.label} className="flex items-baseline gap-1.5">
+                  <span className={`h-1.5 w-1.5 shrink-0 translate-y-[-1px] rounded-full ${s.dot}`} />
+                  <span className="text-[10px] text-slate-400">{s.label}</span>
+                  <span className={`font-mono text-[12px] font-semibold tabular-nums ${s.text}`}>
+                    {Math.round(deg)}°
+                  </span>
+                </span>
+              ))}
+            </div>
+            {/* Source: the joint split is Inman's scapulohumeral rhythm; the trunk
+                share above 150° is Kapandji's phase-3 spine contribution. */}
+            {!compact && (
+              <p className="mt-2 text-[9px] tracking-[0.08em] text-slate-600">
+                Fuente: Inman, Kapandji
+              </p>
+            )}
           </div>
-          {/* Source: the joint split is Inman's scapulohumeral rhythm; the trunk
-              share above 150° is Kapandji's phase-3 spine contribution. */}
-          <div className="mt-1.5 text-[8.5px] uppercase tracking-[0.1em] text-slate-500">
-            Fuente: Inman · Kapandji
-          </div>
-        </div>
+        </>
       )}
 
       {/* Knee screw-home coupling — the knee's "rhythm equivalent": the coupled
           automatic tibial external rotation that locks the joint in extension. */}
       {screwHome && (
-        <div className="mt-2 rounded-xl border border-slate-800/70 bg-slate-900/40 p-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-              Mecanismo de tornillo
-            </span>
-            <span
-              className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-semibold ${SCREW_ZONE[screwHome.zone].chip}`}
-            >
-              {SCREW_ZONE[screwHome.zone].label}
-            </span>
-          </div>
-          {/* Coupled tibial external rotation (0..15 deg). */}
-          <div className="mt-1.5 flex items-center gap-2">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-800" aria-hidden="true">
+        <>
+          <div className="hairline" />
+          <div className={`px-4 ${padY}`}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="kicker">Mecanismo de tornillo</span>
               <span
-                className="block h-full rounded-full transition-[width] duration-150"
-                style={{
-                  width: `${(screwHome.tibialErDeg / 15) * 100}%`,
-                  backgroundColor: SCREW_ZONE[screwHome.zone].bar,
-                }}
-              />
+                className={`shrink-0 text-[10px] font-semibold ${SCREW_ZONE[screwHome.zone].chip}`}
+              >
+                {SCREW_ZONE[screwHome.zone].label}
+              </span>
             </div>
-            <span className="shrink-0 font-mono text-[11px] font-semibold tabular-nums text-slate-200">
-              {screwHome.tibialErDeg.toFixed(1)}°
-              <span className="ml-0.5 text-[9px] text-slate-500">RE tibial</span>
-            </span>
+            {/* Coupled tibial external rotation (0..15 deg). */}
+            <div className="mt-2 flex items-center gap-2">
+              <div className="h-[5px] flex-1 overflow-hidden rounded-full bg-slate-800/80" aria-hidden="true">
+                <span
+                  className="block h-full rounded-full transition-[width] duration-150"
+                  style={{
+                    width: `${(screwHome.tibialErDeg / 15) * 100}%`,
+                    backgroundColor: SCREW_ZONE[screwHome.zone].bar,
+                  }}
+                />
+              </div>
+              <span className="shrink-0 font-mono text-[12px] font-semibold tabular-nums text-slate-200">
+                {screwHome.tibialErDeg.toFixed(1)}°
+                <span className="ml-1 font-sans text-[10px] font-normal text-slate-500">
+                  RE tibial
+                </span>
+              </span>
+            </div>
+            {showDescription && (
+              <p className="mt-2 text-[10.5px] leading-snug text-slate-400">
+                {SCREW_ZONE[screwHome.zone].note}
+              </p>
+            )}
+            {!compact && (
+              <p className="mt-2 text-[9px] tracking-[0.08em] text-slate-600">
+                Fuente: Kapandji, Oatis
+              </p>
+            )}
           </div>
-          {showDescription && (
-            <p className="mt-1.5 text-[10px] leading-snug text-slate-300">
-              {SCREW_ZONE[screwHome.zone].note}
-            </p>
-          )}
-          <div className="mt-1.5 text-[8.5px] uppercase tracking-[0.1em] text-slate-500">
-            Fuente: Kapandji · Oatis
-          </div>
-        </div>
+        </>
       )}
 
       {/* Cervical rotation split — the neck's rhythm equivalent (C1-C2 vs C2-C7). */}
@@ -704,7 +747,7 @@ export function RhythmReadout({ region }: RhythmReadoutProps) {
           ratio={cervicalSplit.ratio}
           showNote={showDescription}
           note="La articulación atlanto-axoidea (C1-C2) aporta ~la mitad de la rotación cervical y lidera el inicio; los segmentos C2-C7 completan el arco."
-          source="Kapandji · Oatis"
+          source="Kapandji, Oatis"
           segs={[
             {
               label: 'C1-C2',
@@ -739,7 +782,7 @@ export function RhythmReadout({ region }: RhythmReadoutProps) {
                 ? 'La pelvis (flexión de cadera) domina ya el gesto; el raquis lumbar aporta menos.'
                 : 'Lumbar y pelvis se reparten el gesto de forma pareja.'
           }
-          source="Kapandji · Oatis"
+          source="Kapandji, Oatis"
           segs={[
             {
               label: 'Lumbar',
@@ -761,46 +804,56 @@ export function RhythmReadout({ region }: RhythmReadoutProps) {
         />
       )}
 
-      {/* Protagonist muscle */}
-      <div className={`mt-2 rounded-xl border ${ROLE_CARD[hero.role]} bg-slate-900/50 p-2`}>
+      </div>
+
+      {/* Protagonist muscle. The role reads as a colored edge plus a word, so the
+          muscle's name and its recruitment stay the largest things here. */}
+      {hero && (
+        <>
+      <div className="hairline" />
+      <div className={`shrink-0 border-l-2 px-4 ${padY} ${ROLE_CARD[hero.role]}`}>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-            Músculo protagonista
-          </span>
-          <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-semibold ${ROLE_CHIP[hero.role]}`}>
+          <span className="kicker">Músculo protagonista</span>
+          <span className={`shrink-0 text-[10px] font-semibold ${ROLE_CHIP[hero.role]}`}>
             {ROM_ROLE_LABEL[hero.role]}
           </span>
         </div>
-        <div className="mt-1 flex items-end justify-between gap-2">
-          <span className="min-w-0 flex-1 truncate font-display text-base font-bold leading-tight text-slate-50">
+        <div className="mt-1.5 flex items-end justify-between gap-2">
+          <span className="min-w-0 flex-1 truncate font-display text-[17px] font-semibold leading-tight text-slate-50">
             {muscleNameById(muscleRegion, hero.muscleId)}
           </span>
-          <span className={`shrink-0 font-mono text-lg font-bold tabular-nums ${ROLE_TEXT[hero.role]}`}>
+          <span className={`shrink-0 font-display text-xl font-bold tabular-nums ${ROLE_TEXT[hero.role]}`}>
             {Math.round(hero.level * 100)}
-            <span className="text-xs text-slate-500">%</span>
+            <span className="text-xs font-medium text-slate-500">%</span>
           </span>
         </div>
-      </div>
 
-      {/* Other active muscles (one compact line). Shed on short viewports. */}
-      {showAlso && others.length > 0 && (
-        <p className="mt-1.5 px-0.5 text-[10px] leading-snug text-slate-400">
-          <span className="text-slate-500">También: </span>
-          {others.map((m, i) => (
-            <span key={m.muscleId}>
-              <span className={ROLE_TEXT[m.role]}>{muscleNameById(muscleRegion, m.muscleId)}</span>
-              <span className="tabular-nums text-slate-500"> {Math.round(m.level * 100)}%</span>
-              {i < others.length - 1 ? <span className="text-slate-600"> · </span> : null}
-            </span>
-          ))}
-        </p>
+        {/* Other active muscles (one compact line). Shed on short viewports. */}
+        {showAlso && others.length > 0 && hero && (
+          <p className="mt-2 text-[10.5px] leading-snug text-slate-400">
+            <span className="text-slate-500">También </span>
+            {others.map((m, i) => (
+              <span key={m.muscleId}>
+                <span className={ROLE_TEXT[m.role]}>{muscleNameById(muscleRegion, m.muscleId)}</span>
+                <span className="tabular-nums text-slate-500"> {Math.round(m.level * 100)}%</span>
+                {i < others.length - 1 ? <span className="text-slate-600">, </span> : null}
+              </span>
+            ))}
+          </p>
+        )}
+      </div>
+        </>
       )}
 
       {/* HONEST FRAMING (G3): the %/ratios above are a recruitment MODEL grounded
           in standard kinesiology, never a measured EMG. Always visible so the
-          numbers can never be read as a measurement. */}
-      <p className="mt-2 border-t border-slate-800/60 pt-1.5 text-[8.5px] leading-tight text-slate-500">
-        Porcentajes y proporciones: modelo de reclutamiento (Kapandji · Oatis · Neumann), no medición EMG.
+          numbers can never be read as a measurement — but on the short viewports
+          where the column is tightest it says so in one line instead of three. */}
+      <div className="hairline" />
+      <p className="shrink-0 px-4 py-2 text-[9px] leading-tight text-slate-600">
+        {compact
+          ? 'Modelo de reclutamiento, no medición EMG.'
+          : 'Porcentajes y proporciones: modelo de reclutamiento (Kapandji, Oatis, Neumann), no medición EMG.'}
       </p>
     </div>
   );
