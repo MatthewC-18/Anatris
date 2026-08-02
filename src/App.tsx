@@ -89,6 +89,7 @@ import { OnboardingTour, readTourDone } from './components/OnboardingTour';
 import { LegalScreen } from './components/LegalScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GuideHub } from './components/GuideHub';
+import RouteNotice from './components/RouteNotice';
 const EvidenceScreen = lazy(() =>
   import('./components/EvidenceScreen').then((m) => ({ default: m.EvidenceScreen })),
 );
@@ -543,6 +544,17 @@ export default function App() {
           </div>
         </OverlayShell>
       )}
+      {/* Someone arrived on an address we do not serve: say so and offer a way
+          out, instead of silently rewriting the URL under them. */}
+      <RouteNotice
+        landedRegion={regionId}
+        onGo={(r, m) => {
+          setRegion(r);
+          setMode(m);
+          setOverlay('none');
+          setDrawer('none');
+        }}
+      />
       {overlay === 'guide' && (
         <OverlayShell title="Guía rápida" onClose={() => setOverlay('none')}>
           <GuideHub

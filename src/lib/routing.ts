@@ -112,6 +112,27 @@ export function writeRoute(route: AppRoute, { replace = false } = {}): void {
   else window.history.pushState({}, '', url);
 }
 
+/**
+ * True when the address names something this app does not serve: a stale
+ * bookmark, a typo, a link to a page that never existed. The root and any known
+ * region are NOT unknown — `/hombro` alone is a valid short link.
+ *
+ * parseRoute already tolerates an unknown MODE (it falls back to Explorar), so
+ * only an unrecognised first segment lands here. The app corrects the address
+ * silently, which leaves a visitor on a page they did not ask for with no idea
+ * why; RouteNotice uses this to tell them, and to offer somewhere to go.
+ */
+export function isUnknownPath(pathname: string): boolean {
+  const parts = pathname.split('/').filter(Boolean);
+  if (parts.length === 0) return false;
+  return !REGION_BY_SLUG.has(parts[0].toLowerCase());
+}
+
+/** Region id + URL slug pairs, for orientation UI. Ordered as declared above. */
+export function regionSlugs(): { id: string; slug: string }[] {
+  return Object.entries(REGION_SLUGS).map(([id, slug]) => ({ id, slug }));
+}
+
 /** Every region slug, for sitemaps and prerender lists. */
 export function allRoutes(): string[] {
   const out: string[] = [];

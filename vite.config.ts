@@ -63,7 +63,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'favicon-32x32.png'],
       manifest: {
-        name: 'Anatris — Anatomía clínica y biomecánica',
+        name: 'Anatris | Anatomía clínica y biomecánica',
         short_name: 'Anatris',
         description:
           'Atlas 3D de anatomía clínica y biomecánica para fisioterapia: rangos de movimiento, músculos por fase, tests y modo paciente.',

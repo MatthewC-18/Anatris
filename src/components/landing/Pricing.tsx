@@ -10,6 +10,7 @@
 // currency_options (see supabase/README.md).
 
 import { useMemo, useState } from 'react';
+import { Segmented } from '../ui/Controls';
 import { useAuth, useEntitlement } from '../../auth/AuthContext';
 import {
   CURRENCIES,
@@ -78,21 +79,20 @@ export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
     <div className="mx-auto w-full max-w-3xl px-2">
       {/* Currency selector + billing period toggle */}
       <div className="mb-6 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
-        <label className="flex items-center gap-2 text-sm text-slate-400">
+        {/* Four currencies fit on one rail, so they are all visible at a glance
+            instead of hidden behind a native dropdown. */}
+        <div className="flex items-center gap-2 text-sm text-slate-400">
           Moneda
-          <select
+          <Segmented
             value={currency}
-            onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-            className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-sm text-slate-200 focus:border-accent focus:outline-none"
-            aria-label="Elegir moneda"
-          >
-            {CURRENCY_ORDER.map((code) => (
-              <option key={code} value={code}>
-                {CURRENCIES[code].label}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={CURRENCY_ORDER.map((code) => ({
+              value: code,
+              label: CURRENCIES[code].label,
+            }))}
+            onChange={setCurrency}
+            ariaLabel="Elegir moneda"
+          />
+        </div>
 
         <div className="flex items-center gap-3">
           <span className={`text-sm ${!annual ? 'text-slate-200' : 'text-slate-500'}`}>
