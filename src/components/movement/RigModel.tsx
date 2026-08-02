@@ -163,8 +163,45 @@ const ARM_CLEARANCE_FADE_DEG = 75;
 // insertion twists far LESS than the bone. We therefore follow a fraction of the
 // rotation and hard-cap the total, which keeps the fold reading as a stretched
 // band from the pelvis to the axilla at any elevation.
-const LATS_ROT_FOLLOW = 0.38;
-const LATS_ROT_MAX_DEG = 55;
+//
+// RE-CALIBRATED with unilateralizeLats (below). The GLB ships BOTH helpers
+// weighted onto BOTH lats with identical weights, so before that fix each side
+// only received ~55% of its own humerus -- the follow constants were tuned around
+// that halving. Once each lats rides only its own helper the follow doubles, so
+// these come down to keep the posed silhouette at or below where it already sat.
+// Measured offline against the Blender source (right-arm abduction, distance of
+// the most-displaced lats vertex from its rest position / its lateral reach vs
+// the 0.185 m rest edge and the 0.187 m scapular skin edge):
+//   0.38 / 55 deg unilateral -> 9.7 cm, x 0.250  (6.5 cm outside the silhouette)
+//   0.18 / 28 deg unilateral -> 6.6 cm, x 0.233
+//   translation only         -> 4.0 cm, x 0.207  (the irreducible floor: the GH
+//                                                 head itself travels ~2.4 cm)
+const LATS_ROT_FOLLOW = 0.18;
+const LATS_ROT_MAX_DEG = 28;
+
+// Z-Anatomy ships a small ATTACHMENT PATCH per muscle marking where it anchors:
+// `<muscle>ol` = ORIGIN, `<muscle>el` = INSERTION (confirmed against muscles whose
+// anatomy is unambiguous -- latissimus `ol` sits on vert_L5, coracobrachialis `ol`
+// on the scapula). Each is rigidly bound to ONE bone.
+const ATTACHMENT_PATCH = /muscle(ol|el)$/i;
+
+// ORIGIN PATCHES BOUND TO THE WRONG BONE. The teres major/minor origins are the
+// scapula's inferior angle and lateral border, but both ship weighted 100% to
+// `humerus_gh`, so they ride the ARM instead of staying on the blade. Measured on
+// the shipped GLB at 140 deg of abduction they floated 11.4 cm and 6.5 cm off the
+// nearest bone surface -- the worst offenders in the axilla, and the loose sheets
+// that read as "diferentes musculos que no estan agrupados" opening past the
+// shoulder. Rebound to the scapula, where they are anchored in life.
+const ORIGIN_BELONGS_ON_SCAPULA = /^(teres_major|teres_minor)_muscleol$/i;
+
+// Muscles that cross the glenohumeral joint and ship with a UNIFORM scapula/
+// humerus blend instead of an origin->insertion gradient (coracobrachialis
+// ~50/50, subscapularis 65/35, teres major 50/50 over every vertex), so the whole
+// belly translates half-way with the arm. These are the ones that still opened
+// out past the deltoid at 140 deg; the rest of the cuff (infraspinatus,
+// supraspinatus, teres minor) was already re-weighted in the GLB at v6 and
+// measures under 2 cm of float, so it is left alone.
+const GRADE_SCAPULA_HUMERUS = /coracobrachialis|subscapularis|teres_major/i;
 
 /** Lats helper bone (Spine_Armature) -> the shoulder armature whose humerus it
  *  follows. The mesh .l/.r vs armature _R/_L naming is mirrored (verified by the
@@ -173,6 +210,50 @@ const LATS_PAIRS: ReadonlyArray<[string, string]> = [
   ['latshum_l', 'Shoulder_Armature_R'],
   ['latshum_r', 'Shoulder_Armature_L'],
 ];
+
+// ---------------------------------------------------------------------------
+// SCAPULOTHORACIC WRAP.
+//
+// The scapula does not just upwardly rotate during elevation -- it also tilts
+// posteriorly and rotates externally, and those two are what keep the blade
+// WRAPPED on a curved ribcage. The rig drives upward rotation alone, so the blade
+// swings off the thorax like a flat plate on a hinge: measured on the shipped
+// GLB, the inferior angle travels 15.7 cm and ends up 8.6 cm clear of the ribs at
+// 140 deg, standing 5 cm proud of the muscle over it. That is the bone the user
+// reported coming out of the back. No pivot fixes it -- a rigid body turning
+// about ONE axis cannot follow a curved surface, which an offline pivot search
+// confirmed (best case still 9.9 cm).
+//
+// So we drive the two companion rotations too. The values below are SOLVED, not
+// guessed: scripts/solve-scapula-tilt.mts searches the local-Y and local-Z
+// rotations that best preserve every scapular vertex's rest distance to the
+// ribcage, penalising drifting off it AND sinking into it. Result at 140 deg of
+// elevation (49.4 deg of upward rotation): worst vertex 7.9 cm -> 2.0 cm off.
+// Table is [upwardRotationDeg, localY, localZ], linearly interpolated; the
+// companions saturate, which is why this is a table and not a gain.
+const SCAPULA_WRAP: ReadonlyArray<readonly [number, number, number]> = [
+  [0, 0, 0],
+  [25, 30.6, -11.3],
+  [49.4, 44.4, -28.1],
+  [60, 45.6, -36.3],
+];
+/** Mirrored armatures: the companion axes flip on the left (see the apply site). */
+const SCAPULA_WRAP_SIGN: Record<Side, 1 | -1> = { R: 1, L: -1 };
+
+/** Companion [localY, localZ] rotations in DEGREES for a given upward rotation. */
+function scapulaWrap(upDeg: number): [number, number] {
+  const u = Math.abs(upDeg);
+  const last = SCAPULA_WRAP[SCAPULA_WRAP.length - 1];
+  if (u >= last[0]) return [last[1], last[2]];
+  for (let i = 1; i < SCAPULA_WRAP.length; i++) {
+    const [u1, y1, z1] = SCAPULA_WRAP[i];
+    if (u > u1) continue;
+    const [u0, y0, z0] = SCAPULA_WRAP[i - 1];
+    const t = u1 - u0 <= 1e-6 ? 0 : (u - u0) / (u1 - u0);
+    return [y0 + (y1 - y0) * t, z0 + (z1 - z0) * t];
+  }
+  return [0, 0];
+}
 
 // ---------------------------------------------------------------------------
 // LUMBOPELVIC COUNTER-BALANCE (standing hip flexion).
@@ -356,9 +437,21 @@ function dominantBoneName(mesh: THREE.Mesh): string {
 // bracket it in height and blend linearly, so every slice of the muscle follows
 // its own spinal level and the whole belly bends WITH the spine and stays tight.
 //
-// Rest-pose safe: the weights sum to 1 and every bone matrix is identity at the
-// bind pose, so the neutral pose is pixel-identical (bindMatrix cancels); only
-// the deformation under rotation changes. Returns true when it re-skinned.
+// NON-VERTEBRA WEIGHT IS PRESERVED. This pass used to overwrite each vertex with
+// vertebrae ONLY (weight 1 on one or two of them), which silently destroyed the
+// latissimus dorsi's humeral insertion: the lats' dominant bone is vert_T12, so
+// it qualifies as a spine muscle, and the re-skin wiped the latshum_l/r helper
+// weights that are the entire mechanism by which its insertion follows the
+// abducting arm (see driveLatsHelpers). The muscle was left welded to the spine,
+// so on abduction the arm rose while the axillary insertion stayed at its rest
+// position -- the detached, mis-aligned fold reported in the lab. Now each vertex
+// KEEPS whatever weight it carries on non-vertebra bones and only the REMAINDER
+// is blended across the bracketing vertebrae, so a lats vertex bends with the
+// column AND rides the humerus in the same proportion the rig authored.
+//
+// Rest-pose safe: the weights still sum to 1 and every bone matrix is identity at
+// the bind pose, so the neutral pose is pixel-identical (bindMatrix cancels);
+// only the deformation under rotation changes. Returns true when it re-skinned.
 // ---------------------------------------------------------------------------
 const _vw = new THREE.Vector3();
 
@@ -383,16 +476,35 @@ function smoothSkinSpineMuscle(mesh: THREE.Mesh, vertY: Map<string, number>): bo
   const last = verts.length - 1;
   const yLo = verts[0].y;
   const yHi = verts[last].y;
+  const vertIdx = new Set(verts.map((v) => v.idx));
   for (let i = 0; i < pos.count; i++) {
     _vw.fromBufferAttribute(pos, i);
     mesh.localToWorld(_vw); // rest world pos (bones = identity at bind)
     const vy = _vw.y;
+    // Weight this vertex already carries on NON-vertebra bones -- for the
+    // latissimus, its humeral helper. Collapse it onto the heaviest such bone
+    // (after unilateralizeLats there is only one) and hand the vertebrae just
+    // what is left, so the insertion survives this pass. `keep` stays 0 for an
+    // ordinary spine muscle, making the blend below identical to before.
+    let keepBone = -1;
+    let keep = 0;
+    for (let k = 0; k < 4; k++) {
+      const w = sw.getComponent(i, k);
+      if (w <= 0) continue;
+      const b = si.getComponent(i, k);
+      if (vertIdx.has(b)) continue;
+      if (keepBone < 0 || w > keep) keepBone = b;
+      keep += w;
+    }
+    if (keep > 1) keep = 1;
+    if (keepBone < 0) keepBone = 0;
+    const spine = 1 - keep;
     if (vy <= yLo) {
-      si.setXYZW(i, verts[0].idx, 0, 0, 0);
-      sw.setXYZW(i, 1, 0, 0, 0);
+      si.setXYZW(i, verts[0].idx, keepBone, 0, 0);
+      sw.setXYZW(i, spine, keep, 0, 0);
     } else if (vy >= yHi) {
-      si.setXYZW(i, verts[last].idx, 0, 0, 0);
-      sw.setXYZW(i, 1, 0, 0, 0);
+      si.setXYZW(i, verts[last].idx, keepBone, 0, 0);
+      sw.setXYZW(i, spine, keep, 0, 0);
     } else {
       // Largest k with verts[k].y <= vy < verts[k+1].y -> the bracketing pair.
       let k = 0;
@@ -401,8 +513,8 @@ function smoothSkinSpineMuscle(mesh: THREE.Mesh, vertY: Map<string, number>): bo
       const hi = verts[k + 1];
       const span = hi.y - lo.y;
       const t = span > 1e-6 ? (vy - lo.y) / span : 0;
-      si.setXYZW(i, lo.idx, hi.idx, 0, 0);
-      sw.setXYZW(i, 1 - t, t, 0, 0);
+      si.setXYZW(i, lo.idx, hi.idx, keepBone, 0);
+      sw.setXYZW(i, (1 - t) * spine, t * spine, keep, 0);
     }
   }
   si.needsUpdate = true;
@@ -447,6 +559,73 @@ function smoothTwistForearm(mesh: THREE.Mesh, elbowY: number, wristY: number): b
     // Smoothstep so the elbow end barely twists and the roll builds to the wrist.
     t = t * t * (3 - 2 * t);
     si.setXYZW(i, flexIdx, rotIdx, 0, 0);
+    sw.setXYZW(i, 1 - t, t, 0, 0);
+  }
+  si.needsUpdate = true;
+  sw.needsUpdate = true;
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Scapula -> humerus gradient (axillary muscles).
+//
+// A muscle that crosses the glenohumeral joint must have its ORIGIN end riding
+// the scapula and its INSERTION end riding the humerus. Several axillary muscles
+// ship instead with a CRUDE UNIFORM BLEND (e.g. coracobrachialis at ~50/50 over
+// every vertex), which translates the whole belly half-way with the arm: the
+// muscle leaves the bone entirely rather than stretching between two attachments.
+// Measured on the shipped GLB at 140 deg of abduction, the coracobrachialis
+// floated up to 11.0 cm off the nearest bone surface and reached |x| 0.299 --
+// 6 cm past the deltoid's own silhouette, i.e. "queda mas abierto que el hombro".
+//
+// Each vertex is weighted by how close it lies, AT REST, to the humeral shaft
+// (the segment from the glenohumeral head to the elbow): fibers hugging the shaft
+// are the insertion and ride the humerus, fibers further away are the origin and
+// stay on the scapula, with a smoothstep between. Distance-to-bone rather than
+// height, because these muscles run obliquely -- the subscapularis, for one,
+// originates over the whole costal face of the blade including its upper part, so
+// a height gradient would hand that upper origin to the humerus.
+//
+// Rest-pose safe for the usual reason: weights sum to 1 and bone matrices are
+// identity at bind. The thresholds are shared by every muscle and every primitive
+// so the pieces of one belly cannot split apart at their seams.
+// ---------------------------------------------------------------------------
+/** Rest distance to the humeral shaft at which a fiber is pure insertion. */
+const GRADE_NEAR_M = 0.03;
+/** ...and beyond which it is pure origin. */
+const GRADE_FAR_M = 0.09;
+
+function gradeScapulaToHumerus(
+  mesh: THREE.Mesh,
+  shaftTop: THREE.Vector3,
+  shaftBottom: THREE.Vector3,
+): boolean {
+  const sk = mesh as THREE.SkinnedMesh;
+  if (!sk.isSkinnedMesh || !sk.skeleton) return false;
+  const bn = (b: THREE.Bone) => b.name.replace(/_\d+$/, '');
+  const sIdx = sk.skeleton.bones.findIndex((b) => bn(b) === 'scapula');
+  const hIdx = sk.skeleton.bones.findIndex((b) => bn(b) === 'humerus_gh');
+  if (sIdx < 0 || hIdx < 0) return false;
+  const pos = mesh.geometry.getAttribute('position');
+  const si = mesh.geometry.getAttribute('skinIndex');
+  const sw = mesh.geometry.getAttribute('skinWeight');
+  if (!pos || !si || !sw) return false;
+  const shaft = new THREE.Vector3().subVectors(shaftBottom, shaftTop);
+  const shaftLenSq = shaft.lengthSq();
+  if (shaftLenSq <= 1e-6) return false;
+  const span = GRADE_FAR_M - GRADE_NEAR_M;
+  const closest = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    _vw.fromBufferAttribute(pos, i);
+    mesh.localToWorld(_vw); // rest world pos (bones = identity at bind)
+    let u = _vw.clone().sub(shaftTop).dot(shaft) / shaftLenSq;
+    u = u < 0 ? 0 : u > 1 ? 1 : u;
+    closest.copy(shaftTop).addScaledVector(shaft, u);
+    const d = _vw.distanceTo(closest);
+    let t = (GRADE_FAR_M - d) / span; // 1 on the shaft, 0 far from it
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    t = t * t * (3 - 2 * t);
+    si.setXYZW(i, sIdx, hIdx, 0, 0);
     sw.setXYZW(i, 1 - t, t, 0, 0);
   }
   si.needsUpdate = true;
@@ -1077,6 +1256,104 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // forearm. Half the arm skin patches ship mis-bound to forearm_flex.
       const UPPER_ARM_Y = ELBOW_Y + 0.08;
 
+      // LATISSIMUS CROSS-SIDE WEIGHT FIX. The two lats are ONE mirrored mesh: in
+      // Blender both objects share a single mesh datablock, the right one carrying
+      // a negative-X object matrix. Vertex weights live on that shared datablock,
+      // so the pass that authored the humeral-insertion fibers could not give each
+      // side its own helper -- it wrote BOTH helpers (latshum_l AND latshum_r) with
+      // IDENTICAL per-vertex weights, and each lats ends up half-driven by each
+      // arm. Two consequences, and the second is the visible bug:
+      //   1. the lats on the MOVING side only gets ~55% of its own humerus, so its
+      //      insertion lags behind the arm;
+      //   2. the lats on the OPPOSITE side gets the other ~45% of a humerus that
+      //      is across the body, so abducting one arm drags the CONTRALATERAL
+      //      lats sideways -- measured offline against the Blender source at up to
+      //      15.5 cm at 180 deg. That is the sheet of muscle seen tearing out of
+      //      the axilla ("las partes del dorsal no estan bien alineadas... se sale
+      //      demasiado en el movimiento").
+      // Fix: keep only the helper on the mesh's OWN side and renormalize. Which
+      // helper that is is decided GEOMETRICALLY (the helper bone whose rest world
+      // X shares the mesh center's sign), not by the .l/.r suffix -- mesh and
+      // armature naming is mirrored in this rig. Rest pose is untouched: at bind
+      // both helpers are coincident with the humerus, so redistributing weight
+      // between them changes nothing at neutral.
+      //
+      // The CURRENT export does not share geometry (the decimation pass splits
+      // the mirrored instances into their own BufferGeometry, verified by
+      // scripts/audit-lats-binding.mts), but a re-export could restore the
+      // sharing -- and writing weights into a shared buffer would edit both sides
+      // at once, then have the second call read back weights the first had
+      // already rewritten. So copy on write when, and only when, a sibling lats
+      // is on the same geometry. Skinning is unaffected by the mirroring itself:
+      // it runs through each node's own bindMatrix, so each instance is already
+      // posed on its own side of the body.
+      const latsGeoms = new Map<string, number>();
+      scene.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.isMesh && /latissimus/i.test(m.name)) {
+          latsGeoms.set(m.geometry.uuid, (latsGeoms.get(m.geometry.uuid) ?? 0) + 1);
+        }
+      });
+
+      // Rest humeral shaft per side (GH head -> elbow), the axis the axillary
+      // gradient measures distance to.
+      const humeralShaft = new Map<Side, [THREE.Vector3, THREE.Vector3]>();
+      for (const side of ['R', 'L'] as Side[]) {
+        const sr = scene.getObjectByName(resolveArmatureName('Shoulder_Armature', side));
+        let head: THREE.Vector3 | null = null;
+        let elbow: THREE.Vector3 | null = null;
+        sr?.traverse((o) => {
+          const bn = o.name.replace(/_\d+$/, '');
+          if (bn === 'humerus_gh' && !head) head = o.getWorldPosition(new THREE.Vector3());
+          else if (bn === 'forearm_flex' && !elbow) elbow = o.getWorldPosition(new THREE.Vector3());
+        });
+        if (head && elbow) humeralShaft.set(side, [head, elbow]);
+      }
+      const unilateralizeLats = (mesh: THREE.Mesh): void => {
+        const sk = mesh as THREE.SkinnedMesh;
+        if (!sk.isSkinnedMesh || !sk.skeleton) return;
+        // Rest world X of every helper bone in THIS mesh's skeleton.
+        const helperX = new Map<number, number>();
+        sk.skeleton.bones.forEach((b, i) => {
+          if (/^latshum_[lr]$/.test(b.name.replace(/_\d+$/, ''))) {
+            helperX.set(i, b.getWorldPosition(new THREE.Vector3()).x);
+          }
+        });
+        if (helperX.size < 2) return; // nothing to disambiguate
+        const meshX = meshWorldCenter(mesh).x;
+        // Drop every helper that sits on the other side of the midline.
+        const drop = new Set<number>();
+        for (const [i, x] of helperX) if (x * meshX < 0) drop.add(i);
+        if (drop.size === 0) return;
+        // Un-share before writing (see above). clone() copies every attribute, so
+        // a sibling still reads the ORIGINAL bilateral weights when its turn
+        // comes and resolves its own side independently.
+        if ((latsGeoms.get(mesh.geometry.uuid) ?? 0) > 1) {
+          mesh.geometry = mesh.geometry.clone();
+        }
+        const si = mesh.geometry.getAttribute('skinIndex');
+        const sw = mesh.geometry.getAttribute('skinWeight');
+        if (!si || !sw) return;
+        for (let v = 0; v < si.count; v++) {
+          const idx = [si.getX(v), si.getY(v), si.getZ(v), si.getW(v)];
+          const w = [sw.getX(v), sw.getY(v), sw.getZ(v), sw.getW(v)];
+          let sum = 0;
+          let changed = false;
+          for (let k = 0; k < 4; k++) {
+            if (drop.has(idx[k]) && w[k] > 0) { w[k] = 0; changed = true; }
+            sum += w[k];
+          }
+          if (!changed) continue;
+          // Renormalize to 1 so the surviving helper picks up the freed weight
+          // (its share of the insertion doubles, which the LATS_ROT_* constants
+          // above are calibrated for). A vertex left with no weight at all would
+          // collapse to the origin, so leave those alone.
+          if (sum <= 1e-6) continue;
+          sw.setXYZW(v, w[0] / sum, w[1] / sum, w[2] / sum, w[3] / sum);
+        }
+        sw.needsUpdate = true;
+      };
+
       // Rewrite every vertex of a skinned mesh to ride ONE bone (weight 1). Rest
       // pose is preserved (bone*boneInverse = identity at bind). Returns false if
       // the mesh is not skinned or the bone is absent from its own skeleton.
@@ -1232,6 +1509,24 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         // the redundant overlaps automatically.
         if (layer === 'muscle') {
           const ln = mesh.name.toLowerCase().replace(/[._\s]+/g, ' ');
+          // Each latissimus must ride only ITS OWN humeral helper (see above):
+          // the GLB weights both helpers onto both sides, which drags the
+          // contralateral lats out of the flank on abduction.
+          if (ln.includes('latissimus')) unilateralizeLats(mesh);
+          // Axillary fixes (see the constants above): put the teres major/minor
+          // ORIGIN patches back on the scapula, and give the coracobrachialis a
+          // real origin->insertion gradient instead of a uniform half-and-half
+          // blend that walks the whole belly out of the shoulder.
+          const bare = mesh.name.replace(/_\d+$/, '');
+          if (ORIGIN_BELONGS_ON_SCAPULA.test(bare)) {
+            rigidBindTo(mesh, 'scapula');
+          } else if (
+            GRADE_SCAPULA_HUMERUS.test(mesh.name) &&
+            !ATTACHMENT_PATCH.test(bare)
+          ) {
+            const shaft = humeralShaft.get(center.x >= 0 ? 'R' : 'L');
+            if (shaft) gradeScapulaToHumerus(mesh, shaft[0], shaft[1]);
+          }
           const isArmBelly =
             ln.includes('biceps brachii') ||
             // The triceps LONG head crosses the shoulder (origin on the scapular
@@ -1434,9 +1729,16 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       const _qDelta = new THREE.Quaternion();
       const _qIdentity = new THREE.Quaternion();
       const _qParent = new THREE.Quaternion();
+      const _qClearInv = new THREE.Quaternion();
       const _pHum = new THREE.Vector3();
       const _pScratch = new THREE.Vector3();
       const _sScratch = new THREE.Vector3();
+      // Purely COSMETIC humeral rotation applied by clearActiveArm, per humerus.
+      // The lats must not follow it: seating the arm forward to keep it out of the
+      // trunk is a rendering trick, not a movement, and letting it into the delta
+      // twisted the flank by ~1.7 cm the instant an arm movement was selected, at
+      // 0 deg, before the user had moved anything.
+      const clearanceRot = new Map<THREE.Object3D, THREE.Quaternion>();
       const driveLatsHelpers = () => {
         const spineBones = byArmature.get('Spine_Armature');
         if (!spineBones) return;
@@ -1448,6 +1750,9 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           const helperRest = restWorld.get(helper);
 
           hum.getWorldQuaternion(_qHum);
+          // Divide out the cosmetic forward clearance (see clearanceRot).
+          const cr = clearanceRot.get(hum);
+          if (cr) _qHum.multiply(_qClearInv.copy(cr).invert());
           helper.parent.getWorldQuaternion(_qParent).invert();
 
           if (humRest && helperRest) {
@@ -1535,7 +1840,13 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           else h.quaternion.identity();
           touchedRef.current.add(h);
         }
-        h.rotateOnAxis(AXIS_VEC.x, ARM_CLEARANCE_SIGN[side] * ARM_CLEARANCE_DEG * factor * DEG2RAD);
+        const rad = ARM_CLEARANCE_SIGN[side] * ARM_CLEARANCE_DEG * factor * DEG2RAD;
+        h.rotateOnAxis(AXIS_VEC.x, rad);
+        // Record the clearance as a LOCAL rotation so driveLatsHelpers can divide
+        // it back out. rotateOnAxis post-multiplies (qLocal = qPre * Rc), so the
+        // world rotation factorizes the same way (qWorld = qWorldPre * Rc) and
+        // qWorld * Rc^-1 recovers the clinically posed humerus.
+        clearanceRot.set(h, new THREE.Quaternion().setFromAxisAngle(AXIS_VEC.x, rad));
       };
 
       const ctrl = cmd.movementId ? getBoneControl(cmd.movementId) : undefined;
@@ -1617,6 +1928,91 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
                 touchedRef.current.add(bone);
               }
               bone.rotateOnAxis(AXIS_VEC[target.axis], rad);
+            }
+          }
+          // SCAPULOTHORACIC WRAP (see the table above). Add the posterior-tilt and
+          // external-rotation companions so the blade stays ON the ribcage, then
+          // put the humerus back where it was pointing: the companions are a
+          // correction to how the SCAPULA sits, and must not move the arm. The
+          // humerus still RIDES the scapula (it is its child), so the shoulder
+          // joint travels ~3.6 cm as it really does -- only its orientation, which
+          // is what the goniometer and the readout report, is held.
+          const scapBone = shoulderBones?.get('scapula');
+          const humBone = shoulderBones?.get('humerus_gh');
+          const upRad = outputs.scapula;
+          if (scapBone && humBone && upRad) {
+            scene.updateMatrixWorld(true);
+            const before = scapBone.getWorldQuaternion(new THREE.Quaternion());
+            const [wy, wz] = scapulaWrap(upRad / DEG2RAD);
+            // The two shoulder armatures are mirrored, so the companion axes flip
+            // sign on the left. Swept offline over all four sign combinations per
+            // side: +y+z is the only one that helps on the right and -y-z the only
+            // one on the left -- the others make the blade drift WORSE than doing
+            // nothing (up to 17 cm). Upward rotation itself is +x on both sides,
+            // hence the asymmetry here.
+            const wrapSign = SCAPULA_WRAP_SIGN[cmd.side];
+            scapBone.rotateOnAxis(AXIS_VEC.y, wrapSign * wy * DEG2RAD);
+            scapBone.rotateOnAxis(AXIS_VEC.z, wrapSign * wz * DEG2RAD);
+            touchedRef.current.add(scapBone);
+            scene.updateMatrixWorld(true);
+            const after = scapBone.getWorldQuaternion(new THREE.Quaternion());
+            humBone.quaternion.premultiply(after.invert().multiply(before));
+            touchedRef.current.add(humBone);
+          }
+          // THORACIC PARTICIPATION. When the chain leans the trunk (top of the
+          // elevation arc), the arms must ride the upper thorax like they do for
+          // any spine movement -- the shoulder armatures are separate scene-root
+          // skins, so without this the neck skin follows the spine while the
+          // deltoid stays behind and the seam tears (7.5 cm, measured). Runs only
+          // when a lean was actually placed, so nothing changes below 150 deg.
+          if (outputs.thoracic) {
+            scene.updateMatrixWorld(true);
+            carryShouldersWithSpine();
+          }
+          // AIM. Land the arm on exactly the goniometric angle (see aimPlane).
+          // Everything above shapes the movement -- rhythm, scapular wrap, trunk
+          // participation -- and this closes the residual: the humeral shaft is
+          // turned the last few degrees, about the world axis the clinical angle
+          // is measured around, until it sits `cmd.angleDeg` from where it rests.
+          // Runs last so it also absorbs whatever the trunk lean did to the arm.
+          if (ctrl.aimPlane && humBone) {
+            scene.updateMatrixWorld(true);
+            const elbowBone = shoulderBones?.get('forearm_flex');
+            const restH = restWorld.get(humBone);
+            const restE = elbowBone ? restWorld.get(elbowBone) : undefined;
+            if (elbowBone && restH && restE) {
+              // Rest direction of the shaft, and where it should point now.
+              const rh = new THREE.Vector3().setFromMatrixPosition(restH);
+              const re = new THREE.Vector3().setFromMatrixPosition(restE);
+              const want = re.sub(rh).normalize();
+              // The clinical angle is read IN ITS PLANE, so only the in-plane
+              // part of the shaft is swung and the out-of-plane part is kept.
+              // This rig rests with the arms carried forward (the elbow sits ~16
+              // cm anterior to the shoulder), so rotating the whole 3D direction
+              // would sweep a cone and land the arm ~24 deg short of the reading.
+              // For abduction the plane is frontal: turn (x, y), keep z.
+              const inPlaneSign = cmd.side === 'R' ? 1 : -1;
+              if (ctrl.aimPlane === 'z') {
+                const r = Math.hypot(want.x, want.y);
+                const a = Math.atan2(want.x, -want.y) + cmd.angleDeg * DEG2RAD * inPlaneSign;
+                want.set(Math.sin(a) * r, -Math.cos(a) * r, want.z).normalize();
+              } else {
+                const r = Math.hypot(want.z, want.y);
+                const a = Math.atan2(want.z, -want.y) + cmd.angleDeg * DEG2RAD;
+                want.set(want.x, -Math.cos(a) * r, Math.sin(a) * r).normalize();
+              }
+              const ph = humBone.getWorldPosition(new THREE.Vector3());
+              const pe = elbowBone.getWorldPosition(new THREE.Vector3());
+              const have = pe.sub(ph).normalize();
+              const fix = new THREE.Quaternion().setFromUnitVectors(have, want);
+              // Apply that WORLD rotation to a bone whose quaternion is local.
+              const pw = humBone.parent
+                ? humBone.parent.getWorldQuaternion(new THREE.Quaternion())
+                : new THREE.Quaternion();
+              humBone.quaternion.premultiply(
+                pw.clone().invert().multiply(fix).multiply(pw),
+              );
+              touchedRef.current.add(humBone);
             }
           }
         } else {

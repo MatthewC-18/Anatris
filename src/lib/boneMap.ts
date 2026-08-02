@@ -112,6 +112,19 @@ export interface ChainControl {
   decompose: (clinicalDeg: number, side: Side, mod?: ShoulderChainMod) => Record<string, number>;
   targets: { key: string; target: ChainTarget }[];
   clinicalRange: { min: number; max: number };
+  /**
+   * World axis the CLINICAL angle is measured around, so the runtime can aim the
+   * limb at exactly that angle after the chain has run ('z' = frontal plane, for
+   * abduction; 'x' = sagittal, for flexion).
+   *
+   * Needed because the rig's humeral abduction axis is not quite in the frontal
+   * plane: the arm sweeps a shallow cone, gains a clean degree per degree up to
+   * ~150 and then stalls, topping out near 157 no matter how far the bone is
+   * turned (measured). Without this, 180 deg of goniometric elevation drew an arm
+   * at 150. The aim is a small residual correction over the chain's own rotations,
+   * so the scapulohumeral rhythm still drives the shape of the movement.
+   */
+  aimPlane?: 'x' | 'z';
   needsVisualCheck?: boolean;
 }
 
@@ -157,10 +170,12 @@ const CERVICAL_BONES = [
   'vert_C7', 'vert_C6', 'vert_C5', 'vert_C4', 'vert_C3', 'vert_C2', 'vert_C1',
 ];
 
-// (The thoracic contralateral lean during high shoulder elevation is no longer
-// placed on the rig -- see the abduction chain's `targets` for why. The
-// shoulderChain still COMPUTES thoracicLatFlexPerVert; it is simply not consumed,
-// so the trunk/neck stay put through the whole arc.)
+// Vertebrae that carry the contralateral trunk lean at the top of shoulder
+// elevation. Must match SPINE_VERTS in ./biomech/shoulderChain, which sizes the
+// per-vertebra angle by this same count.
+const SHOULDER_THORACIC_LEAN = [
+  'vert_T6', 'vert_T5', 'vert_T4', 'vert_T3', 'vert_T2',
+] as const;
 
 // ---------------------------------------------------------------------------
 // THE MAP: clinical movementId (from *Rom.ts) -> bone control.
@@ -190,18 +205,39 @@ export const BONE_MAP: Record<string, BoneControl> = {
         humerus: p.glenohumeralRot,        // local-Z, already signed per side
         humeralER: p.humeralExtRot * erSign, // local-Y
         scapula: p.scapulaUpwardRot,        // local-X (positive both sides)
-        thoracic: p.thoracicLatFlexPerVert, // local-Z, already signed per side
+        // The lean must be CONTRALATERAL -- the trunk bends away from the rising
+        // arm, which is what lets the arm finish vertical. shoulderChain signs it
+        // for an anatomical axis; on the rig's vertebra local-Z that sign comes
+        // out IPSILATERAL, which pushed the arm back DOWN (measured: 149.5 -> 143.5
+        // deg at 160). Flipped here, at the point where the value meets the rig,
+        // so the clinical model keeps its own convention.
+        thoracic: -p.thoracicLatFlexPerVert,
       };
     },
     targets: [
       { key: 'humerus', target: { armature: 'shoulder', bones: ['humerus_gh'], axis: 'z' } },
       { key: 'humeralER', target: { armature: 'shoulder', bones: ['humerus_gh'], axis: 'y' } },
       { key: 'scapula', target: { armature: 'shoulder', bones: ['scapula'], axis: 'x' } },
-      // Thoracic contralateral lean (>150 deg) intentionally NOT placed: with the
-      // body now fully skinned, leaning the T-spine while the head (rigid on
-      // vert_C1) stayed put tore the NECK skin off the trunk at the top of the
-      // arc. The scapulohumeral rhythm remains; only the trunk lean is dropped.
+      // THORACIC PARTICIPATION (>150 deg). Kapandji's phase 3: the shoulder
+      // complex is near its ceiling, so the last stretch to a true vertical is
+      // finished by the raquis leaning contralaterally. Restored after being
+      // dropped for tearing the neck.
+      //
+      // The old note blamed "the head, rigid on vert_C1, staying put" — that
+      // diagnosis was wrong. vert_C1 IS a descendant of the thoracic block, so
+      // the neck and head do ride the lean (measured: the skull travels 15.7 cm).
+      // The real tear was between the NECK skin and the DELTOID skin — the neck
+      // rides the spine, but the deltoid hangs off the Shoulder armature, which
+      // is a separate scene-root skin and stayed behind: 7.5 cm of separation.
+      // RigModel now calls carryShouldersWithSpine() whenever a chain leans the
+      // trunk, exactly as it already did for spine movements, so the arms follow
+      // the upper thorax and the seam holds.
+      {
+        key: 'thoracic',
+        target: { armature: 'spine', bones: [...SHOULDER_THORACIC_LEAN], axis: 'z' },
+      },
     ],
+    aimPlane: 'z', // abduction is measured in the frontal plane
   },
   // Sagittal elevation is ALSO scapulohumeral (~2:1), like abduction: the scapula
   // upwardly rotates and the humerus externally rotates past 90 deg. Reuses the
