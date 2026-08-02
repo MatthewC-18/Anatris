@@ -734,6 +734,25 @@ function hideOverlapDuplicates(candidates: DupCandidate[]): number {
 // ---------------------------------------------------------------------------
 
 /**
+ * FOREARM CULLS. Three rules used to empty the forearm: hide all its connective,
+ * hide muscle in the wrist cuff, and hide the extrinsic digital bellies. Together
+ * they removed 60% of the forearm's muscle bulk -- the flexor/extensor digitorum
+ * and the flexor profundus, i.e. everything that reaches the wrist -- which is
+ * why it read as bare bone next to the arm.
+ *
+ * They were added when those meshes shot 13-15 cm out of the skin as loose
+ * "puntas". Two things changed since: every forearm mesh now gets the roll
+ * gradient (bellies bound to forearm_rot or hand_flex used to spin as rigid
+ * blocks), and the brachioradialis + extensor carpi radialis longus are rebuilt
+ * from their mirror twins instead of arriving collapsed. Re-measured against the
+ * forearm axis, the culled bellies centre 4-6 cm off it -- the same distance as
+ * the skin that IS drawn -- so they sit where forearm muscle belongs.
+ *
+ * Set back to true to restore the old, emptier forearm.
+ */
+const FOREARM_CULLS = false;
+
+/**
  * True when a rest-pose world center lies in the hand/wrist or foot/ankle
  * cluster. Forearm and leg (muscle bellies, proximal skin) sit outside and keep
  * their normal muscle+bone rendering.
@@ -1616,7 +1635,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         // FOREARM WIRE CULL: the pearly connective strands (wrist ligaments +
         // long forearm tendons) spill past the skin cap as loose "alambres".
         // Permanently hidden in the arm band; legs/torso keep their connective.
-        if (layer === 'connective' && inArmBand(center)) {
+        if (FOREARM_CULLS && layer === 'connective' && inArmBand(center)) {
           mesh.visible = false;
           mesh.userData.rigLayer = 'hidden';
           return;
@@ -1624,7 +1643,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         // WRIST CUFF: the thin distal extensor/flexor slips poke through the
         // wrist skin as loose red spindles. Hide MUSCLE here (bone + proximal
         // bellies stay) so the wrist reads clean.
-        if (layer === 'muscle' && inWristCuff(center)) {
+        if (FOREARM_CULLS && layer === 'muscle' && inWristCuff(center)) {
           mesh.visible = false;
           mesh.userData.rigLayer = 'hidden';
           return;
@@ -1643,6 +1662,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         // and triceps bellies all stay. Gated to inArmBand so the FOOT's extensor/
         // flexor digitorum (leg) are untouched.
         if (
+          FOREARM_CULLS &&
           layer === 'muscle' &&
           inArmBand(center) &&
           /digitorum|digiti minimi|indicis|pollicis|palmaris/i.test(mesh.name)

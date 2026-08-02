@@ -33,12 +33,15 @@ const inWristCuff = (c: THREE.Vector3) => Math.abs(c.x) > 0.18 && c.y >= 0.86 &&
 const inDistalRegion = (c: THREE.Vector3) =>
   (c.y > 0.6 && c.y < 0.86 && Math.abs(c.x) > 0.18) || c.y < 0.12;
 const DIGITAL = /digitorum|digiti minimi|indicis|pollicis|palmaris/i;
+/** Mirrors FOREARM_CULLS in RigModel.tsx. Pass "culls" to see the old behaviour. */
+const FOREARM_CULLS = process.argv[2] === 'culls';
 
 interface Row {
   name: string; layer: string; hiddenBy: string | null;
   y: number; verts: number; volume: number; color: string;
 }
 const rows: Row[] = [];
+const centres = new Map<string, THREE.Vector3>();
 scene.traverse((o) => {
   const m = o as THREE.SkinnedMesh;
   if (!m.isMesh || !m.isSkinnedMesh) return;
@@ -55,14 +58,15 @@ scene.traverse((o) => {
   const col = colorForMaterial(matName);
   let hiddenBy: string | null = null;
   if (!layer) hiddenBy = 'not a lab layer (nerve/vessel/fascia/organ)';
-  else if (layer === 'connective' && inArmBand(c)) hiddenBy = 'forearm wire cull';
-  else if (layer === 'muscle' && inWristCuff(c)) hiddenBy = 'wrist cuff';
-  else if (layer === 'muscle' && inArmBand(c) && DIGITAL.test(m.name)) hiddenBy = 'digital muscle cull';
+  else if (FOREARM_CULLS && layer === 'connective' && inArmBand(c)) hiddenBy = 'forearm wire cull';
+  else if (FOREARM_CULLS && layer === 'muscle' && inWristCuff(c)) hiddenBy = 'wrist cuff';
+  else if (FOREARM_CULLS && layer === 'muscle' && inArmBand(c) && DIGITAL.test(m.name)) hiddenBy = 'digital muscle cull';
   else if (inDistalRegion(c) && layer !== 'skin') hiddenBy = 'distal skin-cap';
   const pos = g.getAttribute('position');
   g.computeBoundingBox();
   const bb = g.boundingBox!;
   const size = bb.getSize(new THREE.Vector3());
+  centres.set(m.name, c.clone());
   rows.push({
     name: m.name, layer: layer ?? 'none', hiddenBy, y: c.y, verts: pos.count,
     volume: size.x * size.y * size.z,
@@ -96,6 +100,26 @@ for (const r of musShown.sort((a, b) => b.volume - a.volume))
 console.log('\n  hidden:');
 for (const r of mus.filter((r) => r.hiddenBy).sort((a, b) => b.volume - a.volume).slice(0, 20))
   console.log(`    ${(r.volume * 1e6).toFixed(0).padStart(5)}  ${r.name.padEnd(52)} ${r.hiddenBy}`);
+
+// Are the culled meshes even in the right PLACE? Distance from each mesh's own
+// centre to the forearm bone axis (elbow -> wrist), at rest. A belly sits within
+// a few cm of it; anything far off is not where a forearm muscle lives.
+{
+  const a = boneOf('forearm_flex').getWorldPosition(new THREE.Vector3());
+  const b = boneOf('hand_flex').getWorldPosition(new THREE.Vector3());
+  const ax = b.clone().sub(a).normalize();
+  const distAxis = (p: THREE.Vector3) => {
+    const ap = p.clone().sub(a);
+    return ap.clone().sub(ax.clone().multiplyScalar(ap.dot(ax))).length();
+  };
+  console.log('\nDISTANCE OF EACH MESH CENTRE TO THE FOREARM AXIS (rest):');
+  const withDist = rows.map((r) => ({ ...r, d: distAxis(centres.get(r.name)!) }));
+  withDist.sort((x, y) => y.d - x.d);
+  for (const r of withDist.slice(0, 14))
+    console.log(`   ${(r.d * 100).toFixed(1).padStart(5)} cm  [${r.layer.padEnd(10)}] ${r.hiddenBy ? `(${r.hiddenBy}) ` : '(SHOWN) '}${r.name}`);
+  const shownMax = Math.max(...withDist.filter((r) => !r.hiddenBy).map((r) => r.d));
+  console.log(`   worst SHOWN mesh sits ${(shownMax * 100).toFixed(1)} cm off the axis`);
+}
 
 // What reaches the WRIST? If nothing does, the forearm reads as bone + a gap.
 console.log('\nreaching the distal third (y < wrist + 4 cm), shown only:');
