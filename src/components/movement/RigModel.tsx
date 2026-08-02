@@ -538,8 +538,24 @@ function smoothSkinSpineMuscle(mesh: THREE.Mesh, vertY: Map<string, number>): bo
 // unchanged (both bones carry the vertex together); only the pronation twist is
 // added. Rest-pose safe: weights sum to 1 and every bone matrix is identity at
 // bind, so the neutral pose is pixel-identical.
+//
+// TWIST BONE. Blending a vertex directly between the elbow bone and the wrist
+// bone makes the forearm SHRINK as it turns: linear blend skinning puts a vertex
+// weighted half to a bone at 0 deg and half to one at T deg at cos(T/2) of its
+// radius, so at 85 deg of pronation the limb lost a quarter of its girth
+// (measured 2.30 -> 1.71 cm across the middle third). The standard fix is an
+// intermediate bone turning half the angle, so a vertex is only ever blended
+// between neighbours T/2 apart and the loss becomes cos(T/4): the same
+// measurement then reads 2.30 -> 2.22 cm. `forearmTwist` below builds it, and
+// vertices are laddered elbow -> twist -> wrist rather than blended end to end.
+// See scripts/audit-forearm-twist.mts, which sweeps the segment count.
 // ---------------------------------------------------------------------------
-function smoothTwistForearm(mesh: THREE.Mesh, elbowY: number, wristY: number): boolean {
+function smoothTwistForearm(
+  mesh: THREE.Mesh,
+  elbowY: number,
+  wristY: number,
+  twistBone?: THREE.Bone,
+): boolean {
   const sk = mesh as THREE.SkinnedMesh;
   if (!sk.isSkinnedMesh || !sk.skeleton) return false;
   const flexIdx = sk.skeleton.bones.findIndex((b) => b.name.replace(/_\d+$/, '') === 'forearm_flex');
@@ -551,6 +567,11 @@ function smoothTwistForearm(mesh: THREE.Mesh, elbowY: number, wristY: number): b
   if (!pos || !si || !sw) return false;
   const span = elbowY - wristY;
   if (span <= 1e-4) return false;
+  // Rungs from elbow to wrist. With the twist bone spliced in, a vertex is only
+  // ever blended between two ADJACENT rungs, which is what keeps the girth.
+  const twistIdx = twistBone ? sk.skeleton.bones.indexOf(twistBone) : -1;
+  const ladder = twistIdx >= 0 ? [flexIdx, twistIdx, rotIdx] : [flexIdx, rotIdx];
+  const steps = ladder.length - 1;
   for (let i = 0; i < pos.count; i++) {
     _vw.fromBufferAttribute(pos, i);
     mesh.localToWorld(_vw); // rest world pos (bones = identity at bind)
@@ -558,8 +579,12 @@ function smoothTwistForearm(mesh: THREE.Mesh, elbowY: number, wristY: number): b
     t = t < 0 ? 0 : t > 1 ? 1 : t;
     // Smoothstep so the elbow end barely twists and the roll builds to the wrist.
     t = t * t * (3 - 2 * t);
-    si.setXYZW(i, flexIdx, rotIdx, 0, 0);
-    sw.setXYZW(i, 1 - t, t, 0, 0);
+    const scaled = t * steps;
+    let k = Math.floor(scaled);
+    if (k >= steps) k = steps - 1;
+    const f = scaled - k;
+    si.setXYZW(i, ladder[k], ladder[k + 1], 0, 0);
+    sw.setXYZW(i, 1 - f, f, 0, 0);
   }
   si.needsUpdate = true;
   sw.needsUpdate = true;
@@ -914,6 +939,11 @@ export const rigChannel = (() => {
 export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Element {
   const { scene } = useGLTF(RIG_URL) as unknown as { scene: THREE.Group };
 
+  // Forearm twist bones, built during mesh preparation and driven in apply().
+  // Kept in a ref because they are created after the rest-pose memo below has
+  // already run, and apply() needs to reach them every command.
+  const forearmTwistRef = useRef<Map<Side, THREE.Bone>>(new Map());
+
   // Cache bones per armature (boneName -> object) and capture each bone's rest
   // quaternion ONCE, so every movement starts from the true neutral pose and we
   // can fully restore on unmount.
@@ -1256,6 +1286,59 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // forearm. Half the arm skin patches ship mis-bound to forearm_flex.
       const UPPER_ARM_Y = ELBOW_Y + 0.08;
 
+      // TWIST BONE per arm (see smoothTwistForearm). Built here rather than in
+      // the GLB so no re-export is needed: it shares forearm_rot's rest
+      // transform, hangs off forearm_flex as its sibling, and is spliced into
+      // every skeleton that skins the forearm. Bone INDICES are appended, so
+      // existing skinIndex values are untouched.
+      const forearmTwist = new Map<Side, THREE.Bone>();
+      for (const side of ['R', 'L'] as Side[]) {
+        const sr = scene.getObjectByName(resolveArmatureName('Shoulder_Armature', side));
+        if (!sr) continue;
+        let flexB: THREE.Object3D | null = null;
+        let rotB: THREE.Object3D | null = null;
+        sr.traverse((o) => {
+          const bn = o.name.replace(/_\d+$/, '');
+          if (bn === 'forearm_flex' && !flexB) flexB = o;
+          else if (bn === 'forearm_rot' && !rotB) rotB = o;
+        });
+        if (!flexB || !rotB) continue;
+        const twist = new THREE.Bone();
+        twist.name = `forearm_twist_${side}`;
+        twist.position.copy((rotB as THREE.Object3D).position);
+        twist.quaternion.copy((rotB as THREE.Object3D).quaternion);
+        twist.scale.copy((rotB as THREE.Object3D).scale);
+        twist.userData.restQuat = twist.quaternion.clone();
+        (flexB as THREE.Object3D).add(twist);
+        forearmTwist.set(side, twist);
+      }
+      scene.updateMatrixWorld(true);
+      forearmTwistRef.current = forearmTwist;
+      /** Splice a twist bone into a mesh's skeleton, once per skeleton. */
+      const splicedSkeletons = new Set<THREE.Skeleton>();
+      const spliceTwist = (mesh: THREE.SkinnedMesh, twist: THREE.Bone): void => {
+        const sk = mesh.skeleton;
+        if (!sk || sk.bones.includes(twist)) return;
+        if (splicedSkeletons.has(sk) && sk.bones.includes(twist)) return;
+        sk.bones.push(twist);
+        sk.boneInverses.push(new THREE.Matrix4().copy(twist.matrixWorld).invert());
+        sk.init();
+        splicedSkeletons.add(sk);
+      };
+      /** The twist bone for the arm a mesh belongs to, spliced in on demand. */
+      const twistFor = (mesh: THREE.Mesh): THREE.Bone | undefined => {
+        const sk = mesh as THREE.SkinnedMesh;
+        if (!sk.isSkinnedMesh || !sk.skeleton) return undefined;
+        for (const [side, twist] of forearmTwist) {
+          const root = scene.getObjectByName(resolveArmatureName('Shoulder_Armature', side));
+          if (!root) continue;
+          if (!sk.skeleton.bones.some((b) => root.getObjectById(b.id))) continue;
+          spliceTwist(sk, twist);
+          return twist;
+        }
+        return undefined;
+      };
+
       // LATISSIMUS CROSS-SIDE WEIGHT FIX. The two lats are ONE mirrored mesh: in
       // Blender both objects share a single mesh datablock, the right one carrying
       // a negative-X object matrix. Vertex weights live on that shared datablock,
@@ -1422,7 +1505,8 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           // elbow is blended toward forearm_rot so it ROLLS with pronation.
           if (dominantBoneName(mesh) === 'forearm_flex') {
             if (center.y > UPPER_ARM_Y) rigidBindTo(mesh, 'humerus_gh');
-            else if (center.y < ELBOW_Y) smoothTwistForearm(mesh, ELBOW_Y, WRIST_Y);
+            else if (center.y < ELBOW_Y)
+              smoothTwistForearm(mesh, ELBOW_Y, WRIST_Y, twistFor(mesh));
           }
           swap(mesh, bodySkinMat);
           mesh.userData.rigLayer = 'skin';
@@ -1546,10 +1630,27 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
               mesh.userData.rigLayer = 'hidden';
               return;
             }
-          } else if (dominantBoneName(mesh) === 'forearm_flex' && center.y < ELBOW_Y) {
+          } else if (center.y < ELBOW_Y && center.y > WRIST_Y) {
             // Forearm muscle bellies roll into pronation/supination with the
             // distal forearm (blended toward forearm_rot); flexion is unchanged.
-            smoothTwistForearm(mesh, ELBOW_Y, WRIST_Y);
+            //
+            // Not just the ones bound to forearm_flex: a few ship on forearm_rot
+            // or even hand_flex (the ulnaris heads, the biceps/brachialis
+            // insertion patches), which spins them through the FULL pronation
+            // angle as a rigid block while the flesh around them rolls
+            // progressively. Measured, that left ~14 deg of spurious turn down at
+            // the elbow, which should not move at all. Any of the three gets the
+            // gradient; bone is deliberately excluded, because the radius really
+            // does turn as one piece and the ulna really does stay put.
+            const dom = dominantBoneName(mesh);
+            if (dom === 'forearm_flex' || dom === 'forearm_rot' || dom === 'hand_flex') {
+              smoothTwistForearm(mesh, ELBOW_Y, WRIST_Y, twistFor(mesh));
+            }
+          } else if (center.y >= ELBOW_Y && dominantBoneName(mesh) === 'forearm_rot') {
+            // Above the elbow nothing should follow the forearm's roll at all,
+            // but the common extensor tendon ships on forearm_rot and swung the
+            // full angle. It anchors on the lateral epicondyle of the HUMERUS.
+            rigidBindTo(mesh, 'forearm_flex');
           }
         }
         // Muscle / bone / connective: recolor + tag with its layer.
@@ -1739,6 +1840,34 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // twisted the flank by ~1.7 cm the instant an arm movement was selected, at
       // 0 deg, before the user had moved anything.
       const clearanceRot = new Map<THREE.Object3D, THREE.Quaternion>();
+
+      // FOREARM TWIST BONE: take HALF of whatever forearm_rot ended up doing, so
+      // the roll is spread over two equal steps instead of one big one (see
+      // smoothTwistForearm). Reads the posed bone rather than the command, so it
+      // is right for pronation, supination, and any demo that poses the forearm.
+      const _qRotRest = new THREE.Quaternion();
+      const _qRotDelta = new THREE.Quaternion();
+      const _qHalf = new THREE.Quaternion();
+      const driveForearmTwist = () => {
+        for (const [side, twist] of forearmTwistRef.current) {
+          const rotBone = byArmature
+            .get(resolveArmatureName('Shoulder_Armature', side))
+            ?.get('forearm_rot');
+          if (!rotBone) continue;
+          const rest = restQuat.get(rotBone);
+          // The twist bone is created after the rest-pose memo, so it keeps its
+          // own rest on userData. Never falls into touchedRef: this runs on every
+          // command and always writes an absolute value, so at rest it writes the
+          // rest pose and there is nothing to undo.
+          const twistRest = twist.userData.restQuat as THREE.Quaternion | undefined;
+          if (!rest || !twistRest) continue;
+          _qRotRest.copy(rest).invert();
+          _qRotDelta.copy(_qRotRest).multiply(rotBone.quaternion); // local delta
+          _qHalf.identity().slerp(_qRotDelta, 0.5);
+          twist.quaternion.copy(twistRest).multiply(_qHalf);
+        }
+      };
+
       const driveLatsHelpers = () => {
         const spineBones = byArmature.get('Spine_Armature');
         if (!spineBones) return;
@@ -2075,6 +2204,9 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // too. See rig-latissimus-cross-armature. No-op if the bones aren't in the
       // GLB yet (older rig export).
       scene.updateMatrixWorld(true);
+      // The forearm's twist bone mirrors half of whatever the pronation pivot
+      // ended up doing, so it must run after every other bone is placed.
+      driveForearmTwist();
       driveLatsHelpers();
       done();
     },
