@@ -40,10 +40,11 @@ const D2R = Math.PI / 180;
 const SIDE: 'R' | 'L' = process.argv.includes('left') ? 'L' : 'R';
 
 const ctrl = getBoneControl(MOVEMENT);
-if (!ctrl || ctrl.kind !== 'chain') {
-  console.error(`${MOVEMENT} is not a chain movement (got ${ctrl?.kind ?? 'nothing'})`);
+if (!ctrl || (ctrl.kind !== 'chain' && ctrl.kind !== 'joint')) {
+  console.error(`${MOVEMENT} is not drivable (got ${ctrl?.kind ?? 'nothing'})`);
   process.exit(1);
 }
+const IS_CHAIN = ctrl.kind === 'chain';
 
 /** Plane the clinical angle is read in. Abduction is frontal, flexion sagittal. */
 const PLANE: 'frontal' | 'sagittal' = MOVEMENT.includes('flexion') ? 'sagittal' : 'frontal';
@@ -327,7 +328,16 @@ function pose(deg: number, { withClearance = false, aim = true } = {}) {
     const p = rp.get(o); if (p) o.position.copy(p);
     const s = rsc.get(o); if (s) o.scale.copy(s);
   });
-  if (deg !== 0) {
+  if (deg !== 0 && !IS_CHAIN) {
+    // --- a plain JOINT: one bone, one local axis, per-side sign ---
+    const j = ctrl as any;
+    const bone = shoulderBones.get(j.bone);
+    if (bone) {
+      bone.quaternion.copy(rq.get(bone)!);
+      bone.rotateOnAxis(AX[j.axis], deg * D2R * j.sign[SIDE]);
+    }
+    scene.updateMatrixWorld(true);
+  } else if (deg !== 0) {
     // --- boneMap's chain, applied exactly as RigModel does ---
     const outputs = (ctrl as any).decompose(deg, SIDE);
     const seen = new Set<THREE.Object3D>();
@@ -414,6 +424,46 @@ const armAngle = () => {
   return deg < -90 ? deg + 360 : deg;
 };
 
+/**
+ * SWING / TWIST of the humerus, for the rotations.
+ *
+ * A shoulder rotation does not move the shaft, it spins it, so the in-plane
+ * angle above reads ~0 no matter what happens and would call a broken rotation
+ * perfect. What the goniometer reads there is the TWIST: the share of the bone's
+ * rotation taken about its own long axis. SWING is the leftover, i.e. how much
+ * the shaft wandered off — it should stay near zero for a pure rotation, and any
+ * growth means the drive axis is not the bone's axis.
+ */
+const humerusRest = rw.get(hum)!;
+function swingTwist(): { swing: number; twist: number } {
+  const restQuat = new THREE.Quaternion();
+  const restPos = new THREE.Vector3(), restScale = new THREE.Vector3();
+  humerusRest.decompose(restPos, restQuat, restScale);
+  const now = hum.getWorldQuaternion(new THREE.Quaternion());
+  const delta = now.multiply(restQuat.clone().invert());
+  // The shaft direction at REST, in world: rest head -> rest elbow.
+  const axis = new THREE.Vector3()
+    .setFromMatrixPosition(rw.get(elbow)!)
+    .sub(new THREE.Vector3().setFromMatrixPosition(humerusRest))
+    .normalize();
+  // Swing-twist decomposition about that axis.
+  const r = new THREE.Vector3(delta.x, delta.y, delta.z);
+  const proj = axis.clone().multiplyScalar(r.dot(axis));
+  const twistQ = new THREE.Quaternion(proj.x, proj.y, proj.z, delta.w).normalize();
+  let twist = 2 * Math.atan2(proj.dot(axis) >= 0 ? proj.length() : -proj.length(), twistQ.w) / D2R;
+  if (twist > 180) twist -= 360;
+  if (twist < -180) twist += 360;
+  const swingQ = delta.clone().multiply(twistQ.clone().invert());
+  const swing = (2 * Math.acos(Math.min(1, Math.abs(swingQ.w)))) / D2R;
+  // Normalise to CLINICAL degrees. The two sides are mirror images, so the same
+  // clinical movement twists the bone opposite ways in world space; boneMap's
+  // per-side `sign` is exactly that mirror, so dividing it out (== multiplying,
+  // it is +/-1) leaves the angle a physio would read. Correcting for the side
+  // AGAIN on top of it, as an earlier version did, just cancels back out and
+  // makes the left arm look like it rotates backwards.
+  return { swing, twist: twist * ((ctrl as any).sign?.[SIDE] ?? 1) };
+}
+
 // ---- static references, taken at rest ----
 const boneM = all.filter((m) => m.layer === 'bone');
 const softM = all.filter((m) => m.layer === 'muscle' || m.layer === 'connective');
@@ -459,19 +509,29 @@ console.log(`movement: ${MOVEMENT}  (${PLANE} plane, side ${SIDE})`);
 console.log(`runtime fixes: ${APPLY ? 'ON' : 'OFF (raw GLB)'}${(ctrl as any).aimPlane ? '' : '  [no aimPlane on this movement]'}`);
 console.log(`${all.length} meshes (${boneM.length} bone, ${softM.length} soft, ${skinM.length} skin), ${seams.length} skin seam pairs`);
 console.log(`arm rests ${restArm.toFixed(1)} deg off vertical in this plane (subtracted below)\n`);
-console.log(' asked   arm on screen  error   scapula drift  bone exposed   reach   worst skin seam');
+console.log(
+  IS_CHAIN
+    ? ' asked   arm on screen  error   scapula drift  bone exposed   reach   worst skin seam'
+    : ' asked   twist on screen error  shaft wander   bone exposed   reach   worst skin seam',
+);
 const range = (ctrl as any).clinicalRange as { min: number; max: number };
-const angles = [0, 30, 60, 90, 120, 140, 160, 180].filter((a) => a >= range.min && a <= range.max);
+const angles = [0, 15, 30, 45, 60, 80, 90, 100, 120, 140, 160, 180]
+  .filter((a) => a >= range.min && a <= range.max);
 for (const deg of angles) {
   pose(deg);
-  const arm = armAngle() - restArm;
+  const st = IS_CHAIN ? null : swingTwist();
+  const arm = IS_CHAIN ? armAngle() - restArm : st!.twist;
   const P = new Map<string, THREE.Vector3[]>();
   for (const m of all) P.set(m.name, posedOf(m));
+  // For a chain this column is the blade coming off the ribs; for a rotation it
+  // is how far the shaft wandered, which should be ~0.
   let drift = 0;
-  scapM.forEach((m, mi) => {
-    const pv = P.get(m.name)!;
-    for (let i = 0; i < pv.length; i++) drift = Math.max(drift, nearRib(pv[i]) - scapRest[mi][i]);
-  });
+  if (IS_CHAIN) {
+    scapM.forEach((m, mi) => {
+      const pv = P.get(m.name)!;
+      for (let i = 0; i < pv.length; i++) drift = Math.max(drift, nearRib(pv[i]) - scapRest[mi][i]);
+    });
+  }
   let exposed = 0, exposedName = '';
   for (let y = 1.10; y < 1.55; y += 0.05) {
     const inB = (m: M) => (P.get(m.name) ?? []).filter((v) => v.y >= y && v.y < y + 0.05);
@@ -507,9 +567,12 @@ for (const deg of angles) {
     const d = pa[sp.ai].distanceTo(pb[sp.bi]);
     if (d > seam) { seam = d; seamName = `${skinM[sp.a].name} / ${skinM[sp.b].name}`; }
   }
+  const col3 = IS_CHAIN
+    ? `${(drift * 100).toFixed(1).padStart(6)} cm `
+    : `${st!.swing.toFixed(1).padStart(6)} deg`;
   console.log(
     `${String(deg).padStart(5)}   ${arm.toFixed(1).padStart(7)} deg  ${(arm - deg >= 0 ? '+' : '')}${(arm - deg).toFixed(1).padStart(5)}   ` +
-    `${(drift * 100).toFixed(1).padStart(6)} cm    ${(exposed * 100).toFixed(1).padStart(5)} cm    ${reach.toFixed(3)}    ${(seam * 100).toFixed(1).padStart(5)} cm`,
+    `${col3}   ${(exposed * 100).toFixed(1).padStart(5)} cm    ${reach.toFixed(3)}    ${(seam * 100).toFixed(1).padStart(5)} cm`,
   );
   if (deg === angles[angles.length - 1]) {
     console.log(`\nat ${deg}: worst exposed bone = ${exposedName || 'none'}`);
