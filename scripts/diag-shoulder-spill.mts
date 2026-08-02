@@ -3,23 +3,33 @@
 // screenshotted from the agent harness (see the movement-lab-visual-verify note),
 // so this is how shoulder deformation regressions get caught.
 //
-// Three metrics:
-//   FLOAT - how far a muscle vertex drifts from the nearest BONE surface, rest vs
-//           posed. A muscle snug on bone at rest and far off it when posed has
-//           torn away from its attachment. This is the primary signal.
-//   EDGE  - per height band, which mesh reaches furthest out laterally. Shows
-//           whether anything opens out past the shoulder's own silhouette.
-//   SEAM  - vertices coincident at rest that separate when posed, i.e. a muscle
-//           visibly splitting into pieces.
+// This is the DETAIL view, one angle at a time and named muscle by named muscle.
+// For a summary row per angle across the whole arc (and for flexion), use
+// scripts/sweep-shoulder-arc.mts.
+//
+// Metrics:
+//   FLOAT   - how far a muscle vertex drifts from the nearest BONE surface, rest
+//             vs posed. A muscle snug on bone at rest and far off it when posed
+//             has torn away from its attachment. The primary signal. Read the
+//             GROWTH column, not the absolute: broad superficial muscles are
+//             legitimately far from the nearest bone even at rest.
+//   EDGE    - per height band, which mesh reaches furthest out laterally. Shows
+//             whether anything opens out past the shoulder's own silhouette.
+//   EXPOSED - bone standing proud of the muscle over it, radially, in any
+//             direction. This is what reads as "el hueso se sale".
+//   BACK    - the same idea restricted to straight backwards.
+//   SEAM    - vertices coincident at rest that separate when posed, i.e. a muscle
+//             visibly splitting into pieces.
 //
 // Run: npx tsx scripts/diag-shoulder-spill.mts [deg] [off]
-//   deg  abduction angle, default 140
+//   deg  abduction angle, default 140. Note the trunk lean only starts at 150,
+//        so run 180 too when anything touches the spine.
 //   off  skip the runtime fixes, to see the raw GLB behaviour for comparison
 import { readFileSync } from 'node:fs';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
-import { shoulderChain } from '../src/lib/biomech/shoulderChain.ts';
+import { getBoneControl, resolveArmatureName } from '../src/lib/boneMap.ts';
 import { layerForMaterial } from '../src/lib/materialColors.ts';
 
 const DEG = Number(process.argv[2] ?? 140);
@@ -54,6 +64,12 @@ const ORIGIN_SCAP = /^(teres_major|teres_minor)_muscleol$/i;
 const GRADE = /coracobrachialis|subscapularis|teres_major/i;
 const GRADE_NEAR_M = 0.03;
 const GRADE_FAR_M = 0.09;
+
+const ctrl = getBoneControl('glenohumeral-abduction');
+if (!ctrl || ctrl.kind !== 'chain') {
+  console.error('glenohumeral-abduction is not a chain movement');
+  process.exit(1);
+}
 
 const buf = readFileSync(GLB);
 const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
@@ -283,33 +299,42 @@ function pose(deg: number) {
     const q = rq.get(o); if (q) o.quaternion.copy(q);
     const p = rp.get(o); if (p) o.position.copy(p);
   });
+  // The CHAIN comes straight from boneMap -- same decompose, same targets the
+  // runtime uses -- so this script cannot drift out of sync with the app. It had
+  // drifted: the trunk lean was applied with shoulderChain's raw sign while
+  // boneMap negates it, so the diagnostic was leaning the body the wrong way.
+  let lean = 0;
   if (deg !== 0) {
-    const p = shoulderChain(deg, SIDE);
-    hum.rotateOnAxis(AX.z, p.glenohumeralRot);
-    hum.rotateOnAxis(AX.y, p.humeralExtRot * (SIDE === 'R' ? 1 : -1));
-    scap.rotateOnAxis(AX.x, p.scapulaUpwardRot);
-    if (APPLY && p.scapulaUpwardRot) {
-      scene.updateMatrixWorld(true);
+    const outputs = (ctrl as any).decompose(deg, SIDE);
+    lean = outputs.thoracic ?? 0;
+    const seen = new Set<THREE.Object3D>();
+    for (const { key, target } of (ctrl as any).targets) {
+      const rad = outputs[key];
+      if (rad === undefined) continue;
+      if (target.armature === 'spine' && !APPLY) continue; // trunk lean is a fix
+      const map = target.armature === 'spine' ? byArm.get('Spine_Armature')! : sb;
+      for (const bn of target.bones) {
+        const bone = map.get(bn);
+        if (!bone) continue;
+        if (!seen.has(bone)) { bone.quaternion.copy(rq.get(bone)!); seen.add(bone); }
+        bone.rotateOnAxis(AX[target.axis], rad);
+      }
+    }
+    scene.updateMatrixWorld(true);
+    // SCAPULOTHORACIC WRAP + shoulder carry: these live in RigModel, not in
+    // boneMap, so they are the only parts still mirrored by hand.
+    if (APPLY && outputs.scapula) {
       const before = scap.getWorldQuaternion(new THREE.Quaternion());
-      const [wy, wz] = scapulaWrap(p.scapulaUpwardRot / D2R);
+      const [wy, wz] = scapulaWrap(outputs.scapula / D2R);
       const ws = SIDE === 'R' ? 1 : -1;
       scap.rotateOnAxis(AX.y, ws * wy * D2R);
       scap.rotateOnAxis(AX.z, ws * wz * D2R);
       scene.updateMatrixWorld(true);
       const after = scap.getWorldQuaternion(new THREE.Quaternion());
       hum.quaternion.premultiply(after.invert().multiply(before));
+      scene.updateMatrixWorld(true);
     }
-  }
-  // THORACIC PARTICIPATION + shoulder carry (mirrors boneMap + RigModel).
-  const lean = deg === 0 ? 0 : shoulderChain(deg, SIDE).thoracicLatFlexPerVert;
-  if (APPLY && lean) {
-    const sp2 = byArm.get('Spine_Armature')!;
-    for (const bn of ['vert_T6', 'vert_T5', 'vert_T4', 'vert_T3', 'vert_T2']) {
-      const b = sp2.get(bn);
-      if (b) b.rotateOnAxis(AX.z, lean);
-    }
-    scene.updateMatrixWorld(true);
-    carryShoulders();
+    if (APPLY && lean) carryShoulders();
   }
   const f = Math.max(0, Math.min(1, (ARM_CLEARANCE_FADE_DEG - deg) / ARM_CLEARANCE_FADE_DEG));
   const cq = new THREE.Quaternion().setFromAxisAngle(AX.x, -ARM_CLEARANCE_DEG * f * D2R);
