@@ -90,14 +90,24 @@ function swingOf(read: THREE.Object3D, tip: THREE.Object3D, plane: 'frontal' | '
     : Math.atan2(d.z, -d.y) / D2R;
   return deg < -120 ? deg + 360 : deg;
 }
-function twistOf(read: THREE.Object3D, tip: THREE.Object3D, sign: number) {
+/**
+ * @param axisHint the bone's OWN rotation axis in world space at rest. Measure
+ * the twist about this, not about the straight line from joint to joint: for
+ * pronosupination the two differ by ~13 deg, because the forearm turns about a
+ * line from the radial head to the ulnar styloid while the joint-to-joint line
+ * runs down the middle. Measuring against the straight line charges that
+ * difference to "swing" and reports a healthy forearm as leaking 10 deg.
+ */
+function twistOf(read: THREE.Object3D, tip: THREE.Object3D, sign: number, axisHint?: THREE.Vector3) {
   const restQ = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3();
   rw.get(read)!.decompose(p, restQ, s);
-  const delta = read.getWorldQuaternion(new THREE.Quaternion()).multiply(restQ.invert());
-  const axis = new THREE.Vector3()
-    .setFromMatrixPosition(rw.get(tip)!)
-    .sub(new THREE.Vector3().setFromMatrixPosition(rw.get(read)!))
-    .normalize();
+  const delta = read.getWorldQuaternion(new THREE.Quaternion()).multiply(restQ.clone().invert());
+  const axis = axisHint
+    ? axisHint.clone().normalize()
+    : new THREE.Vector3()
+        .setFromMatrixPosition(rw.get(tip)!)
+        .sub(new THREE.Vector3().setFromMatrixPosition(rw.get(read)!))
+        .normalize();
   const r = new THREE.Vector3(delta.x, delta.y, delta.z);
   const proj = axis.clone().multiplyScalar(r.dot(axis));
   const tq = new THREE.Quaternion(proj.x, proj.y, proj.z, delta.w).normalize();
@@ -181,7 +191,17 @@ for (const mv of MOVEMENTS) {
       if (mv.mode === 'swing') {
         got = swingOf(read, tip, mv.plane!, side) - base;
       } else {
-        const t = twistOf(read, tip, (ctrl as any).sign?.[side] ?? 1);
+        // The driven bone's own axis, in world, taken at REST.
+        let hint: THREE.Vector3 | undefined;
+        if (ctrl.kind === 'joint') {
+          const driven = bones.get((ctrl as any).bone);
+          const restQ = new THREE.Quaternion(), p0 = new THREE.Vector3(), s0 = new THREE.Vector3();
+          if (driven) {
+            rw.get(driven)!.decompose(p0, restQ, s0);
+            hint = AX[(ctrl as any).axis].clone().applyQuaternion(restQ);
+          }
+        }
+        const t = twistOf(read, tip, (ctrl as any).sign?.[side] ?? 1, hint);
         got = t.twist; leak = t.leak;
       }
       const err = got - deg;
@@ -203,9 +223,6 @@ if (failures.length) {
 console.log(`worst: ${worst.id || 'none'} ${worst.side} at ${worst.deg} deg, off by ${worst.err.toFixed(1)}`);
 console.log(
   '\nKnown and accepted: elbow flexion/extension run ~2.5 deg long at the top of\n' +
-  'range, and pronosupination leaks ~10 deg of swing at full range. The leak is\n' +
-  'partly real anatomy -- the forearm turns about an axis from the radial head to\n' +
-  'the ulnar styloid, not about its own long axis -- so "correcting" it to zero\n' +
-  'would be wrong. Both are well inside goniometric error; revisit only if they\n' +
-  'read badly on screen.',
+  'range, which is well inside goniometric error. Revisit only if it reads badly\n' +
+  'on screen.',
 );
