@@ -57,6 +57,7 @@ const reachOf = (mesh: THREE.Mesh) => {
   return d[Math.floor(d.length * 0.95)] ?? 0;
 };
 const outliers = new Set<string>();
+const meshByName = new Map<string, THREE.SkinnedMesh>();
 {
   const inLimb: { name: string; layer: string; p95: number; y: number }[] = [];
   scene.traverse((o: any) => {
@@ -70,15 +71,41 @@ const outliers = new Set<string>();
     if (!g.boundingSphere) g.computeBoundingSphere();
     const c = g.boundingSphere!.center.clone().applyMatrix4(m.matrixWorld);
     if (c.y > ELBOW_Y + 0.02) return;
+    meshByName.set(m.name, m);
     inLimb.push({ name: m.name, layer, p95: reachOf(m), y: c.y });
   });
   const skinReach = inLimb
     .filter((e) => e.layer === 'skin' && e.y >= WRIST_Y - 0.02)
     .reduce((mx, e) => Math.max(mx, e.p95), 0);
   const limit = skinReach * LIMB_OUTLIER_MARGIN;
-  for (const e of inLimb) if (e.layer !== 'skin' && e.p95 > limit) outliers.add(e.name);
-  console.log(`measured cull: skin reaches ${(skinReach * 100).toFixed(1)} cm, limit ${(limit * 100).toFixed(1)} cm, ${outliers.size} meshes over it
-`);
+  // TRIM instead of dropping, mirroring RigModel.trimMeshToLimb.
+  const trimmed: string[] = [];
+  for (const e of inLimb) {
+    if (e.layer === 'skin' || e.p95 <= limit) continue;
+    const mesh = meshByName.get(e.name)!;
+    const geom = mesh.geometry;
+    const idx = geom.getIndex(); const pos = geom.getAttribute('position');
+    if (!idx || !pos) { outliers.add(e.name); continue; }
+    const inside = new Uint8Array(pos.count);
+    const p = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {
+      p.fromBufferAttribute(pos, i); mesh.localToWorld(p);
+      let best = Infinity;
+      for (const q of chain) { const d = p.distanceToSquared(q); if (d < best) best = d; }
+      inside[i] = Math.sqrt(best) <= limit ? 1 : 0;
+    }
+    const arr = idx.array as ArrayLike<number>;
+    let kept = 0;
+    for (let i = 0; i + 2 < arr.length; i += 3)
+      if (inside[arr[i]] && inside[arr[i + 1]] && inside[arr[i + 2]]) kept += 3;
+    const frac = kept / arr.length;
+    if (frac < 0.05) outliers.add(e.name);
+    else trimmed.push(`${e.name} keeps ${(frac * 100).toFixed(0)}%`);
+  }
+  console.log(`measured cull: skin reaches ${(skinReach * 100).toFixed(1)} cm, limit ${(limit * 100).toFixed(1)} cm`);
+  console.log(`  ${trimmed.length} meshes TRIMMED, ${outliers.size} hidden outright`);
+  for (const t of trimmed) console.log(`    ${t}`);
+  console.log('');
 }
 
 interface Row {

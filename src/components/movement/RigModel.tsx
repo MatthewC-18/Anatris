@@ -761,6 +761,53 @@ const FOREARM_CULLS = false;
 const LIMB_OUTLIER_MARGIN = 1.02;
 
 /**
+ * Drop the triangles of `mesh` that lie outside the limb, keeping the rest.
+ * Returns the fraction of triangles kept, so the caller can hide a mesh that has
+ * essentially nothing left. Measured in the REST pose, where bone matrices are
+ * identity, so a vertex's bind position is its world position.
+ */
+function trimMeshToLimb(
+  mesh: THREE.Mesh,
+  chain: readonly THREE.Vector3[],
+  limit: number,
+): number {
+  const geom = mesh.geometry;
+  const idx = geom.getIndex();
+  const pos = geom.getAttribute('position');
+  if (!idx || !pos || pos.count === 0) return 1;
+  const inside = new Uint8Array(pos.count);
+  const p = new THREE.Vector3();
+  const limitSq = limit * limit;
+  for (let i = 0; i < pos.count; i++) {
+    p.fromBufferAttribute(pos, i);
+    mesh.localToWorld(p);
+    let best = Infinity;
+    for (const q of chain) {
+      const d = p.distanceToSquared(q);
+      if (d < best) best = d;
+    }
+    inside[i] = best <= limitSq ? 1 : 0;
+  }
+  const arr = idx.array as ArrayLike<number>;
+  const kept: number[] = [];
+  for (let i = 0; i + 2 < arr.length; i += 3) {
+    if (inside[arr[i]] && inside[arr[i + 1]] && inside[arr[i + 2]]) {
+      kept.push(arr[i], arr[i + 1], arr[i + 2]);
+    }
+  }
+  const frac = arr.length > 0 ? kept.length / arr.length : 1;
+  if (frac >= 0.05 && frac < 1) {
+    // clone: geometry can be shared with a deduped twin we must not damage.
+    const next = geom.clone();
+    next.setIndex(kept);
+    next.computeBoundingBox();
+    next.computeBoundingSphere();
+    mesh.geometry = next;
+  }
+  return frac;
+}
+
+/**
  * True when a rest-pose world center lies in the hand/wrist or foot/ankle
  * cluster. Forearm and leg (muscle bellies, proximal skin) sit outside and keep
  * their normal muscle+bone rendering.
@@ -1213,6 +1260,19 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
             roughness: pbr.roughness,
             metalness: pbr.metalness,
             envMapIntensity: pbr.env,
+            // DOUBLE-SIDED so a mesh whose faces are wound inside-out still reads
+            // as tissue instead of a black hole. Z-Anatomy mirrored half the body,
+            // and some of those meshes come out of the glTF export with reversed
+            // winding; with the default front-side material the camera looks
+            // straight through them and sees unlit backfaces, which is the black
+            // patch on the arm. Fixing the winding per mesh was tried and the
+            // detection is not reliable -- half the rig is open sheets (insertion
+            // patches, fasciae) where "inside" is not defined, and a twin
+            // comparison flags the entire right side, which cannot be true. Making
+            // the surface two-sided is the standard answer for anatomy assets and
+            // costs some overdraw. The skin material has always been DoubleSide
+            // for the same reason.
+            side: THREE.DoubleSide,
           });
           matByKey.set(key, m);
         }
@@ -1552,8 +1612,18 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
             .reduce((mx, e) => Math.max(mx, e.p95), 0);
           if (skinReach <= 0) continue;
           const limit = skinReach * LIMB_OUTLIER_MARGIN;
+          // TRIM, don't drop. The offenders are long muscles whose BELLY sits
+          // properly in the forearm and whose TENDON runs on to the fingers; it
+          // is only the tendon that flies. Hiding the whole mesh threw away the
+          // bulkiest bellies in the forearm (flexor profundus, extensor
+          // digitorum) and was most of why it looked empty. So we drop only the
+          // triangles that leave the limb, and keep the mesh. A mesh with almost
+          // nothing left is hidden instead, since a few stray triangles read as
+          // debris rather than as muscle.
           for (const e of inLimb) {
-            if (e.layer !== 'skin' && e.p95 > limit) limbOutliers.add(e.mesh);
+            if (e.layer === 'skin' || e.p95 <= limit) continue;
+            const kept = trimMeshToLimb(e.mesh, chain, limit);
+            if (kept < 0.05) limbOutliers.add(e.mesh);
           }
         }
       }
