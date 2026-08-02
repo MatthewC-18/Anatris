@@ -734,23 +734,31 @@ function hideOverlapDuplicates(candidates: DupCandidate[]): number {
 // ---------------------------------------------------------------------------
 
 /**
- * FOREARM CULLS. Three rules used to empty the forearm: hide all its connective,
- * hide muscle in the wrist cuff, and hide the extrinsic digital bellies. Together
- * they removed 60% of the forearm's muscle bulk -- the flexor/extensor digitorum
- * and the flexor profundus, i.e. everything that reaches the wrist -- which is
- * why it read as bare bone next to the arm.
- *
- * They were added when those meshes shot 13-15 cm out of the skin as loose
- * "puntas". Two things changed since: every forearm mesh now gets the roll
- * gradient (bellies bound to forearm_rot or hand_flex used to spin as rigid
- * blocks), and the brachioradialis + extensor carpi radialis longus are rebuilt
- * from their mirror twins instead of arriving collapsed. Re-measured against the
- * forearm axis, the culled bellies centre 4-6 cm off it -- the same distance as
- * the skin that IS drawn -- so they sit where forearm muscle belongs.
- *
- * Set back to true to restore the old, emptier forearm.
+ * FOREARM CULLS, the old NAME-based rules: hide all the forearm's connective,
+ * hide muscle in the wrist cuff, hide anything matching the digital-muscle regex.
+ * Superseded by the measured cull below (see cullForearmOutliers), which drops
+ * only what actually sticks out and so keeps 60% more of the forearm's bulk.
+ * Left in place, disabled, because they are the documented fallback if the
+ * measured rule ever misjudges a re-exported rig.
  */
 const FOREARM_CULLS = false;
+
+/**
+ * How far past the limb's own radius a mesh may reach before it is hidden.
+ *
+ * The name-based culls emptied the forearm; removing them filled it back up but
+ * let loose spikes through. Neither is a judgement about a muscle's NAME -- it is
+ * about where its geometry lands, so that is what we measure.
+ *
+ * The reference is the arm's own BONE CHAIN, not its skin: the digital tendons
+ * run into the fingers, where hand skin is sampled thinly, and a skin-cloud
+ * distance there says 25 cm for a structure that is perfectly in place. Every
+ * real forearm structure lies within a few cm of the chain. The threshold is
+ * taken from the SKIN's own reach, so it adapts to the rig rather than hardcoding
+ * a body size, and p95 is used rather than the max so one stray vertex cannot
+ * condemn an otherwise healthy belly.
+ */
+const LIMB_OUTLIER_MARGIN = 1.02;
 
 /**
  * True when a rest-pose world center lies in the hand/wrist or foot/ankle
@@ -1489,6 +1497,67 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         console.info(`[RigModel] rebuilt ${repairedCount} mirror-mangled meshes from their twins`);
       }
 
+      // MEASURED OUTLIER CULL (see LIMB_OUTLIER_MARGIN). Hide the forearm/hand
+      // structures whose geometry lands outside the limb, judged against the
+      // arm's own bone chain and thresholded by how far its SKIN reaches.
+      const limbOutliers = new Set<THREE.Object3D>();
+      {
+        const _p = new THREE.Vector3();
+        for (const side of ['R', 'L'] as Side[]) {
+          const root = scene.getObjectByName(resolveArmatureName('Shoulder_Armature', side));
+          if (!root) continue;
+          const chain: THREE.Vector3[] = [];
+          root.traverse((o) => {
+            if ((o as THREE.Bone).isBone) chain.push(o.getWorldPosition(new THREE.Vector3()));
+          });
+          if (chain.length < 2) continue;
+          const reach = (mesh: THREE.Mesh): number => {
+            const pos = mesh.geometry.getAttribute('position');
+            if (!pos || pos.count === 0) return 0;
+            const step = Math.max(1, Math.floor(pos.count / 300));
+            const d: number[] = [];
+            for (let i = 0; i < pos.count; i += step) {
+              _p.fromBufferAttribute(pos, i);
+              mesh.localToWorld(_p); // rest pose: bones are identity at bind
+              let best = Infinity;
+              for (const q of chain) {
+                const dd = _p.distanceToSquared(q);
+                if (dd < best) best = dd;
+              }
+              d.push(Math.sqrt(best));
+            }
+            d.sort((a, b) => a - b);
+            return d[Math.floor(d.length * 0.95)] ?? 0;
+          };
+          // Everything of THIS arm at or below the elbow, skin included.
+          const inLimb: { mesh: THREE.Mesh; layer: AnatomyLayer; p95: number }[] = [];
+          scene.traverse((o) => {
+            const mesh = o as THREE.SkinnedMesh;
+            if (!mesh.isMesh || !mesh.isSkinnedMesh) return;
+            if (!mesh.skeleton?.bones.some((b) => root.getObjectById(b.id))) return;
+            const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+            const layer = layerForMaterial((mat as THREE.Material | undefined)?.name);
+            if (!layer) return;
+            const c = meshWorldCenter(mesh);
+            if (c.y > ELBOW_Y + 0.02) return; // forearm and hand only
+            inLimb.push({ mesh, layer, p95: reach(mesh) });
+          });
+          // The limb's own radius, from the skin that wraps the FOREARM. The
+          // hand's skin is excluded: an open hand's fingers splay well away from
+          // any bone, which pushes the threshold out to ~18 cm and lets every
+          // spike through. Forearm skin alone gives ~13 cm, the real sleeve the
+          // digital tendons have to stay inside of.
+          const skinReach = inLimb
+            .filter((e) => e.layer === 'skin' && meshWorldCenter(e.mesh).y >= WRIST_Y - 0.02)
+            .reduce((mx, e) => Math.max(mx, e.p95), 0);
+          if (skinReach <= 0) continue;
+          const limit = skinReach * LIMB_OUTLIER_MARGIN;
+          for (const e of inLimb) {
+            if (e.layer !== 'skin' && e.p95 > limit) limbOutliers.add(e.mesh);
+          }
+        }
+      }
+
       const latsGeoms = new Map<string, number>();
       scene.traverse((o) => {
         const m = o as THREE.Mesh;
@@ -1635,6 +1704,12 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         // FOREARM WIRE CULL: the pearly connective strands (wrist ligaments +
         // long forearm tendons) spill past the skin cap as loose "alambres".
         // Permanently hidden in the arm band; legs/torso keep their connective.
+        // MEASURED OUTLIER CULL: this mesh's geometry lands outside the limb.
+        if (limbOutliers.has(mesh)) {
+          mesh.visible = false;
+          mesh.userData.rigLayer = 'hidden';
+          return;
+        }
         if (FOREARM_CULLS && layer === 'connective' && inArmBand(center)) {
           mesh.visible = false;
           mesh.userData.rigLayer = 'hidden';

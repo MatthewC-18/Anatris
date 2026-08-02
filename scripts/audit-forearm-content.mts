@@ -35,6 +35,51 @@ const inDistalRegion = (c: THREE.Vector3) =>
 const DIGITAL = /digitorum|digiti minimi|indicis|pollicis|palmaris/i;
 /** Mirrors FOREARM_CULLS in RigModel.tsx. Pass "culls" to see the old behaviour. */
 const FOREARM_CULLS = process.argv[2] === 'culls';
+const LIMB_OUTLIER_MARGIN = 1.02;
+
+// Measured outlier cull, mirroring RigModel: reach past the arm's BONE CHAIN,
+// thresholded by how far the skin reaches.
+const chain: THREE.Vector3[] = [];
+armRoot.traverse((o: any) => { if (o.isBone) chain.push(o.getWorldPosition(new THREE.Vector3())); });
+const reachOf = (mesh: THREE.Mesh) => {
+  const pos = mesh.geometry.getAttribute('position');
+  if (!pos || pos.count === 0) return 0;
+  const step = Math.max(1, Math.floor(pos.count / 300));
+  const d: number[] = [];
+  const p = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i += step) {
+    p.fromBufferAttribute(pos, i); mesh.localToWorld(p);
+    let best = Infinity;
+    for (const q of chain) { const dd = p.distanceToSquared(q); if (dd < best) best = dd; }
+    d.push(Math.sqrt(best));
+  }
+  d.sort((a, b) => a - b);
+  return d[Math.floor(d.length * 0.95)] ?? 0;
+};
+const outliers = new Set<string>();
+{
+  const inLimb: { name: string; layer: string; p95: number; y: number }[] = [];
+  scene.traverse((o: any) => {
+    const m = o as THREE.SkinnedMesh;
+    if (!m.isMesh || !m.isSkinnedMesh) return;
+    if (!m.skeleton?.bones.some((b) => armRoot.getObjectById(b.id))) return;
+    const f = Array.isArray(m.material) ? m.material[0] : m.material;
+    const layer = layerForMaterial((f as any)?.name ?? '');
+    if (!layer) return;
+    const g = m.geometry;
+    if (!g.boundingSphere) g.computeBoundingSphere();
+    const c = g.boundingSphere!.center.clone().applyMatrix4(m.matrixWorld);
+    if (c.y > ELBOW_Y + 0.02) return;
+    inLimb.push({ name: m.name, layer, p95: reachOf(m), y: c.y });
+  });
+  const skinReach = inLimb
+    .filter((e) => e.layer === 'skin' && e.y >= WRIST_Y - 0.02)
+    .reduce((mx, e) => Math.max(mx, e.p95), 0);
+  const limit = skinReach * LIMB_OUTLIER_MARGIN;
+  for (const e of inLimb) if (e.layer !== 'skin' && e.p95 > limit) outliers.add(e.name);
+  console.log(`measured cull: skin reaches ${(skinReach * 100).toFixed(1)} cm, limit ${(limit * 100).toFixed(1)} cm, ${outliers.size} meshes over it
+`);
+}
 
 interface Row {
   name: string; layer: string; hiddenBy: string | null;
@@ -58,6 +103,7 @@ scene.traverse((o) => {
   const col = colorForMaterial(matName);
   let hiddenBy: string | null = null;
   if (!layer) hiddenBy = 'not a lab layer (nerve/vessel/fascia/organ)';
+  else if (outliers.has(m.name)) hiddenBy = 'measured outlier';
   else if (FOREARM_CULLS && layer === 'connective' && inArmBand(c)) hiddenBy = 'forearm wire cull';
   else if (FOREARM_CULLS && layer === 'muscle' && inWristCuff(c)) hiddenBy = 'wrist cuff';
   else if (FOREARM_CULLS && layer === 'muscle' && inArmBand(c) && DIGITAL.test(m.name)) hiddenBy = 'digital muscle cull';
