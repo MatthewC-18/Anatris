@@ -1370,6 +1370,106 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // is on the same geometry. Skinning is unaffected by the mirroring itself:
       // it runs through each node's own bindMatrix, so each instance is already
       // posed on its own side of the body.
+      // MIRROR-EXPORT REPAIR. Z-Anatomy mirrored half the body with uniform
+      // scale -1, and the Blender glTF exporter non-deterministically mangles
+      // some of those meshes: the mesh comes out rotated ~90 deg and collapsed,
+      // while its CENTRE stays right, so it looks fine in Blender and passes
+      // every position-based check. It only shows up by comparing a mesh's
+      // bounding-box DIMENSIONS with its mirror twin's.
+      //
+      // Four meshes survive that way in the shipped rig, all on the RIGHT
+      // forearm, each down to 4% of its twin's volume: the brachioradialis and
+      // the extensor carpi radialis longus, belly and tendon each. Both are big
+      // superficial muscles of the lateral forearm, which is why that forearm
+      // reads bare next to the left one.
+      //
+      // The recipe's fix is to rebuild them in Blender and re-export, but the
+      // rebuild is a pure mirror of the good twin, so we can do it here instead
+      // and stay correct even if a future export mangles a different mesh.
+      // See scripts/audit-mirror-orientation.mts, which sweeps the whole body.
+      const repairMirroredMeshes = (): number => {
+        interface Twin {
+          mesh: THREE.SkinnedMesh; dims: THREE.Vector3; vol: number; x: number;
+        }
+        const groups = new Map<string, Twin[]>();
+        scene.traverse((o) => {
+          const m = o as THREE.SkinnedMesh;
+          if (!m.isMesh || !m.isSkinnedMesh || !m.geometry) return;
+          // Only meshes the lab can show, so a pair is a pair: without this the
+          // groups pick up reference geometry and stop being exactly two.
+          const mat = Array.isArray(m.material) ? m.material[0] : m.material;
+          if (!layerForMaterial((mat as THREE.Material | undefined)?.name)) return;
+          const g = m.geometry;
+          if (!g.boundingSphere) g.computeBoundingSphere();
+          const c = g.boundingSphere.center.clone().applyMatrix4(m.matrixWorld);
+          if (Math.abs(c.x) < 0.04) return; // midline meshes have no twin
+          g.computeBoundingBox();
+          const dims = g.boundingBox!.getSize(new THREE.Vector3());
+          const key = `${m.name.replace(/_\d+$/, '')}|${g.getAttribute('position').count}`;
+          const entry = { mesh: m, dims, vol: dims.x * dims.y * dims.z, x: c.x };
+          groups.set(key, [...(groups.get(key) ?? []), entry]);
+        });
+        const longAxis = (d: THREE.Vector3) =>
+          d.x >= d.y && d.x >= d.z ? 'x' : d.y >= d.z ? 'y' : 'z';
+        const mirror = new THREE.Matrix4().makeScale(-1, 1, 1);
+        let repaired = 0;
+        for (const list of groups.values()) {
+          if (list.length !== 2) continue;
+          const [a, b] = list;
+          if (a.x * b.x > 0) continue; // must be opposite sides
+          if (longAxis(a.dims) === longAxis(b.dims)) continue;
+          const bad = a.vol < b.vol ? a : b;
+          const good = a.vol < b.vol ? b : a;
+          if (bad.vol > good.vol * 0.5) continue; // not a collapse, leave alone
+          // Bone lookup by NAME: the two skeletons list different bone counts,
+          // so raw skinIndex values from the good side would point elsewhere.
+          const badBones = bad.mesh.skeleton.bones.map((x) => x.name.replace(/_\d+$/, ''));
+          const goodBones = good.mesh.skeleton.bones.map((x) => x.name.replace(/_\d+$/, ''));
+          const remap = goodBones.map((n) => badBones.indexOf(n));
+          if (remap.some((i) => i < 0)) continue; // cannot express it, skip
+          // good local -> good world -> mirrored -> bad local
+          const toBadLocal = new THREE.Matrix4()
+            .copy(bad.mesh.matrixWorld).invert()
+            .multiply(mirror)
+            .multiply(good.mesh.matrixWorld);
+          const src = good.mesh.geometry;
+          const dst = src.clone();
+          dst.applyMatrix4(toBadLocal);
+          // A mirror flips winding, so faces would light and cull inside-out.
+          const idx = dst.getIndex();
+          if (idx) {
+            const arr = idx.array as Uint16Array | Uint32Array;
+            for (let i = 0; i + 2 < arr.length; i += 3) {
+              const t = arr[i + 1]; arr[i + 1] = arr[i + 2]; arr[i + 2] = t;
+            }
+            idx.needsUpdate = true;
+          }
+          dst.computeVertexNormals();
+          const si = dst.getAttribute('skinIndex');
+          if (si) {
+            for (let i = 0; i < si.count; i++)
+              for (let k = 0; k < 4; k++) {
+                const from = si.getComponent(i, k);
+                si.setComponent(i, k, remap[from] ?? 0);
+              }
+            si.needsUpdate = true;
+          }
+          dst.computeBoundingBox();
+          dst.computeBoundingSphere();
+          bad.mesh.geometry.dispose();
+          bad.mesh.geometry = dst;
+          repaired++;
+        }
+        return repaired;
+      };
+      const repairedCount = repairMirroredMeshes();
+      if (repairedCount > 0) {
+        // Left in on purpose: this is the only visible sign the repair fired, and
+        // the count should stay at 4 unless a re-export changes what is mangled.
+        // eslint-disable-next-line no-console
+        console.info(`[RigModel] rebuilt ${repairedCount} mirror-mangled meshes from their twins`);
+      }
+
       const latsGeoms = new Map<string, number>();
       scene.traverse((o) => {
         const m = o as THREE.Mesh;
