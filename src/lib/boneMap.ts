@@ -248,9 +248,14 @@ export const BONE_MAP: Record<string, BoneControl> = {
   // and (b) lets the RhythmReadout show the humero-escapular split for flexion (it
   // gates on kind === 'chain'). The negative arc (extension, to -60) is a pure GH
   // sweep -- scapula/ER are 0 there -- so it behaves exactly as the old joint did.
-  // needsVisualCheck: the scapula carry was CALIBRATED for the frontal plane; in
-  // the sagittal plane the arm may need the scapula gain tuned so it reaches a
-  // clean vertical without drifting out of plane. Verify in the lab, then flip.
+  //
+  // The old needsVisualCheck asked whether the scapula gain, calibrated in the
+  // frontal plane, let the sagittal arm reach a clean vertical without drifting
+  // out of plane. Both halves are now MEASURED rather than eyeballed, on both
+  // sides, by `npx tsx scripts/sweep-shoulder-arc.mts glenohumeral-flexion [left]`:
+  // the arm lands on the asked angle to 0.0 deg, and lateral reach holds at its
+  // rest value through the arc, so it does not drift out of plane. The gain did
+  // NOT need tuning -- what the flexion needed was the aim below.
   'glenohumeral-flexion': {
     kind: 'chain',
     clinicalRange: { min: 0, max: 180 },
@@ -273,8 +278,16 @@ export const BONE_MAP: Record<string, BoneControl> = {
       { key: 'humerus', target: { armature: 'shoulder', bones: ['humerus_gh'], axis: 'x' } },
       { key: 'humeralER', target: { armature: 'shoulder', bones: ['humerus_gh'], axis: 'y' } },
       { key: 'scapula', target: { armature: 'shoulder', bones: ['scapula'], axis: 'x' } },
+      // No thoracic lean here: the trunk's contribution to a SAGITTAL elevation
+      // is extension, not the contralateral side-bend abduction borrows. Adding
+      // the frontal lean to flexion would tip the body out of plane.
     ],
-    needsVisualCheck: true,
+    // The shortfall is far worse than in abduction (measured -53 deg at 180,
+    // against -9.7): scapular upward rotation is driven on the blade's local X,
+    // which lifts the arm in the FRONTAL plane, so during flexion its share of
+    // the elevation is largely spent out of plane and never reaches the hand.
+    // Aiming closes it; the scapula still rotates, so the rhythm stays visible.
+    aimPlane: 'x', // flexion is measured in the sagittal plane
   },
   'glenohumeral-external-rotation': {
     kind: 'joint',

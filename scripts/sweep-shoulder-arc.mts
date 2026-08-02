@@ -1,48 +1,67 @@
-// One summary row per angle across the whole abduction arc, measured on the
-// shipped GLB with the runtime's pose and mesh preparation replayed on the CPU.
-// This is the regression sheet for the shoulder: the lab's 3D cannot be
-// screenshotted from the agent harness, so every claim about the arc is made here.
+// One summary row per angle across a shoulder elevation arc, measured on the
+// shipped GLB with the runtime's own pose and mesh preparation replayed on the
+// CPU. The lab's 3D cannot be screenshotted from the agent harness, so every
+// claim about the arc is made here.
+//
+// The pose is driven straight from boneMap's ChainControl -- the same decompose
+// and targets the runtime uses -- so the script cannot drift out of sync with the
+// app the way a hand-copied chain would. Only the parts RigModel adds around the
+// chain (scapulothoracic wrap, shoulder carry, aim) are mirrored below, and each
+// is marked.
 //
 // Columns:
-//   arm on screen  angle between the humeral shaft and straight down, minus the
-//                  rest offset. Should track the asked angle.
+//   arm on screen  the shaft's angle IN THE MOVEMENT'S OWN PLANE, from rest.
+//                  Should track the asked angle.
 //   scapula drift  worst scapular vertex moving AWAY from its rest gap to the
 //                  ribcage. This is the blade coming off the back.
 //   bone exposed   bone standing proud of the muscle over it, radially, worst
 //                  height band and sector.
 //   reach          furthest |x| anything gets to in the axillary band.
-//   skin seam      worst separation between skin vertices that are coincident at
-//                  rest, i.e. the body splitting open.
+//   skin seam      worst separation between skin vertices coincident at rest,
+//                  i.e. the body splitting open. Arm and deltoid skin are
+//                  excluded: they rest against the flank and MUST separate.
 //
-// Run: npx tsx scripts/sweep-shoulder-arc.mts [off]
-//   off  skip the runtime fixes, to see the raw GLB behaviour for comparison
+// Run: npx tsx scripts/sweep-shoulder-arc.mts [movementId] [off]
+//   movementId  glenohumeral-abduction (default) | glenohumeral-flexion
+//   off         skip the runtime fixes, to see the raw GLB behaviour
 import { readFileSync } from 'node:fs';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
-import { shoulderChain } from '../src/lib/biomech/shoulderChain.ts';
+import { getBoneControl, resolveArmatureName } from '../src/lib/boneMap.ts';
 import { layerForMaterial } from '../src/lib/materialColors.ts';
 
-const APPLY = process.argv[2] !== 'off';
-/** Trunk-lean direction under test: 1 = as shoulderChain signs it, -1 = flipped,
- *  0 = no lean. The sign was never visually verified (boneMap needsVisualCheck). */
-const LEAN_SIGN = process.argv[3] === 'flip' ? -1 : process.argv[3] === 'none' ? 0 : 1;
-/** Pass "noaim" to see the arc without the final humeral aim. */
-const AIM = process.argv[4] !== 'noaim';
+const MOVEMENT = process.argv[2] && process.argv[2] !== 'off'
+  ? process.argv[2]
+  : 'glenohumeral-abduction';
+const APPLY = process.argv[2] === 'off' || process.argv[3] === 'off' ? false : true;
 const GLB = 'C:/Users/Matthew/Documents/Fisio/public/cuerpo-rig.opt.glb';
 const D2R = Math.PI / 180;
-const SIDE: 'R' | 'L' = 'R';
-// Must track RigModel.tsx / boneMap.ts.
+const SIDE: 'R' | 'L' = process.argv.includes('left') ? 'L' : 'R';
+
+const ctrl = getBoneControl(MOVEMENT);
+if (!ctrl || ctrl.kind !== 'chain') {
+  console.error(`${MOVEMENT} is not a chain movement (got ${ctrl?.kind ?? 'nothing'})`);
+  process.exit(1);
+}
+
+/** Plane the clinical angle is read in. Abduction is frontal, flexion sagittal. */
+const PLANE: 'frontal' | 'sagittal' = MOVEMENT.includes('flexion') ? 'sagittal' : 'frontal';
+
+// Mirrors RigModel.tsx. Kept here because they live in the component, not a lib.
 const WRAP: ReadonlyArray<readonly [number, number, number]> = [
   [0, 0, 0], [25, 30.6, -11.3], [49.4, 44.4, -28.1], [60, 45.6, -36.3],
 ];
 const WRAP_SIGN = SIDE === 'R' ? 1 : -1;
-const LEAN_VERTS = ['vert_T6', 'vert_T5', 'vert_T4', 'vert_T3', 'vert_T2'];
+const ARM_CLEARANCE_DEG = 35;
+const ARM_CLEARANCE_FADE_DEG = 75;
 const ATTACH = /muscle(ol|el)$/i;
 const ORIGIN_SCAP = /^(teres_major|teres_minor)_muscleol$/i;
 const GRADE = /coracobrachialis|subscapularis|teres_major/i;
 const GRADE_NEAR_M = 0.03;
 const GRADE_FAR_M = 0.09;
+const LATS_ROT_FOLLOW = 0.18;
+const LATS_ROT_MAX_DEG = 28;
 
 function scapulaWrap(u: number): [number, number] {
   u = Math.abs(u);
@@ -65,7 +84,11 @@ const gl = await new Promise<any>((r, j) => ld.parse(ab, '', r, j));
 const scene = gl.scene as THREE.Group;
 scene.updateMatrixWorld(true);
 const bs = (n: string) => n.replace(/_\d+$/, '');
-const AX = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
+const AX: Record<string, THREE.Vector3> = {
+  x: new THREE.Vector3(1, 0, 0),
+  y: new THREE.Vector3(0, 1, 0),
+  z: new THREE.Vector3(0, 0, 1),
+};
 
 const byArm = new Map<string, Map<string, THREE.Object3D>>();
 for (const an of ['Shoulder_Armature_R', 'Shoulder_Armature_L', 'Spine_Armature']) {
@@ -76,11 +99,11 @@ for (const an of ['Shoulder_Armature_R', 'Shoulder_Armature_L', 'Spine_Armature'
 }
 const rq = new Map<THREE.Object3D, THREE.Quaternion>();
 const rp = new Map<THREE.Object3D, THREE.Vector3>();
-const rs = new Map<THREE.Object3D, THREE.Vector3>();
+const rsc = new Map<THREE.Object3D, THREE.Vector3>();
 const rw = new Map<THREE.Object3D, THREE.Matrix4>();
 scene.traverse((o) => {
   rq.set(o, o.quaternion.clone()); rp.set(o, o.position.clone());
-  rs.set(o, o.scale.clone()); rw.set(o, o.matrixWorld.clone());
+  rsc.set(o, o.scale.clone()); rw.set(o, o.matrixWorld.clone());
 });
 const spineY = new Map<string, number>();
 scene.getObjectByName('Spine_Armature')?.traverse((o) => {
@@ -109,7 +132,9 @@ scene.traverse((o) => {
   all.push({ mesh: m, name: m.name, layer, rest });
 });
 
-// ---- runtime mesh preparation ----
+// ---------------------------------------------------------------------------
+// runtime mesh preparation (the parts that rewrite skin weights)
+// ---------------------------------------------------------------------------
 const dominant = (m: THREE.SkinnedMesh) => {
   const si = m.geometry.getAttribute('skinIndex'), sw = m.geometry.getAttribute('skinWeight');
   const acc = new Map<number, number>();
@@ -218,13 +243,13 @@ function grade(m: THREE.SkinnedMesh, top: THREE.Vector3, bot: THREE.Vector3) {
 if (APPLY) {
   const shaftOf = (side: 'R' | 'L') => {
     const sr = scene.getObjectByName(`Shoulder_Armature_${side}`);
-    let head: THREE.Vector3 | null = null, elbow: THREE.Vector3 | null = null;
+    let head: THREE.Vector3 | null = null, elb: THREE.Vector3 | null = null;
     sr?.traverse((o) => {
       const bn = bs(o.name);
       if (bn === 'humerus_gh' && !head) head = o.getWorldPosition(new THREE.Vector3());
-      else if (bn === 'forearm_flex' && !elbow) elbow = o.getWorldPosition(new THREE.Vector3());
+      else if (bn === 'forearm_flex' && !elb) elb = o.getWorldPosition(new THREE.Vector3());
     });
-    return head && elbow ? ([head, elbow] as const) : null;
+    return head && elb ? ([head, elb] as const) : null;
   };
   const shafts = { R: shaftOf('R'), L: shaftOf('L') };
   for (const m of all) {
@@ -244,17 +269,23 @@ if (APPLY) {
   for (const m of all) if (dominant(m.mesh).startsWith('vert_')) smoothSkinSpine(m.mesh, false);
 }
 
-// ---- pose ----
-const sb = byArm.get(`Shoulder_Armature_${SIDE}`)!;
-const hum = sb.get('humerus_gh')!, scap = sb.get('scapula')!, elbow = sb.get('forearm_flex')!;
+// ---------------------------------------------------------------------------
+// pose: boneMap's chain, then the extras RigModel wraps around it
+// ---------------------------------------------------------------------------
+const shoulderBones = byArm.get(resolveArmatureName('Shoulder_Armature', SIDE))!;
+const spineBones = byArm.get('Spine_Armature')!;
+const hum = shoulderBones.get('humerus_gh')!;
+const scap = shoulderBones.get('scapula')!;
+const elbow = shoulderBones.get('forearm_flex')!;
+
 function carryShoulders() {
-  const anchor = byArm.get('Spine_Armature')!.get('vert_T3');
+  const anchor = spineBones.get('vert_T3');
   const anchorRest = anchor ? rw.get(anchor) : undefined;
   if (!anchor || !anchorRest) return;
   const delta = new THREE.Matrix4().copy(anchor.matrixWorld)
     .multiply(new THREE.Matrix4().copy(anchorRest).invert());
   for (const side of ['R', 'L'] as const) {
-    const root = scene.getObjectByName(`Shoulder_Armature_${side}`);
+    const root = scene.getObjectByName(resolveArmatureName('Shoulder_Armature', side));
     const rootRest = root ? rw.get(root) : undefined;
     if (!root || !rootRest) continue;
     const target = new THREE.Matrix4().copy(delta).multiply(rootRest);
@@ -265,63 +296,100 @@ function carryShoulders() {
   }
   scene.updateMatrixWorld(true);
 }
-/** withClearance=false leaves out the cosmetic forward lift, which would swing
- *  the arm out of the frontal plane and be misread as extra elevation. */
-function pose(deg: number, withClearance = false) {
+function driveLats() {
+  for (const [hn, an] of [['latshum_l', 'Shoulder_Armature_R'], ['latshum_r', 'Shoulder_Armature_L']] as const) {
+    const helper = spineBones.get(hn), h = byArm.get(an)?.get('humerus_gh');
+    if (!helper || !h || !helper.parent) continue;
+    const hR = rw.get(h), heR = rw.get(helper);
+    const qh = h.getWorldQuaternion(new THREE.Quaternion());
+    const qp = helper.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
+    if (hR && heR) {
+      const s = new THREE.Vector3(), t = new THREE.Vector3();
+      const qhr = new THREE.Quaternion(), qer = new THREE.Quaternion();
+      hR.decompose(t, qhr, s); heR.decompose(t, qer, s);
+      const qd = qh.clone().multiply(qhr.invert());
+      const a = 2 * Math.acos(Math.min(1, Math.abs(qd.w)));
+      const sh = a > 1e-4 ? Math.min(LATS_ROT_FOLLOW, (LATS_ROT_MAX_DEG * D2R) / a) : LATS_ROT_FOLLOW;
+      qd.slerpQuaternions(new THREE.Quaternion(), qd, sh);
+      helper.quaternion.copy(qp).multiply(qd).multiply(qer);
+    }
+    const pw = h.getWorldPosition(new THREE.Vector3());
+    helper.parent.worldToLocal(pw); helper.position.copy(pw);
+  }
+  scene.updateMatrixWorld(true);
+}
+
+/** withClearance=false omits the cosmetic forward lift, which is not part of the
+ *  clinical angle and would be misread as extra elevation. */
+function pose(deg: number, { withClearance = false, aim = true } = {}) {
   scene.traverse((o) => {
     const q = rq.get(o); if (q) o.quaternion.copy(q);
     const p = rp.get(o); if (p) o.position.copy(p);
-    const s = rs.get(o); if (s) o.scale.copy(s);
+    const s = rsc.get(o); if (s) o.scale.copy(s);
   });
   if (deg !== 0) {
-    const p = shoulderChain(deg, SIDE);
-    hum.rotateOnAxis(AX.z, p.glenohumeralRot);
-    hum.rotateOnAxis(AX.y, p.humeralExtRot * (SIDE === 'R' ? 1 : -1));
-    scap.rotateOnAxis(AX.x, p.scapulaUpwardRot);
-    if (APPLY && p.scapulaUpwardRot) {
-      scene.updateMatrixWorld(true);
-      const before = scap.getWorldQuaternion(new THREE.Quaternion());
-      const [wy, wz] = scapulaWrap(p.scapulaUpwardRot / D2R);
-      scap.rotateOnAxis(AX.y, WRAP_SIGN * wy * D2R);
-      scap.rotateOnAxis(AX.z, WRAP_SIGN * wz * D2R);
-      scene.updateMatrixWorld(true);
-      const after = scap.getWorldQuaternion(new THREE.Quaternion());
-      hum.quaternion.premultiply(after.invert().multiply(before));
-    }
-    if (APPLY && p.thoracicLatFlexPerVert && LEAN_SIGN !== 0) {
-      const sp2 = byArm.get('Spine_Armature')!;
-      // boneMap flips the clinical sign so the lean is contralateral on the rig.
-      for (const bn of LEAN_VERTS) {
-        const b = sp2.get(bn);
-        if (b) b.rotateOnAxis(AX.z, -LEAN_SIGN * p.thoracicLatFlexPerVert);
+    // --- boneMap's chain, applied exactly as RigModel does ---
+    const outputs = (ctrl as any).decompose(deg, SIDE);
+    const seen = new Set<THREE.Object3D>();
+    for (const { key, target } of (ctrl as any).targets) {
+      const rad = outputs[key];
+      if (rad === undefined) continue;
+      const map = target.armature === 'spine' ? spineBones : shoulderBones;
+      for (const bn of target.bones) {
+        const bone = map.get(bn);
+        if (!bone) continue;
+        if (!seen.has(bone)) { bone.quaternion.copy(rq.get(bone)!); seen.add(bone); }
+        bone.rotateOnAxis(AX[target.axis], rad);
       }
-      scene.updateMatrixWorld(true);
-      carryShoulders();
     }
-    // AIM: land the shaft on exactly the goniometric angle (mirrors RigModel).
-    if (APPLY && AIM) {
-      scene.updateMatrixWorld(true);
-      const rh = new THREE.Vector3().setFromMatrixPosition(rw.get(hum)!);
-      const re = new THREE.Vector3().setFromMatrixPosition(rw.get(elbow)!);
-      const want = re.sub(rh).normalize();
-      const rr = Math.hypot(want.x, want.y);
-      const aa = Math.atan2(want.x, -want.y) + deg * D2R * (SIDE === 'R' ? 1 : -1);
-      want.set(Math.sin(aa) * rr, -Math.cos(aa) * rr, want.z).normalize();
-      const ph = hum.getWorldPosition(new THREE.Vector3());
-      const pe = elbow.getWorldPosition(new THREE.Vector3());
-      const have = pe.sub(ph).normalize();
-      const fix = new THREE.Quaternion().setFromUnitVectors(have, want);
-      const pw = hum.parent
-        ? hum.parent.getWorldQuaternion(new THREE.Quaternion())
-        : new THREE.Quaternion();
-      hum.quaternion.premultiply(pw.clone().invert().multiply(fix).multiply(pw));
+    scene.updateMatrixWorld(true);
+    if (APPLY) {
+      // --- scapulothoracic wrap ---
+      if (outputs.scapula) {
+        const before = scap.getWorldQuaternion(new THREE.Quaternion());
+        const [wy, wz] = scapulaWrap(outputs.scapula / D2R);
+        scap.rotateOnAxis(AX.y, WRAP_SIGN * wy * D2R);
+        scap.rotateOnAxis(AX.z, WRAP_SIGN * wz * D2R);
+        scene.updateMatrixWorld(true);
+        const after = scap.getWorldQuaternion(new THREE.Quaternion());
+        hum.quaternion.premultiply(after.invert().multiply(before));
+        scene.updateMatrixWorld(true);
+      }
+      // --- shoulder carry, when the chain leans the trunk ---
+      if (outputs.thoracic) carryShoulders();
+      // --- aim ---
+      const plane = (ctrl as any).aimPlane as 'x' | 'z' | undefined;
+      if (aim && plane) {
+        const rh = new THREE.Vector3().setFromMatrixPosition(rw.get(hum)!);
+        const re = new THREE.Vector3().setFromMatrixPosition(rw.get(elbow)!);
+        const want = re.sub(rh).normalize();
+        if (plane === 'z') {
+          const r = Math.hypot(want.x, want.y);
+          const a = Math.atan2(want.x, -want.y) + deg * D2R * (SIDE === 'R' ? 1 : -1);
+          want.set(Math.sin(a) * r, -Math.cos(a) * r, want.z).normalize();
+        } else {
+          const r = Math.hypot(want.z, want.y);
+          const a = Math.atan2(want.z, -want.y) + deg * D2R;
+          want.set(want.x, -Math.cos(a) * r, Math.sin(a) * r).normalize();
+        }
+        const ph = hum.getWorldPosition(new THREE.Vector3());
+        const pe = elbow.getWorldPosition(new THREE.Vector3());
+        const have = pe.sub(ph).normalize();
+        const fix = new THREE.Quaternion().setFromUnitVectors(have, want);
+        const pw = hum.parent
+          ? hum.parent.getWorldQuaternion(new THREE.Quaternion())
+          : new THREE.Quaternion();
+        hum.quaternion.premultiply(pw.clone().invert().multiply(fix).multiply(pw));
+        scene.updateMatrixWorld(true);
+      }
     }
   }
   if (withClearance) {
-    const f = Math.max(0, Math.min(1, (75 - deg) / 75));
-    if (f > 0) hum.rotateOnAxis(AX.x, -35 * f * D2R);
+    const f = Math.max(0, Math.min(1, (ARM_CLEARANCE_FADE_DEG - deg) / ARM_CLEARANCE_FADE_DEG));
+    if (f > 0) hum.rotateOnAxis(AX.x, -ARM_CLEARANCE_DEG * f * D2R);
   }
   scene.updateMatrixWorld(true);
+  if (APPLY) driveLats();
 }
 const posedOf = (m: M) => {
   m.mesh.skeleton.update();
@@ -333,6 +401,17 @@ const posedOf = (m: M) => {
     m.mesh.applyBoneTransform(i, v); m.mesh.localToWorld(v); out.push(v);
   }
   return out;
+};
+
+/** The shaft's angle read IN the movement's plane, like a goniometer. */
+const armAngle = () => {
+  const a = hum.getWorldPosition(new THREE.Vector3());
+  const b = elbow.getWorldPosition(new THREE.Vector3());
+  const d = b.sub(a);
+  const deg = PLANE === 'frontal'
+    ? (Math.atan2(d.x, -d.y) / D2R) * (SIDE === 'R' ? 1 : -1)
+    : Math.atan2(d.z, -d.y) / D2R;
+  return deg < -90 ? deg + 360 : deg;
 };
 
 // ---- static references, taken at rest ----
@@ -359,30 +438,13 @@ const nearRib = (p: THREE.Vector3) => {
   return best;
 };
 const scapRest = scapM.map((m) => posedOf(m).map(nearRib));
-/** Abduction as a goniometer reads it: the angle of the shaft's FRONTAL-PLANE
- *  projection from straight down. The rig rests with the arm carried forward, so
- *  a full 3D angle to the vertical would not be the clinical reading. */
-const armAngle = () => {
-  const a = hum.getWorldPosition(new THREE.Vector3());
-  const b = elbow.getWorldPosition(new THREE.Vector3());
-  const d = b.sub(a);
-  const deg = (Math.atan2(d.x, -d.y) / D2R) * (SIDE === 'R' ? 1 : -1);
-  // atan2 wraps to -180 when the arm is exactly overhead; keep the arc monotonic.
-  return deg < -90 ? deg + 360 : deg;
-};
 const restArm = armAngle();
-// skin seams: vertex pairs coincident at rest
 const key = (v: THREE.Vector3) => `${Math.round(v.x * 400)}|${Math.round(v.y * 400)}|${Math.round(v.z * 400)}`;
-// The arm rests against the flank, so arm skin and trunk skin share vertices
-// there — and they SHOULD separate as the arm lifts. Counting those as a tear
-// makes the metric meaningless (it reported 35 cm, which is just the arm moving).
-// Seams that must hold are the ones inside the trunk/neck/shoulder envelope.
 const ARM_SKIN = /region_of_arm|brachial|antebrachial|region_of_elbow|forearm|axilla|region_of_wrist|hand|digit|deltoid/i;
-const seamable = (m: M) => !ARM_SKIN.test(m.name);
 const seams: { a: number; b: number; ai: number; bi: number }[] = [];
 for (let i = 0; i < skinM.length; i++)
   for (let j = i + 1; j < skinM.length; j++) {
-    if (!seamable(skinM[i]) || !seamable(skinM[j])) continue;
+    if (ARM_SKIN.test(skinM[i].name) || ARM_SKIN.test(skinM[j].name)) continue;
     const grid = new Map<string, number[]>();
     skinM[j].rest.forEach((v, bi) => { const k = key(v); grid.set(k, [...(grid.get(k) ?? []), bi]); });
     skinM[i].rest.forEach((v, ai) => {
@@ -393,12 +455,14 @@ for (let i = 0; i < skinM.length; i++)
     });
   }
 
-console.log(`GLB: ${GLB}`);
-console.log(`runtime fixes: ${APPLY ? 'ON' : 'OFF (raw GLB)'}`);
+console.log(`movement: ${MOVEMENT}  (${PLANE} plane, side ${SIDE})`);
+console.log(`runtime fixes: ${APPLY ? 'ON' : 'OFF (raw GLB)'}${(ctrl as any).aimPlane ? '' : '  [no aimPlane on this movement]'}`);
 console.log(`${all.length} meshes (${boneM.length} bone, ${softM.length} soft, ${skinM.length} skin), ${seams.length} skin seam pairs`);
-console.log(`arm hangs ${restArm.toFixed(1)} deg off vertical at rest (subtracted below)\n`);
+console.log(`arm rests ${restArm.toFixed(1)} deg off vertical in this plane (subtracted below)\n`);
 console.log(' asked   arm on screen  error   scapula drift  bone exposed   reach   worst skin seam');
-for (const deg of [0, 30, 60, 90, 120, 140, 160, 180]) {
+const range = (ctrl as any).clinicalRange as { min: number; max: number };
+const angles = [0, 30, 60, 90, 120, 140, 160, 180].filter((a) => a >= range.min && a <= range.max);
+for (const deg of angles) {
   pose(deg);
   const arm = armAngle() - restArm;
   const P = new Map<string, THREE.Vector3[]>();
@@ -447,10 +511,8 @@ for (const deg of [0, 30, 60, 90, 120, 140, 160, 180]) {
     `${String(deg).padStart(5)}   ${arm.toFixed(1).padStart(7)} deg  ${(arm - deg >= 0 ? '+' : '')}${(arm - deg).toFixed(1).padStart(5)}   ` +
     `${(drift * 100).toFixed(1).padStart(6)} cm    ${(exposed * 100).toFixed(1).padStart(5)} cm    ${reach.toFixed(3)}    ${(seam * 100).toFixed(1).padStart(5)} cm`,
   );
-  if (deg === 180) {
-    console.log(`\nat 180: worst exposed bone = ${exposedName || 'none'}`);
+  if (deg === angles[angles.length - 1]) {
+    console.log(`\nat ${deg}: worst exposed bone = ${exposedName || 'none'}`);
     console.log(`        worst skin seam    = ${seamName || 'none'}`);
-    const p = shoulderChain(deg, SIDE);
-    console.log(`        trunk lean applied = ${(Math.abs(p.thoracicLatFlexPerVert) / D2R * LEAN_VERTS.length).toFixed(1)} deg total over ${LEAN_VERTS.length} vertebrae`);
   }
 }

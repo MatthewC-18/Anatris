@@ -6,7 +6,9 @@ import {
   DEFAULT_MODE,
   allRoutes,
   formatRoute,
+  isUnknownPath,
   parseRoute,
+  regionSlugs,
 } from '../routing';
 import { REGIONS } from '../../data/regiones';
 
@@ -50,5 +52,26 @@ describe('routing', () => {
     expect(formatRoute({ region: 'shoulder', mode: 'movement' })).toBe('/hombro/movimiento');
     expect(formatRoute({ region: 'thoracic', mode: 'study' })).toBe('/toracica/estudiar');
     expect(formatRoute({ region: 'ankle', mode: 'learn' })).toBe('/tobillo/aprender');
+  });
+
+  // RouteNotice only appears when this says so, so a false positive would nag
+  // every visitor on a perfectly good link, and a false negative would leave
+  // someone stranded with no explanation.
+  it('flags only addresses we do not serve', () => {
+    expect(isUnknownPath('/precios')).toBe(true);
+    expect(isUnknownPath('/en/shoulder')).toBe(true);
+    expect(isUnknownPath('/hombros')).toBe(true); // near miss, still unknown
+    expect(isUnknownPath('/')).toBe(false); // the root is the landing, not a 404
+    expect(isUnknownPath('/hombro')).toBe(false); // short link
+    expect(isUnknownPath('/HOMBRO/Movimiento')).toBe(false);
+    for (const path of allRoutes()) expect(isUnknownPath(path), path).toBe(false);
+  });
+
+  it('offers every routable region in the orientation directory', () => {
+    const slugs = regionSlugs();
+    expect(slugs.length).toBeGreaterThan(0);
+    for (const { id, slug } of slugs) {
+      expect(formatRoute({ region: id, mode: DEFAULT_MODE }).startsWith(`/${slug}/`), id).toBe(true);
+    }
   });
 });
