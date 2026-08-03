@@ -134,3 +134,22 @@ export function parseMeshName(name: string): ParsedMeshName {
 export function isPartOfBase(parsed: ParsedMeshName, base: string): boolean {
   return parsed.base.toLowerCase() === base.toLowerCase();
 }
+
+/**
+ * The key that identifies one anatomical STRUCTURE, the same on both sides of
+ * the body and across every copy of it.
+ *
+ * `base` still carries Blender's duplicate suffixes, which Z-Anatomy uses where
+ * one would expect an l/r marker: the abdomen's two external obliques ship as
+ * "External_abdominal_oblique_muscle001" and "External_abdominal_oblique_muscle",
+ * the pectoral heads as "..._muscle_2" and "..._muscle". Anything keyed on the
+ * base alone therefore treats the two halves of the body as unrelated
+ * structures, which is what split the model down the midline into two different
+ * shades. Stripping the ".001" and "_2" tails makes the two sides one key.
+ */
+export function structureKey(name: string | undefined | null): string {
+  if (!name) return '';
+  return parseMeshName(name)
+    .base.replace(/_\d+$/, '')
+    .replace(/\d{3}$/, '');
+}

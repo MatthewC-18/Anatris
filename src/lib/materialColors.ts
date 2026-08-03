@@ -12,11 +12,14 @@
 // For PHYSIOTHERAPY use the priority is muscle legibility: adjacent muscles
 // must read apart. A single flat red merges neighbours into one mass, so we
 // apply a small DETERMINISTIC per-structure hue/lightness jitter on top of the
-// base muscle color. The jitter is keyed by mesh name, so the same muscle is
-// always the same shade across reloads, while two different muscles next to
-// each other land on slightly different tones.
+// base muscle color. The jitter is keyed by the muscle's BASE name, so the same
+// muscle is always the same shade across reloads AND on both sides of the body,
+// while two different muscles next to each other land on slightly different
+// tones (see colorForMaterialMesh).
 //
 // Colors are sRGB hex. AnatomyModel applies them via material.color.setHex().
+
+import { structureKey } from './parseMeshName';
 
 /** Anatomical atlas palette, grouped for readability. */
 const C = {
@@ -383,6 +386,17 @@ const LIGHT_JITTER = 0.09; // ±9% lightness
  * jittered shade; for everything else it returns the flat atlas color
  * unchanged.
  *
+ * The jitter is keyed on the STRUCTURE, not the raw mesh name (see structureKey).
+ * Z-Anatomy names each side separately -- "...ol"/"...or", and where it forgot the
+ * marker, Blender's ".001" -- so hashing the raw name drew two unrelated shades
+ * for the two copies of one muscle: measured on the shipped rig, left and right
+ * disagreed by up to 65 of 255 per channel (the supraspinatus came out crimson on
+ * one side and salmon on the other), and the body read as split down the midline.
+ * Keying on the structure makes a muscle one color on both sides, and keeps every
+ * belly distinct from its neighbours, which is what the jitter is for. It also
+ * gives a muscle's belly, origin and insertion patches one shade instead of
+ * three.
+ *
  * @param materialName  the mesh's material name (drives base color)
  * @param meshName      the mesh's unique name (drives the stable variation)
  */
@@ -398,7 +412,7 @@ export function colorForMaterialMesh(
 
   const hsl = rgbToHsl(...Object.values(hexToRgb(base)) as [number, number, number]);
 
-  const hash = hashString(meshName);
+  const hash = hashString(structureKey(meshName) || meshName);
   // Two independent pseudo-random values in [-1, 1] from the one hash.
   const r1 = ((hash & 0xffff) / 0xffff) * 2 - 1;
   const r2 = (((hash >>> 16) & 0xffff) / 0xffff) * 2 - 1;
