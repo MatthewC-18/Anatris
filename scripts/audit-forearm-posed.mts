@@ -17,7 +17,8 @@
 //
 // Run: npx tsx --tsconfig tsconfig.scripts.json scripts/audit-forearm-posed.mts [R|L]
 // Env: TRIM=points, NAME_CULL=on, ELBOW_ANCHOR=off re-test the older behaviours.
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { deflateSync } from 'node:zlib';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
@@ -306,45 +307,144 @@ const station = (p: THREE.Vector3) => {
   const radial = rel.clone().addScaledVector(fAxis, -t).length();
   return { t, r: radial };
 };
+// The cross-section is an ELLIPSE, not a circle: a single p95 radius per station
+// is the width of the arm's WIDEST direction, so anything between the real skin
+// and that circle passes while sitting visibly outside the limb (the stubs that
+// survived a margin of 0.85). So bin by station AND by angle around the axis.
 const BINS = 12;
-const binR: number[][] = Array.from({ length: BINS }, () => []);
+const SECTORS = 16;
+const axU = new THREE.Vector3(1, 0, 0).cross(fAxis).normalize();
+const axV = new THREE.Vector3().crossVectors(fAxis, axU).normalize();
+const cellOf = (p: THREE.Vector3) => {
+  const rel = new THREE.Vector3().subVectors(p, elbowP);
+  const t = rel.dot(fAxis) / fLen2;
+  const radial = rel.clone().addScaledVector(fAxis, -t);
+  const ang = Math.atan2(radial.dot(axV), radial.dot(axU));
+  const sec = Math.min(SECTORS - 1, Math.floor(((ang + Math.PI) / (2 * Math.PI)) * SECTORS));
+  return { t, r: radial.length(), sec };
+};
+const cells: number[][][] = Array.from({ length: BINS }, () =>
+  Array.from({ length: SECTORS }, () => [] as number[]));
 for (const r of rows) {
   if (r.foreign || r.layer !== 'skin' || r.hidden) continue;
   const pos = r.m.geometry.getAttribute('position');
-  const ids = drawnVerts(r.m);
   const v = new THREE.Vector3();
-  for (const i of ids) {
+  for (const i of drawnVerts(r.m)) {
     v.fromBufferAttribute(pos, i); r.m.localToWorld(v);
-    const { t, r: rad } = station(v);
-    if (t < 0 || t > 1) continue;
-    binR[Math.min(BINS - 1, Math.floor(t * BINS))].push(rad);
+    const c = cellOf(v);
+    if (c.t < 0 || c.t > 1) continue;
+    cells[Math.min(BINS - 1, Math.floor(c.t * BINS))][c.sec].push(c.r);
   }
 }
-const profile = binR.map((xs) => {
-  if (xs.length === 0) return NaN;
+const grid: number[][] = cells.map((row) => row.map((xs) => {
+  if (xs.length < 4) return NaN;
+  xs.sort((a, b) => a - b);
+  return xs[Math.floor(xs.length * 0.95)];
+}));
+// A sector the skin patches never covered is filled by interpolating ANGULARLY
+// between the nearest sectors that do have data, going round the ring. Borrowing
+// the widest neighbour instead (the first attempt) turned every gap into the
+// arm's broadest radius, which is exactly where the stubs were surviving: the
+// wrist skin is patchy, and a 2 cm sector next to another 2 cm sector was being
+// filled with 4 cm. Interpolation keeps a gap as narrow as its own neighbourhood.
+for (let i = 0; i < BINS; i++) {
+  const row = grid[i];
+  const known = row.map((x, j) => (Number.isNaN(x) ? -1 : j)).filter((j) => j >= 0);
+  if (known.length === 0) { row.fill(Infinity); continue; }
+  for (let j = 0; j < SECTORS; j++) {
+    if (!Number.isNaN(row[j])) continue;
+    let back = 0; while (Number.isNaN(row[(j - back + SECTORS) % SECTORS])) back++;
+    let fwd = 0; while (Number.isNaN(row[(j + fwd) % SECTORS])) fwd++;
+    const a = row[(j - back + SECTORS) % SECTORS];
+    const b = row[(j + fwd) % SECTORS];
+    row[j] = a + (b - a) * (back / (back + fwd));
+  }
+}
+const cellRadius = (t: number, sec: number) => {
+  const c = t < 0 ? 0 : t > 1 ? 1 : t;
+  const x = c * (BINS - 1);
+  const i = Math.min(BINS - 2, Math.floor(x));
+  return grid[i][sec] + (grid[i + 1][sec] - grid[i][sec]) * (x - i);
+};
+// The station's own radius, pooled over every direction. Deliberately NOT the
+// max of the per-sector values: that is the widest direction's radius, which is
+// wider than the p95 of the whole ring and made the angular pass looser than the
+// circle it was meant to tighten.
+const profile = cells.map((row) => {
+  const xs = row.flat();
+  if (xs.length === 0) return Infinity;
   xs.sort((a, b) => a - b);
   return xs[Math.floor(xs.length * 0.95)];
 });
-// Fill empty bins from their neighbours so the profile is defined end to end.
-for (let i = 0; i < BINS; i++)
-  if (Number.isNaN(profile[i])) {
-    const near = profile.filter((x, j) => !Number.isNaN(x) && Math.abs(j - i) <= 2);
-    profile[i] = near.length ? Math.max(...near) : 0.05;
-  }
 const sleeveAt = (t: number) => {
   const c = t < 0 ? 0 : t > 1 ? 1 : t;
   const x = c * (BINS - 1);
   const i = Math.min(BINS - 2, Math.floor(x));
   return profile[i] + (profile[i + 1] - profile[i]) * (x - i);
 };
+/**
+ * The sleeve at a point: the station's own radius, tightened by that direction's
+ * if the skin gave enough samples there. Min, not the cell alone -- borrowing a
+ * neighbour's radius for a cell the skin never covered is how the angular pass
+ * first came out LOOSER than the circle and let the bars back in.
+ */
+// The runtime uses the per-station circle plus the crosswise cull; the angular
+// refinement is kept behind ANGULAR=on because it was the step that proved the
+// leftover stubs were whole mangled meshes rather than a threshold being loose.
+const ANGULAR = process.env.ANGULAR === 'on';
+const sleeveAtCell = (t: number, sec: number) =>
+  ANGULAR ? Math.min(sleeveAt(t), cellRadius(t, sec)) : sleeveAt(t);
+// SHAPE CLASSIFIER. A forearm muscle runs ALONG the limb: it covers a long axial
+// span and stays close to the axis. The export-mangled ones are the opposite --
+// their vertices bunch into a couple of cm of the limb's length and fan out in
+// radius, because the mesh is lying across the arm. Measured on the shipped rig
+// before any trim, so the numbers describe the geometry as it comes.
+{
+  const rowsList: { n: string; l: string; span: number; rad: number; ratio: number }[] = [];
+  for (const r of rows) {
+    if (r.foreign || r.hidden || r.layer === 'skin' || r.layer === 'bone') continue;
+    const pos = r.m.geometry.getAttribute('position');
+    const v = new THREE.Vector3();
+    const ts: number[] = [], rs: number[] = [];
+    for (const i of drawnVerts(r.m)) {
+      v.fromBufferAttribute(pos, i); r.m.localToWorld(v);
+      const c = station(v); ts.push(c.t); rs.push(c.r);
+    }
+    if (ts.length < 8) continue;
+    ts.sort((a, b) => a - b); rs.sort((a, b) => a - b);
+    const q = (a: number[], f: number) => a[Math.floor(a.length * f)];
+    const span = (q(ts, 0.95) - q(ts, 0.05)) * Math.sqrt(fLen2);
+    const rad = q(rs, 0.95) - q(rs, 0.05);
+    rowsList.push({ n: r.name, l: r.layer, span, rad, ratio: span / Math.max(rad, 1e-4) });
+  }
+  // CROSSWISE CULL: hide the meshes lying across the limb. Both conditions
+  // matter -- small ring ligaments are also "short", but they do not fan out.
+  const CROSSWISE_MAX_RATIO = 0.5;
+  const CROSSWISE_MIN_RADIAL = 0.06;
+  if (process.env.CROSSWISE !== 'off')
+    for (const r of rowsList)
+      if (r.ratio < CROSSWISE_MAX_RATIO && r.rad > CROSSWISE_MIN_RADIAL) {
+        const row = rows.find((x) => x.name === r.n);
+        if (row) row.hidden = 'crosswise';
+      }
+  rowsList.sort((a, b) => a.ratio - b.ratio);
+  console.log(`
+shape: axial span vs radial spread (a muscle runs along the limb)`);
+  for (const r of rowsList.slice(0, 14))
+    console.log(`   span ${(r.span * 100).toFixed(1).padStart(5)} cm  radial ${(r.rad * 100).toFixed(1).padStart(5)} cm  ratio ${r.ratio.toFixed(2).padStart(5)}  [${r.l}] ${r.n}`);
+  console.log(`   ... healthiest: ratio ${rowsList[rowsList.length - 1].ratio.toFixed(2)} (${rowsList[rowsList.length - 1].n})`);
+}
+
 const SLEEVE = process.env.SLEEVE !== 'off';
 const SLEEVE_MARGIN = Number(process.env.SLEEVE_MARGIN ?? 1.02);
 /** Inside the tapered sleeve? Above the elbow nothing is judged by it. */
+const SLEEVE_END = Number(process.env.SLEEVE_END ?? 1.05);
 const insideSleeve = (p: THREE.Vector3) => {
   if (!SLEEVE) return true;
-  const { t, r } = station(p);
+  const { t, r, sec } = cellOf(p);
   if (t < -0.05) return true; // humeral origin, handled by the elbow anchor
-  return r <= sleeveAt(t) * SLEEVE_MARGIN;
+  if (t > SLEEVE_END) return false; // past the wrist: the hand is a skin cap
+  return r <= sleeveAtCell(t, sec) * SLEEVE_MARGIN;
 };
 const sleeveExcess = (m: THREE.SkinnedMesh) => {
   const pos = m.geometry.getAttribute('position');
@@ -352,9 +452,9 @@ const sleeveExcess = (m: THREE.SkinnedMesh) => {
   let worst = -1;
   for (const i of drawnVerts(m)) {
     v.fromBufferAttribute(pos, i); m.localToWorld(v);
-    const { t, r } = station(v);
+    const { t, r, sec } = cellOf(v);
     if (t < -0.05) continue;
-    worst = Math.max(worst, r - sleeveAt(t) * SLEEVE_MARGIN);
+    worst = Math.max(worst, r - sleeveAtCell(t, sec) * SLEEVE_MARGIN);
   }
   return worst;
 };
@@ -376,9 +476,9 @@ const distMetric = (p: THREE.Vector3): number => {
 const trimmedFrac = new Map<string, number>();
 for (const r of rows) {
   if (r.layer === 'skin' || r.hidden || r.foreign) continue; // runtime trims only arm-owned meshes
-  const p95 = AXIS_TRIM ? axisP95(r.m) : reach(r.m);
-  const pierce = SLEEVE ? sleeveExcess(r.m) : -1;
-  if (p95 <= LIMIT && pierce <= 0) continue;
+  // No pre-check: RigModel trims every non-skin mesh in the limb, and a mesh can
+  // be fine on both p95 measures while still running past the wrist.
+  void axisP95; void sleeveExcess;
   // trimMeshToLimb
   const geom = r.m.geometry;
   const idx = geom.getIndex()!; const pos = geom.getAttribute('position');
@@ -411,9 +511,9 @@ for (const r of rows) {
     let worst = -1, worstT = 0;
     for (const i of ids) {
       v.fromBufferAttribute(pos, i); r.m.localToWorld(v);
-      const { t, r: rad } = station(v);
+      const { t, r: rad, sec } = cellOf(v);
       if (t < -0.05 || t > 1.05) continue;
-      const excess = rad - sleeveAt(t);
+      const excess = rad - sleeveAtCell(t, sec);
       if (excess > worst) { worst = excess; worstT = t; }
     }
     if (worst <= -1) continue;
@@ -604,6 +704,188 @@ for (const [n, f] of trims) {
   const d = g.boundingBox!.getSize(new THREE.Vector3());
   const tri = (g.getIndex()?.count ?? 0) / 3;
   console.log(`   ${(f * 100).toFixed(0).padStart(3)}%  ${String(Math.round(tri)).padStart(5)} tri  ${(d.x * 100).toFixed(0)}x${(d.y * 100).toFixed(0)}x${(d.z * 100).toFixed(0)} cm  ${n}`);
+}
+
+// ---------------------------------------------------------------------------
+// Optional offline RENDER. The lab's canvas will not initialise in the session's
+// browser pane, so this is how a forearm change gets looked at instead of only
+// measured: project every drawn triangle orthographically and write an SVG.
+// SVG=out.svg npx tsx ... scripts/audit-forearm-posed.mts R
+// ---------------------------------------------------------------------------
+if (process.env.PNG) {
+  const W = 620, H = 840, PAD = 20;
+  interface Tri { pts: [number, number][]; z: number; rgb: [number, number, number]; op: number; owner: string }
+  const tris: Tri[] = [];
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  const hex2rgb = (h: string): [number, number, number] =>
+    h.startsWith('#')
+      ? [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]
+      : [150, 150, 150];
+  let offset = 0;
+  for (const view of ['front', 'side'] as const) {
+    // Extent of THIS view only, so the side view can be placed beside the front
+    // one. Seeding it from the running bounds would start it at Infinity.
+    let vMin = Infinity, vMax = -Infinity;
+    for (const r of rows) {
+      if (r.hidden || r.foreign) continue;
+      const isSkin = r.layer === 'skin';
+      if (isSkin && r.center.y < WRIST_Y - 0.02) continue;
+      const g = r.m.geometry;
+      const pos = g.getAttribute('position');
+      const idx = g.getIndex();
+      if (!idx) continue;
+      const arr = idx.array as ArrayLike<number>;
+      const v = new THREE.Vector3();
+      const world: THREE.Vector3[] = [];
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i); r.m.localToWorld(v); world.push(v.clone());
+      }
+      const rgb = hex2rgb(r.color);
+      for (let i = 0; i + 2 < arr.length; i += 3) {
+        const a = world[arr[i]], b = world[arr[i + 1]], c = world[arr[i + 2]];
+        if (Math.max(a.y, b.y, c.y) > ELBOW_Y + 0.03) continue;
+        if (Math.min(a.y, b.y, c.y) < WRIST_Y - 0.12) continue;
+        const pr = (p: THREE.Vector3): [number, number] =>
+          view === 'front' ? [p.x + offset, p.y] : [p.z + offset, p.y];
+        const pts: [number, number][] = [pr(a), pr(b), pr(c)];
+        for (const q of pts) {
+          if (q[0] < minX) minX = q[0]; if (q[0] > maxX) maxX = q[0];
+          if (q[1] < minY) minY = q[1]; if (q[1] > maxY) maxY = q[1];
+          if (q[0] < vMin) vMin = q[0]; if (q[0] > vMax) vMax = q[0];
+        }
+        tris.push({
+          pts,
+          z: view === 'front' ? -(a.z + b.z + c.z) / 3 : (a.x + b.x + c.x) / 3,
+          rgb: isSkin ? [140, 155, 175] : rgb,
+          op: isSkin ? 0.12 : 1,
+          owner: r.name,
+        });
+      }
+    }
+    offset += (vMax - vMin) * 1.2;
+  }
+  const sc = Math.min((W - 2 * PAD) / (maxX - minX), (H - 2 * PAD) / (maxY - minY));
+  const px = (x: number) => PAD + (x - minX) * sc;
+  const py = (y: number) => H - PAD - (y - minY) * sc;
+  const owners: (string | null)[] = new Array(W * H).fill(null);
+  const buf = new Uint8Array(W * H * 3);
+  for (let i = 0; i < W * H; i++) { buf[i * 3] = 13; buf[i * 3 + 1] = 27; buf[i * 3 + 2] = 42; }
+  tris.sort((a, b) => a.z - b.z);
+  for (const t of tris) {
+    const xs = t.pts.map((q) => px(q[0])), ys = t.pts.map((q) => py(q[1]));
+    const x0 = Math.max(0, Math.floor(Math.min(...xs))), x1 = Math.min(W - 1, Math.ceil(Math.max(...xs)));
+    const y0 = Math.max(0, Math.floor(Math.min(...ys))), y1 = Math.min(H - 1, Math.ceil(Math.max(...ys)));
+    const d = (xs[1] - xs[0]) * (ys[2] - ys[0]) - (xs[2] - xs[0]) * (ys[1] - ys[0]);
+    if (Math.abs(d) < 1e-9) continue;
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++) {
+        const w0 = ((xs[1] - x) * (ys[2] - y) - (xs[2] - x) * (ys[1] - y)) / d;
+        const w1 = ((xs[2] - x) * (ys[0] - y) - (xs[0] - x) * (ys[2] - y)) / d;
+        const w2 = 1 - w0 - w1;
+        if (w0 < 0 || w1 < 0 || w2 < 0) continue;
+        const o = (y * W + x) * 3;
+        for (let k = 0; k < 3; k++) buf[o + k] = Math.round(buf[o + k] * (1 - t.op) + t.rgb[k] * t.op);
+        if (t.op > 0.5) owners[y * W + x] = t.owner;
+      }
+  }
+  // Minimal PNG writer (no dependency): filter-0 scanlines through zlib.
+  const raw = Buffer.alloc((W * 3 + 1) * H);
+  for (let y = 0; y < H; y++) {
+    raw[y * (W * 3 + 1)] = 0;
+    Buffer.from(buf.buffer, y * W * 3, W * 3).copy(raw, y * (W * 3 + 1) + 1);
+  }
+  const chunk = (type: string, data: Buffer) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(body) >>> 0);
+    return Buffer.concat([len, body, crc]);
+  };
+  const table = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  function crc32(b: Buffer) {
+    let c = 0xffffffff;
+    for (const x of b) c = table[(c ^ x) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(H, 4);
+  ihdr[8] = 8; ihdr[9] = 2; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+  if (process.env.PICK) {
+    console.log('pixel -> mesh:');
+    for (const pair of process.env.PICK.split(';')) {
+      const [x, y] = pair.split(',').map(Number);
+      const found = new Set<string>();
+      for (let dy = -3; dy <= 3; dy++)
+        for (let dx = -3; dx <= 3; dx++) {
+          const o = owners[(y + dy) * W + (x + dx)];
+          if (o) found.add(o);
+        }
+      console.log(`   (${x},${y}) -> ${[...found].join(', ') || 'background'}`);
+    }
+  }
+  writeFileSync(process.env.PNG, png);
+  console.log(`
+wrote ${process.env.PNG} (${tris.length} triangles, ${SLEEVE ? 'tapered sleeve' : 'NO sleeve'})`);
+}
+
+// Which meshes still reach OUTSIDE the skin, measured against the skin point
+// cloud itself rather than any model of it. Deep muscle sits ~2 cm inside; a
+// stub poking through reads much larger, and this names it.
+{
+  const CELL = 0.02;
+  const hash = new Map<string, THREE.Vector3[]>();
+  for (const r of rows) {
+    if (r.foreign || r.layer !== 'skin' || r.hidden) continue;
+    const pos = r.m.geometry.getAttribute('position');
+    const v = new THREE.Vector3();
+    for (const i of drawnVerts(r.m)) {
+      v.fromBufferAttribute(pos, i); r.m.localToWorld(v);
+      const k = `${Math.floor(v.x / CELL)}|${Math.floor(v.y / CELL)}|${Math.floor(v.z / CELL)}`;
+      hash.set(k, [...(hash.get(k) ?? []), v.clone()]);
+    }
+  }
+  const nearest = (p: THREE.Vector3) => {
+    for (let ring = 1; ring <= 6; ring++) {
+      let best = Infinity;
+      const cx = Math.floor(p.x / CELL), cy = Math.floor(p.y / CELL), cz = Math.floor(p.z / CELL);
+      for (let i = -ring; i <= ring; i++)
+        for (let j = -ring; j <= ring; j++)
+          for (let k = -ring; k <= ring; k++)
+            for (const q of hash.get(`${cx + i}|${cy + j}|${cz + k}`) ?? [])
+              best = Math.min(best, p.distanceTo(q));
+      if (best < Infinity) return best;
+    }
+    return Infinity;
+  };
+  const out: { n: string; d: number; t: number; r: number }[] = [];
+  for (const r of rows) {
+    if (r.hidden || r.foreign || r.layer === 'skin') continue;
+    const pos = r.m.geometry.getAttribute('position');
+    const v = new THREE.Vector3();
+    let worst = 0, wt = 0, wr = 0;
+    for (const i of drawnVerts(r.m)) {
+      v.fromBufferAttribute(pos, i); r.m.localToWorld(v);
+      const c = cellOf(v);
+      if (c.t < 0.3 || c.t > 1.1) continue;
+      const d = nearest(v);
+      if (d < Infinity && d > worst) { worst = d; wt = c.t; wr = c.r; }
+    }
+    if (worst > 0) out.push({ n: r.name, d: worst, t: wt, r: wr });
+  }
+  out.sort((a, b) => b.d - a.d);
+  console.log(`
+furthest from the skin cloud (distal half):`);
+  for (const r of out.slice(0, 10))
+    console.log(`   ${(r.d * 100).toFixed(1).padStart(5)} cm from skin   t=${r.t.toFixed(2)} r=${(r.r * 100).toFixed(1)}  ${r.n}`);
 }
 
 const POSES: [string, [string, number][]][] = [

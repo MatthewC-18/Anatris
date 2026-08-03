@@ -926,8 +926,59 @@ function makeSleeveTest(
   return (p: THREE.Vector3): boolean => {
     const [t, r] = station(p);
     if (t < -0.05) return true; // above the elbow: not the forearm's business
+    // Past the wrist there is nothing to be inside of: the hand is a solid skin
+    // cap with every internal piece hidden, so a tendon that carries on into it
+    // can only come out through the palm.
+    if (t > 1.05) return false;
     return r <= radiusAt(t) * margin;
   };
+}
+
+/**
+ * A mesh lying ACROSS the limb instead of along it.
+ *
+ * A forearm muscle runs the length of the forearm: it covers a long axial span
+ * and hugs the axis. The export-mangled ones are the exact opposite -- their
+ * vertices bunch into 1-3 cm of the limb's length and fan out to 8-15 cm of
+ * radius, because the mesh is lying crosswise. On the shipped rig the two groups
+ * do not overlap: twelve meshes score 0.10-0.32, every healthy structure scores
+ * 1.21 or more. They are the bars seen crossing the forearm, and unlike the ones
+ * repairMirroredMeshes rebuilds, they are mangled on BOTH arms, so there is no
+ * good twin to copy from and nothing to do but hide them. Fixing them for real
+ * means rebuilding them in Blender (see the export recipe).
+ *
+ * Both conditions are needed: the small ring ligaments of the wrist are "short"
+ * too, but they do not fan out, and they must stay.
+ */
+const CROSSWISE_MAX_RATIO = 0.5;
+const CROSSWISE_MIN_RADIAL_M = 0.06;
+
+function isCrosswise(mesh: THREE.Mesh, elbow: THREE.Vector3, wrist: THREE.Vector3): boolean {
+  const pos = mesh.geometry.getAttribute('position');
+  if (!pos || pos.count < 16) return false;
+  const axis = new THREE.Vector3().subVectors(wrist, elbow);
+  const lenSq = axis.lengthSq();
+  if (lenSq <= 1e-6) return false;
+  const len = Math.sqrt(lenSq);
+  const rel = new THREE.Vector3();
+  const ts: number[] = [];
+  const rs: number[] = [];
+  const step = Math.max(1, Math.floor(pos.count / 300));
+  for (let i = 0; i < pos.count; i += step) {
+    rel.fromBufferAttribute(pos, i);
+    mesh.localToWorld(rel);
+    rel.sub(elbow);
+    const t = rel.dot(axis) / lenSq;
+    ts.push(t * len);
+    rs.push(rel.addScaledVector(axis, -t).length());
+  }
+  if (ts.length < 8) return false;
+  ts.sort((a, b) => a - b);
+  rs.sort((a, b) => a - b);
+  const q = (a: number[], f: number) => a[Math.floor(a.length * f)];
+  const span = q(ts, 0.95) - q(ts, 0.05);
+  const radial = q(rs, 0.95) - q(rs, 0.05);
+  return radial > CROSSWISE_MIN_RADIAL_M && span / radial < CROSSWISE_MAX_RATIO;
 }
 
 /**
@@ -1798,6 +1849,12 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           // handful of stray triangles reads as debris rather than as muscle.
           for (const e of inLimb) {
             if (e.layer === 'skin') continue;
+            // Crosswise meshes are not trimmed, they are dropped: there is no
+            // in-place part of a muscle that is lying across the arm.
+            if (elbowP && wristP && isCrosswise(e.mesh, elbowP, wristP)) {
+              limbOutliers.add(e.mesh);
+              continue;
+            }
             const kept = trimMeshToLimb(e.mesh, segs, limit, inSleeve);
             if (kept < LIMB_TRIM_MIN_KEPT) limbOutliers.add(e.mesh);
           }
