@@ -1354,12 +1354,21 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
   // Selection highlight: a cool emissive tint on the currently-selected structure
   // so the user sees exactly what "Diseccionar" will remove. Cloned per mesh (like
   // the RigOverlays glow) and restored on deselect.
-  const selGlowRef = useRef<Map<THREE.Mesh, THREE.Material>>(new Map());
+  // Both the ORIGINAL and OUR clone are remembered, and the restore only acts if
+  // the mesh is still wearing our clone. Two systems dress the same mesh -- this
+  // highlight and the RigOverlays activation glow -- and the old code restored
+  // whatever `mesh.material` happened to be, then disposed the material it found.
+  // If the glow had swapped in between, deselecting handed the mesh a stale
+  // material and DISPOSED THE SHARED flat one, the single instance every muscle of
+  // that color renders with. Restoring only what we put on keeps each system to
+  // its own clone.
+  const selGlowRef = useRef<
+    Map<THREE.Mesh, { orig: THREE.Material; clone: THREE.Material }>
+  >(new Map());
   const applySelectionHighlight = useCallback((sel: ReturnType<typeof makeSelection> | null) => {
-    for (const [mesh, orig] of selGlowRef.current) {
-      const cur = mesh.material as THREE.Material;
-      mesh.material = orig;
-      if (cur !== orig) (cur as THREE.Material).dispose?.();
+    for (const [mesh, entry] of selGlowRef.current) {
+      if (mesh.material === entry.clone) mesh.material = entry.orig;
+      entry.clone.dispose?.();
     }
     selGlowRef.current.clear();
     if (!sel || !sel.dissectable) return;
@@ -1374,7 +1383,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         clone.emissive = new THREE.Color(SELECTION_EMISSIVE);
         clone.emissiveIntensity = 0.55;
       }
-      selGlowRef.current.set(lm.mesh, src);
+      selGlowRef.current.set(lm.mesh, { orig: src, clone });
       lm.mesh.material = clone;
     }
   }, []);

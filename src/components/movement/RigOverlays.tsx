@@ -557,10 +557,13 @@ export function RigOverlays(): JSX.Element {
         });
       }
 
-      // Remove glow from meshes no longer targeted.
+      // Remove glow from meshes no longer targeted. Only put the original back if
+      // the mesh is still wearing OUR clone: RigModel's selection highlight dresses
+      // the same meshes, and restoring blindly handed a mesh a material the other
+      // system had already replaced (and left ours disposed under it).
       for (const [mesh, entry] of glow) {
         if (!targets.has(mesh)) {
-          mesh.material = entry.original;
+          if (mesh.material === entry.clone) mesh.material = entry.original;
           entry.clone.dispose();
           glow.delete(mesh);
         }
@@ -637,9 +640,10 @@ export function RigOverlays(): JSX.Element {
 
     return () => {
       unsub();
-      // Restore every glowing mesh and dispose its clone.
+      // Restore every glowing mesh and dispose its clone -- again, only the meshes
+      // still wearing ours.
       for (const [mesh, entry] of glowRef.current) {
-        mesh.material = entry.original;
+        if (mesh.material === entry.clone) mesh.material = entry.original;
         entry.clone.dispose();
       }
       glowRef.current.clear();
