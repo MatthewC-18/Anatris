@@ -856,6 +856,81 @@ function distToAxis(p: THREE.Vector3, segs: readonly [THREE.Vector3, THREE.Vecto
 }
 
 /**
+ * The forearm's TAPERED SLEEVE: its skin radius as a function of how far down the
+ * elbow -> wrist axis you are, 5.2 cm at the elbow narrowing to 3.9 cm at the
+ * wrist on the shipped rig.
+ *
+ * One radius for the whole limb cannot describe an arm, and worse, a plain
+ * distance-to-axis test is blind to the thing that was on screen: a bar lying
+ * ACROSS the forearm never leaves the axis, it just pierces the skin on both
+ * sides, and a 10 cm bar centred on the bone measures 5 cm -- comfortably inside
+ * a limit taken from the widest part of the limb. The rig ships several such
+ * bars, muscles the exporter left rotated ~90 deg (23 cm of extensor digitorum
+ * running front-to-back through a 4 cm wrist), and they are what "no esta bien
+ * colocado" refers to. Sampling the skin per axial station catches them.
+ *
+ * Returns a predicate: is this rest-pose world point inside the sleeve? Points
+ * above the elbow are not judged by it -- the humeral origins live there, and
+ * they are handled by anchorOriginToHumerus.
+ */
+function makeSleeveTest(
+  elbow: THREE.Vector3,
+  wrist: THREE.Vector3,
+  skin: readonly THREE.Mesh[],
+  margin: number,
+): (p: THREE.Vector3) => boolean {
+  const axis = new THREE.Vector3().subVectors(wrist, elbow);
+  const lenSq = axis.lengthSq();
+  if (lenSq <= 1e-6) return () => true;
+  const rel = new THREE.Vector3();
+  /** Axial station (0 elbow, 1 wrist) and radius off the axis. */
+  const station = (p: THREE.Vector3): [number, number] => {
+    rel.subVectors(p, elbow);
+    const t = rel.dot(axis) / lenSq;
+    return [t, rel.addScaledVector(axis, -t).length()];
+  };
+  const BINS = 12;
+  const bins: number[][] = Array.from({ length: BINS }, () => []);
+  const v = new THREE.Vector3();
+  for (const mesh of skin) {
+    const pos = mesh.geometry.getAttribute('position');
+    if (!pos) continue;
+    const step = Math.max(1, Math.floor(pos.count / 400));
+    for (let i = 0; i < pos.count; i += step) {
+      v.fromBufferAttribute(pos, i);
+      mesh.localToWorld(v);
+      const [t, r] = station(v);
+      if (t < 0 || t > 1) continue;
+      bins[Math.min(BINS - 1, Math.floor(t * BINS))].push(r);
+    }
+  }
+  const profile = bins.map((xs) => {
+    if (xs.length === 0) return NaN;
+    xs.sort((a, b) => a - b);
+    return xs[Math.floor(xs.length * 0.95)];
+  });
+  if (profile.every((x) => Number.isNaN(x))) return () => true;
+  // A bin the skin did not reach borrows its neighbours' widest, so the profile
+  // is defined end to end and never pinches the limb shut where it has no data.
+  for (let i = 0; i < BINS; i++) {
+    if (!Number.isNaN(profile[i])) continue;
+    const near = profile.filter((x, j) => !Number.isNaN(x) && Math.abs(j - i) <= 2);
+    profile[i] = near.length > 0 ? Math.max(...near) : Infinity;
+  }
+  const radiusAt = (t: number): number => {
+    const c = t < 0 ? 0 : t > 1 ? 1 : t;
+    const x = c * (BINS - 1);
+    const i = Math.min(BINS - 2, Math.floor(x));
+    return profile[i] + (profile[i + 1] - profile[i]) * (x - i);
+  };
+  return (p: THREE.Vector3): boolean => {
+    const [t, r] = station(p);
+    if (t < -0.05) return true; // above the elbow: not the forearm's business
+    return r <= radiusAt(t) * margin;
+  };
+}
+
+/**
  * Drop the triangles of `mesh` that lie outside the limb, keeping the rest.
  * Returns the fraction of triangles kept, so the caller can hide a mesh that has
  * essentially nothing left. Measured in the REST pose, where bone matrices are
@@ -865,6 +940,7 @@ function trimMeshToLimb(
   mesh: THREE.Mesh,
   segs: readonly [THREE.Vector3, THREE.Vector3][],
   limit: number,
+  inSleeve: (p: THREE.Vector3) => boolean,
 ): number {
   const geom = mesh.geometry;
   const idx = geom.getIndex();
@@ -875,7 +951,7 @@ function trimMeshToLimb(
   for (let i = 0; i < pos.count; i++) {
     p.fromBufferAttribute(pos, i);
     mesh.localToWorld(p);
-    inside[i] = distToAxis(p, segs) <= limit ? 1 : 0;
+    inside[i] = distToAxis(p, segs) <= limit && inSleeve(p) ? 1 : 0;
   }
   const arr = idx.array as ArrayLike<number>;
   const kept: number[] = [];
@@ -1693,17 +1769,36 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
             .reduce((mx, e) => Math.max(mx, e.p95), 0);
           if (skinReach <= 0) continue;
           const limit = skinReach * LIMB_OUTLIER_MARGIN;
-          // TRIM, don't drop. The offenders are long muscles whose BELLY sits
+          // ...and the same skin read as a TAPERED sleeve, which is what catches
+          // anything lying across the limb rather than running away from it.
+          let elbowP: THREE.Vector3 | null = null;
+          let wristP: THREE.Vector3 | null = null;
+          root.traverse((o) => {
+            const bn = o.name.replace(/_\d+$/, '');
+            if (bn === 'forearm_flex' && !elbowP) elbowP = o.getWorldPosition(new THREE.Vector3());
+            else if (bn === 'hand_flex' && !wristP) wristP = o.getWorldPosition(new THREE.Vector3());
+          });
+          const inSleeve =
+            elbowP && wristP
+              ? makeSleeveTest(
+                  elbowP,
+                  wristP,
+                  inLimb
+                    .filter((e) => e.layer === 'skin' && meshWorldCenter(e.mesh).y >= WRIST_Y - 0.02)
+                    .map((e) => e.mesh),
+                  LIMB_OUTLIER_MARGIN,
+                )
+              : () => true;
+          // TRIM, don't drop. Some offenders are long muscles whose BELLY sits
           // properly in the forearm and whose TENDON runs on to the fingers; it
-          // is only the tendon that flies. Hiding the whole mesh threw away the
-          // bulkiest bellies in the forearm (flexor profundus, extensor
-          // digitorum) and was most of why it looked empty. So we drop only the
-          // triangles that leave the limb, and keep the mesh. A mesh with almost
-          // nothing left is hidden instead, since a few stray triangles read as
-          // debris rather than as muscle.
+          // is only the tendon that flies, and hiding the whole mesh threw away
+          // the bulkiest bellies there. So we drop only the triangles that leave
+          // the limb and keep the mesh. Others -- the ~90 deg mis-oriented
+          // exports -- have nothing left afterwards and are hidden, since a
+          // handful of stray triangles reads as debris rather than as muscle.
           for (const e of inLimb) {
-            if (e.layer === 'skin' || e.p95 <= limit) continue;
-            const kept = trimMeshToLimb(e.mesh, segs, limit);
+            if (e.layer === 'skin') continue;
+            const kept = trimMeshToLimb(e.mesh, segs, limit, inSleeve);
             if (kept < LIMB_TRIM_MIN_KEPT) limbOutliers.add(e.mesh);
           }
         }

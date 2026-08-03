@@ -282,6 +282,85 @@ const reach = (mesh: THREE.Mesh, pts?: THREE.Vector3[]) => {
   d.sort((x, y) => x - y);
   return d[Math.floor(d.length * 0.95)] ?? 0;
 };
+// ---------------------------------------------------------------------------
+// 4b. TAPERED SLEEVE.
+//
+// A single radius cannot describe an arm: the forearm is a cone, ~6 cm across at
+// the elbow and ~3 cm at the wrist. Worse, distance-to-axis is blind to the exact
+// thing the user is looking at -- a bar lying ACROSS the limb never leaves the
+// axis, it just pierces the skin on both sides, and a 10 cm bar centred on the
+// bone reads 5 cm, comfortably inside a 6.5 cm limit.
+//
+// So sample the forearm SKIN into axial bins and keep the p95 radius of each:
+// that is the real sleeve. Everything else is then measured as how far it sticks
+// out THROUGH that sleeve, at its own height.
+// ---------------------------------------------------------------------------
+const elbowP = flexB.getWorldPosition(new THREE.Vector3());
+const wristP = boneOf('hand_flex')!.getWorldPosition(new THREE.Vector3());
+const fAxis = new THREE.Vector3().subVectors(wristP, elbowP);
+const fLen2 = fAxis.lengthSq();
+/** Axial station 0 (elbow) .. 1 (wrist), unclamped, and radius off that axis. */
+const station = (p: THREE.Vector3) => {
+  const rel = new THREE.Vector3().subVectors(p, elbowP);
+  const t = rel.dot(fAxis) / fLen2;
+  const radial = rel.clone().addScaledVector(fAxis, -t).length();
+  return { t, r: radial };
+};
+const BINS = 12;
+const binR: number[][] = Array.from({ length: BINS }, () => []);
+for (const r of rows) {
+  if (r.foreign || r.layer !== 'skin' || r.hidden) continue;
+  const pos = r.m.geometry.getAttribute('position');
+  const ids = drawnVerts(r.m);
+  const v = new THREE.Vector3();
+  for (const i of ids) {
+    v.fromBufferAttribute(pos, i); r.m.localToWorld(v);
+    const { t, r: rad } = station(v);
+    if (t < 0 || t > 1) continue;
+    binR[Math.min(BINS - 1, Math.floor(t * BINS))].push(rad);
+  }
+}
+const profile = binR.map((xs) => {
+  if (xs.length === 0) return NaN;
+  xs.sort((a, b) => a - b);
+  return xs[Math.floor(xs.length * 0.95)];
+});
+// Fill empty bins from their neighbours so the profile is defined end to end.
+for (let i = 0; i < BINS; i++)
+  if (Number.isNaN(profile[i])) {
+    const near = profile.filter((x, j) => !Number.isNaN(x) && Math.abs(j - i) <= 2);
+    profile[i] = near.length ? Math.max(...near) : 0.05;
+  }
+const sleeveAt = (t: number) => {
+  const c = t < 0 ? 0 : t > 1 ? 1 : t;
+  const x = c * (BINS - 1);
+  const i = Math.min(BINS - 2, Math.floor(x));
+  return profile[i] + (profile[i + 1] - profile[i]) * (x - i);
+};
+const SLEEVE = process.env.SLEEVE !== 'off';
+const SLEEVE_MARGIN = Number(process.env.SLEEVE_MARGIN ?? 1.02);
+/** Inside the tapered sleeve? Above the elbow nothing is judged by it. */
+const insideSleeve = (p: THREE.Vector3) => {
+  if (!SLEEVE) return true;
+  const { t, r } = station(p);
+  if (t < -0.05) return true; // humeral origin, handled by the elbow anchor
+  return r <= sleeveAt(t) * SLEEVE_MARGIN;
+};
+const sleeveExcess = (m: THREE.SkinnedMesh) => {
+  const pos = m.geometry.getAttribute('position');
+  const v = new THREE.Vector3();
+  let worst = -1;
+  for (const i of drawnVerts(m)) {
+    v.fromBufferAttribute(pos, i); m.localToWorld(v);
+    const { t, r } = station(v);
+    if (t < -0.05) continue;
+    worst = Math.max(worst, r - sleeveAt(t) * SLEEVE_MARGIN);
+  }
+  return worst;
+};
+console.log(`
+forearm sleeve profile, elbow -> wrist (p95 radius per bin, cm):`);
+console.log(`   ${profile.map((x) => (x * 100).toFixed(1)).join('  ')}`);
 const AXIS_TRIM = process.env.TRIM !== 'points';
 const skinReach = rows
   .filter((r) => !r.foreign && r.layer === 'skin' && r.center.y >= WRIST_Y - 0.02)
@@ -298,14 +377,15 @@ const trimmedFrac = new Map<string, number>();
 for (const r of rows) {
   if (r.layer === 'skin' || r.hidden || r.foreign) continue; // runtime trims only arm-owned meshes
   const p95 = AXIS_TRIM ? axisP95(r.m) : reach(r.m);
-  if (p95 <= LIMIT) continue;
+  const pierce = SLEEVE ? sleeveExcess(r.m) : -1;
+  if (p95 <= LIMIT && pierce <= 0) continue;
   // trimMeshToLimb
   const geom = r.m.geometry;
   const idx = geom.getIndex()!; const pos = geom.getAttribute('position');
   const inside = new Uint8Array(pos.count);
   for (let i = 0; i < pos.count; i++) {
     _p.fromBufferAttribute(pos, i); r.m.localToWorld(_p);
-    inside[i] = distMetric(_p) <= LIMIT ? 1 : 0;
+    inside[i] = distMetric(_p) <= LIMIT && insideSleeve(_p) ? 1 : 0;
   }
   const arr = idx.array as ArrayLike<number>;
   const kept: number[] = [];
@@ -320,6 +400,37 @@ for (const r of rows) {
   }
   if (frac < 0.1) r.hidden = 'outlier'; // LIMB_TRIM_MIN_KEPT
 }
+
+{
+  const out: { n: string; l: string; out: number; t: number; aspect: string }[] = [];
+  for (const r of rows) {
+    if (r.hidden || r.layer === 'skin' || r.foreign) continue;
+    const pos = r.m.geometry.getAttribute('position');
+    const ids = drawnVerts(r.m);
+    const v = new THREE.Vector3();
+    let worst = -1, worstT = 0;
+    for (const i of ids) {
+      v.fromBufferAttribute(pos, i); r.m.localToWorld(v);
+      const { t, r: rad } = station(v);
+      if (t < -0.05 || t > 1.05) continue;
+      const excess = rad - sleeveAt(t);
+      if (excess > worst) { worst = excess; worstT = t; }
+    }
+    if (worst <= -1) continue;
+    const g = r.m.geometry; g.computeBoundingBox();
+    const d = g.boundingBox!.getSize(new THREE.Vector3());
+    out.push({
+      n: r.name, l: r.layer, out: worst, t: worstT,
+      aspect: `${(d.x * 100).toFixed(0)}x${(d.y * 100).toFixed(0)}x${(d.z * 100).toFixed(0)}`,
+    });
+  }
+  out.sort((a, b) => b.out - a.out);
+  console.log(`
+how far each mesh pierces the sleeve (cm out, at station t):`);
+  for (const r of out.slice(0, 16))
+    console.log(`   ${(r.out * 100).toFixed(1).padStart(5)} cm  t=${r.t.toFixed(2)}  [${r.l.padEnd(10)}] ${r.n}`);
+}
+
 
 // ---------------------------------------------------------------------------
 // 5. REBINDS (skin + muscle), as RigModel does them
@@ -478,6 +589,12 @@ console.log(`meshes in forearm+hand: ${rows.length}   shown non-skin: ${shown.le
     tris += (r.m.geometry.getIndex()?.count ?? 0) / 3;
   }
   console.log(`forearm MUSCLE shown: ${meshes} meshes, ${Math.round(tris)} triangles`);
+}
+{
+  const gone = rows.filter((r) => r.hidden === 'outlier').map((r) => r.name);
+  console.log(`
+hidden entirely (nothing left inside the sleeve): ${gone.length}`);
+  for (const n of gone) console.log(`   ${n}`);
 }
 const trims = [...trimmedFrac.entries()].filter(([, f]) => f < 1).sort((a, b) => a[1] - b[1]);
 console.log(`\ntrimmed meshes (${trims.length}): kept %, triangles left, size of the remnant`);
