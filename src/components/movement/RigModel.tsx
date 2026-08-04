@@ -46,7 +46,9 @@ import {
   dissectChannel,
   makeSelection,
   meshIsDissected,
+  meshIsIsolatedOut,
   type DissectLayer,
+  type StructureSides,
 } from './dissectChannel';
 import type { RomMuscleRole } from '../../types/rom';
 import { pathologyById } from '../../data/pathologies';
@@ -341,6 +343,25 @@ function meshWorldCenter(mesh: THREE.Mesh): THREE.Vector3 {
   if (!g.boundingSphere) g.computeBoundingSphere();
   const c = g.boundingSphere?.center ?? _tmpCenter.set(0, 0, 0);
   return c.clone().applyMatrix4(mesh.matrixWorld);
+}
+
+// Which half of the body a peelable mesh belongs to, for the per-side dissection.
+// Measured, not read off the name: this rig leaves the l/r marker off most meshes
+// and carries it MIRRORED on a few (the extensor carpi radialis patches named
+// "...er" sit on the left arm), so taking the name at face value peeled the wrong
+// limb. Well off the axis the position decides outright; near the axis the name
+// breaks the tie when it has one; and a mesh with neither signal that still sits
+// measurably off-centre goes to the side it leans to, so peeling one pectoral
+// leaves no sliver of it floating over the sternum. Only what is truly ON the
+// midline stays 'center', and that is the tissue a one-sided peel should keep.
+const SIDE_LATERAL_M = 0.04; // clearly on a limb / one half of the trunk
+const SIDE_MIDLINE_M = 0.005; // inside this, genuinely on the axis
+function dissectSideOfMesh(mesh: THREE.Mesh, named: ParsedSide): ParsedSide {
+  const x = meshWorldCenter(mesh).x;
+  const ax = Math.abs(x);
+  if (ax < SIDE_LATERAL_M && named !== 'center') return named;
+  if (ax < SIDE_MIDLINE_M) return 'center';
+  return x > 0 ? 'right' : 'left';
 }
 
 // ---------------------------------------------------------------------------
@@ -1314,9 +1335,10 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
   const skinFadeTargetRef = useRef(0);
 
   const applyLayers = useCallback((st: LayerState = layerChannel.get()) => {
-    // Structures peeled away by the click-to-dissect panel (composed ON TOP of
-    // the tissue toggles, so a hidden muscle stays hidden regardless of toggles).
-    const hidden = dissectChannel.get().hidden;
+    // Structures peeled away (or the single one isolated) by the click-to-dissect
+    // panel, composed ON TOP of the tissue toggles: a dissected muscle stays gone
+    // regardless of the toggles, and both act per SIDE via the geometric lm.side.
+    const { hidden, isolated } = dissectChannel.get();
     for (const lm of layerMeshesRef.current) {
       // The distal hand/foot skin cap is ALWAYS shown (its internals are broken
       // and unusable), so the extremities never vanish while peeling body layers.
@@ -1326,14 +1348,17 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       }
       const layerOn = st[lm.layer];
       // Dissection only removes muscle/connective (never bone/skin), and only
-      // when that tissue is on to begin with.
-      const dissected =
-        layerOn &&
-        (lm.layer === 'muscle' || lm.layer === 'connective') &&
-        lm.base !== undefined &&
-        hidden.length > 0 &&
-        meshIsDissected(lm.base, lm.side ?? 'center', hidden);
-      lm.mesh.visible = layerOn && !dissected;
+      // when that tissue is on to begin with. Bone stays through isolation too,
+      // so an isolated muscle is read against the skeleton it acts on.
+      const peelable = lm.layer === 'muscle' || lm.layer === 'connective';
+      let removed = false;
+      if (layerOn && peelable && lm.base !== undefined) {
+        const side = lm.side ?? 'center';
+        removed =
+          (hidden.length > 0 && meshIsDissected(lm.base, side, hidden)) ||
+          meshIsIsolatedOut(lm.base, side, isolated);
+      }
+      lm.mesh.visible = layerOn && !removed;
     }
   }, []);
 
@@ -1375,7 +1400,9 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
     for (const lm of layerMeshesRef.current) {
       if (lm.base === undefined || !sel.bases.includes(lm.base)) continue;
       const s = lm.side ?? 'center';
-      const match = sel.side === 'center' || s === sel.side || s === 'center';
+      // The glow marks exactly what the action will take: with the side switch on
+      // "izquierdo", only the left half of the structure lights up.
+      const match = sel.scope === 'both' || s === sel.scope;
       if (!match || !lm.mesh.visible) continue;
       const src = lm.mesh.material as THREE.MeshStandardMaterial;
       const clone = (src.clone ? src.clone() : new THREE.MeshStandardMaterial()) as THREE.MeshStandardMaterial;
@@ -1388,6 +1415,29 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
     }
   }, []);
 
+  // Survey a clicked structure: which side the clicked mesh actually sits on, and
+  // how many meshes the structure has per side. Both come from the GEOMETRIC side
+  // tagged on every LayerMesh, never from the mesh name -- Z-Anatomy leaves most
+  // laterality out of the names, which is what made a peel take both limbs.
+  const surveyStructure = useCallback(
+    (
+      clicked: THREE.Mesh,
+      bases: string[],
+      fallback: ParsedSide,
+    ): { side: ParsedSide; sides: StructureSides } => {
+      const sides: StructureSides = { left: 0, right: 0, center: 0 };
+      let side = fallback;
+      for (const lm of layerMeshesRef.current) {
+        if (lm.base === undefined || !bases.includes(lm.base)) continue;
+        const s = lm.side ?? 'center';
+        sides[s] += 1;
+        if (lm.mesh === clicked) side = s;
+      }
+      return { side, sides };
+    },
+    [],
+  );
+
   // Single click selects the frontmost visible muscle/connective mesh; a click on
   // bone, skin or empty space clears the selection.
   const handleClick = useCallback(
@@ -1398,8 +1448,13 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         if (!m.isMesh || !m.visible) continue;
         const lyr = m.userData.rigLayer as string | undefined;
         if (lyr === 'muscle' || lyr === 'connective') {
+          const muscle = muscleByMeshName.get(m.name);
+          const parsed = parseMeshName(m.name);
+          const bases =
+            muscle && muscle.meshBases.length ? muscle.meshBases : [parsed.base];
+          const { side, sides } = surveyStructure(m, bases, parsed.side);
           dissectChannel.setSelection(
-            makeSelection(m.name, lyr as DissectLayer, muscleByMeshName.get(m.name)),
+            makeSelection(m.name, lyr as DissectLayer, muscle, side, sides),
           );
           return;
         }
@@ -1408,7 +1463,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       }
       dissectChannel.setSelection(null);
     },
-    [muscleByMeshName],
+    [muscleByMeshName, surveyStructure],
   );
 
   const handlePointerOver = useCallback((e: ThreeEvent<PointerEvent>) => {
@@ -2332,18 +2387,15 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           mesh.userData.muscleLevel = muscleLevel;
         }
       }
-      // Parsed base + side for the click-to-dissect peel (dissectable tissue only).
-      // The side comes from WHERE THE MESH IS, not from its name: this rig's l/r
-      // suffixes are missing on most forearm meshes and mirrored on several others
-      // (the extensor carpi radialis patches named "...er" sit on the LEFT arm).
-      // Taking the name at face value made a peel act on the opposite limb.
+      // Parsed base + measured side for the click-to-dissect peel (dissectable
+      // tissue only). This tag is what makes the peel act on ONE side of the
+      // body; see dissectSideOfMesh for why the name alone cannot be trusted.
       let base: string | undefined;
       let side: ParsedSide | undefined;
       if (lyr === 'muscle' || lyr === 'connective') {
         const parsed = parseMeshName(mesh.name);
         base = parsed.base;
-        const c = meshWorldCenter(mesh);
-        side = Math.abs(c.x) >= 0.04 ? (c.x > 0 ? 'right' : 'left') : parsed.side;
+        side = dissectSideOfMesh(mesh, parsed.side);
       }
       list.push({ mesh, layer: lyr, distalCap, muscleLevel, base, side });
     });

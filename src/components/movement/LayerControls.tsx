@@ -108,7 +108,7 @@ export function LayerControls() {
           </div>
           <div className="hairline" />
           <p className="px-3.5 py-2.5 text-[10px] leading-snug text-slate-500">
-            Toca un músculo en el modelo para diseccionarlo.
+            Toca un músculo del modelo para diseccionarlo o aislarlo, lado por lado.
           </p>
         </>
       )}

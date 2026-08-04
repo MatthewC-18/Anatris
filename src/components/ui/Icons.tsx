@@ -179,3 +179,44 @@ export function BodySideIcon(p: IconProps) {
     </Svg>
   );
 }
+
+/** Scalpel: the dissect action. Blade + handle, one continuous instrument. */
+export function ScalpelIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M13.8 3.6a1.9 1.9 0 012.7 2.7L9.7 13.1 6.2 14.3l1.2-3.5z" />
+      <path d="M6.2 14.3L3.6 20.4" />
+    </Svg>
+  );
+}
+
+/** Isolate: one structure kept, the rest stepped back. */
+export function IsolateIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="3.4" />
+      <path d="M12 3.2v2.6M12 18.2v2.6M3.2 12h2.6M18.2 12h2.6" />
+      <path d="M6 6l1.8 1.8M18 6l-1.8 1.8M6 18l1.8-1.8M18 18l-1.8-1.8" opacity="0.45" />
+    </Svg>
+  );
+}
+
+/** Undo the last action. */
+export function UndoIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4 9h9.5a5 5 0 010 10H8" />
+      <path d="M7.5 5L4 9l3.5 4" />
+    </Svg>
+  );
+}
+
+/** Restore everything to the intact body. */
+export function RestoreIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M20.5 12a8.5 8.5 0 11-2.6-6.1" />
+      <path d="M20.8 4.2v4.6h-4.6" />
+    </Svg>
+  );
+}
