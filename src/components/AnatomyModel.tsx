@@ -55,11 +55,16 @@ import { ThreeEvent, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { AnatomyEntry } from '../types/anatomy';
 import { useAnatomyStore } from '../store/anatomyStore';
-import { colorForMaterial, colorForMaterialMesh } from '../lib/materialColors';
+import {
+  colorForMaterial,
+  colorForMaterialMesh,
+  materialIsAccessoryTissue,
+} from '../lib/materialColors';
 import type { MuscleResolution } from '../lib/muscleResolver';
 import { parseMeshName, type MusclePart } from '../lib/parseMeshName';
 import { musclesForRegion } from '../data/musclesByRegion';
-import { REGIONS, resolveRegionMeshes } from '../data/regiones';
+import { REGIONS, resolveRegionMeshes, resolveRegionFade } from '../data/regiones';
+import { patchRegionFadeShader, setRegionFade } from '../lib/regionFade';
 import { isConceptModule } from '../data/conceptByRegion';
 import type { RomMuscleRole } from '../types/rom';
 // modelo-opt.dec.glb = modelo-opt.glb decimated ~56% (6.4M -> 2.8M tris) + tighter
@@ -132,6 +137,22 @@ const SPINE_REGION_IDS = new Set(['cervical', 'thoracic', 'lumbar']);
 const SKIN_COLOR = 0xbcd4e6;
 const SKIN_OPACITY = 0.16;
 
+/* ---------------------------------------------------------------------------
+ * REGION FALLOFF
+ *
+ * The shader patch and the shared uniform live in lib/regionFade.ts (they are
+ * pure three.js, and the shader splice has its own test). What lives HERE is the
+ * wiring:
+ *
+ * - The alpha is applied in the fragment shader, which means an affected mesh
+ *   has to be `transparent`. Rather than fight the highlight pass (which resets
+ *   `transparent` from the captured originals on every repaint), the region
+ *   effect writes the new baseline INTO those originals.
+ * - Only meshes whose bounding box actually crosses a fade edge are made
+ *   transparent; a mesh wholly inside the slab keeps its opaque fast path, and a
+ *   mesh wholly outside it is hidden instead of drawn 100% discarded.
+ * ------------------------------------------------------------------------- */
+
 // PREMIUM PER-TISSUE SHADING. Under the studio environment (Viewer3D), each
 // tissue reads best with its own roughness + envMapIntensity, mirroring the
 // movement lab: bone is polished ivory (low roughness, strong env sheen),
@@ -162,7 +183,10 @@ interface OriginalMat {
   emissiveIntensity: number;
   color: THREE.Color;
   opacity: number;
+  /** Baseline the highlight pass restores. The region falloff re-bases this. */
   transparent: boolean;
+  /** The material's own transparency, before any region falloff was applied. */
+  baseTransparent: boolean;
   depthWrite: boolean;
 }
 
@@ -177,6 +201,7 @@ export function AnatomyModel({
   const activeLayers = useAnatomyStore((s) => s.activeLayers);
   const sideFilter = useAnatomyStore((s) => s.sideFilter);
   const showOriginInsertion = useAnatomyStore((s) => s.showOriginInsertion);
+  const showAccessoryTissue = useAnatomyStore((s) => s.showAccessoryTissue);
   const selectedMeshName = useAnatomyStore((s) => s.selectedMeshName);
   const hoveredMeshName = useAnatomyStore((s) => s.hoveredMeshName);
   const selectMesh = useAnatomyStore((s) => s.selectMesh);
@@ -219,6 +244,49 @@ export function AnatomyModel({
     }
     return map;
   }, [scene, meshes]);
+
+  // World-space vertical extent of every mesh, computed once: the Explorar atlas
+  // is static, so a mesh's height never changes. Drives the region falloff below
+  // (which meshes cross a fade edge, which are entirely past it).
+  const yRangeByUuid = useMemo(() => {
+    const map = new Map<string, [number, number]>();
+    const box = new THREE.Box3();
+    scene.updateWorldMatrix(true, true);
+    for (const mesh of meshes) {
+      const geo = mesh.geometry;
+      if (!geo.boundingBox) geo.computeBoundingBox();
+      if (!geo.boundingBox) continue;
+      box.copy(geo.boundingBox).applyMatrix4(mesh.matrixWorld);
+      if (!Number.isFinite(box.min.y) || !Number.isFinite(box.max.y)) continue;
+      map.set(mesh.uuid, [box.min.y, box.max.y]);
+    }
+    return map;
+  }, [scene, meshes]);
+
+  // The active region's falloff slab, or null when the region doesn't define one
+  // (then nothing fades and everything below is inert).
+  const regionFade = useMemo(
+    () => resolveRegionFade(region != null ? REGIONS[region] : undefined),
+    [region],
+  );
+
+  // Which meshes the falloff touches. 'edge' meshes cross a fade boundary and
+  // need a transparent material for the dissolve to show; 'out' meshes are
+  // entirely past it and would render 100% discarded, so we hide them outright
+  // and save the draw call.
+  const fadeStateByUuid = useMemo(() => {
+    const map = new Map<string, 'edge' | 'out'>();
+    if (!regionFade) return map;
+    const { min, max, soft } = regionFade;
+    for (const mesh of meshes) {
+      const range = yRangeByUuid.get(mesh.uuid);
+      if (!range) continue;
+      const [lo, hi] = range;
+      if (hi <= min - soft || lo >= max + soft) map.set(mesh.uuid, 'out');
+      else if (lo < min || hi > max) map.set(mesh.uuid, 'edge');
+    }
+    return map;
+  }, [regionFade, meshes, yRangeByUuid]);
 
   // Per-mesh muscle PART (belly / origin / insertion / tendon), decoded from
   // the flattened Z-Anatomy name. We use this to hide the small origin (.o) and
@@ -396,6 +464,12 @@ export function AnatomyModel({
         else if (mesh.material) tune(mesh.material);
       }
 
+      // Region falloff: patch every cloned material once, here, so the shader
+      // is compiled with the dissolve already in it. The uniform starts
+      // disabled, so this is inert until a region with a `fade` is active.
+      if (Array.isArray(mesh.material)) mesh.material.forEach(patchRegionFadeShader);
+      else if (mesh.material) patchRegionFadeShader(mesh.material);
+
       // Capture original emissive + base color + transparency NOW
       // (post-clone, post-tune).
       const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
@@ -406,11 +480,37 @@ export function AnatomyModel({
           color: mat.color ? mat.color.clone() : new THREE.Color(0xffffff),
           opacity: mat.opacity ?? 1,
           transparent: mat.transparent ?? false,
+          baseTransparent: mat.transparent ?? false,
           depthWrite: mat.depthWrite ?? true,
         });
       }
     }
   }, [meshes, byMesh]);
+
+  // REGION FALLOFF: push the active slab into the shared uniform, and re-base
+  // the transparency of the meshes that straddle a fade edge.
+  //
+  // The new baseline is written into `originals`, not just onto the material,
+  // because the highlight pass restores `transparent` from there on every
+  // repaint — setting only the material would be undone by the next hover.
+  useEffect(() => {
+    setRegionFade(regionFade);
+    const map = originals.current;
+    for (const mesh of meshes) {
+      const orig = map.get(mesh.uuid);
+      if (!orig) continue;
+      const next = orig.baseTransparent || fadeStateByUuid.get(mesh.uuid) === 'edge';
+      if (orig.transparent === next) continue;
+      orig.transparent = next;
+      const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
+      if (mat && mat.transparent !== next) {
+        mat.transparent = next;
+        // `transparent` is part of the shader program cache key, so this one
+        // does need a version bump (see the note in the highlight pass).
+        mat.needsUpdate = true;
+      }
+    }
+  }, [regionFade, fadeStateByUuid, meshes]);
 
   // Visibility.
   useEffect(() => {
@@ -422,6 +522,12 @@ export function AnatomyModel({
         continue;
       }
       if (colorForMaterial(entry.materialName) === null) {
+        mesh.visible = false;
+        continue;
+      }
+      // Entirely past the region falloff: every fragment would be discarded, so
+      // skip the draw call instead of paying for it.
+      if (fadeStateByUuid.get(mesh.uuid) === 'out') {
         mesh.visible = false;
         continue;
       }
@@ -442,7 +548,14 @@ export function AnatomyModel({
       const part = partByUuid.get(mesh.uuid);
       const markerOn =
         showOriginInsertion || (part !== 'origin' && part !== 'insertion');
-      const show = layerOn && sideOn && regionOn && notHidden && markerOn;
+      // Bursae, fascial sheets and tendon sheaths: 134 pale structures that
+      // bury the region they sit on (the iliopsoas fascia used to stand over
+      // the whole pelvis). Off unless the user asks for them.
+      const accessoryOn =
+        showAccessoryTissue ||
+        !materialIsAccessoryTissue(entry.materialName, mesh.name);
+      const show =
+        layerOn && sideOn && regionOn && notHidden && markerOn && accessoryOn;
       mesh.visible = show;
       if (show) visible.push(mesh);
     }
@@ -454,10 +567,12 @@ export function AnatomyModel({
     sideFilter,
     regionMeshes,
     spineContextMeshes,
+    fadeStateByUuid,
     onVisibleChange,
     sideByUuid,
     partByUuid,
     showOriginInsertion,
+    showAccessoryTissue,
   ]);
 
   // Identity that changes whenever anything OTHER than hover feeds the

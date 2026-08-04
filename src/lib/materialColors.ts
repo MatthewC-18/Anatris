@@ -236,6 +236,31 @@ export function materialIsVisibleAnatomy(name: string | undefined | null): boole
   return materialIsMuscleOrBone(name) || materialIsConnective(name);
 }
 
+/**
+ * ACCESSORY CONNECTIVE TISSUE: serous bursae, fascial sheets / intermuscular
+ * septa, and tendon sheaths.
+ *
+ * These are real structures with real teaching value (subacromial bursitis,
+ * trochanteric bursitis, the iliopsoas fascia), but there are 134 of them and
+ * they are pale, thin and everywhere: with them on by default the hip opened on
+ * two shard-edged sheets of iliopsoas fascia standing over the pelvis, and 11 of
+ * the 22 "ligaments" the knee showed were bursae. Explorar hides them until the
+ * user asks for them ("Bolsas y fascias" in the sidebar), the same way it hides
+ * the origin/insertion markers.
+ *
+ * Classified by MATERIAL, not by name: the tensor fasciae latae is a muscle, not
+ * a fascia, and matching "fasci" on the mesh name would swallow it. Tendon
+ * sheaths carry the "Articular capsule" material, so those are caught by name —
+ * no muscle or ligament in the atlas has "sheath" in its name.
+ */
+export function materialIsAccessoryTissue(
+  materialName: string | undefined | null,
+  meshName?: string | undefined | null,
+): boolean {
+  if (materialName === 'Bursa' || materialName === 'Fascia') return true;
+  return meshName != null && /sheath/i.test(meshName);
+}
+
 /** Tissue class of a material, for premium per-tissue shading (roughness etc.). */
 export type TissueClass = 'bone' | 'muscle' | 'connective' | 'other';
 export function tissueClassForMaterial(name: string | undefined | null): TissueClass {

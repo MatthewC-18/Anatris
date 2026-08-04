@@ -5,7 +5,7 @@
 // contains far-away UI/text panels that would otherwise shrink the body to a
 // dot), and animates between predefined views in response to camera requests.
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import {
   AdaptiveDpr,
@@ -18,6 +18,7 @@ import {
 import * as THREE from 'three';
 
 import { AnatomyModel } from './AnatomyModel';
+import { AtlasPlate, AtlasProjector } from './AtlasLabels';
 import { AttachmentMarkers } from './AttachmentMarkers';
 import { RomMuscleMarkers } from './RomMuscleMarkers';
 import { ConceptOverlay3D } from './ConceptOverlay3D';
@@ -28,6 +29,10 @@ import { ViewerHud } from './ViewerHud';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { parseMeshName } from '../lib/parseMeshName';
 import { VIEW_META } from '../lib/anatomyMeta';
+import { REGIONS, resolveRegionFade } from '../data/regiones';
+import { pickLabelTargets, type LabelTarget } from '../lib/atlasPlate';
+import { musclesForRegion } from '../data/musclesByRegion';
+import { isConceptModule } from '../data/conceptByRegion';
 import type { AnatomyEntry } from '../types/anatomy';
 import type { MuscleResolution } from '../lib/muscleResolver';
 
@@ -47,6 +52,14 @@ interface Viewer3DProps {
    * control panel; fully reversible when this flips back to false/unmounts.
    */
   movement?: boolean;
+  /**
+   * Atlas-plate labels. The names are DOM and live OUTSIDE the canvas (see the
+   * two-reconciler note in AtlasLabels), so the viewer owns the target list and
+   * hands the same array to both halves.
+   */
+  labelTargets?: LabelTarget[];
+  /** Reports the visible mesh set up to the viewer, which picks the labels. */
+  onVisibleMeshes?: (meshes: THREE.Mesh[]) => void;
 }
 
 // How tightly the camera frames a focused muscle. Larger padding = more
@@ -69,6 +82,9 @@ const PART_FOCUS_PADDING = 0.9;
 // Geometry/quality is untouched; only render resolution scales.
 const DPR_DESKTOP: [number, number] = [1, 2];
 const DPR_MOBILE: [number, number] = [1, 1.5];
+
+/** Stable empty array, so "no labels" never looks like a new value. */
+const EMPTY_TARGETS: LabelTarget[] = [];
 
 /** True when the viewport is below the lg breakpoint (Tailwind lg = 1024px). */
 function useIsCompact(): boolean {
@@ -154,6 +170,8 @@ function SceneContents({
   regionFocusMeshes,
   resolution,
   movement,
+  labelTargets,
+  onVisibleMeshes,
 }: Viewer3DProps) {
   const { scene } = useThree();
   // Signals "the user is interacting, cheapen the frame" to AdaptiveDpr /
@@ -170,8 +188,45 @@ function SceneContents({
   const sideFilter = useAnatomyStore((s) => s.sideFilter);
   const region = useAnatomyStore((s) => s.region);
 
-  // Recompute the bounding box of visible meshes, then frame the camera.
+  // The active region's falloff slab. A mesh that straddles a fade edge is still
+  // VISIBLE (its lower half is what dissolves), so its bounding box reaches far
+  // past what the user can actually see — the hip's femur runs to the knee. If
+  // the camera framed that raw box it would pull back to fit a stretch of empty
+  // background, which is the opposite of what the falloff is for, so every
+  // framing box below is clipped to the slab. See clampToFade.
+  const regionFade = useMemo(
+    () => resolveRegionFade(region != null ? REGIONS[region] : undefined),
+    [region],
+  );
+
+  /** Clip a framing box to the region's falloff slab (no-op without one). */
+  const clampToFade = useCallback(
+    (box: THREE.Box3): THREE.Box3 => {
+      if (!regionFade || box.isEmpty()) return box;
+      const lo = regionFade.min - regionFade.soft;
+      const hi = regionFade.max + regionFade.soft;
+      // Only ever shrink, and never past the point of inverting the box.
+      box.min.y = Math.min(Math.max(box.min.y, lo), box.max.y);
+      box.max.y = Math.max(Math.min(box.max.y, hi), box.min.y);
+      return box;
+    },
+    [regionFade],
+  );
+
+  // Read through refs so handleVisibleChange keeps a stable identity: it is a
+  // dependency of AnatomyModel's visibility effect, and re-creating it on every
+  // region change would make that effect re-run the whole atlas for nothing.
+  const clampToFadeRef = useRef(clampToFade);
+  clampToFadeRef.current = clampToFade;
+  const onVisibleMeshesRef = useRef(onVisibleMeshes);
+  onVisibleMeshesRef.current = onVisibleMeshes;
+
+  // Recompute the bounding box of visible meshes, then frame the camera. The
+  // atlas plate needs this same set to know which structures are on screen and
+  // worth naming, so it is forwarded up; it fires only when visibility really
+  // changes — region, layer, side — never per frame.
   const handleVisibleChange = useCallback((meshes: THREE.Mesh[]) => {
+    onVisibleMeshesRef.current?.(meshes);
     if (meshes.length === 0) return;
     const box = new THREE.Box3();
     const tmp = new THREE.Box3();
@@ -180,6 +235,7 @@ function SceneContents({
       if (isFinite(tmp.min.x)) box.union(tmp);
     }
     if (!isFinite(box.min.x)) return;
+    clampToFadeRef.current(box);
     const sphere = new THREE.Sphere();
     box.getBoundingSphere(sphere);
     boundsRef.current = { box: box.clone(), radius: sphere.radius };
@@ -230,7 +286,7 @@ function SceneContents({
         // Prefer the joint-core box when it resolved to something; otherwise
         // fall back to the full region bounds (the previous behaviour).
         const useFocus = !!focusBox && !focusBox.isEmpty() && isFinite(focusBox.min.x);
-        const framingBox = useFocus ? (focusBox as THREE.Box3) : fullBox;
+        const framingBox = clampToFade(useFocus ? (focusBox as THREE.Box3) : fullBox);
         const pad = useFocus ? REGION_FOCUS_PADDING : 0.1;
 
         const sphere = new THREE.Sphere();
@@ -251,7 +307,7 @@ function SceneContents({
       cancelAnimationFrame(raf1);
       if (raf2) cancelAnimationFrame(raf2);
     };
-  }, [region, regionFocusMeshes, scene]);
+  }, [region, regionFocusMeshes, clampToFade, scene]);
 
   // Respond to predefined-view requests.
   useEffect(() => {
@@ -408,6 +464,11 @@ function SceneContents({
         resolution={resolution}
       />
 
+      {/* Projects the atlas-plate anchors with the live camera and writes the
+          layout onto the DOM the <AtlasPlate> sibling rendered. Draws nothing
+          itself. */}
+      <AtlasProjector targets={labelTargets ?? EMPTY_TARGETS} />
+
       {/* Origin/insertion pins (sphere + halo + label) for the selected muscle. */}
       <AttachmentMarkers resolution={resolution} />
 
@@ -482,6 +543,23 @@ export function Viewer3D({
   const [ready, setReady] = useState(false);
   const compact = useIsCompact();
 
+  // ATLAS PLATE. The names are DOM, so they are rendered out here, beside the
+  // canvas rather than inside it (see the two-reconciler note in AtlasLabels).
+  // That puts the target list here too, and both halves get the same array.
+  const region = useAnatomyStore((s) => s.region);
+  const showAtlasLabels = useAnatomyStore((s) => s.showAtlasLabels);
+  const [visibleMeshes, setVisibleMeshes] = useState<THREE.Mesh[]>([]);
+  const labelTargets = useMemo<LabelTarget[]>(() => {
+    if (!showAtlasLabels || isConceptModule(region)) return EMPTY_TARGETS;
+    return pickLabelTargets({
+      region,
+      muscles: musclesForRegion(region),
+      meshNamesByMuscleId: resolution.meshNamesByMuscleId,
+      byMesh,
+      visibleMeshes,
+    });
+  }, [showAtlasLabels, region, resolution, byMesh, visibleMeshes]);
+
   useEffect(() => {
     if (progress >= 100) {
       const t = setTimeout(() => setReady(true), 250);
@@ -526,6 +604,8 @@ export function Viewer3D({
             regionFocusMeshes={regionFocusMeshes}
             resolution={resolution}
             movement={movement}
+            labelTargets={labelTargets}
+            onVisibleMeshes={setVisibleMeshes}
           />
         </Suspense>
       </Canvas>
@@ -534,7 +614,13 @@ export function Viewer3D({
           (module plate + hover label). Both pointer-events-none, so picking,
           camera drag and the floating toolbar keep working underneath. */}
       <div className="pointer-events-none absolute inset-0 rig-vignette" />
-      {ready && <ViewerHud byMesh={byMesh} />}
+
+      {/* Atlas-label layer. Above the vignette so the names stay legible in the
+          darkened corners, and pointer-events-none as a layer -- only the label
+          buttons themselves opt back in -- so dragging the model still works
+          everywhere in between. */}
+      {ready && <AtlasPlate targets={labelTargets} />}
+      {ready && <ViewerHud byMesh={byMesh} resolution={resolution} />}
 
       {!ready && <CanvasLoader progress={progress} />}
     </div>

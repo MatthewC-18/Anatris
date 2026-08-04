@@ -278,6 +278,121 @@
     border: 1px solid rgba(148, 163, 184, 0.18);
     border-radius: 0.3rem;
   }
+
+  /* ------------------------------------------------------------------------
+   * ATLAS PLATE LABELS (AtlasLabels.tsx)
+   *
+   * The names that fill the empty margins of the Explorar canvas. Deliberately
+   * NOT chips: a printed plate sets its names as plain type on the background
+   * with a hairline leader, and a row of glass pills in the margin would read as
+   * a second toolbar competing with the model. Type + hairline only, and the
+   * whole thing brightens on hover so it still feels live.
+   * --------------------------------------------------------------------- */
+  .atlas-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    pointer-events: auto;
+    white-space: nowrap;
+    /* Wide enough for the longest clinical name the plate offers once its
+       parenthetical is trimmed (see plateName) -- "Extensor largo del dedo
+       gordo", 29 characters. At 15ch the margin was showing "Braquiorrad…" and
+       "Grupo flexo…", and half a name teaches nothing. */
+    max-width: 30ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* Symmetric padding keeps the same gap to the leader tip on either margin,
+       so the frame loop only has to write a transform (the side a label sits on
+       changes as the camera orbits). */
+    padding: 0 10px;
+    font-size: 0.6875rem;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: rgba(203, 213, 225, 0.82);
+    text-shadow: 0 1px 6px rgba(3, 7, 18, 0.9);
+    transition:
+      color 140ms ease,
+      opacity 180ms ease;
+  }
+  .atlas-label:hover {
+    color: rgb(241 245 249);
+  }
+  /* Bone names sit a rank below the muscles: smaller, letter-spaced, quieter --
+     in the spine plates these are the vertebral levels, which should read as a
+     ruler beside the column rather than as content. */
+  .atlas-label-bone {
+    font-size: 0.625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(148, 163, 184, 0.62);
+  }
+  .atlas-label-active {
+    color: rgb(251 191 36);
+    font-weight: 600;
+  }
+
+  /* ------------------------------------------------------------------------
+   * THE LEADER
+   *
+   * Three things make it read as an instrument rather than a line drawn between
+   * two points:
+   *
+   *  1. It FADES OUT toward the structure. The stroke is a gradient that is at
+   *     full weight where it leaves the name and gone by the time it arrives, so
+   *     the hairline dissolves into the model instead of hitting it. (The
+   *     gradient is nested inside each <g>, which is what lets `currentColor`
+   *     inherit from here -- a gradient parked in a shared <defs> would resolve
+   *     currentColor against the <defs>, not against the leader.)
+   *  2. It LEAVES THE NAME LEVEL and only then bends. A short horizontal run
+   *     followed by a curve that starts off tangent to it, so there is no corner
+   *     anywhere on the path.
+   *  3. It LANDS ON A PIN, not a dot: a ring with a bright core, which reads as
+   *     "this exact point" the way a caliper mark does.
+   *
+   * Everything is driven by the group's `color`, so the hover and selected
+   * states are one property change on one element.
+   * --------------------------------------------------------------------- */
+  .atlas-leader {
+    color: rgb(148 163 184);
+    transition: color 160ms ease;
+  }
+  .atlas-leader path {
+    fill: none;
+    stroke-width: 1;
+    stroke-linecap: round;
+  }
+  .atlas-leader-ring {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1;
+    opacity: 0.45;
+    transition:
+      opacity 160ms ease,
+      r 160ms ease;
+  }
+  .atlas-leader-core {
+    fill: currentColor;
+    opacity: 0.85;
+  }
+
+  /* Hovering the name lights its whole leader in the app's accent. Toggled
+     imperatively from the label's pointer handlers -- a store subscription would
+     re-render the plate on every pointer sweep across the model. */
+  .atlas-leader.is-hot {
+    color: rgb(34 211 238);
+  }
+  .atlas-leader.is-hot .atlas-leader-ring {
+    opacity: 0.95;
+    /* Needs the unit: Chrome coerces a bare 5.5, the spec does not. */
+    r: 5.5px;
+  }
+  /* Selected muscle: amber, the same glow the 3D highlight uses. */
+  .atlas-leader.is-active {
+    color: rgb(251 191 36);
+  }
+  .atlas-leader.is-active .atlas-leader-ring {
+    opacity: 0.9;
+  }
 }
 
 /* Loading bar shimmer used by the canvas loader. */

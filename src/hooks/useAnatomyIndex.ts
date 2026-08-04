@@ -10,6 +10,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { AnatomyEntry, AnatomyIndex } from '../types/anatomy';
+import { registerAtlasNames } from '../lib/formatName';
 
 type Status = 'loading' | 'ready' | 'error';
 
@@ -59,6 +60,9 @@ export function useAnatomyIndex(): UseAnatomyIndexResult {
         if (!map.has(entry.meshName)) map.set(entry.meshName, entry);
       }
     }
+    // Display names need the whole set to tell a side marker ("...meniscusl")
+    // from a word that just ends in l or r ("Femur"). See stripFlattenedSide.
+    registerAtlasNames(map.keys());
     return map;
   }, [index]);
 

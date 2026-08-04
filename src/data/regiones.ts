@@ -40,6 +40,27 @@ export interface RegionDef {
    * already frames well (shoulder girdle, spine sub-regions).
    */
   focus?: string[];
+  /**
+   * REGION FALLOFF (optional). The vertical slab of body this region occupies,
+   * in world metres (the model stands 0 -> 1.78 with Y up), plus how far the
+   * dissolve extends past each edge.
+   *
+   * The atlas models a long bone or a biarticular muscle as ONE mesh, so
+   * keyword filtering cannot make "cadera" stop at the hip: the femur mesh runs
+   * to the knee and the rectus femoris to the patella, and the region rendered
+   * as a whole thigh with a stump at the bottom. AnatomyModel fades every
+   * fragment out across `soft` metres beyond [min, max], so the limb dissolves
+   * into the background instead of ending in a cut. Purely cosmetic — nothing
+   * is removed from the region, so selection, the muscle list and the ROM
+   * panel are unaffected.
+   *
+   * Bounds are authored against the real landmark heights measured with
+   * `scripts/measure-landmarks.mts` (acetabulum 0.87, patella 0.44, ankle 0.09,
+   * glenohumeral 1.36, elbow 1.10, wrist 0.86, C1 1.54, C7 1.45, T12 1.14,
+   * L5 0.98, sacrum 0.87). Omit for regions that already end where the body
+   * does.
+   */
+  fade?: { min?: number; max?: number; soft: number };
 }
 
 /* ---------------------------------------------------------------------------
@@ -57,6 +78,11 @@ export interface RegionDef {
 const shoulder: RegionDef = {
   id: 'shoulder',
   name: 'Hombro',
+  // Glenohumeral joint sits at 1.36; the humerus mesh runs down to the elbow at
+  // 1.09 and the biceps/triceps with it. Fade out below the deltoid insertion so
+  // the plate reads "shoulder girdle", not "whole arm". No top bound: the
+  // descending trapezius legitimately reaches the occiput.
+  fade: { min: 1.18, soft: 0.11 },
   include: [
     // --- bones / bony landmarks ---
     'scapula',
@@ -178,6 +204,10 @@ const elbow: RegionDef = {
   // No hero `focus`: the arm (humerus + radius/ulna) is short enough that the
   // full region frames as a balanced, premium view once the distal wrist/finger
   // tendons are hidden. Only the much longer leg (knee) needs joint-focus.
+  // Humero-ulnar joint at 1.10, wrist at 0.86, humeral head at 1.40. Fade above
+  // mid-humerus (the long heads' scapular origins dissolve) and just above the
+  // wrist, keeping the pronator quadratus (0.86-0.90) inside the solid band.
+  fade: { min: 0.89, max: 1.31, soft: 0.08 },
   include: [
     // --- bones / bony landmarks (full shafts as context) ---
     'humer', // humerus + distal landmarks (trochlea/capitulum/epicondyles)
@@ -324,79 +354,95 @@ const elbow: RegionDef = {
  * shoulder/elbow in the store; the TopBar surfaces "Columna" with a second
  * level that sets region to one of these three.
  *
- * Vertebrae are named per level ("Vertebra C3", "Atlas (C1)", "Vertebra T5",
- * "Vertebra L2") and discs per pair ("Intervertebral disc C5-C6"), so each
- * sub-region keeps only its own levels. Ribs do NOT come along (their names
- * don't contain "vertebra t"), which is intended: this is a spine module, not
- * a thorax module. include/exclude verified against the real mesh dump.
+ * Vertebrae are named per level ("Vertebra_C3_1", "Atlas_(C1)_1",
+ * "Vertebra_T5_1", "Vertebra_L2_1") and discs per pair
+ * ("Intervertebral_disc_C5-C6"), so each sub-region keeps only its own levels.
+ * Ribs do NOT come along (their names don't contain "vertebra_t"), which is
+ * intended: this is a spine module, not a thorax module.
+ *
+ * NOTE ON UNDERSCORES. Three.js sanitizes GLB node names by turning spaces into
+ * underscores, so every keyword here has to be written with underscores. These
+ * three regions were authored with spaces ("vertebra c", "multifidus colli")
+ * and therefore matched NOTHING: cervical rendered 10 meshes (the two
+ * sternocleidomastoids and the scalenes, floating with no spine behind them),
+ * thoracic 2 and lumbar 18. Keep every fragment underscore-separated, and check
+ * a change with `npx tsx scripts/audit-region-filter.mts <region>`.
  * ------------------------------------------------------------------------- */
 const cervical: RegionDef = {
   id: 'cervical',
   name: 'Cervical',
+  // C1 sits at 1.54, C7 at 1.45, the sternoclavicular attachment of the
+  // sternocleidomastoid at 1.39. Fade below the clavicle so the neck doesn't
+  // trail the whole thorax, and above the skull base where the capitis muscles
+  // insert.
+  fade: { min: 1.34, max: 1.66, soft: 0.08 },
   include: [
     // --- bones / discs of the cervical levels ---
-    'vertebra c', // Vertebra C3..C7
-    'atlas (c1)',
-    'axis (c2)',
-    'cervical vertebra',
-    'intervertebral disc c', // C2-C3 .. C7-T1
-    'ligamentum nuchae',
-    'nuchae',
+    'vertebra_c', // Vertebra_C3..C7
+    'atlas_(c1)',
+    'axis_(c2)',
+    'dens_axis',
+    'intervertebral_disc_c', // C2-C3 .. C7-T1
     // --- suboccipitals ---
     'suboccipital',
-    'rectus posterior major capitis',
-    'rectus posterior minor capitis',
-    'obliquus superior capitis',
-    'obliquus inferior capitis',
-    'rectus anterior capitis',
-    'rectus lateralis capitis',
+    'rectus_posterior_major_capitis',
+    'rectus_posterior_minor_capitis',
+    'obliquus_superior_capitis',
+    'obliquus_inferior_capitis',
+    'rectus_anterior_capitis',
+    'rectus_lateralis_capitis',
     // --- craniocervical / superficial neck ---
-    'splenius capitis',
-    'splenius colli',
+    'splenius_capitis',
+    'splenius_colli',
     'sternocleidomastoid',
-    'levator scapulae',
+    'levator_scapulae',
     // --- deep anterior neck ---
-    'longus capitis',
-    'longus colli',
+    'longus_capitis',
+    'longus_colli',
     'scalenus',
     // --- cervical portions of erector spinae / transversospinalis ---
-    'longissimus capitis',
-    'longissimus colli',
-    'iliocostalis colli',
-    'spinalis capitis',
-    'spinalis colli',
-    'semispinalis colli',
-    'multifidus colli',
-    'interspinales colli',
+    'longissimus_capitis',
+    'longissimus_colli',
+    'iliocostalis_colli',
+    'spinalis_capitis',
+    'spinalis_colli',
+    'semispinalis_capitis',
+    'semispinalis_colli',
+    'multifidus_colli',
+    'interspinales_colli',
   ],
   exclude: [
     'thoracic',
+    'thoracis',
     'lumbar',
+    'lumborum',
     'femoris',
     'sacr',
     'coccy',
-    'disc t', // T-level discs (incl. C7-T1 stays via 'intervertebral disc c')
-    'disc l',
-    'vertebra t',
-    'vertebra l',
+    'disc_t', // T-level discs (C7-T1 still rides in on 'intervertebral_disc_c')
+    'disc_l',
+    'vertebra_t',
+    'vertebra_l',
   ],
 };
 
 const thoracic: RegionDef = {
   id: 'thoracic',
   name: 'Torácica',
+  // T1 at 1.44, T12 at 1.14. Fade just outside both ends so the chain reads as
+  // a segment of column rather than trailing off into neck and pelvis.
+  fade: { min: 1.09, max: 1.49, soft: 0.08 },
   include: [
     // --- bones / discs of the thoracic levels ---
-    'vertebra t', // Vertebra T1..T12
-    'thoracic vertebra',
-    'intervertebral disc t', // T1-T2 .. T12-L1
+    'vertebra_t', // Vertebra_T1..T12
+    'intervertebral_disc_t', // T1-T2 .. T12-L1
     // --- thoracic erector spinae / transversospinalis + rotatores ---
-    'iliocostalis thoracis',
-    'longissimus thoracis',
-    'spinalis thoracis',
-    'semispinalis thoracis',
-    'multifidus thoracis',
-    'interspinales thoracis',
+    'iliocostalis_thoracis',
+    'longissimus_thoracis',
+    'spinalis_thoracis',
+    'semispinalis_thoracis',
+    'multifidus_thoracis',
+    'interspinales_thoracis',
     'rotatores',
   ],
   exclude: [
@@ -408,10 +454,10 @@ const thoracic: RegionDef = {
     'femoris',
     'sacr',
     'coccy',
-    'disc c',
-    'disc l',
-    'vertebra c',
-    'vertebra l',
+    'disc_c',
+    'disc_l',
+    'vertebra_c',
+    'vertebra_l',
     // keep the thoracic spine clean of the rib cage / shoulder girdle
     'rib',
     'costal',
@@ -424,26 +470,35 @@ const thoracic: RegionDef = {
 const lumbar: RegionDef = {
   id: 'lumbar',
   name: 'Lumbar',
+  // L1 at 1.13, L5 at 0.96, sacrum 0.87-0.98. The rectus abdominis reaches the
+  // costal margin at ~1.30 and the psoas dives to the lesser trochanter at
+  // ~0.80, so the band spans both and dissolves outside them.
+  fade: { min: 0.79, max: 1.34, soft: 0.08 },
   include: [
     // --- bones / discs of the lumbar levels + sacrum ---
-    'vertebra l', // Vertebra L1..L5
-    'lumbar vertebra',
-    'intervertebral disc l', // L1-L2 .. L5-S1
+    'vertebra_l', // Vertebra_L1..L5
+    'intervertebral_disc_l', // L1-L2 .. L5-S1
     'sacrum',
     'sacro-iliac',
     // --- lumbar erector spinae / transversospinalis ---
-    'iliocostalis lumborum',
-    'multifidus lumborum',
-    'interspinales lumborum',
+    'iliocostalis_lumborum',
+    'longissimus_lumborum',
+    'multifidus_lumborum',
+    'interspinales_lumborum',
     'intertransversarii',
+    // NOTE: no 'erector_spinae'. The atlas ships no erector-spinae belly, only
+    // two unparsed origin patches ("Erector_spinaeol/or") that render as loose
+    // blobs on the sacrum. The group is present through its named columns
+    // (iliocostalis / longissimus / spinalis) instead.
     // --- deep / anterolateral trunk ---
-    'quadratus lumborum',
-    'psoas major',
+    'quadratus_lumborum',
+    'psoas_major',
+    'psoas_minor',
     'iliacus',
-    'rectus abdominis',
-    'external abdominal oblique',
-    'internal abdominal oblique',
-    'transversus abdominis',
+    'rectus_abdominis',
+    'external_abdominal_oblique',
+    'internal_abdominal_oblique',
+    'transversus_abdominis',
   ],
   exclude: [
     'cervical',
@@ -453,19 +508,19 @@ const lumbar: RegionDef = {
     'capitis',
     'femoris',
     'femur',
-    'disc c',
-    'disc t',
-    'vertebra c',
-    'vertebra t',
-    'vertebrae', // group nodes "Lumbar vertebrae.g" etc. (keep individual ones)
+    'disc_c',
+    'disc_t',
+    'vertebra_c',
+    'vertebra_t',
+    'vertebrae', // group nodes "Lumbar_vertebraeg" etc. (keep individual ones)
     // iliac bone / vessels that share "iliac" with the iliacus muscle
-    'iliac crest',
-    'iliac fossa',
-    'iliac spine',
+    'iliac_crest',
+    'iliac_fossa',
+    'iliac_spine',
     'iliolumbar',
-    'iliac branch',
-    'iliac artery',
-    'iliac vein',
+    'iliac_branch',
+    'iliac_artery',
+    'iliac_vein',
   ],
 };
 
@@ -501,6 +556,12 @@ const knee: RegionDef = {
   // Frame on the knee joint (patella + menisci + cruciates/collaterals +
   // tibiofemoral/tibiofibular joint), so the camera opens on the knee close-up
   // instead of the whole leg (femur+tibia+fibula span hip-to-ankle).
+  // Patella at 0.44, hip joint at 0.87, ankle at 0.09. The femur and the
+  // tibia/fibula are each ONE mesh spanning their whole limb segment, and the
+  // quadriceps/hamstrings/triceps surae run the length of them, so without a
+  // falloff "rodilla" rendered as the entire leg from mid-femur to the toes.
+  // Keep ~22 cm of thigh and ~18 cm of shin around the joint line.
+  fade: { min: 0.26, max: 0.66, soft: 0.1 },
   focus: [
     'knee_joint',
     'patella',
@@ -636,6 +697,11 @@ const hip: RegionDef = {
   name: 'Cadera',
   // Frame on the coxofemoral joint core (acetabulum + femoral head/neck + labrum
   // + capsule/iliofemoral ligament), not the whole hip-to-knee femur.
+  // Acetabulum at 0.87, iliac crest at 1.01, ischium at 0.80, knee at 0.44. The
+  // femur mesh reaches the knee and the rectus femoris / adductors / sartorius
+  // go with it, which is why "cadera" used to render as a whole thigh. Keep the
+  // pelvic ring plus the proximal third of the thigh and dissolve the rest.
+  fade: { min: 0.7, max: 1.05, soft: 0.11 },
   focus: [
     'hip_joint',
     'acetabul',
@@ -758,6 +824,10 @@ const hip: RegionDef = {
 const ankle: RegionDef = {
   id: 'ankle',
   name: 'Tobillo y pie',
+  // Talocrural mortise at 0.09, calcaneus at 0.01-0.06, knee at 0.44. The
+  // triceps surae and the long flexors/extensors originate up at the knee, so
+  // fade above the mid-shin. No lower bound: the foot is where the body ends.
+  fade: { max: 0.3, soft: 0.1 },
   // Frame on the talocrural mortise (talus + malleoli + collateral ligaments).
   focus: [
     'talus',
@@ -892,7 +962,7 @@ export function resolveRegionFocus(
   region: RegionDef,
   allNames: Iterable<string>,
 ): Set<string> | null {
-  if (!region.focus || region.focus.length === 0) return null;
+  if (!region?.focus || region.focus.length === 0) return null;
   const foc = region.focus.map((s) => s.toLowerCase());
   const exc = (region.exclude ?? []).map((s) => s.toLowerCase());
   const result = new Set<string>();
@@ -902,4 +972,41 @@ export function resolveRegionFocus(
     if (foc.some((frag) => lower.includes(frag))) result.add(name);
   }
   return result.size > 0 ? result : null;
+}
+
+/**
+ * How far an OPEN end of a falloff slab is pushed, in metres. The body is 1.78 m
+ * tall, so ±10 km is "never reached" while staying an ordinary finite float.
+ *
+ * It has to be finite. The slab is fed to a GLSL `smoothstep`, and
+ * `smoothstep(inf, inf + soft, y)` evaluates `(y - inf) / (inf - inf)` = NaN,
+ * which propagates into the fragment alpha: with `Infinity` here the shoulder
+ * (open at the top) and the ankle (open at the bottom) rendered as flat black
+ * silhouettes.
+ */
+const FADE_OPEN_END = 1e4;
+
+/** A resolved falloff slab, in world metres. See RegionDef.fade. */
+export interface RegionFade {
+  /** Below this the region dissolves. -FADE_OPEN_END when it has no floor. */
+  min: number;
+  /** Above this the region dissolves. +FADE_OPEN_END when it has no ceiling. */
+  max: number;
+  /** How many metres the dissolve takes past each edge. */
+  soft: number;
+}
+
+/**
+ * Resolve a region's falloff slab, with the open ends filled in so the renderer
+ * can use one formula for every region. Returns null when the region defines no
+ * falloff (nothing fades; the previous behaviour).
+ */
+export function resolveRegionFade(region: RegionDef | undefined): RegionFade | null {
+  if (!region?.fade) return null;
+  const { min, max, soft } = region.fade;
+  return {
+    min: min ?? -FADE_OPEN_END,
+    max: max ?? FADE_OPEN_END,
+    soft: soft > 0 ? soft : 0.001,
+  };
 }

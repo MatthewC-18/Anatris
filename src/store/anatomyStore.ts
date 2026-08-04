@@ -112,6 +112,14 @@ interface AnatomyState {
   setShowOriginInsertion: (on: boolean) => void;
   toggleOriginInsertion: () => void;
 
+  /* ----- accessory connective tissue (bursae / fasciae / tendon sheaths) ----- */
+  showAccessoryTissue: boolean;
+  toggleAccessoryTissue: () => void;
+
+  /* ----- atlas-plate labels in the viewer margins ----- */
+  showAtlasLabels: boolean;
+  toggleAtlasLabels: () => void;
+
   /* ----- region restriction (null = whole body) ----- */
   region: string | null;
   setRegion: (region: string | null) => void;
@@ -204,6 +212,17 @@ export const useAnatomyStore = create<AnatomyState>((set) => ({
   setShowOriginInsertion: (on) => set({ showOriginInsertion: on }),
   toggleOriginInsertion: () =>
     set((s) => ({ showOriginInsertion: !s.showOriginInsertion })),
+
+  /* ----- accessory connective tissue (off by default; see
+   *       materialIsAccessoryTissue for why) ----- */
+  showAccessoryTissue: false,
+  toggleAccessoryTissue: () =>
+    set((s) => ({ showAccessoryTissue: !s.showAccessoryTissue })),
+
+  /* ----- atlas labels (on by default: they are what fills the empty margins
+   *       of a region plate, and they name what you are looking at) ----- */
+  showAtlasLabels: true,
+  toggleAtlasLabels: () => set((s) => ({ showAtlasLabels: !s.showAtlasLabels })),
 
   /* ----- region ----- */
   region: null,

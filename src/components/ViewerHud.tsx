@@ -19,12 +19,15 @@ import { formatCanonicalName } from '../lib/formatName';
 import { trackForRegion } from '../data/trackByRegion';
 import { isConceptModule } from '../data/conceptByRegion';
 import type { AnatomyEntry } from '../types/anatomy';
+import type { MuscleResolution } from '../lib/muscleResolver';
 
 interface ViewerHudProps {
   byMesh: Map<string, AnatomyEntry>;
+  /** Lets the hover chip name a muscle the way the rest of the app names it. */
+  resolution: MuscleResolution;
 }
 
-export function ViewerHud({ byMesh }: ViewerHudProps) {
+export function ViewerHud({ byMesh, resolution }: ViewerHudProps) {
   const hoveredMeshName = useAnatomyStore((s) => s.hoveredMeshName);
   const region = useAnatomyStore((s) => s.region);
 
@@ -35,6 +38,14 @@ export function ViewerHud({ byMesh }: ViewerHudProps) {
 
   const entry = hoveredMeshName ? byMesh.get(hoveredMeshName) : undefined;
   const track = trackForRegion(region);
+  // Prefer the clinical record's Spanish name. Falling back to the raw
+  // Z-Anatomy name and word-substituting it produced spanglish on screen —
+  // "Short cabeza de biceps brachii" — because only some of the words have
+  // entries in the term table. Whenever the mesh belongs to a muscle we already
+  // teach, that muscle's own name is the right answer.
+  const muscle = hoveredMeshName
+    ? resolution.muscleByMeshName.get(hoveredMeshName)
+    : undefined;
 
   return (
     <>
@@ -60,21 +71,33 @@ export function ViewerHud({ byMesh }: ViewerHudProps) {
 
       {/* Top-center hover label — names the structure under the cursor. */}
       <div className="pointer-events-none absolute inset-x-0 top-4 z-20 flex justify-center">
-        {entry && <HoverChip entry={entry} />}
+        {entry && <HoverChip entry={entry} muscleName={muscle?.name} />}
       </div>
     </>
   );
 }
 
-function HoverChip({ entry }: { entry: AnatomyEntry }) {
+function HoverChip({
+  entry,
+  muscleName,
+}: {
+  entry: AnatomyEntry;
+  muscleName?: string;
+}) {
   const layer = LAYER_META[entry.layer];
   const sideLabel = SIDE_META[entry.side].label;
+  const side = SIDE_META[entry.side].label.toLowerCase();
+  const title = muscleName
+    ? entry.side === 'center'
+      ? muscleName
+      : `${muscleName}, ${side}`
+    : formatCanonicalName(entry.canonicalName, entry.side);
 
   return (
     <div className="glass-strong flex max-w-[70%] items-center gap-2.5 rounded-full px-4 py-2 shadow-accent-glow animate-scale-in">
       <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${layer.dot}`} />
       <span className="truncate font-display text-sm font-medium text-slate-100">
-        {formatCanonicalName(entry.canonicalName, entry.side)}
+        {title}
       </span>
       <span className="hidden shrink-0 rounded-full bg-slate-700/50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400 sm:inline">
         {entry.side !== 'center' ? `${layer.label} · ${sideLabel}` : layer.label}

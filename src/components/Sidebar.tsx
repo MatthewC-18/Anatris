@@ -264,33 +264,63 @@ function SideControls() {
   );
 }
 
-// Extra display options: currently the origin/insertion marker toggle. These
-// markers (small .o/.e meshes) are hidden by default to keep the dissection
-// view clean, and revealed here when teaching a muscle's attachments.
+// Extra display options: the two "reveal the clutter" switches. Both hide
+// structures that are anatomically real but bury the region when shown by
+// default -- the small .o/.e attachment markers, and the accessory connective
+// tissue (bursae, fascial sheets, tendon sheaths). Each is opt-in for the moment
+// you actually teach it: a muscle's attachments, or a trochanteric bursitis.
 function DisplayControls() {
   const showOriginInsertion = useAnatomyStore((s) => s.showOriginInsertion);
   const toggleOriginInsertion = useAnatomyStore((s) => s.toggleOriginInsertion);
+  const showAccessoryTissue = useAnatomyStore((s) => s.showAccessoryTissue);
+  const toggleAccessoryTissue = useAnatomyStore((s) => s.toggleAccessoryTissue);
+  const showAtlasLabels = useAnatomyStore((s) => s.showAtlasLabels);
+  const toggleAtlasLabels = useAnatomyStore((s) => s.toggleAtlasLabels);
 
   return (
     <div>
       <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
         Visualización
       </p>
-      <label className="group flex min-h-[2rem] w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-slate-800/40">
-        <input
-          type="checkbox"
-          checked={showOriginInsertion}
-          onChange={toggleOriginInsertion}
-          className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-600 bg-transparent accent-accent"
-        />
-        <span
-          className={`flex-1 text-sm ${
-            showOriginInsertion ? 'text-slate-200' : 'text-slate-500'
-          }`}
-        >
-          Orígenes e inserciones
-        </span>
-      </label>
+      <DisplayToggle
+        checked={showAtlasLabels}
+        onChange={toggleAtlasLabels}
+        label="Nombres en el margen"
+      />
+      <DisplayToggle
+        checked={showOriginInsertion}
+        onChange={toggleOriginInsertion}
+        label="Orígenes e inserciones"
+      />
+      <DisplayToggle
+        checked={showAccessoryTissue}
+        onChange={toggleAccessoryTissue}
+        label="Bolsas y fascias"
+      />
     </div>
+  );
+}
+
+function DisplayToggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <label className="group flex min-h-[2rem] w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-slate-800/40">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-600 bg-transparent accent-accent"
+      />
+      <span className={`flex-1 text-sm ${checked ? 'text-slate-200' : 'text-slate-500'}`}>
+        {label}
+      </span>
+    </label>
   );
 }
