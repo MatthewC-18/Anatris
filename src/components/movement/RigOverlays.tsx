@@ -32,7 +32,7 @@ import * as THREE from 'three';
 
 import { rigChannel, type RigCommand } from './RigModel';
 import { buildMuscleResolution, type MuscleResolution } from '../../lib/muscleResolver';
-import { parseMeshName } from '../../lib/parseMeshName';
+import { parseMeshName, type ParsedSide } from '../../lib/parseMeshName';
 import { MUSCLES_BY_REGION } from '../../data/musclesByRegion';
 import { movementById } from '../../data/romByRegion';
 import { getBoneControl, resolveArmatureName, type Side } from '../../lib/boneMap';
@@ -520,17 +520,35 @@ export function RigOverlays(): JSX.Element {
       const meshByName = meshByNameRef.current;
       const wantSide = parsedSide(cmd.side);
 
-      // Resolve a muscle id to its meshes on the active side (+ the non-lateralized
-      // 'center' bellies -- many muscle heads carry no .l/.r suffix; excluding them
-      // left the glow on tiny slivers). Mirrors partsForSide() in muscleResolver.
+      // Resolve a muscle id to its meshes ON THE ACTIVE SIDE.
+      //
+      // WHERE THE MESH IS decides, not what it is called. Two independent naming
+      // faults make the name useless here, both measured on the shipped rig:
+      // every mesh of the pronators and of the flexor-pronator mass carries no
+      // l/r marker at all, and several that DO carry one carry the wrong one
+      // (the extensor carpi radialis patches named "...er"/"...or" sit on the
+      // LEFT arm, 53 cm from the right one -- Z-Anatomy's suffixes are mirrored
+      // in this export, as the lats helper code notes too). Trusting the name lit
+      // the opposite elbow during a test, which is what reads on screen as a
+      // muscle floating loose beside the arm being examined.
+      //
+      // The name is still the fallback for genuinely midline geometry, where the
+      // x sign carries no information.
+      const LATERAL_M = 0.04;
+      const sideOfMesh = (name: string, mesh: THREE.Mesh): ParsedSide => {
+        if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+        const c = mesh.geometry.boundingSphere!.center.clone().applyMatrix4(mesh.matrixWorld);
+        if (Math.abs(c.x) >= LATERAL_M) return c.x > 0 ? 'right' : 'left';
+        return parseMeshName(name).side;
+      };
       const forMuscleMeshes = (muscleId: string, cb: (mesh: THREE.Mesh) => void): void => {
         const names = resolution?.meshNamesByMuscleId.get(muscleId);
         if (!names) return;
         for (const name of names) {
-          const pside = parseMeshName(name).side;
-          if (pside !== wantSide && pside !== 'center') continue;
           const mesh = meshByName.get(name);
           if (!mesh || !mesh.visible) continue;
+          const side = sideOfMesh(name, mesh);
+          if (side !== wantSide && side !== 'center') continue;
           cb(mesh);
         }
       };

@@ -43,6 +43,12 @@ const tests: OrthopedicTest[] = [
     demo: {
       movementId: 'elbow-extension',
       angleDeg: 10,
+      // The demo drives the ELBOW, but what the test loads is the extensor
+      // origin, so that is what the model lights up. Without this the elbow
+      // tests posed the arm and glowed nothing, and the only muscles on screen
+      // were whatever the free movement had left active -- the pronator group,
+      // i.e. the medial mass, in a test about the LATERAL epicondyle.
+      highlightMuscleId: 'common-extensor-origin',
       note: 'Con el codo en extensión y antebrazo pronado se resiste la extensión de la muñeca (componente de muñeca no reproducido).',
     },
     cite: [{ ref: 'saroja-2014', verified: true, locator: 'Cozen 79/80' }],
@@ -69,7 +75,8 @@ const tests: OrthopedicTest[] = [
     demo: {
       movementId: 'elbow-pronation',
       angleDeg: 80,
-      note: 'Con antebrazo pronado y muñeca flexionada se extiende pasivamente el codo; el modelo muestra la pronación.',
+      highlightMuscleId: 'common-extensor-origin',
+      note: 'Con antebrazo pronado y muñeca flexionada se extiende pasivamente el codo; el modelo muestra la pronación y resalta el origen extensor, que es lo que se estira.',
     },
     cite: [{ ref: 'saroja-2014', verified: true, locator: 'Mill 53/100' }],
   },
@@ -93,6 +100,7 @@ const tests: OrthopedicTest[] = [
     demo: {
       movementId: 'elbow-extension',
       angleDeg: 10,
+      highlightMuscleId: 'common-extensor-origin',
       note: 'Con el codo en extensión se resiste la extensión del tercer dedo (componente digital no reproducido).',
     },
     cite: [{ ref: 'zwerus-2018', verified: false }],
@@ -119,7 +127,8 @@ const tests: OrthopedicTest[] = [
     demo: {
       movementId: 'elbow-pronation',
       angleDeg: 80,
-      note: 'Con el codo extendido se resiste la flexión de muñeca y la pronación; el modelo muestra la pronación.',
+      highlightMuscleId: 'common-flexor-pronator-origin',
+      note: 'Con el codo extendido se resiste la flexión de muñeca y la pronación; el modelo muestra la pronación y resalta el origen flexor-pronador de la epitróclea.',
     },
     cite: [{ ref: 'zwerus-2018', verified: false }],
   },

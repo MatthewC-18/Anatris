@@ -11,7 +11,7 @@
 // against each muscle's meshBases. This sidesteps the duplicate-name problem:
 // we never rely on a mesh name being unique, we group by parsed base + side.
 
-import { parseMeshName, type MusclePart, type ParsedSide } from './parseMeshName';
+import { parseMeshName, structureKey, type MusclePart, type ParsedSide } from './parseMeshName';
 import type { Muscle } from '../types/muscle';
 
 /** One resolved mesh: its runtime name plus what we decoded about it. */
@@ -56,7 +56,16 @@ export function buildMuscleResolution(
 
   for (const meshName of meshNames) {
     const parsed = parseMeshName(meshName);
-    const muscle = muscleByBase.get(parsed.base.toLowerCase());
+    // The parsed base still carries Blender's duplicate suffix, and Z-Anatomy
+    // uses that suffix where it forgot the l/r marker: the right arm's pronator
+    // quadratus ships as "Pronator_quadratus001" against the left's bare name.
+    // Matching on the base alone therefore resolved only ONE SIDE of such a
+    // muscle -- so a right-side test glowed the LEFT wrist, 50 cm from the arm
+    // being examined, and the right one never lit at all. structureKey strips
+    // the suffix; the plain base is still tried first so nothing else moves.
+    const muscle =
+      muscleByBase.get(parsed.base.toLowerCase()) ??
+      muscleByBase.get(structureKey(meshName).toLowerCase());
     if (!muscle) continue;
 
     muscleByMeshName.set(meshName, muscle);

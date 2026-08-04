@@ -2333,12 +2333,17 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         }
       }
       // Parsed base + side for the click-to-dissect peel (dissectable tissue only).
+      // The side comes from WHERE THE MESH IS, not from its name: this rig's l/r
+      // suffixes are missing on most forearm meshes and mirrored on several others
+      // (the extensor carpi radialis patches named "...er" sit on the LEFT arm).
+      // Taking the name at face value made a peel act on the opposite limb.
       let base: string | undefined;
       let side: ParsedSide | undefined;
       if (lyr === 'muscle' || lyr === 'connective') {
         const parsed = parseMeshName(mesh.name);
         base = parsed.base;
-        side = parsed.side;
+        const c = meshWorldCenter(mesh);
+        side = Math.abs(c.x) >= 0.04 ? (c.x > 0 ? 'right' : 'left') : parsed.side;
       }
       list.push({ mesh, layer: lyr, distalCap, muscleLevel, base, side });
     });
