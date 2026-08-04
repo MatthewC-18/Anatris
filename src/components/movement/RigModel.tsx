@@ -38,7 +38,7 @@ import {
   type AnatomyLayer,
 } from '../../lib/materialColors';
 import { muscleDepthLevel, type MuscleDepthLevel } from '../../lib/muscleDepth';
-import { parseMeshName, type ParsedSide } from '../../lib/parseMeshName';
+import { parseMeshName, structureKey, type ParsedSide } from '../../lib/parseMeshName';
 import { buildMuscleResolution } from '../../lib/muscleResolver';
 import { MUSCLES_BY_REGION } from '../../data/musclesByRegion';
 import type { Muscle } from '../../types/muscle';
@@ -1756,6 +1756,17 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
             }
             idx.needsUpdate = true;
           }
+          // THE NORMAL BUFFER MUST GO FIRST, and this is why the repaired muscles
+          // rendered BLACK ("el braquiorradial sigue negro"). The optimized GLB
+          // stores normals meshopt-quantized, as an Int8Array with normalized=true.
+          // computeVertexNormals writes unit-length FLOATS through setXYZ, and
+          // into an Int8Array every one of them truncates to zero: measured on the
+          // shipped rig, 1076 of 1076 normals came out zero-length. A zero normal
+          // kills every lighting term, so the mesh is unlit black however the
+          // material is set up -- which is why making the materials double-sided
+          // did not help. Dropping the attribute makes three.js allocate a fresh
+          // Float32 one. Affects only the four meshes this repair rebuilds.
+          dst.deleteAttribute('normal');
           dst.computeVertexNormals();
           const si = dst.getAttribute('skinIndex');
           if (si) {
@@ -2209,6 +2220,80 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       hideOverlapDuplicates(dupCandidates);
       // Dedup losers become permanently hidden (never resurrected by a toggle).
       for (const c of dupCandidates) if (!c.mesh.visible) c.mesh.userData.rigLayer = 'hidden';
+
+      // ARM SYMMETRY. Z-Anatomy does not ship the two arms with the same pieces:
+      // at the wrist the LEFT pronator quadratus carries its origin and insertion
+      // patches and the right one does not, and the same goes for the pollicis
+      // group and the radial extensors -- six structures, all in the distal
+      // forearm, which is exactly where "el brazo izquierdo no es igual al
+      // derecho, llegando a la muñeca" points. Those patches use the salmon
+      // attachment tone, so on one arm the wrist shows a pale sheet that has no
+      // counterpart on the other.
+      //
+      // A structure's pieces are matched across sides by WHAT THEY ARE (tissue
+      // layer + belly/origin/insertion/tendon and its index), and a piece with no
+      // counterpart is hidden. Only structures present on BOTH sides are touched:
+      // a 5-versus-0 count is a naming quirk or something genuinely one-sided,
+      // and hiding all of it would delete real anatomy.
+      {
+        interface Piece { mesh: THREE.Mesh; layer: AnatomyLayer; c: THREE.Vector3; verts: number }
+        const bySide = new Map<string, { L: Piece[]; R: Piece[] }>();
+        for (const side of ['R', 'L'] as Side[]) {
+          const root = scene.getObjectByName(resolveArmatureName('Shoulder_Armature', side));
+          if (!root) continue;
+          scene.traverse((o) => {
+            const mesh = o as THREE.SkinnedMesh;
+            if (!mesh.isMesh || !mesh.isSkinnedMesh || !mesh.visible) return;
+            const layer = mesh.userData.rigLayer as AnatomyLayer | 'hidden' | undefined;
+            if (!layer || layer === 'hidden' || layer === 'skin') return;
+            if (!mesh.skeleton?.bones.some((b) => root.getObjectById(b.id))) return;
+            const key = structureKey(mesh.name);
+            if (!key) return;
+            const entry = bySide.get(key) ?? { L: [], R: [] };
+            entry[side].push({
+              mesh,
+              layer,
+              c: meshWorldCenter(mesh),
+              verts: mesh.geometry.getAttribute('position')?.count ?? 0,
+            });
+            bySide.set(key, entry);
+          });
+        }
+        // Pieces are matched GEOMETRICALLY -- mirror one side's centre and look
+        // for the nearest piece of the same tissue and a comparable resolution.
+        // Matching them by parsed NAME instead was tried and is unusable: the two
+        // sides are spelled differently ("..._2" against a bare name), so the
+        // parser reads one as a belly and the other as an insertion and the pass
+        // hides both copies of a healthy muscle.
+        const MATCH_DIST_M = 0.04;
+        let dropped = 0;
+        for (const { L, R } of bySide.values()) {
+          if (L.length === 0 || R.length === 0) continue;
+          for (const [mine, theirs] of [[L, R], [R, L]] as [Piece[], Piece[]][]) {
+            const taken = new Set<Piece>();
+            for (const p of mine) {
+              const mirrored = p.c.clone().setX(-p.c.x);
+              let best: Piece | null = null;
+              let bestD = Infinity;
+              for (const q of theirs) {
+                if (taken.has(q) || q.layer !== p.layer) continue;
+                const ratio = q.verts / Math.max(1, p.verts);
+                if (ratio < 0.8 || ratio > 1.25) continue;
+                const d = mirrored.distanceTo(q.c);
+                if (d < bestD) { bestD = d; best = q; }
+              }
+              if (best && bestD <= MATCH_DIST_M) { taken.add(best); continue; }
+              p.mesh.visible = false;
+              p.mesh.userData.rigLayer = 'hidden';
+              dropped++;
+            }
+          }
+        }
+        if (dropped > 0) {
+          // eslint-disable-next-line no-console
+          console.info(`[RigModel] hid ${dropped} arm pieces with no counterpart on the other side`);
+        }
+      }
       scene.userData.__rigPrepared = true;
     }
 

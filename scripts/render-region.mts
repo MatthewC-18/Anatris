@@ -14,6 +14,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
 import { colorForMaterialMesh, layerForMaterial, materialIsSkin } from '../src/lib/materialColors.ts';
+import { applyMirrorRepair } from './lib/mirrorRepair.mts';
 
 const OUT = process.env.OUT ?? 'region.png';
 const VIEW = (process.env.VIEW ?? 'front') as 'front' | 'side';
@@ -27,6 +28,8 @@ const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 const ld = new GLTFLoader(); ld.setMeshoptDecoder(MeshoptDecoder);
 const gl = await new Promise<any>((r, j) => ld.parse(ab, '', r, j));
 const scene = gl.scene as THREE.Group; scene.updateMatrixWorld(true);
+// Same rebuild the app does at load, so the render shows what the app shows.
+if (process.env.REPAIR !== 'off') applyMirrorRepair(scene);
 const matNameOf = (m: THREE.Mesh) => {
   const f = Array.isArray(m.material) ? m.material[0] : m.material;
   return (f as THREE.Material | undefined)?.name ?? '';

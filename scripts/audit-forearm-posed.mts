@@ -24,6 +24,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import * as THREE from 'three';
 import { getBoneControl, resolveArmatureName } from '../src/lib/boneMap.ts';
 import { layerForMaterial, materialIsSkin, colorForMaterial } from '../src/lib/materialColors.ts';
+import { structureKey } from '../src/lib/parseMeshName.ts';
 
 const SIDE = ((process.argv[2] as 'R' | 'L') ?? 'R');
 const GLB = 'C:/Users/Matthew/Documents/Fisio/public/cuerpo-rig.opt.glb';
@@ -99,6 +100,9 @@ for (const list of groups.values()) {
     for (let i = 0; i + 2 < arr.length; i += 3) { const t = arr[i + 1]; arr[i + 1] = arr[i + 2]; arr[i + 2] = t; }
     idx.needsUpdate = true;
   }
+  // Quantized Int8 normals: drop the buffer so three.js allocates Float32,
+  // otherwise computeVertexNormals truncates every normal to zero.
+  dst.deleteAttribute('normal');
   dst.computeVertexNormals();
   const si = dst.getAttribute('skinIndex');
   if (si) {
@@ -691,6 +695,16 @@ console.log(`meshes in forearm+hand: ${rows.length}   shown non-skin: ${shown.le
   console.log(`forearm MUSCLE shown: ${meshes} meshes, ${Math.round(tris)} triangles`);
 }
 {
+  // Everything the lab drops in this forearm, by the structure it belongs to, so
+  // the two arms can be compared: hiding a muscle on one side only is exactly the
+  // "un brazo no es igual al otro" complaint.
+  const dropped = rows
+    .filter((r) => !r.foreign && (r.hidden === 'outlier' || r.hidden === 'crosswise'))
+    .map((r) => `${structureKey(r.name)} [${r.hidden}]`)
+    .sort();
+  console.log(`
+DROPPED IN THIS FOREARM (${dropped.length}):`);
+  for (const d of [...new Set(dropped)]) console.log(`   ${d}`);
   const gone = rows.filter((r) => r.hidden === 'outlier').map((r) => r.name);
   console.log(`
 hidden entirely (nothing left inside the sleeve): ${gone.length}`);

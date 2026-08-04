@@ -17,12 +17,18 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import * as THREE from 'three';
 import { colorForMaterialMesh, layerForMaterial } from '../src/lib/materialColors.ts';
 import { structureKey } from '../src/lib/parseMeshName.ts';
+import { applyMirrorRepair } from './lib/mirrorRepair.mts';
 
 const buf = readFileSync('C:/Users/Matthew/Documents/Fisio/public/cuerpo-rig.opt.glb');
 const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 const ld = new GLTFLoader(); ld.setMeshoptDecoder(MeshoptDecoder);
 const gl = await new Promise<any>((r, j) => ld.parse(ab, '', r, j));
 const scene = gl.scene as THREE.Group; scene.updateMatrixWorld(true);
+// The runtime rebuilds the mangled mirror twins at load; measuring the raw GLB
+// would accuse the meshes it already fixes.
+const repaired = applyMirrorRepair(scene);
+console.log(`mirror repair applied to ${repaired.length} meshes: ${repaired.join(', ') || 'none'}`);
+
 const matNameOf = (m: THREE.Mesh) => {
   const f = Array.isArray(m.material) ? m.material[0] : m.material;
   return (f as THREE.Material | undefined)?.name ?? '';
@@ -84,6 +90,75 @@ for (const p of pairs.slice(0, 10))
   console.log(`   centre ${(p.dc * 100).toFixed(1).padStart(5)} cm  shape ${(p.dShape * 100).toFixed(1).padStart(5)} cm  [${p.layer}] ${p.base}`);
 const bad = pairs.filter((p) => p.dc > 0.01 || p.dShape > 0.01);
 console.log(`   -> ${bad.length} of ${pairs.length} pairs disagree by more than 1 cm`);
+
+// --- RigModel's arm-symmetry pass, replicated so the COUNTS below report what
+// the lab actually shows: a piece whose signature has no counterpart on the
+// other side is hidden, and only structures present on BOTH sides are touched.
+const hiddenBySymmetry = new Set<THREE.Mesh>();
+if (process.env.SYMMETRISE !== 'off') {
+  const bySide = new Map<string, { L: Item[]; R: Item[] }>();
+  for (const it of items) {
+    if (it.layer === 'skin') continue;
+    const e = bySide.get(it.base) ?? { L: [], R: [] };
+    (it.c.x < 0 ? e.L : e.R).push(it);
+    bySide.set(it.base, e);
+  }
+  const MATCH_DIST = 0.04;
+  for (const { L, R } of bySide.values()) {
+    if (L.length === 0 || R.length === 0) continue;
+    for (const [mine, theirs] of [[L, R], [R, L]] as [Item[], Item[]][]) {
+      const taken = new Set<Item>();
+      for (const p of mine) {
+        const mirrored = p.c.clone().setX(-p.c.x);
+        let best: Item | null = null, bestD = Infinity;
+        for (const q of theirs) {
+          if (taken.has(q) || q.layer !== p.layer) continue;
+          const ratio = q.verts / Math.max(1, p.verts);
+          if (ratio < 0.8 || ratio > 1.25) continue;
+          const d = mirrored.distanceTo(q.c);
+          if (d < bestD) { bestD = d; best = q; }
+        }
+        if (best && bestD <= MATCH_DIST) { taken.add(best); continue; }
+        hiddenBySymmetry.add(p.mesh);
+      }
+    }
+  }
+  console.log(`
+SYMMETRY PASS: hid ${hiddenBySymmetry.size} pieces with no counterpart`);
+  const gone = items.filter((it) => hiddenBySymmetry.has(it.mesh)).sort((a, b) => b.verts - a.verts);
+  for (const it of gone.slice(0, 12))
+    console.log(`   ${String(it.verts).padStart(5)} verts  y=${it.c.y.toFixed(2)}  [${it.layer}] ${it.name}`);
+  console.log(`   ${gone.filter((it) => it.verts > 150).length} of ${gone.length} were bigger than 150 verts`);
+}
+
+// --- Structures present on one side only.
+// Pairing needs the same vertex count on both sides; a structure that is missing,
+// duplicated or decimated differently shows up here rather than as a bad pair.
+{
+  const perSide = new Map<string, { l: number; r: number; yl: number[]; yr: number[] }>();
+  for (const it of items) {
+    if (hiddenBySymmetry.has(it.mesh)) continue;
+    const e = perSide.get(it.base) ?? { l: 0, r: 0, yl: [], yr: [] };
+    if (it.c.x < 0) { e.l++; e.yl.push(it.c.y); } else { e.r++; e.yr.push(it.c.y); }
+    perSide.set(it.base, e);
+  }
+  // Only what the lab actually SHOWS: the hand and foot are solid skin caps with
+  // every internal piece hidden, so asymmetry inside them is invisible.
+  const inDistalCap = (y: number) => y < 0.12 || (y > 0.6 && y < 0.86);
+  const odd = [...perSide.entries()].filter(([, e]) => {
+    if (e.l === e.r) return false;
+    const ys = [...e.yl, ...e.yr];
+    const y = ys.reduce((a, b) => a + b, 0) / Math.max(1, ys.length);
+    return !inDistalCap(y);
+  });
+  console.log(`
+COUNTS -- structures with a different number of meshes per side: ${odd.length}`);
+  for (const [k, e] of odd.slice(0, 20)) {
+    const ys = [...e.yl, ...e.yr];
+    const y = ys.reduce((a, b) => a + b, 0) / Math.max(1, ys.length);
+    console.log(`   left ${e.l} vs right ${e.r}  y=${y.toFixed(2)}  ${k}`);
+  }
+}
 
 // --- Color symmetry
 const dHex = (a: number, b: number) =>
