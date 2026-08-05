@@ -29,7 +29,7 @@
 
 import { useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
-import { Text } from '@react-three/drei';
+import { Billboard, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { useAnatomyStore } from '../store/anatomyStore';
 
@@ -42,7 +42,17 @@ const TRANSVERSE_COLOR = 0xffa51e; // amber
 
 const PLANE_OPACITY = 0.16;
 const PLANE_SCALE = 1.05; // plane size relative to body span (just past the body)
-const AXIS_SCALE = 1.2; // axis length relative to body span (a touch past planes)
+const AXIS_SCALE = 1.08; // axis length relative to body span (a touch past planes)
+
+// LABEL SIZE. This was span * 0.045, which rendered "Eje sagital" about as wide
+// as the whole body: the sagittal axis points AT the camera in an anterior view,
+// so its label projected straight onto the chest and covered the model, while
+// "Eje frontal" ran off the right edge of the frame. The labels are captions,
+// not headlines -- they must name the line without competing with the anatomy.
+const LABEL_SCALE = 0.019;
+// Relative outline thickness. Thicker than before because the text is smaller
+// and still has to read over both the dark background and the body.
+const LABEL_OUTLINE_RATIO = 0.14;
 
 const LABEL_COLOR = '#e2e8f0';
 const LABEL_OUTLINE = '#070b14';
@@ -140,8 +150,9 @@ export function ConceptOverlay3D() {
   const { center, span } = bounds;
   const planeSize = span * PLANE_SCALE;
   const axisLen = span * AXIS_SCALE;
-  const labelSize = span * 0.045;
+  const labelSize = span * LABEL_SCALE;
   const half = planeSize / 2;
+  const axisEnd = axisLen / 2;
 
   return (
     <group position={[center.x, center.y, center.z]}>
@@ -185,71 +196,101 @@ export function ConceptOverlay3D() {
           </mesh>
 
           {/* Plane labels, set just outside each plane's upper edge. */}
-          <Text
-            position={[0.02 * span, half * 0.82, half * 0.82]}
-            fontSize={labelSize}
-            color={LABEL_COLOR}
-            outlineWidth={labelSize * 0.08}
-            outlineColor={LABEL_OUTLINE}
-            anchorX="center"
-            anchorY="middle"
+          <OverlayLabel
+            position={[0.02 * span, half * 0.86, half * 0.86]}
+            size={labelSize}
+            color={SAGITTAL_COLOR}
           >
             Plano sagital
-          </Text>
-          <Text
-            position={[half * 0.82, half * 0.82, 0.02 * span]}
-            fontSize={labelSize}
-            color={LABEL_COLOR}
-            outlineWidth={labelSize * 0.08}
-            outlineColor={LABEL_OUTLINE}
-            anchorX="center"
-            anchorY="middle"
+          </OverlayLabel>
+          <OverlayLabel
+            position={[half * 0.86, half * 0.86, 0.02 * span]}
+            size={labelSize}
+            color={FRONTAL_COLOR}
           >
             Plano frontal
-          </Text>
-          <Text
-            position={[half * 0.82, 0.02 * span, half * 0.82]}
-            fontSize={labelSize}
-            color={LABEL_COLOR}
-            outlineWidth={labelSize * 0.08}
-            outlineColor={LABEL_OUTLINE}
-            anchorX="center"
-            anchorY="middle"
+          </OverlayLabel>
+          <OverlayLabel
+            position={[half * 0.86, 0.02 * span, half * 0.86]}
+            size={labelSize}
+            color={TRANSVERSE_COLOR}
           >
             Plano transversal
-          </Text>
+          </OverlayLabel>
         </>
       )}
 
       {showAxes && (
         <>
           <AxisLine
-            from={[0, -axisLen / 2, 0]}
-            to={[0, axisLen / 2, 0]}
+            from={[0, -axisEnd, 0]}
+            to={[0, axisEnd, 0]}
             color={SAGITTAL_COLOR}
             label="Eje vertical"
-            labelPos={[0, axisLen / 2 + labelSize, 0]}
+            // Straight above the top end: nothing to collide with up there.
+            labelPos={[0, axisEnd + labelSize * 1.6, 0]}
             labelSize={labelSize}
           />
           <AxisLine
-            from={[0, 0, -axisLen / 2]}
-            to={[0, 0, axisLen / 2]}
+            from={[0, 0, -axisEnd]}
+            to={[0, 0, axisEnd]}
             color={FRONTAL_COLOR}
             label="Eje sagital"
-            labelPos={[0, 0, axisLen / 2 + labelSize]}
+            // The sagittal axis points AT the viewer in an anterior view, so a
+            // label sitting on its tip lands squarely on the chest. Offset it up
+            // and to the side: it clears the silhouette from the front and still
+            // reads as the tip's caption from three-quarter.
+            labelPos={[span * 0.34, span * 0.3, axisEnd]}
             labelSize={labelSize}
           />
           <AxisLine
-            from={[-axisLen / 2, 0, 0]}
-            to={[axisLen / 2, 0, 0]}
+            from={[-axisEnd, 0, 0]}
+            to={[axisEnd, 0, 0]}
             color={TRANSVERSE_COLOR}
             label="Eje frontal"
-            labelPos={[axisLen / 2 + labelSize, 0, 0]}
+            // Past the right end and lifted off the line so the text does not
+            // sit on top of it.
+            labelPos={[axisEnd + labelSize * 3, span * 0.05, 0]}
             labelSize={labelSize}
           />
         </>
       )}
     </group>
+  );
+}
+
+/* ===========================================================================
+ * OVERLAY LABEL — one caption, always facing the camera.
+ * ===========================================================================
+ * Billboarded: a flat Text only reads from the direction it was authored for,
+ * so rotating the model used to leave the plane captions edge-on (invisible) or
+ * mirrored. Tinted with its plane/axis color so the caption and the geometry it
+ * names are tied together without a leader line.
+ */
+function OverlayLabel({
+  position,
+  size,
+  color,
+  children,
+}: {
+  position: [number, number, number];
+  size: number;
+  color?: number;
+  children: string;
+}) {
+  return (
+    <Billboard position={position}>
+      <Text
+        fontSize={size}
+        color={color != null ? `#${color.toString(16).padStart(6, '0')}` : LABEL_COLOR}
+        outlineWidth={size * LABEL_OUTLINE_RATIO}
+        outlineColor={LABEL_OUTLINE}
+        anchorX="center"
+        anchorY="middle"
+      >
+        {children}
+      </Text>
+    </Billboard>
   );
 }
 
@@ -291,17 +332,9 @@ function AxisLine({
         <primitive object={geometry} attach="geometry" />
         <lineBasicMaterial color={color} transparent opacity={0.9} />
       </line>
-      <Text
-        position={labelPos}
-        fontSize={labelSize}
-        color={LABEL_COLOR}
-        outlineWidth={labelSize * 0.08}
-        outlineColor={LABEL_OUTLINE}
-        anchorX="center"
-        anchorY="middle"
-      >
+      <OverlayLabel position={labelPos} size={labelSize} color={color}>
         {label}
-      </Text>
+      </OverlayLabel>
     </group>
   );
 }

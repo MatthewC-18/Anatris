@@ -95,7 +95,8 @@ const EvidenceScreen = lazy(() =>
 );
 import { REGIONS, resolveRegionMeshes, resolveRegionFocus } from './data/regiones';
 
-import { isConceptModule } from './data/conceptByRegion';
+import { isConceptModule, conceptForRegion } from './data/conceptByRegion';
+import { ConceptStage } from './components/ConceptStage';
 import { EVENTS, track } from './lib/analytics';
 import { DEFAULT_REGION, readRoute, writeRoute } from './lib/routing';
 
@@ -209,6 +210,21 @@ export default function App() {
   // "Aprender" experience. So entering a concept module forces Aprender, and
   // the muscle-centric panels (Sidebar / SelectionPanel) are hidden for it.
   const concept = isConceptModule(region);
+
+  // The section being read, resolved ONCE here and handed to both halves of the
+  // concept layout: the stage needs it to frame the 3D and title the scene, the
+  // reading column to render its prose. Falls back to the first section so the
+  // module always opens on something.
+  const conceptSectionId = useAnatomyStore((s) => s.conceptSectionId);
+  const conceptSection = useMemo(() => {
+    const track = conceptForRegion(region);
+    const sections = track?.sections ?? [];
+    const i = Math.max(
+      0,
+      sections.findIndex((s) => s.id === conceptSectionId),
+    );
+    return { section: sections[i], index: i + 1, total: sections.length };
+  }, [region, conceptSectionId]);
 
   // Subscription gate: premium regions (everything but the shoulder and
   // Fundamentos) require an active subscription. When locked, the body is
@@ -368,26 +384,38 @@ export default function App() {
       ) : mode === 'learn' && concept ? (
         // CONCEPTUAL module (Fundamentos): the 3D overlay (planes/axes) is
         // inseparable from the text, so we ALWAYS show the live model beside
-        // the concept renderer. Desktop: Viewer | ConceptTrack side by side.
-        // Compact: Viewer on top (45vh), ConceptTrack below. No Sidebar /
+        // the concept renderer. Desktop: ConceptStage | ConceptTrack side by
+        // side. Compact: stage on top (45vh), ConceptTrack below. No Sidebar /
         // SelectionPanel here -- there are no muscles to list.
+        //
+        // The stage (ConceptStage) is what makes that half do work: it titles
+        // the section, applies its camera view + overlay, carries the layer and
+        // view controls (unreachable here otherwise, which is how the module
+        // could end up stuck on a bare skeleton) and shows the section's
+        // schematic full-size when it has no 3D content.
         <div className="flex min-h-0 flex-1">
           <main className="min-w-0 flex-1 overflow-y-auto lg:overflow-hidden">
             <div className="flex min-h-0 flex-col lg:h-full lg:flex-row">
-              <div className="h-[45vh] shrink-0 lg:h-full lg:flex-1 lg:border-r lg:border-slate-800/60">
+              <div className="h-[45vh] shrink-0 lg:h-full lg:min-w-0 lg:flex-1 lg:border-r lg:border-slate-800/60">
                 {status === 'error' ? (
                   <IndexError message={error} />
                 ) : status === 'loading' ? (
                   <IndexLoading />
                 ) : (
-                  <Viewer3D
-                    byMesh={byMesh}
-                    regionMeshes={regionMeshes}
-                    resolution={resolution}
-                  />
+                  <ConceptStage
+                    section={conceptSection.section}
+                    index={conceptSection.index}
+                    total={conceptSection.total}
+                  >
+                    <Viewer3D
+                      byMesh={byMesh}
+                      regionMeshes={regionMeshes}
+                      resolution={resolution}
+                    />
+                  </ConceptStage>
                 )}
               </div>
-              <div className="min-h-0 flex-1 lg:h-full lg:w-[480px] lg:flex-none">
+              <div className="min-h-0 flex-1 lg:h-full lg:w-[440px] lg:flex-none xl:w-[520px]">
                 <PhaseTrack />
               </div>
             </div>

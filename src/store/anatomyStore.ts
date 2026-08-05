@@ -181,6 +181,14 @@ interface AnatomyState {
   /* ----- concept overlay (Fundamentos: planes / axes over the model) ----- */
   conceptOverlay: ConceptOverlay;
   requestConceptOverlay: (overlay: ConceptOverlay) => void;
+
+  /* ----- concept section (Fundamentos: which section is being read) -----
+   * Lifted out of ConceptTrackView so the 3D STAGE and the reading column stay
+   * in sync: the stage titles the section, applies its camera view + overlay and
+   * shows its diagram, while the column renders its prose. null = not started
+   * (the renderer falls back to the track's first section). */
+  conceptSectionId: string | null;
+  setConceptSection: (id: string) => void;
 }
 
 export const useAnatomyStore = create<AnatomyState>((set) => ({
@@ -227,11 +235,13 @@ export const useAnatomyStore = create<AnatomyState>((set) => ({
   /* ----- region ----- */
   region: null,
   // Leaving the concept module (or switching regions) drops any concept overlay
-  // so planes/axes never linger over an anatomical region.
+  // so planes/axes never linger over an anatomical region, and forgets which
+  // section was open so re-entering Fundamentos starts from the beginning.
   setRegion: (region) =>
     set((s) => ({
       region,
       conceptOverlay: region === 'fundamentos' ? s.conceptOverlay : 'none',
+      conceptSectionId: region === 'fundamentos' ? s.conceptSectionId : null,
     })),
 
   /* ----- selection / hover ----- */
@@ -330,4 +340,7 @@ export const useAnatomyStore = create<AnatomyState>((set) => ({
    * concept module. ConceptTrackView already calls this defensively. */
   conceptOverlay: 'none',
   requestConceptOverlay: (overlay) => set({ conceptOverlay: overlay }),
+
+  conceptSectionId: null,
+  setConceptSection: (id) => set({ conceptSectionId: id }),
 }));
