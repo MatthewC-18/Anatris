@@ -353,6 +353,49 @@ export const REFERENCES: Record<string, Reference> = {
     note: 'Clúster de provocación sacroilíaca (distracción, empuje del muslo, compresión, thrust sacro, Gaenslen).',
   },
 
+  // ---- TORÁCICA: fractura vertebral, escoliosis, espondiloartritis axial y
+  // síndrome del desfiladero torácico. Sin pmid: el enlace cae a la búsqueda
+  // por título en PubMed (siempre resuelve). No inventar identificadores.
+  'langdon-2010': {
+    id: 'langdon-2010',
+    authors: 'Langdon J, Way A, Heaton S, Bernard J, Molloy S',
+    title: 'Vertebral compression fractures — new clinical signs to aid diagnosis',
+    edition: '',
+    publisher: 'Ann R Coll Surg Engl',
+    year: 2010,
+    note: 'Describe el signo de percusión con puño cerrado y el signo del supino para la fractura vertebral por compresión.',
+  },
+  'cote-1998': {
+    id: 'cote-1998',
+    authors: 'Côté P, Kreitz BG, Cassidy JD, Dzus AK, Hurley J',
+    title:
+      "A study of the diagnostic accuracy and reliability of the Scoliometer and Adam's forward bend test",
+    edition: '',
+    publisher: 'Spine',
+    year: 1998,
+    note: 'Precisión y fiabilidad de la prueba de Adams y del escoliómetro en el cribado de escoliosis.',
+  },
+  'vanderlinden-1984': {
+    id: 'vanderlinden-1984',
+    authors: 'van der Linden S, Valkenburg HA, Cats A',
+    title:
+      'Evaluation of diagnostic criteria for ankylosing spondylitis: a proposal for modification of the New York criteria',
+    edition: '',
+    publisher: 'Arthritis Rheum',
+    year: 1984,
+    note: 'Criterios de Nueva York modificados; la expansión torácica reducida es uno de los criterios clínicos.',
+  },
+  'gillard-2001': {
+    id: 'gillard-2001',
+    authors: 'Gillard J, Pérez-Cousin M, Hachulla E, et al.',
+    title:
+      'Diagnosing thoracic outlet syndrome: contribution of provocative tests, ultrasonography, electrophysiology, and helical computed tomography',
+    edition: '',
+    publisher: 'Joint Bone Spine',
+    year: 2001,
+    note: 'Compara Adson, Wright (hiperabducción) y Roos/EAST en el síndrome del desfiladero torácico.',
+  },
+
   // ---- RODILLA: cruzados (LCA/LCP), menisco y ligamentos colaterales.
   'benjaminse-2006': {
     id: 'benjaminse-2006',

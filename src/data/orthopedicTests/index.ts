@@ -1,11 +1,13 @@
 // src/data/orthopedicTests/index.ts
 //
 // Registry of orthopedic special tests by region. Analogue of romByRegion.ts.
-// All eight regions are authored (shoulder, cervical, lumbar, hip, knee, elbow, ankle).
+// All EIGHT regions are authored: shoulder, cervical, thoracic, lumbar, hip,
+// knee, elbow, ankle.
 
 import type { OrthopedicTest, OrthopedicTestIndex } from '../../types/orthopedicTest';
 import { SHOULDER_ORTHOPEDIC_TESTS } from './shoulder';
 import { CERVICAL_ORTHOPEDIC_TESTS } from './cervical';
+import { THORACIC_ORTHOPEDIC_TESTS } from './thoracic';
 import { LUMBAR_ORTHOPEDIC_TESTS } from './lumbar';
 import { KNEE_ORTHOPEDIC_TESTS } from './knee';
 import { ELBOW_ORTHOPEDIC_TESTS } from './elbow';
@@ -16,6 +18,7 @@ import { ANKLE_ORTHOPEDIC_TESTS } from './ankle';
 export const ORTHOPEDIC_TESTS_BY_REGION: OrthopedicTestIndex = {
   shoulder: SHOULDER_ORTHOPEDIC_TESTS,
   cervical: CERVICAL_ORTHOPEDIC_TESTS,
+  thoracic: THORACIC_ORTHOPEDIC_TESTS,
   lumbar: LUMBAR_ORTHOPEDIC_TESTS,
   hip: HIP_ORTHOPEDIC_TESTS,
   knee: KNEE_ORTHOPEDIC_TESTS,

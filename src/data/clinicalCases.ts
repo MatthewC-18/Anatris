@@ -382,13 +382,383 @@ const LUMBAR: ClinicalCase[] = [
   },
 ];
 
+const THORACIC: ClinicalCase[] = [
+  {
+    id: 'th-compression-fracture',
+    region: 'thoracic',
+    title: 'Dorsalgia aguda en mujer de 72 años',
+    level: 'intermedio',
+    vignette:
+      'Mujer de 72 años en tratamiento con corticoides por polimialgia. Refiere dorsalgia media de aparición brusca hace cinco días, tras un esfuerzo al levantar una maceta. El dolor es constante, empeora al incorporarse desde la cama y no tolera dormir en plano. No hay irradiación ni déficit neurológico. Ha perdido tres centímetros de talla en dos años.',
+    tags: ['Bandera roja', 'Fractura vertebral', 'Osteoporosis'],
+    steps: [
+      {
+        id: 'q1',
+        prompt: '¿Cuál es la hipótesis que hay que descartar ANTES de tratar?',
+        options: [
+          { id: 'a', text: 'Fractura vertebral por compresión osteoporótica', correct: true },
+          { id: 'b', text: 'Hipercifosis postural', correct: false },
+          { id: 'c', text: 'Disfunción costovertebral mecánica', correct: false },
+          { id: 'd', text: 'Punto gatillo del romboides', correct: false },
+        ],
+        explanation:
+          'La suma de edad avanzada, corticoterapia, pérdida de talla, inicio brusco tras un esfuerzo mínimo y dolor que no cede en reposo es un cuadro de banderas rojas para fractura vertebral por compresión. Las otras hipótesis son plausibles en dorsalgia crónica, no en este perfil.',
+      },
+      {
+        id: 'q2',
+        prompt: '¿Qué dos signos de exploración apoyan mejor esa sospecha?',
+        options: [
+          {
+            id: 'a',
+            text: 'Percusión con puño cerrado y signo del supino',
+            correct: true,
+          },
+          { id: 'b', text: 'Prueba de Adams y expansión torácica', correct: false },
+          { id: 'c', text: 'Maniobra de Adson y prueba de Roos', correct: false },
+          { id: 'd', text: 'Test de Slump y Lasègue', correct: false },
+        ],
+        explanation:
+          'La percusión con puño cerrado (dolor exquisito y puntual sobre una espinosa) y el signo del supino (no tolerar el decúbito plano) son los dos signos descritos para la fractura vertebral por compresión, ambos con especificidad alta. Adams cribar escoliosis, la expansión torácica valora espondiloartritis y Adson/Roos exploran el desfiladero torácico.',
+      },
+      {
+        id: 'q3',
+        prompt: '¿Cuál es la conducta correcta en la primera sesión?',
+        options: [
+          {
+            id: 'a',
+            text: 'Derivar para imagen antes de aplicar técnicas manuales sobre el segmento',
+            correct: true,
+          },
+          { id: 'b', text: 'Manipulación torácica en decúbito prono', correct: false },
+          { id: 'c', text: 'Estiramiento agresivo en extensión torácica', correct: false },
+          { id: 'd', text: 'Masaje profundo del erector espinal y alta', correct: false },
+        ],
+        explanation:
+          'Ante banderas rojas con dos signos positivos, la prioridad es la imagen. Cualquier técnica de alta velocidad o carga en extensión sobre un cuerpo vertebral fracturado puede agravar el colapso. El tratamiento activo llega después, y con el diagnóstico confirmado.',
+      },
+    ],
+    takeaway:
+      'En dorsalgia aguda del paciente mayor u osteoporótico, percusión con puño cerrado + signo del supino positivos obligan a imagen antes de tocar el segmento.',
+  },
+  {
+    id: 'th-outlet',
+    region: 'thoracic',
+    title: 'Hormigueo en la mano al trabajar con los brazos elevados',
+    level: 'avanzado',
+    vignette:
+      'Pintor de 38 años. Refiere hormigueo y pesadez en el brazo derecho tras veinte o treinta minutos trabajando con los brazos por encima de la cabeza. Las parestesias se concentran en el borde cubital de la mano. El dolor cervical es leve y la rotación cervical es completa e indolora. Postura de hombros adelantados y respiración costal alta.',
+    tags: ['Desfiladero torácico', 'Escalenos', 'Diagnóstico diferencial'],
+    steps: [
+      {
+        id: 'q1',
+        prompt: '¿Qué hallazgo aleja el diagnóstico de radiculopatía cervical?',
+        options: [
+          {
+            id: 'a',
+            text: 'La rotación cervical completa e indolora, con síntomas que dependen de la POSICIÓN DEL BRAZO',
+            correct: true,
+          },
+          { id: 'b', text: 'La edad del paciente', correct: false },
+          { id: 'c', text: 'La distribución en el borde cubital', correct: false },
+          { id: 'd', text: 'La postura de hombros adelantados', correct: false },
+        ],
+        explanation:
+          'En la radiculopatía cervical los síntomas se modifican con el movimiento del CUELLO (Spurling positivo, rotación limitada). Aquí el desencadenante es sostener el brazo elevado, lo que apunta a compresión en la salida del tórax. El territorio cubital es compatible con ambas (C8-T1), así que no discrimina.',
+      },
+      {
+        id: 'q2',
+        prompt: 'La prueba de Roos (EAST) reproduce los síntomas a los dos minutos. ¿Cómo lo interpretas?',
+        options: [
+          {
+            id: 'a',
+            text: 'Apoya la sospecha, pero es poco específica: hay que integrarla con la clínica y con los otros tests',
+            correct: true,
+          },
+          { id: 'b', text: 'Confirma el diagnóstico por sí sola', correct: false },
+          { id: 'c', text: 'Descarta el desfiladero torácico', correct: false },
+          { id: 'd', text: 'Indica compresión del nervio mediano en la muñeca', correct: false },
+        ],
+        explanation:
+          'Roos/EAST tiene sensibilidad alta y especificidad baja: muchos sujetos sanos refieren molestias al mantener la posición. Sirve sobre todo para DESCARTAR cuando es negativo y como pieza de un conjunto cuando es positivo. Compara siempre los dos lados: lo informativo es la asimetría.',
+      },
+      {
+        id: 'q3',
+        prompt: '¿Por dónde empieza el tratamiento conservador?',
+        options: [
+          {
+            id: 'a',
+            text: 'Reeducación respiratoria y postural, con trabajo de escalenos, pectoral menor y control escapular',
+            correct: true,
+          },
+          { id: 'b', text: 'Inmovilización del hombro con cabestrillo', correct: false },
+          { id: 'c', text: 'Fortalecimiento máximo del trapecio superior', correct: false },
+          { id: 'd', text: 'Tracción cervical de alta carga', correct: false },
+        ],
+        explanation:
+          'El desfiladero se estrecha con la respiración costal alta (escalenos hipertónicos elevando la primera costilla) y con la escápula en anteposición y descenso (pectoral menor corto). Devolver una respiración diafragmática y una posición escapular eficiente abre el espacio. Reforzar el trapecio superior cerraría aún más el desfiladero.',
+      },
+    ],
+    takeaway:
+      'Síntomas que dependen de la posición del BRAZO y no del cuello orientan al desfiladero torácico; los tests provocativos apoyan pero no confirman, y el tratamiento empieza por respiración y escápula.',
+  },
+];
+
+const HIP: ClinicalCase[] = [
+  {
+    id: 'hip-fai',
+    region: 'hip',
+    title: 'Dolor inguinal en futbolista de 24 años',
+    level: 'intermedio',
+    vignette:
+      'Futbolista de 24 años con dolor inguinal derecho de seis meses, progresivo, sin traumatismo. Empeora al sentarse mucho rato, al entrar y salir del coche y en los cambios de dirección. Señala la ingle con la mano en pinza. En la exploración, la rotación interna de cadera en flexión de 90° es de 15° a la derecha y de 35° a la izquierda.',
+    tags: ['Pinzamiento femoroacetabular', 'Labrum', 'FADIR'],
+    steps: [
+      {
+        id: 'q1',
+        prompt: '¿Qué significa el signo de la C que hace el paciente con la mano?',
+        options: [
+          {
+            id: 'a',
+            text: 'Dolor intraarticular profundo de cadera',
+            correct: true,
+          },
+          { id: 'b', text: 'Tendinopatía glútea lateral', correct: false },
+          { id: 'c', text: 'Dolor referido lumbar', correct: false },
+          { id: 'd', text: 'Hernia inguinal', correct: false },
+        ],
+        explanation:
+          'El signo de la C (mano en pinza abrazando la cara lateral y anterior de la cadera) es un gesto característico del dolor intraarticular. Un dolor lateral puntual con el dedo apunta a tendinopatía glútea, y un dolor difuso lumbar se señala con la palma en la espalda.',
+      },
+      {
+        id: 'q2',
+        prompt: '¿Qué test provoca mejor el pinzamiento anterior?',
+        options: [
+          { id: 'a', text: 'FADIR (flexión, aducción y rotación interna)', correct: true },
+          { id: 'b', text: 'Prueba de Ober', correct: false },
+          { id: 'c', text: 'Signo de Trendelenburg', correct: false },
+          { id: 'd', text: 'Prueba de Thomas', correct: false },
+        ],
+        explanation:
+          'FADIR lleva el cuello femoral contra el reborde acetabular anterosuperior y comprime el labrum: es el test de provocación del pinzamiento anterior, muy sensible y poco específico. Ober valora la banda iliotibial, Trendelenburg los abductores y Thomas la longitud de los flexores.',
+      },
+      {
+        id: 'q3',
+        prompt: 'La asimetría de rotación interna (15° vs 35°) es el dato más objetivo. ¿Qué implica para el tratamiento?',
+        options: [
+          {
+            id: 'a',
+            text: 'Trabajar control lumbopélvico y fuerza de cadera evitando el rango de choque, sin forzar la rotación interna',
+            correct: true,
+          },
+          { id: 'b', text: 'Estirar agresivamente la cadera en rotación interna forzada', correct: false },
+          { id: 'c', text: 'Reposo deportivo absoluto durante tres meses', correct: false },
+          { id: 'd', text: 'Fortalecer solo el psoas en rango máximo de flexión', correct: false },
+        ],
+        explanation:
+          'La restricción es de origen ÓSEO (morfología cam), no de tejido blando: forzar la rotación interna repite el choque y agrava la lesión labral. El tratamiento conservador de referencia es fuerza de cadera y control lumbopélvico dentro de un rango libre de dolor, con adaptación del gesto deportivo.',
+      },
+    ],
+    takeaway:
+      'Dolor inguinal + signo de la C + asimetría de rotación interna en flexión = sospecha de pinzamiento femoroacetabular; se trabaja fuerza y control POR DEBAJO del rango de choque, no estirando contra el hueso.',
+  },
+  {
+    id: 'hip-gluteal-tendinopathy',
+    region: 'hip',
+    title: 'Dolor lateral de cadera que no deja dormir',
+    level: 'básico',
+    vignette:
+      'Mujer de 55 años con dolor en la cara lateral de la cadera izquierda desde hace cuatro meses. No puede dormir sobre ese lado ni cruzar las piernas. Duele al subir escaleras y al estar de pie mucho rato. La palpación del trocánter mayor es exquisitamente dolorosa. En apoyo monopodal izquierdo, la pelvis derecha desciende.',
+    tags: ['Tendinopatía glútea', 'Trendelenburg', 'Glúteo medio'],
+    steps: [
+      {
+        id: 'q1',
+        prompt: '¿Qué estructura explica mejor el cuadro?',
+        options: [
+          {
+            id: 'a',
+            text: 'Tendón del glúteo medio y menor en su inserción en el trocánter mayor',
+            correct: true,
+          },
+          { id: 'b', text: 'Labrum acetabular', correct: false },
+          { id: 'c', text: 'Bursa iliopectínea', correct: false },
+          { id: 'd', text: 'Raíz L4', correct: false },
+        ],
+        explanation:
+          'El dolor lateral sobre el trocánter con imposibilidad de tumbarse de ese lado es el cuadro clásico de la tendinopatía glútea (el antiguo "bursitis trocantérea": hoy sabemos que el tendón es la estructura dominante). El labrum da dolor inguinal y L4 daría irradiación por la cara anteromedial del muslo.',
+      },
+      {
+        id: 'q2',
+        prompt: 'La pelvis derecha desciende en apoyo monopodal izquierdo. ¿Cómo se llama y qué indica?',
+        options: [
+          {
+            id: 'a',
+            text: 'Signo de Trendelenburg positivo: insuficiencia de los abductores IZQUIERDOS',
+            correct: true,
+          },
+          {
+            id: 'b',
+            text: 'Signo de Trendelenburg positivo: insuficiencia de los abductores derechos',
+            correct: false,
+          },
+          { id: 'c', text: 'Signo de Thomas positivo', correct: false },
+          { id: 'd', text: 'Signo de Ober positivo', correct: false },
+        ],
+        explanation:
+          'El Trendelenburg se nombra por el lado de APOYO: si la pelvis del lado que cuelga (derecha) desciende, el fallo está en los abductores del lado que soporta (izquierda). Es un error frecuente y cambia por completo el objetivo del tratamiento.',
+      },
+      {
+        id: 'q3',
+        prompt: '¿Qué consejo empeoraría el cuadro?',
+        options: [
+          {
+            id: 'a',
+            text: 'Estirar la banda iliotibial cruzando la pierna por delante en aducción mantenida',
+            correct: true,
+          },
+          { id: 'b', text: 'Dormir con una almohada entre las rodillas', correct: false },
+          { id: 'c', text: 'Ejercicio isométrico de abducción de baja carga', correct: false },
+          { id: 'd', text: 'Evitar estar de pie con la cadera "colgada" hacia un lado', correct: false },
+        ],
+        explanation:
+          'La aducción COMPRIME el tendón glúteo contra el trocánter mayor: los estiramientos en aducción y dormir sin almohada entre las rodillas mantienen la compresión y perpetúan el dolor. El tratamiento va por evitar la compresión y cargar el tendón progresivamente.',
+      },
+    ],
+    takeaway:
+      'En el dolor lateral de cadera la clave es la COMPRESIÓN en aducción: quitarla (postura, almohada, evitar estiramientos en aducción) y cargar el tendón de forma progresiva.',
+  },
+];
+
+const ANKLE: ClinicalCase[] = [
+  {
+    id: 'ankle-lateral-sprain',
+    region: 'ankle',
+    title: 'Esguince de tobillo en inversión',
+    level: 'básico',
+    vignette:
+      'Jugadora de baloncesto de 21 años. Al caer de un rebote pisa el pie de una compañera y el tobillo derecho se va en inversión. Acude a las 48 horas con edema y hematoma por delante y por debajo del maléolo lateral. Puede apoyar y dar cuatro pasos, con dolor. No hay dolor a la palpación del borde posterior de los maléolos ni de la base del quinto metatarsiano.',
+    tags: ['LPAA', 'Reglas de Ottawa', 'Propiocepción'],
+    steps: [
+      {
+        id: 'q1',
+        prompt: '¿Qué ligamento se lesiona primero en el mecanismo de inversión?',
+        options: [
+          { id: 'a', text: 'Peroneoastragalino anterior (LPAA)', correct: true },
+          { id: 'b', text: 'Deltoideo', correct: false },
+          { id: 'c', text: 'Peroneocalcáneo', correct: false },
+          { id: 'd', text: 'Ligamento tibioperoneo anteroinferior', correct: false },
+        ],
+        explanation:
+          'El peroneoastragalino anterior es el más débil y el primero en ceder en inversión con flexión plantar. El peroneocalcáneo se lesiona después, en esguinces más graves. El deltoideo es medial (mecanismo de eversión) y el tibioperoneo corresponde a la sindesmosis (rotación externa).',
+      },
+      {
+        id: 'q2',
+        prompt: 'Según los datos de la exploración, ¿está indicada la radiografía por las reglas de Ottawa?',
+        options: [
+          {
+            id: 'a',
+            text: 'No: puede apoyar cuatro pasos y no hay dolor óseo en los puntos clave',
+            correct: true,
+          },
+          { id: 'b', text: 'Sí, porque hay hematoma', correct: false },
+          { id: 'c', text: 'Sí, siempre tras un esguince deportivo', correct: false },
+          { id: 'd', text: 'No se pueden aplicar en menores de 25 años', correct: false },
+        ],
+        explanation:
+          'Las reglas de Ottawa indican radiografía si hay dolor óseo en el borde posterior o la punta de cualquier maléolo, en el escafoides o en la base del quinto metatarsiano, O si el paciente no puede dar cuatro pasos. Aquí no se cumple ninguno: son reglas muy sensibles, así que un negativo hace la fractura muy improbable. El edema y el hematoma no son criterio.',
+      },
+      {
+        id: 'q3',
+        prompt: '¿Cuál es el factor que más se asocia a la recidiva y hay que tratar sí o sí?',
+        options: [
+          {
+            id: 'a',
+            text: 'El déficit propioceptivo y la reacción tardía de los peroneos',
+            correct: true,
+          },
+          { id: 'b', text: 'El tamaño del hematoma', correct: false },
+          { id: 'c', text: 'La fuerza máxima del cuádriceps', correct: false },
+          { id: 'd', text: 'La movilidad de la primera articulación metatarsofalángica', correct: false },
+        ],
+        explanation:
+          'La inestabilidad crónica de tobillo se explica más por el déficit sensoriomotor (retardo del reflejo peroneo, mal control postural) que por la laxitud ligamentosa aislada. Por eso el trabajo propioceptivo y de fuerza de los peroneos es el pilar de la prevención de recidivas.',
+      },
+    ],
+    takeaway:
+      'Esguince lateral: LPAA primero, Ottawa para decidir la imagen y propiocepción + peroneos para evitar que se repita.',
+  },
+  {
+    id: 'ankle-achilles',
+    region: 'ankle',
+    title: 'Dolor en el tendón de Aquiles en corredor',
+    level: 'intermedio',
+    vignette:
+      'Corredor aficionado de 42 años que ha subido de 30 a 55 kilómetros semanales en un mes preparando una media maratón. Dolor y rigidez en el tercio medio del tendón de Aquiles derecho, peor al levantarse por la mañana, que mejora al calentar y reaparece al terminar. La dorsiflexión con la rodilla extendida es de 6°; con la rodilla flexionada, de 18°.',
+    tags: ['Tendinopatía aquílea', 'Dorsiflexión', 'Carga progresiva'],
+    steps: [
+      {
+        id: 'q1',
+        prompt: 'La dorsiflexión mejora al flexionar la rodilla (6° a 18°). ¿Qué indica?',
+        options: [
+          {
+            id: 'a',
+            text: 'Retracción del gastrocnemio, que es biarticular y se destensa al flexionar la rodilla',
+            correct: true,
+          },
+          { id: 'b', text: 'Retracción del sóleo', correct: false },
+          { id: 'c', text: 'Bloqueo óseo de la mortaja tibioperoneoastragalina', correct: false },
+          { id: 'd', text: 'Debilidad del tibial anterior', correct: false },
+        ],
+        explanation:
+          'Es la prueba de Silfverskiöld. El gastrocnemio cruza rodilla y tobillo: al flexionar la rodilla se relaja y la dorsiflexión aumenta. Si la limitación NO cambiara con la rodilla flexionada, el responsable sería el sóleo (monoarticular) o un tope óseo.',
+      },
+      {
+        id: 'q2',
+        prompt: '¿Qué elemento de la historia es el más determinante en la génesis del cuadro?',
+        options: [
+          {
+            id: 'a',
+            text: 'El salto brusco de volumen de entrenamiento (de 30 a 55 km/semana en un mes)',
+            correct: true,
+          },
+          { id: 'b', text: 'La edad del paciente', correct: false },
+          { id: 'c', text: 'El horario del entrenamiento', correct: false },
+          { id: 'd', text: 'La rigidez matutina', correct: false },
+        ],
+        explanation:
+          'La tendinopatía es un problema de CARGA: el error de progresión es el factor modificable central. La rigidez matutina es un síntoma característico, no la causa; y la edad es un factor de riesgo de fondo que no se puede cambiar.',
+      },
+      {
+        id: 'q3',
+        prompt: '¿Cuál es la primera línea de tratamiento con mejor respaldo?',
+        options: [
+          {
+            id: 'a',
+            text: 'Ejercicio de carga progresiva del tríceps sural, ajustando el volumen de carrera',
+            correct: true,
+          },
+          { id: 'b', text: 'Reposo completo hasta que desaparezca el dolor', correct: false },
+          { id: 'c', text: 'Estiramiento pasivo intenso del tendón varias veces al día', correct: false },
+          { id: 'd', text: 'Masaje transverso profundo como tratamiento único', correct: false },
+        ],
+        explanation:
+          'La carga progresiva (isométrica al principio si duele mucho, luego excéntrica y de fuerza pesada lenta) es lo que remodela el tendón. El reposo completo lo debilita y el dolor vuelve al retomar la carrera; el estiramiento intenso añade compresión y tracción sin el estímulo de carga que el tendón necesita.',
+      },
+    ],
+    takeaway:
+      'Tendinopatía aquílea = problema de carga: corrige la progresión, mide la dorsiflexión con Silfverskiöld y trata con carga progresiva, no con reposo.',
+  },
+];
+
 /** region id -> its clinical cases. Regions without cases simply omit the key. */
 export const CLINICAL_CASES: Record<string, ClinicalCase[]> = {
   shoulder: SHOULDER,
   elbow: ELBOW,
   knee: KNEE,
   cervical: CERVICAL,
+  thoracic: THORACIC,
   lumbar: LUMBAR,
+  hip: HIP,
+  ankle: ANKLE,
 };
 
 /** Cases for a region (empty array when none authored yet). */
