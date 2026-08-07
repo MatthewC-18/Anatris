@@ -10,8 +10,41 @@ export default {
         sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
         // Monospace for measurements / coordinates / codes.
         mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+        // Editorial serif, used ONLY by the public site (landing, pricing,
+        // legal). A health product is judged on sobriety before it is judged on
+        // features, and a journal-grade serif carries that in a way no amount of
+        // copy does. The product UI stays on the sans/mono instrument voice, so
+        // the two never compete inside the same screen.
+        serif: ['"Source Serif 4"', 'Georgia', '"Times New Roman"', 'serif'],
       },
       colors: {
+        // ------------------------------------------------------------------
+        // SEMANTIC SURFACE / TEXT TOKENS
+        // ------------------------------------------------------------------
+        // Resolved from CSS variables set by a theme scope (`.theme-paper` for
+        // the public site, `.theme-ink` for the product; see index.css). This
+        // exists because Pricing and Paywall render in BOTH worlds: hard-coded
+        // `slate-800` borders made the pricing table unreadable the moment the
+        // landing turned light. Anything that has to survive both surfaces must
+        // be written in these tokens, never in raw slate/ink values.
+        page: 'rgb(var(--c-page) / <alpha-value>)',
+        card: 'rgb(var(--c-card) / <alpha-value>)',
+        line: 'rgb(var(--c-line) / <alpha-value>)',
+        fg: 'rgb(var(--c-fg) / <alpha-value>)',
+        fg2: 'rgb(var(--c-fg2) / <alpha-value>)',
+        fg3: 'rgb(var(--c-fg3) / <alpha-value>)',
+        // Brand: deep clinical blue on paper, the app's cyan on ink. Same token,
+        // so a button written once reads correctly on either surface.
+        brand: {
+          // `brand` is the readable accent for text and icons on this surface;
+          // `brand-fill` is what a solid button is painted with. They differ on
+          // ink on purpose — see the note on --c-brand-fill in index.css.
+          DEFAULT: 'rgb(var(--c-brand) / <alpha-value>)',
+          fill: 'rgb(var(--c-brand-fill) / <alpha-value>)',
+          deep: 'rgb(var(--c-brand-deep) / <alpha-value>)',
+          wash: 'rgb(var(--c-brand-wash) / <alpha-value>)',
+          on: 'rgb(var(--c-brand-on) / <alpha-value>)',
+        },
         // Accent — clinical cyan, used sparingly for active/selected state.
         accent: {
           DEFAULT: '#22d3ee', // cyan-400

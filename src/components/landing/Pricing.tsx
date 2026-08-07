@@ -8,9 +8,18 @@
 //
 // Prices live in src/lib/pricing.ts and MUST match the Stripe prices'
 // currency_options (see supabase/README.md).
+//
+// THEMING: this component renders on the light public site AND inside the dark
+// product overlay, so every surface, border and text colour here is a semantic
+// token (`bg-card`, `border-line`, `text-fg2`, `bg-brand`) resolved by the theme
+// scope it happens to be mounted under. Do not reintroduce raw slate/ink values:
+// they were what made this table illegible on paper. For the same reason it no
+// longer borrows the shared `Segmented` control, which is hard-coded for ink.
+//
+// The emerald "ahorra" chip and the accent-washed CTA are gone too — a price
+// list earns trust by being plainly legible, not by glowing.
 
 import { useMemo, useState } from 'react';
-import { Segmented } from '../ui/Controls';
 import { useAuth, useEntitlement } from '../../auth/AuthContext';
 import {
   CURRENCIES,
@@ -25,20 +34,20 @@ import {
 // They are the promise; the entitlements file is the contract. If you change one,
 // change the other in the same commit.
 const PREMIUM_FEATURES = [
-  'Tests ortopédicos: sensibilidad, especificidad, Fagan, clusters, modo examen y maniobras resistidas en 3D',
-  'Laboratorio de movimiento completo: todos los arcos y presets patológicos',
-  'Modo paciente a pantalla completa y tarjeta para llevarse a casa',
+  'Tests ortopédicos: sensibilidad, especificidad, nomograma de Fagan, clusters, modo examen y maniobras resistidas en 3D',
+  'Laboratorio de movimiento completo, con todos los arcos y los presets patológicos',
+  'Modo paciente a pantalla completa y tarjeta imprimible para llevarse a casa',
   'Panel neurológico: dermatomas, miotomas y reflejos por raíz',
   'Todas las regiones: codo, cadera, rodilla, tobillo y columna',
-  'Evidencia clínica con enlaces a los estudios originales',
+  'Evidencia clínica enlazada a los estudios originales',
   'Progreso sincronizado en todos tus dispositivos',
 ];
 
 const FREE_FEATURES = [
-  'Región del hombro completa: 17 músculos con su ficha clínica y citas',
+  'Región del hombro completa: 17 músculos con su ficha clínica y sus citas',
   'Módulo de Fundamentos',
   'Repaso espaciado, cuestionarios y tarjetas del hombro',
-  'Laboratorio de movimiento en demostración (un arco)',
+  'Laboratorio de movimiento en demostración, con un arco',
 ];
 
 interface PricingProps {
@@ -76,58 +85,43 @@ export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-2">
-      {/* Currency selector + billing period toggle */}
-      <div className="mb-6 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
-        {/* Four currencies fit on one rail, so they are all visible at a glance
-            instead of hidden behind a native dropdown. */}
-        <div className="flex items-center gap-2 text-sm text-slate-400">
-          Moneda
-          <Segmented
-            value={currency}
-            options={CURRENCY_ORDER.map((code) => ({
-              value: code,
-              label: CURRENCIES[code].label,
-            }))}
-            onChange={setCurrency}
-            ariaLabel="Elegir moneda"
-          />
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className={`text-sm ${!annual ? 'text-slate-200' : 'text-slate-500'}`}>
-            Mensual
-          </span>
-          <button
-            type="button"
-            onClick={() => setAnnual((a) => !a)}
-            className="relative h-6 w-11 rounded-full border border-slate-700 bg-slate-800 transition-colors"
-            aria-label="Cambiar periodo de facturación"
-          >
-            <span
-              className={`absolute top-0.5 h-4 w-4 rounded-full bg-accent transition-all ${
-                annual ? 'left-[1.4rem]' : 'left-0.5'
-              }`}
-            />
-          </button>
-          <span className={`text-sm ${annual ? 'text-slate-200' : 'text-slate-500'}`}>
-            Anual
-            <span className="ml-1 rounded bg-emerald-600/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
-              ahorra
-            </span>
-          </span>
-        </div>
+    <div className="w-full">
+      {/* Billing period and currency. Plain labelled controls: on a payment
+          surface the user has to be certain what they are about to be charged,
+          and in what. */}
+      <div className="flex flex-col gap-4 border-b border-line pb-6 sm:flex-row sm:items-center sm:gap-10">
+        <Choice
+          label="Facturación"
+          options={[
+            { value: 'monthly', label: 'Mensual' },
+            { value: 'annual', label: 'Anual' },
+          ]}
+          value={annual ? 'annual' : 'monthly'}
+          onChange={(v) => setAnnual(v === 'annual')}
+          ariaLabel="Periodo de facturación"
+        />
+        <Choice
+          label="Moneda"
+          options={CURRENCY_ORDER.map((code) => ({
+            value: code,
+            label: CURRENCIES[code].label,
+          }))}
+          value={currency}
+          onChange={(v) => setCurrency(v as CurrencyCode)}
+          ariaLabel="Elegir moneda"
+        />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-px border-b border-line bg-line sm:grid-cols-2">
         {/* Free */}
-        <div className="flex flex-col rounded-2xl border border-slate-800/60 bg-slate-900/30 p-6">
-          <h3 className="font-display text-lg font-bold text-slate-100">Gratis</h3>
-          <p className="mt-1 text-sm text-slate-500">Para empezar a estudiar hoy.</p>
-          <p className="mt-4 font-display text-3xl font-bold text-slate-50">
+        <div className="flex flex-col bg-card p-6 sm:p-8">
+          <h3 className="font-serif text-xl font-normal text-fg">Gratis</h3>
+          <p className="mt-1 text-sm text-fg3">Para empezar a estudiar hoy.</p>
+          <p className="tnum mt-6 font-serif text-4xl font-normal leading-none text-fg">
             {formatPrice(plan, 0)}
           </p>
-          <ul className="mt-5 flex flex-1 flex-col gap-2">
+          <p className="mt-2 text-[13px] text-fg3">Sin caducidad y sin tarjeta.</p>
+          <ul className="mt-7 flex flex-1 flex-col gap-2.5">
             {FREE_FEATURES.map((f) => (
               <Feature key={f} text={f} />
             ))}
@@ -135,41 +129,40 @@ export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
           <button
             type="button"
             onClick={onChooseFree}
-            className="mt-6 rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800/60"
+            className="mt-8 rounded border border-line px-4 py-2.5 text-sm font-medium text-fg transition-colors hover:bg-brand-wash"
           >
             Empezar gratis
           </button>
         </div>
 
         {/* Premium */}
-        <div className="relative flex flex-col rounded-2xl border border-accent/40 bg-accent/[0.06] p-6">
-          <span className="absolute -top-2.5 right-5 rounded-full bg-accent/20 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-            Recomendado
-          </span>
-          <h3 className="font-display text-lg font-bold text-slate-100">Premium</h3>
-          <p className="mt-1 text-sm text-slate-500">El cuerpo completo y todo el estudio.</p>
-          <p className="mt-4 flex items-baseline gap-1">
-            <span className="font-display text-3xl font-bold text-slate-50">{priceLabel}</span>
-            <span className="text-sm text-slate-500">/ mes</span>
+        <div className="flex flex-col bg-card p-6 sm:p-8">
+          <h3 className="font-serif text-xl font-normal text-fg">Premium</h3>
+          <p className="mt-1 text-sm text-fg3">
+            El cuerpo completo y todas las herramientas clínicas.
           </p>
-          <p className="text-xs text-slate-500">
-            {annual ? `Facturado ${annualLabel} al año` : 'Facturación mensual'}
+          <p className="mt-6 flex items-baseline gap-1.5">
+            <span className="tnum font-serif text-4xl font-normal leading-none text-fg">
+              {priceLabel}
+            </span>
+            <span className="text-sm text-fg3">al mes</span>
           </p>
-          {trialEligible && (
-            <p className="mt-2 w-fit rounded-full bg-emerald-600/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300">
-              {TRIAL_DAYS} días gratis, sin cargo hoy
-            </p>
-          )}
-          <ul className="mt-5 flex flex-1 flex-col gap-2">
+          <p className="mt-2 text-[13px] text-fg3">
+            {annual
+              ? `Un pago de ${annualLabel} al año.`
+              : 'Facturación mensual.'}
+            {trialEligible ? ` Los primeros ${TRIAL_DAYS} días no se cobran.` : ''}
+          </p>
+          <ul className="mt-7 flex flex-1 flex-col gap-2.5">
             {PREMIUM_FEATURES.map((f) => (
-              <Feature key={f} text={f} highlight />
+              <Feature key={f} text={f} />
             ))}
           </ul>
           <button
             type="button"
             onClick={goPremium}
             disabled={busy || isPremium}
-            className="mt-6 rounded-lg bg-accent/20 px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent/30 disabled:opacity-60"
+            className="mt-8 rounded bg-brand-fill px-4 py-2.5 text-sm font-medium text-brand-on transition-colors hover:bg-brand-deep disabled:opacity-50"
           >
             {isPremium
               ? 'Tu plan actual'
@@ -177,35 +170,87 @@ export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
                 ? 'Procesando…'
                 : snapshot.user
                   ? trialEligible
-                    ? `Empezar ${TRIAL_DAYS} días gratis`
+                    ? `Empezar ${TRIAL_DAYS} días de prueba`
                     : 'Suscribirme'
                   : trialEligible
-                    ? `Crear cuenta · ${TRIAL_DAYS} días gratis`
+                    ? `Crear cuenta y probar ${TRIAL_DAYS} días`
                     : 'Crear cuenta y suscribirme'}
           </button>
         </div>
       </div>
 
-      <p className="mt-5 text-center text-[11px] text-slate-600">
-        {trialEligible ? `Empieza con ${TRIAL_DAYS} días gratis. ` : ''}Cancela cuando
-        quieras. Pago seguro con Stripe. Solo con fines educativos; no sustituye el
-        criterio clínico profesional.
+      <p className="mt-5 max-w-xl text-[13px] leading-relaxed text-fg3">
+        {trialEligible
+          ? `Durante los ${TRIAL_DAYS} días de prueba no se realiza ningún cargo. `
+          : ''}
+        La suscripción puede cancelarse en cualquier momento. El pago se procesa
+        a través de Stripe. Anatris es una herramienta educativa y no sustituye
+        al criterio clínico profesional.
       </p>
     </div>
   );
 }
 
-function Feature({ text, highlight }: { text: string; highlight?: boolean }) {
+/**
+ * A labelled radio group rendered as plain underlined options rather than a
+ * pill switcher. Two of these sit next to each other on a payment surface; as
+ * segmented pills they read as one ambiguous control, and the caption is what
+ * tells the user which is which.
+ */
+function Choice({
+  label,
+  options,
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  label: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  value: string;
+  onChange: (v: string) => void;
+  ariaLabel: string;
+}) {
   return (
-    <li className="flex items-start gap-2 text-sm text-slate-300">
+    <div className="flex items-center gap-3">
+      <span className="text-[13px] text-fg3">{label}</span>
+      <div role="radiogroup" aria-label={ariaLabel} className="flex items-center gap-1">
+        {options.map((o) => {
+          const active = o.value === value;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => onChange(o.value)}
+              className={[
+                'rounded px-2.5 py-1 text-[13px] font-medium transition-colors',
+                active
+                  ? 'bg-brand-wash text-brand'
+                  : 'text-fg2 hover:text-fg',
+              ].join(' ')}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Feature({ text }: { text: string }) {
+  return (
+    <li className="flex items-start gap-2.5 text-[13px] leading-relaxed text-fg2">
       <svg
-        className={`mt-0.5 shrink-0 ${highlight ? 'text-accent' : 'text-emerald-400'}`}
-        width="15"
-        height="15"
+        className="mt-[3px] shrink-0 text-brand"
+        width="13"
+        height="13"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
         strokeWidth="2.5"
+        aria-hidden="true"
       >
         <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
       </svg>

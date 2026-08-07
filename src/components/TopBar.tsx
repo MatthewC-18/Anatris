@@ -326,12 +326,15 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
       </button>
 
       {/* Upgrade entry point: shown while the user is on the free tier, from `sm`
-          up. This is the ONLY always-reachable sales surface in the app shell. */}
+          up. This is the ONLY always-reachable sales surface in the app shell.
+          Drawn as an ordinary bordered control rather than an accent-washed
+          chip: a permanently lit promo button in the toolbar of a clinical tool
+          reads as an ad, and it was the loudest thing in the header. */}
       {!entitlement.isPremium && (
         <button
           type="button"
           onClick={() => setOverlay('pricing')}
-          className="hidden shrink-0 rounded-lg bg-accent/15 px-2.5 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/25 sm:block"
+          className="hidden shrink-0 rounded-lg border border-slate-800/80 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:border-slate-700 hover:text-slate-100 sm:block"
         >
           Hazte Premium
         </button>

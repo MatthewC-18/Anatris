@@ -30,6 +30,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useAnatomyIndex } from './hooks/useAnatomyIndex';
 import { useMuscleResolution } from './hooks/useMuscleResolution';
+import { usePremiumRegion } from './hooks/usePremiumRegion';
 import { useAnatomyStore } from './store/anatomyStore';
 import { TopBar, type AppMode, type Overlay } from './components/TopBar';
 // CODE SPLITTING — what the ENTRY chunk is allowed to contain.
@@ -97,7 +98,7 @@ import { REGIONS, resolveRegionMeshes, resolveRegionFocus } from './data/regione
 
 import { isConceptModule, conceptForRegion } from './data/conceptByRegion';
 import { ConceptStage } from './components/ConceptStage';
-import { EVENTS, track } from './lib/analytics';
+import { EVENTS, track, trackChange } from './lib/analytics';
 import { DEFAULT_REGION, readRoute, writeRoute } from './lib/routing';
 
 /** Which mobile drawer (if any) is open. Desktop never opens these. */
@@ -231,6 +232,19 @@ export default function App() {
   // replaced by the Paywall regardless of the current mode.
   const locked = !entitlement.canAccessRegion(regionId);
 
+  // CONTENT gate, distinct from the ACCESS gate above. A premium region's
+  // clinical library is no longer bundled: it is fetched from the
+  // entitlement-checked `content` edge function. The workspace must not mount
+  // until it has arrived, because the registries are read synchronously — a
+  // premature mount would render an empty region rather than wait.
+  //
+  // 'denied' means the server refused (no live subscription), which is the same
+  // outcome as `locked` and shows the same Paywall; the client-side flag can be
+  // spoofed, this cannot.
+  const contentState = usePremiumRegion(locked ? null : regionId);
+  const contentPending = contentState === 'loading' || contentState === 'idle';
+  const contentDenied = contentState === 'denied';
+
   // ROUTE -> STATE, once on mount. A deep link (/rodilla/movimiento) sets the
   // region; anything else settles on the default. Runs before the URL sync
   // below so the first write is a replace, not a spurious history entry.
@@ -248,6 +262,19 @@ export default function App() {
     if (region == null) return;
     writeRoute({ region, mode }, { replace: !routeSyncedRef.current });
     routeSyncedRef.current = true;
+  }, [region, mode]);
+
+  // PRODUCT ANALYTICS: which region and which mode people actually use.
+  //
+  // This rides on the same (region, mode) pair the router syncs, so it covers
+  // every way of getting there — TopBar, deep link, Back button — with one
+  // effect instead of a dozen onClick handlers. `trackChange` collapses the
+  // re-renders, so a user who reads the shoulder for ten minutes is one
+  // `region_opened`, not one per render.
+  useEffect(() => {
+    if (region == null) return;
+    trackChange(EVENTS.regionOpened, { region });
+    trackChange(EVENTS.modeOpened, { mode, region });
   }, [region, mode]);
 
   // ROUTE -> STATE on Back/Forward.
@@ -301,13 +328,20 @@ export default function App() {
     track(EVENTS.enterApp);
   }
 
-  if (!accepted) {
-    return <DisclaimerGate onAccept={acceptDisclaimer} />;
-  }
-
-  // Marketing landing (sales funnel): shown once, after the legal gate, to
-  // visitors who haven't entered yet and aren't already premium. Premium users
-  // (returning subscribers) always skip straight to the app.
+  // ORDER: LANDING FIRST, THEN THE LEGAL GATE.
+  //
+  // This used to be the other way round, and it cost the product its first
+  // impression: a visitor arriving from a shared link (WhatsApp is the real
+  // channel here) hit a full-screen wall of medical-legal text before seeing a
+  // single pixel of what Anatris is. The landing is MARKETING — it carries no
+  // clinical guidance, and it already states in the hero and the footer that
+  // this is an educational tool that does not replace clinical judgement.
+  //
+  // Consent is NOT weakened: the gate still blocks the actual tool, so nobody
+  // reaches a muscle sheet, a ROM figure or an orthopedic test without having
+  // accepted. It just no longer blocks the sales pitch. Deep links
+  // (/rodilla/movimiento) set `entered`, so they skip the landing and land on
+  // the gate — consent before the tool, exactly as before.
   if (!entered && !entitlement.isPremium) {
     return (
       <>
@@ -318,18 +352,36 @@ export default function App() {
     );
   }
 
+  if (!accepted) {
+    return <DisclaimerGate onAccept={acceptDisclaimer} />;
+  }
+
   // "Evidencia" is a premium capability, so the lab's link to it routes through
   // the paywall instead of opening the overlay when the plan doesn't cover it.
-  const openEvidence = () =>
-    setOverlay(entitlement.canUseFeature('evidence') ? 'evidence' : 'pricing');
+  const openEvidence = () => {
+    const allowed = entitlement.canUseFeature('evidence');
+    if (allowed) track(EVENTS.evidenceOpened, { region: regionId });
+    setOverlay(allowed ? 'evidence' : 'pricing');
+  };
+
+  // The TopBar's overlay setter, wrapped so the guide reports itself. Going
+  // through one setter beats sprinkling `track` across every button that can
+  // open it (TopBar, GuideHub, the tour).
+  const openOverlay = (next: Overlay) => {
+    if (next === 'guide') track(EVENTS.guideOpened, { region: regionId, mode });
+    setOverlay(next);
+  };
 
   return (
     <UpgradeProvider onOpenPricing={() => setOverlay('pricing')}>
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
+    {/* `theme-ink` pins the product to the instrument theme, so the surfaces
+        shared with the public site (Pricing, Paywall, AuthModal) resolve their
+        semantic tokens to ink here and to paper there. See index.css. */}
+    <div className="theme-ink flex h-screen w-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
       <TopBar
         mode={mode}
         setMode={setMode}
-        setOverlay={setOverlay}
+        setOverlay={openOverlay}
         onOpenAuth={() => setAuthOpen(true)}
       />
 
@@ -344,13 +396,31 @@ export default function App() {
           the user recover by switching region/mode (resetKeys). */}
       <ErrorBoundary variant="inline" label="la vista 3D" resetKeys={[regionId, mode]}>
       <Suspense fallback={<IndexLoading />}>
-      {locked ? (
+      {locked || contentDenied ? (
         // SUBSCRIPTION GATE: this region needs premium. Replace the whole body
         // with the upgrade funnel; the TopBar stays so the user can switch back
         // to a free region (Hombro / Fundamentos).
+        //
+        // `contentDenied` is the SERVER's answer. It lands here too, so a user
+        // who got past the client-side flag still sees the paywall and not an
+        // empty region.
         <div className="flex min-h-0 flex-1">
           <main className="min-w-0 flex-1 overflow-hidden">
             <Paywall region={regionId} onOpenAuth={() => setAuthOpen(true)} />
+          </main>
+        </div>
+      ) : contentPending ? (
+        // The region's clinical library is on its way. Same loader the anatomy
+        // index uses, so the wait reads as one continuous load.
+        <div className="flex min-h-0 flex-1">
+          <main className="min-w-0 flex-1 overflow-hidden">
+            <ContentLoading />
+          </main>
+        </div>
+      ) : contentState === 'error' ? (
+        <div className="flex min-h-0 flex-1">
+          <main className="min-w-0 flex-1 overflow-hidden">
+            <ContentError />
           </main>
         </div>
       ) : mode === 'study' ? (
@@ -787,6 +857,36 @@ function IndexLoading() {
   return (
     <div className="flex h-full items-center justify-center viewer-bg">
       <p className="font-mono text-xs text-slate-600">Cargando índice anatómico...</p>
+    </div>
+  );
+}
+
+/** Waiting on a premium region's clinical library from the content endpoint. */
+function ContentLoading() {
+  return (
+    <div className="flex h-full items-center justify-center viewer-bg">
+      <p className="font-mono text-xs text-slate-600">Cargando contenido clínico...</p>
+    </div>
+  );
+}
+
+/**
+ * The content endpoint failed for a reason that is NOT "you have not paid"
+ * (network, function down). Says so plainly instead of showing an empty region,
+ * which would read as missing content and make the product look broken.
+ */
+function ContentError() {
+  return (
+    <div className="flex h-full items-center justify-center viewer-bg px-6">
+      <div className="max-w-sm rounded-xl border border-rose-900/40 bg-rose-950/20 px-5 py-4 text-center">
+        <p className="text-sm font-medium text-rose-300">
+          No se pudo cargar el contenido clínico de esta región.
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-slate-500">
+          Revisa tu conexión y vuelve a intentarlo. Si el problema sigue, cambia
+          de región y vuelve a entrar.
+        </p>
+      </div>
     </div>
   );
 }

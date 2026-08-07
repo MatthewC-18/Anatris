@@ -9,6 +9,13 @@
 //
 // Geometry is computed in JS (polar -> screen) so the arc, ticks and arms stay
 // exact; the outer arc is a polyline to sidestep SVG arc-flag ambiguity.
+//
+// COLOUR: everything structural is drawn from the theme tokens (see the theme
+// scopes in index.css), so the same instrument reads correctly on the public
+// site's paper and on the product's ink. It used to be painted in fixed
+// slate-600/700 strokes, which on a light page rendered as an invisible
+// protractor. The only fixed colours left are the three muscle-role markers,
+// because those ARE the information the graphic exists to show.
 
 const O = { x: 170, y: 212 }; // pivot (joint center)
 const R = 134; // scale radius
@@ -58,7 +65,7 @@ export function Goniometer({ className }: { className?: string }) {
       role="img"
       aria-label="Goniómetro: rango de movimiento medido y músculos activos por tramo"
     >
-      <path d={wedge} className="fill-accent/10" />
+      <path d={wedge} fill="rgb(var(--c-brand) / 0.08)" />
 
       {/* horizon / reference baseline */}
       <line
@@ -66,12 +73,17 @@ export function Goniometer({ className }: { className?: string }) {
         y1={O.y}
         x2={O.x + R + 6}
         y2={O.y}
-        className="stroke-slate-700/50"
+        stroke="rgb(var(--c-line))"
         strokeWidth="1"
       />
 
       {/* measurement arc */}
-      <polyline points={ARC} className="stroke-slate-600" strokeWidth="1.5" strokeLinecap="round" />
+      <polyline
+        points={ARC}
+        stroke="rgb(var(--c-fg3))"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
 
       {/* degree ticks */}
       {TICKS.map((d) => {
@@ -85,7 +97,7 @@ export function Goniometer({ className }: { className?: string }) {
             y1={a.y}
             x2={b.x}
             y2={b.y}
-            className={major ? 'stroke-slate-500' : 'stroke-slate-700'}
+            stroke={major ? 'rgb(var(--c-fg2))' : 'rgb(var(--c-line))'}
             strokeWidth={major ? 1.5 : 1}
           />
         );
@@ -100,7 +112,8 @@ export function Goniometer({ className }: { className?: string }) {
             x={p.x}
             y={p.y + 3}
             textAnchor="middle"
-            className="fill-slate-500 font-mono text-[9px]"
+            fill="rgb(var(--c-fg3))"
+            className="tnum font-mono text-[9px]"
           >
             {d}°
           </text>
@@ -113,7 +126,7 @@ export function Goniometer({ className }: { className?: string }) {
         y1={O.y}
         x2={polar(0, R - 24).x}
         y2={polar(0, R - 24).y}
-        className="stroke-slate-500"
+        stroke="rgb(var(--c-fg2))"
         strokeWidth="2.5"
         strokeLinecap="round"
       />
@@ -124,7 +137,7 @@ export function Goniometer({ className }: { className?: string }) {
         y1={O.y}
         x2={tip.x}
         y2={tip.y}
-        className="stroke-accent"
+        stroke="rgb(var(--c-brand))"
         strokeWidth="2.5"
         strokeLinecap="round"
       />
@@ -136,13 +149,21 @@ export function Goniometer({ className }: { className?: string }) {
       })}
 
       {/* pivot */}
-      <circle cx={O.x} cy={O.y} r="5" className="fill-ink-700 stroke-accent" strokeWidth="2" />
+      <circle
+        cx={O.x}
+        cy={O.y}
+        r="5"
+        fill="rgb(var(--c-card))"
+        stroke="rgb(var(--c-brand))"
+        strokeWidth="2"
+      />
 
       {/* read-out */}
       <text
         x={tip.x + 8}
         y={tip.y - 6}
-        className="fill-accent font-mono text-[13px] font-semibold"
+        fill="rgb(var(--c-brand))"
+        className="tnum font-mono text-[13px] font-semibold"
       >
         {ANGLE}°
       </text>

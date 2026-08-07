@@ -53,26 +53,26 @@ export function MedicalDisclaimerScreen(): JSX.Element {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 px-6 py-8">
       <header>
-        <h1 className="font-display text-2xl font-semibold text-slate-50">
+        <h1 className="font-display text-2xl font-semibold text-fg">
           Aviso importante
         </h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-fg2">
           Lee este aviso antes de usar la aplicacion.
         </p>
       </header>
 
-      <section className="flex flex-col gap-4 text-sm leading-relaxed text-slate-300">
+      <section className="flex flex-col gap-4 text-sm leading-relaxed text-fg2">
         <p>
           Esta aplicacion es una herramienta <strong>educativa</strong> dirigida
           al estudio de la anatomia y la biomecanica, pensada para estudiantes y
           profesionales de la fisioterapia y disciplinas afines.
         </p>
 
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-4">
-          <h2 className="text-sm font-semibold text-slate-100">
+        <div className="border-l-2 border-line pl-4">
+          <h2 className="text-sm font-semibold text-fg">
             Lo que esta aplicacion NO es
           </h2>
-          <ul className="mt-2 flex flex-col gap-2 text-slate-400">
+          <ul className="mt-2 flex flex-col gap-2 text-fg2">
             <li>
               No es un dispositivo medico ni una herramienta de diagnostico o
               tratamiento.

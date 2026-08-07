@@ -7,9 +7,11 @@
 //   - email + password (sign in / create account)
 //   - "¿Olvidaste tu contraseña?" -> sends a recovery link
 //
-// The visual language matches the app: near-black ink surfaces, the cyan accent
-// used sparingly, the BrandMark, and a soft glow — so the very first screen a
-// user sees already reads as a finished, paid product.
+// The modal is drawn in the semantic theme tokens, so it belongs to whichever
+// surface opened it: paper when it is launched from the public site, ink when it
+// is launched from inside the product. It used to be hard-coded ink with an
+// accent glow behind the brand mark, which meant the sign-up step of the funnel
+// arrived as a dark neon panel over a light page.
 
 import { useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
@@ -94,16 +96,16 @@ export function AuthModal({
 
   const title =
     view === 'signin'
-      ? 'Bienvenido de vuelta'
+      ? 'Iniciar sesión'
       : view === 'signup'
-        ? 'Crea tu cuenta'
+        ? 'Crear cuenta'
         : 'Recuperar contraseña';
   const subtitle =
     view === 'signin'
-      ? 'Entra para continuar con tu estudio.'
+      ? 'Accede para continuar donde lo dejaste.'
       : view === 'signup'
-        ? 'Empieza gratis. Sin tarjeta.'
-        : 'Te enviaremos un enlace para elegir una nueva.';
+        ? 'La cuenta es gratuita y no se pide tarjeta.'
+        : 'Te enviamos un enlace para establecer una nueva.';
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -111,18 +113,15 @@ export function AuthModal({
         type="button"
         aria-label="Cerrar"
         onClick={close}
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
       />
 
-      <div className="relative z-10 w-full max-w-sm animate-scale-in overflow-hidden rounded-2xl border border-slate-800/70 bg-ink-950 shadow-glass-lg">
-        {/* Accent glow along the top edge — the premium touch. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-accent/10 to-transparent" />
-
+      <div className="relative z-10 w-full max-w-sm animate-scale-in overflow-hidden rounded-lg border border-line bg-card shadow-xl">
         <button
           type="button"
           aria-label="Cerrar"
           onClick={close}
-          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-800/60 hover:text-slate-200"
+          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded text-fg3 transition-colors hover:text-fg"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M6 6l12 12M18 6L6 18" />
@@ -131,14 +130,12 @@ export function AuthModal({
 
         <div className="relative px-6 pb-6 pt-7">
           {/* Brand + headline */}
-          <div className="mb-5 flex flex-col items-center text-center">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-800/80 bg-ink-900 text-slate-200 shadow-accent-glow">
-              <BrandMark className="h-6 w-6" title="Anatris" />
-            </span>
-            <h2 className="mt-3 font-display text-lg font-semibold text-slate-100">
+          <div className="mb-6">
+            <BrandMark className="h-5 w-5 text-fg" title="Anatris" />
+            <h2 className="mt-4 font-display text-lg font-semibold text-fg">
               {title}
             </h2>
-            <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
+            <p className="mt-1 text-[13px] text-fg3">{subtitle}</p>
           </div>
 
           {view !== 'reset' && (
@@ -148,24 +145,22 @@ export function AuthModal({
                 type="button"
                 onClick={google}
                 disabled={googleBusy}
-                className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-slate-700/80 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-100 disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2.5 rounded border border-line bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition-opacity hover:opacity-90 disabled:opacity-60"
               >
                 <GoogleIcon className="h-4 w-4" />
                 {googleBusy ? 'Conectando…' : 'Continuar con Google'}
               </button>
 
               <div className="my-4 flex items-center gap-3">
-                <span className="h-px flex-1 bg-slate-800/70" />
-                <span className="text-[11px] font-medium uppercase tracking-wide text-slate-600">
-                  o con tu correo
-                </span>
-                <span className="h-px flex-1 bg-slate-800/70" />
+                <span className="h-px flex-1 bg-line" />
+                <span className="text-[11px] text-fg3">o con tu correo</span>
+                <span className="h-px flex-1 bg-line" />
               </div>
             </>
           )}
 
           <form onSubmit={submit} className="flex flex-col gap-3">
-            <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-400">
+            <label className="flex flex-col gap-1.5 text-[13px] font-medium text-fg2">
               Correo
               <input
                 type="email"
@@ -173,20 +168,20 @@ export function AuthModal({
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="rounded-xl border border-slate-800 bg-slate-900/60 px-3.5 py-2.5 text-sm text-slate-100 outline-none transition-colors focus:border-accent/60 focus:ring-2 focus:ring-accent/15"
+                className="rounded border border-line bg-page px-3.5 py-2.5 text-sm text-fg outline-none transition-colors focus:border-brand"
                 placeholder="tu@correo.com"
               />
             </label>
 
             {view !== 'reset' && (
-              <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-400">
+              <label className="flex flex-col gap-1.5 text-[13px] font-medium text-fg2">
                 <span className="flex items-center justify-between">
                   Contraseña
                   {view === 'signin' && (
                     <button
                       type="button"
                       onClick={() => go('reset')}
-                      className="font-normal text-slate-500 transition-colors hover:text-accent"
+                      className="font-normal text-fg3 transition-colors hover:text-fg"
                     >
                       ¿Olvidaste tu contraseña?
                     </button>
@@ -199,19 +194,19 @@ export function AuthModal({
                   autoComplete={view === 'signin' ? 'current-password' : 'new-password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="rounded-xl border border-slate-800 bg-slate-900/60 px-3.5 py-2.5 text-sm text-slate-100 outline-none transition-colors focus:border-accent/60 focus:ring-2 focus:ring-accent/15"
+                  className="rounded border border-line bg-page px-3.5 py-2.5 text-sm text-fg outline-none transition-colors focus:border-brand"
                   placeholder={view === 'signup' ? 'Mínimo 6 caracteres' : '••••••••'}
                 />
               </label>
             )}
 
             {error && (
-              <p className="rounded-lg border border-rose-900/40 bg-rose-950/30 px-3 py-2 text-xs text-rose-300">
+              <p className="border-l-2 border-rose-500 bg-rose-500/10 px-3 py-2 text-[13px] text-rose-500">
                 {error}
               </p>
             )}
             {notice && (
-              <p className="rounded-lg border border-emerald-900/40 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-300">
+              <p className="border-l-2 border-brand bg-brand-wash px-3 py-2 text-[13px] text-fg2">
                 {notice}
               </p>
             )}
@@ -219,7 +214,7 @@ export function AuthModal({
             <button
               type="submit"
               disabled={busy}
-              className="mt-1 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink-950 shadow-accent-glow transition-colors hover:bg-accent-soft disabled:opacity-50"
+              className="mt-1 rounded bg-brand-fill px-4 py-2.5 text-sm font-semibold text-brand-on transition-colors hover:bg-brand-deep disabled:opacity-50"
             >
               {busy
                 ? 'Procesando…'
@@ -234,19 +229,19 @@ export function AuthModal({
               <button
                 type="button"
                 onClick={() => go('signin')}
-                className="text-center text-xs text-slate-500 transition-colors hover:text-slate-300"
+                className="text-center text-[13px] text-fg3 transition-colors hover:text-fg"
               >
-                ← Volver a iniciar sesión
+                Volver a iniciar sesión
               </button>
             )}
 
             {view === 'signup' && (
-              <p className="text-center text-[11px] leading-relaxed text-slate-600">
+              <p className="text-[11px] leading-relaxed text-fg3">
                 Al crear una cuenta aceptas los{' '}
                 <button
                   type="button"
                   onClick={() => setLegalTab('terminos')}
-                  className="text-slate-400 underline transition-colors hover:text-slate-200"
+                  className="text-fg2 underline transition-colors hover:text-fg"
                 >
                   Términos
                 </button>{' '}
@@ -254,7 +249,7 @@ export function AuthModal({
                 <button
                   type="button"
                   onClick={() => setLegalTab('privacidad')}
-                  className="text-slate-400 underline transition-colors hover:text-slate-200"
+                  className="text-fg2 underline transition-colors hover:text-fg"
                 >
                   Política de privacidad
                 </button>
@@ -265,12 +260,12 @@ export function AuthModal({
 
           {/* Switch sign in <-> sign up */}
           {view !== 'reset' && (
-            <p className="mt-5 text-center text-xs text-slate-500">
+            <p className="mt-6 border-t border-line pt-4 text-[13px] text-fg3">
               {view === 'signin' ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}{' '}
               <button
                 type="button"
                 onClick={() => go(view === 'signin' ? 'signup' : 'signin')}
-                className="font-semibold text-accent transition-colors hover:text-accent-soft"
+                className="font-medium text-brand underline transition-opacity hover:opacity-80"
               >
                 {view === 'signin' ? 'Crear cuenta' : 'Iniciar sesión'}
               </button>
@@ -278,7 +273,7 @@ export function AuthModal({
           )}
 
           {backend === 'mock' && (
-            <p className="mt-4 text-center text-[11px] leading-relaxed text-slate-600">
+            <p className="mt-4 text-[11px] leading-relaxed text-fg3">
               Modo demo (sin Supabase): cualquier correo válido con contraseña de
               6+ caracteres inicia sesión, y «Google» entra con una cuenta de
               prueba.

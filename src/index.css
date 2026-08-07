@@ -1,5 +1,5 @@
 /* src/index.css */
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -10,6 +10,57 @@
     color-scheme: dark;
   }
 
+  /* -------------------------------------------------------------------------
+   * THEME SCOPES
+   * -------------------------------------------------------------------------
+   * Two surfaces, one vocabulary. The product is dark because it is a lit stage
+   * for a 3D body; the public site is light because that is what a health tool
+   * has to look like to be believed. Components that appear in both (Pricing,
+   * Paywall, the brand mark) read these variables through the semantic Tailwind
+   * tokens (`bg-card`, `text-fg2`, `border-line`, `bg-brand`) and therefore need
+   * no theme prop at all.
+   *
+   * The ink values also sit on :root, so a component rendered outside any scope
+   * still resolves to the product theme rather than to transparent black.
+   * ---------------------------------------------------------------------- */
+  :root,
+  .theme-ink {
+    --c-page: 7 11 20;
+    --c-card: 15 22 38;
+    --c-line: 30 41 59;
+    --c-fg: 241 245 249;
+    --c-fg2: 148 163 184;
+    --c-fg3: 100 116 139;
+    --c-brand: 34 211 238;
+    /* The SOLID button fill is deliberately not the accent itself. A full-width
+       bar of #22d3ee is the loudest object on any dark screen, and on the
+       paywall it turned a price into a highlighter stripe. Cyan-700 carries the
+       same identity, passes contrast against white text, and behaves like a
+       button instead of a warning. */
+    --c-brand-fill: 14 116 144;
+    --c-brand-deep: 21 94 117;
+    --c-brand-wash: 12 34 48;
+    --c-brand-on: 255 255 255;
+  }
+
+  .theme-paper {
+    color-scheme: light;
+    /* Warm off-white rather than pure white: paper, not a screenshot. */
+    --c-page: 250 250 248;
+    --c-card: 255 255 255;
+    --c-line: 226 225 219;
+    --c-fg: 20 24 31;
+    --c-fg2: 75 84 97;
+    --c-fg3: 124 133 147;
+    /* Deep clinical blue. Deliberately NOT the product's cyan: at this size and
+       on white, cyan is the single strongest "generated landing page" signal. */
+    --c-brand: 29 92 140;
+    --c-brand-fill: 29 92 140;
+    --c-brand-deep: 20 69 106;
+    --c-brand-wash: 238 244 249;
+    --c-brand-on: 255 255 255;
+  }
+
   html,
   body,
   #root {
@@ -18,8 +69,11 @@
 
   body {
     margin: 0;
-    background-color: #070b14;
-    color: #e2e8f0;
+    /* Follows the theme so the overscroll gutter and the area behind a
+       portalled modal match the page. The product's root paints its own
+       bg-ink-950 over this, so the tool is unaffected. */
+    background-color: rgb(var(--c-page));
+    color: rgb(var(--c-fg));
     font-family: '"IBM Plex Sans"', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -101,23 +155,33 @@
     touch-action: none;
   }
 
-  /* Faint measurement grid — gives the landing an "instrument / blueprint"
-     texture instead of a generic SaaS gradient. Cyan haze at the top, fine grid
-     below, over the ink base. */
-  .clinical-grid {
-    background-color: #070b14;
-    background-image:
-      radial-gradient(
-        ellipse 90% 55% at 50% -8%,
-        rgba(34, 211, 238, 0.07),
-        transparent 70%
-      ),
-      linear-gradient(rgba(148, 163, 184, 0.035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(148, 163, 184, 0.035) 1px, transparent 1px);
-    background-size:
-      100% 100%,
-      34px 34px,
-      34px 34px;
+  /* ------------------------------------------------------------------------
+   * PUBLIC SITE
+   * ------------------------------------------------------------------------
+   * The landing used to paint a cyan haze over a blueprint grid. Both are gone
+   * on purpose: a measurement grid behind marketing copy decorates rather than
+   * measures, and the glow was doing the same job as the neon accent it sat
+   * under. What is left is paper, type and hairlines, which is how clinical
+   * publishing has always looked.
+   * --------------------------------------------------------------------- */
+  .site {
+    background-color: rgb(var(--c-page));
+    color: rgb(var(--c-fg));
+  }
+
+  /* The thin dark scrollbars above are unreadable on paper. */
+  .site ::-webkit-scrollbar-thumb {
+    background: rgba(20, 24, 31, 0.2);
+  }
+  .site ::-webkit-scrollbar-thumb:hover {
+    background: rgba(20, 24, 31, 0.34);
+  }
+
+  /* Numerals in tables, prices and stat rows must line up in a column. The
+     serif ships proportional figures by default, which makes a price list look
+     hand-set in the wrong way. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
   }
 
   /* -------------------------------------------------------------------------

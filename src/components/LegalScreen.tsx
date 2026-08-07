@@ -47,7 +47,7 @@ export function LegalScreen({
   return (
     <div className="flex min-h-0 flex-col">
       {/* Tab strip */}
-      <div className="sticky top-0 z-10 flex flex-wrap gap-1 border-b border-slate-800/60 bg-ink-950/95 px-4 py-2 backdrop-blur">
+      <div className="sticky top-0 z-10 flex flex-wrap gap-1 border-b border-line bg-card/95 px-4 py-2 backdrop-blur">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -55,8 +55,8 @@ export function LegalScreen({
             onClick={() => setTab(t.id)}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               tab === t.id
-                ? 'bg-accent/20 text-accent'
-                : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+                ? 'bg-brand-wash text-brand'
+                : 'text-fg2 hover:text-fg'
             }`}
           >
             {t.label}
@@ -87,12 +87,12 @@ function Doc({
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 px-6 py-8">
       <header>
-        <h1 className="font-display text-2xl font-semibold text-slate-50">{title}</h1>
-        <p className="mt-1 text-xs text-slate-500">
+        <h1 className="font-display text-2xl font-semibold text-fg">{title}</h1>
+        <p className="mt-1 text-xs text-fg3">
           Última actualización: {LAST_UPDATED}
         </p>
       </header>
-      <div className="flex flex-col gap-5 text-sm leading-relaxed text-slate-300">
+      <div className="flex flex-col gap-5 text-sm leading-relaxed text-fg2">
         {children}
       </div>
     </div>
@@ -108,7 +108,7 @@ function Block({
 }) {
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-semibold text-slate-100">{heading}</h2>
+      <h2 className="text-sm font-semibold text-fg">{heading}</h2>
       {children}
     </section>
   );
@@ -116,7 +116,7 @@ function Block({
 
 function Bullets({ items }: { items: string[] }) {
   return (
-    <ul className="flex list-disc flex-col gap-1.5 pl-5 text-slate-400">
+    <ul className="flex list-disc flex-col gap-1.5 pl-5 text-fg2">
       {items.map((it) => (
         <li key={it}>{it}</li>
       ))}
@@ -199,7 +199,7 @@ function TermsSection() {
           Podemos actualizar estos términos; los cambios relevantes se anunciarán en
           la aplicación. Estos términos se rigen por {GOVERNING_LAW}. Para cualquier
           consulta, escríbenos a{' '}
-          <a className="text-accent hover:underline" href={`mailto:${CONTACT}`}>
+          <a className="text-brand hover:underline" href={`mailto:${CONTACT}`}>
             {CONTACT}
           </a>
           .
@@ -252,7 +252,7 @@ function PrivacySection() {
             'PostHog — analítica de producto (si está habilitada).',
           ]}
         />
-        <p className="text-slate-400">
+        <p className="text-fg2">
           Cada proveedor trata los datos según su propia política de privacidad. No
           vendemos tus datos personales.
         </p>
@@ -270,7 +270,7 @@ function PrivacySection() {
         <p>
           Conservamos tus datos mientras tu cuenta esté activa. Puedes solicitar
           acceso, rectificación o eliminación de tus datos escribiéndonos a{' '}
-          <a className="text-accent hover:underline" href={`mailto:${CONTACT}`}>
+          <a className="text-brand hover:underline" href={`mailto:${CONTACT}`}>
             {CONTACT}
           </a>
           . Atenderemos tu solicitud según la normativa aplicable.
@@ -288,7 +288,7 @@ function PrivacySection() {
         <p>
           Podemos actualizar esta política; anunciaremos los cambios relevantes en
           la aplicación. Ante cualquier duda, contáctanos en{' '}
-          <a className="text-accent hover:underline" href={`mailto:${CONTACT}`}>
+          <a className="text-brand hover:underline" href={`mailto:${CONTACT}`}>
             {CONTACT}
           </a>
           .
@@ -331,7 +331,7 @@ function RefundSection() {
       <Block heading="Contacto">
         <p>
           Para cualquier tema de facturación, escríbenos a{' '}
-          <a className="text-accent hover:underline" href={`mailto:${CONTACT}`}>
+          <a className="text-brand hover:underline" href={`mailto:${CONTACT}`}>
             {CONTACT}
           </a>{' '}
           e incluye el correo de tu cuenta.
@@ -360,15 +360,15 @@ export function LegalModal({
         type="button"
         aria-label="Cerrar"
         onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
       />
-      <div className="relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-800/60 bg-ink-950 shadow-2xl">
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-800/60 px-5 py-3">
-          <span className="font-display text-sm font-semibold text-slate-200">Legal</span>
+      <div className="relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-line bg-card shadow-xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-3">
+          <span className="font-display text-sm font-semibold text-fg">Legal</span>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-800/60 hover:text-slate-200"
+            className="rounded p-1.5 text-fg3 transition-colors hover:text-fg"
             aria-label="Cerrar"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

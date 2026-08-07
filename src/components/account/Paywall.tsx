@@ -3,6 +3,13 @@
 // Shown in place of a premium region's content when the user isn't subscribed.
 // Drives the upgrade funnel: sign in (if needed) -> subscribe -> unlock. On the
 // mock backend "Suscribirme" grants premium instantly so the flow is demoable.
+//
+// TONE: this is the surface where a professional decides whether to pay, so it
+// is written and drawn as a plain statement of what is behind the wall and what
+// it costs. The uppercase neon "CONTENIDO PREMIUM" chip, the emerald trial pill
+// and the accent-washed button are gone: three saturated badges stacked above a
+// price read as a promotion, and a clinical tool is not sold that way. Surfaces
+// use the semantic theme tokens, so it stays coherent with the public site.
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
@@ -16,11 +23,11 @@ type Interval = 'monthly' | 'annual';
 // src/auth/entitlements.ts actually enforces. Lead with the tools a physio uses
 // in front of a patient -- that is what converts, not the joint count.
 const PREMIUM_BENEFITS = [
-  'Tests ortopédicos con sens/espec, Fagan, clusters y maniobras resistidas en 3D',
+  'Tests ortopédicos con sensibilidad, especificidad, Fagan, clusters y maniobras resistidas en 3D',
   'Laboratorio de movimiento completo y presets patológicos',
   'Modo paciente y tarjeta imprimible para el paciente',
   'Todas las regiones: codo, cadera, rodilla, tobillo y columna',
-  'Tu progreso sincronizado en todos tus dispositivos',
+  'Progreso sincronizado en todos tus dispositivos',
 ];
 
 export function Paywall({
@@ -62,53 +69,54 @@ export function Paywall({
 
   return (
     <div className="flex h-full items-center justify-center overflow-y-auto px-6 py-8">
-      <div className="w-full max-w-md rounded-2xl border border-slate-800/60 bg-slate-900/40 p-8 text-center">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-accent">
-          <LockIcon /> Contenido Premium
-        </span>
-
-        <h2 className="mt-4 font-display text-xl font-bold text-slate-50">
-          Desbloquea {regionName} y todo Anatris
-        </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          La región del hombro y Fundamentos son gratuitas. Premium abre el resto
-          del cuerpo y las herramientas que usas delante del paciente.
+      <div className="w-full max-w-md">
+        <p className="flex items-center gap-2 text-xs font-medium text-fg3">
+          <LockIcon />
+          Incluido en Premium
         </p>
 
-        <ul className="mx-auto mt-5 flex max-w-xs flex-col gap-2 text-left">
+        <h2 className="mt-4 font-display text-xl font-semibold leading-snug text-fg">
+          {regionName} forma parte del plan Premium
+        </h2>
+        <p className="mt-3 text-sm leading-relaxed text-fg2">
+          El hombro y Fundamentos son gratuitos. Premium abre el resto del cuerpo
+          y las herramientas que se usan delante del paciente.
+        </p>
+
+        <ul className="mt-6 border-t border-line">
           {PREMIUM_BENEFITS.map((b) => (
-            <li key={b} className="flex items-start gap-2 text-sm text-slate-300">
-              <CheckIcon /> {b}
+            <li
+              key={b}
+              className="flex items-start gap-2.5 border-b border-line py-2.5 text-[13px] leading-relaxed text-fg2"
+            >
+              <CheckIcon />
+              {b}
             </li>
           ))}
         </ul>
 
-        {/* Billing period toggle + price (annual offered right at the wall). */}
-        <div className="mt-6 flex flex-col items-center gap-2">
-          <div className="flex items-center gap-1 rounded-full border border-slate-800/70 bg-slate-900/40 p-1">
+        {/* Billing period + price. */}
+        <div className="mt-6 flex items-baseline justify-between gap-4">
+          <p className="flex items-baseline gap-1.5">
+            <span className="tnum font-display text-3xl font-semibold leading-none text-fg">
+              {formatPrice(plan, perMonth)}
+            </span>
+            <span className="text-sm text-fg3">al mes</span>
+          </p>
+          <div role="radiogroup" aria-label="Periodo de facturación" className="flex gap-1">
             <IntervalBtn id="monthly" label="Mensual" interval={interval} setInterval={setInterval} />
             <IntervalBtn id="annual" label="Anual" interval={interval} setInterval={setInterval} />
           </div>
-          <p className="mt-1 flex items-baseline gap-1">
-            <span className="font-display text-2xl font-bold text-slate-50">
-              {formatPrice(plan, perMonth)}
-            </span>
-            <span className="text-xs text-slate-500">/ mes</span>
-          </p>
-          {trialEligible && (
-            <p className="mt-1 rounded-full bg-emerald-600/15 px-3 py-1 text-[11px] font-semibold text-emerald-300">
-              {TRIAL_DAYS} días gratis, luego {formatPrice(plan, perMonth)}/mes
-            </p>
-          )}
-          <p className="text-[11px] text-slate-500">
-            {interval === 'annual'
-              ? `Facturado ${formatPrice(plan, plan.annual)} al año · ahorra ${savingsPct(plan)}%`
-              : 'Facturación mensual · cancela cuando quieras'}
-          </p>
         </div>
+        <p className="mt-2 text-[13px] leading-relaxed text-fg3">
+          {interval === 'annual'
+            ? `Un pago de ${formatPrice(plan, plan.annual)} al año, un ${savingsPct(plan)}% menos que la cuota mensual.`
+            : 'Facturación mensual, cancelable en cualquier momento.'}
+          {trialEligible ? ` Los primeros ${TRIAL_DAYS} días no se cobran.` : ''}
+        </p>
 
         {error && (
-          <p className="mt-4 rounded-lg border border-rose-900/40 bg-rose-950/30 px-3 py-2 text-xs text-rose-300">
+          <p className="mt-4 border-l-2 border-rose-500 bg-rose-500/10 px-3 py-2 text-[13px] text-rose-300">
             {error}
           </p>
         )}
@@ -117,23 +125,23 @@ export function Paywall({
           type="button"
           onClick={upgrade}
           disabled={busy}
-          className="mt-6 w-full rounded-lg bg-accent/20 px-5 py-3 text-sm font-semibold text-accent transition-colors hover:bg-accent/30 disabled:opacity-50"
+          className="mt-6 w-full rounded bg-brand-fill px-5 py-3 text-sm font-semibold text-brand-on transition-colors hover:bg-brand-deep disabled:opacity-50"
         >
           {busy
             ? 'Procesando…'
             : !snapshot.user
               ? trialEligible
-                ? `Inicia sesión y prueba ${TRIAL_DAYS} días gratis`
+                ? `Inicia sesión y prueba ${TRIAL_DAYS} días`
                 : 'Inicia sesión para suscribirte'
               : trialEligible
-                ? `Empezar ${TRIAL_DAYS} días gratis`
+                ? `Empezar ${TRIAL_DAYS} días de prueba`
                 : 'Suscribirme a Premium'}
         </button>
 
-        <p className="mt-3 text-[11px] text-slate-600">
+        <p className="mt-3 text-[13px] leading-relaxed text-fg3">
           {trialEligible
-            ? `Sin cargo hoy. Cancela antes de que terminen los ${TRIAL_DAYS} días y no se te cobra.`
-            : 'Cancela cuando quieras. El pago se procesa de forma segura con Stripe.'}
+            ? `Si cancelas antes de que terminen los ${TRIAL_DAYS} días no se realiza ningún cargo.`
+            : 'El pago se procesa a través de Stripe.'}
         </p>
       </div>
     </div>
@@ -142,7 +150,7 @@ export function Paywall({
 
 function LockIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
       <rect x="5" y="11" width="14" height="10" rx="2" />
       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
     </svg>
@@ -150,7 +158,7 @@ function LockIcon() {
 }
 function CheckIcon() {
   return (
-    <svg className="mt-0.5 shrink-0 text-emerald-400" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+    <svg className="mt-[3px] shrink-0 text-brand" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
       <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -176,9 +184,11 @@ function IntervalBtn({
   return (
     <button
       type="button"
+      role="radio"
+      aria-checked={active}
       onClick={() => setInterval(id)}
-      className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-        active ? 'bg-accent/20 text-accent' : 'text-slate-400 hover:text-slate-200'
+      className={`rounded px-2.5 py-1 text-[13px] font-medium transition-colors ${
+        active ? 'bg-brand-wash text-brand' : 'text-fg2 hover:text-fg'
       }`}
     >
       {label}

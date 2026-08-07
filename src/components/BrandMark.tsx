@@ -6,8 +6,11 @@
 // segment, a moving segment, and a sweeping range-of-motion (ROM) arc. It reads
 // as "movement around a joint" — the core of what the app teaches — rather than
 // a generic anatomy/medical cross. The bones use `currentColor` so the mark
-// adopts the surrounding text color; the ROM arc is always the cyan accent so
-// the "movement" idea stays legible on any surface.
+// adopts the surrounding text color; the ROM arc and the pivot take the brand
+// token, which resolves to the product's cyan on ink and to the deep clinical
+// blue on the public site's paper (see the theme scopes in index.css). Hard-
+// coding the cyan meant the one glyph a visitor sees first arrived in neon on a
+// white page.
 
 interface BrandMarkProps {
   className?: string;
@@ -42,12 +45,12 @@ export function BrandMark({ className, title }: BrandMarkProps) {
       {/* Range-of-motion arc swept between the two segments. */}
       <path
         d="M6 7.4A11 11 0 0 1 16.4 11"
-        stroke="#22d3ee"
+        stroke="rgb(var(--c-brand))"
         strokeWidth="1.7"
         strokeLinecap="round"
       />
       {/* Pivot / joint. */}
-      <circle cx="6" cy="19" r="2.4" fill="#22d3ee" />
+      <circle cx="6" cy="19" r="2.4" fill="rgb(var(--c-brand))" />
     </svg>
   );
 }
@@ -67,7 +70,7 @@ export function RoleLegend({ className }: { className?: string }) {
   return (
     <div className={['flex flex-wrap items-center gap-x-4 gap-y-2', className].join(' ')}>
       {ROLE_LEGEND.map((r) => (
-        <span key={r.label} className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+        <span key={r.label} className="inline-flex items-center gap-1.5 text-xs text-fg2">
           <span className={`h-2 w-2 rounded-full ${r.dot}`} />
           {r.label}
         </span>
