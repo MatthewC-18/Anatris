@@ -15,7 +15,12 @@
 // advice. Before selling, have a lawyer review the exact wording and whether
 // you need an explicit acceptance step (clickwrap) for your jurisdiction.
 //
-// ASCII-only source. UI strings Spanish LATAM. No `any`. English comments.
+// English comments, no `any`. The "ASCII-only source" rule applies to CODE --
+// identifiers, comments, keys -- and NOT to UI strings: this screen is the first
+// thing a visitor reads, and it had shipped with every Spanish accent stripped
+// ("aplicacion", "anatomia", "diagnostico", "lesion"). On a legal notice for a
+// health product that reads as broken. The banner in this same file always had
+// them, so the screen was inconsistent with its own neighbour.
 
 const WARN = String.fromCharCode(0x26a0);
 
@@ -57,48 +62,48 @@ export function MedicalDisclaimerScreen(): JSX.Element {
           Aviso importante
         </h1>
         <p className="mt-1 text-sm text-fg2">
-          Lee este aviso antes de usar la aplicacion.
+          Lee este aviso antes de usar la aplicación.
         </p>
       </header>
 
       <section className="flex flex-col gap-4 text-sm leading-relaxed text-fg2">
         <p>
-          Esta aplicacion es una herramienta <strong>educativa</strong> dirigida
-          al estudio de la anatomia y la biomecanica, pensada para estudiantes y
+          Esta aplicación es una herramienta <strong>educativa</strong> dirigida
+          al estudio de la anatomía y la biomecánica, pensada para estudiantes y
           profesionales de la fisioterapia y disciplinas afines.
         </p>
 
         <div className="border-l-2 border-line pl-4">
           <h2 className="text-sm font-semibold text-fg">
-            Lo que esta aplicacion NO es
+            Lo que esta aplicación NO es
           </h2>
           <ul className="mt-2 flex flex-col gap-2 text-fg2">
             <li>
-              No es un dispositivo medico ni una herramienta de diagnostico o
+              No es un dispositivo médico ni una herramienta de diagnóstico o
               tratamiento.
             </li>
             <li>
-              No sustituye la formacion academica reglada, la supervision docente
+              No sustituye la formación académica reglada, la supervisión docente
               ni el criterio de un profesional sanitario cualificado.
             </li>
             <li>
-              No debe utilizarse para tomar decisiones clinicas sobre pacientes
+              No debe utilizarse para tomar decisiones clínicas sobre pacientes
               reales.
             </li>
           </ul>
         </div>
 
         <p>
-          El contenido clinico (tests, patologias, principios de tratamiento y
-          casos) se elabora a partir de referencias academicas estandar y se
+          El contenido clínico (tests, patologías, principios de tratamiento y
+          casos) se elabora a partir de referencias académicas estándar y se
           ofrece como material de estudio. Puede contener simplificaciones,
           errores u omisiones, y debe contrastarse siempre con fuentes
-          autorizadas y con la guia de un docente o profesional.
+          autorizadas y con la guía de un docente o profesional.
         </p>
 
         <p>
-          Ante cualquier sintoma, lesion o duda de salud, consulta a un
-          profesional sanitario cualificado. El uso de esta aplicacion es
+          Ante cualquier síntoma, lesión o duda de salud, consulta a un
+          profesional sanitario cualificado. El uso de esta aplicación es
           responsabilidad de la persona usuaria.
         </p>
       </section>

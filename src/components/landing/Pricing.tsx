@@ -18,6 +18,13 @@
 //
 // The emerald "ahorra" chip and the accent-washed CTA are gone too — a price
 // list earns trust by being plainly legible, not by glowing.
+//
+// CTA ABOVE THE FEATURE LIST, on purpose. With the buttons pinned to the bottom
+// of each column (`flex-1` on the list), the shorter Gratis column opened a
+// dead gap the height of three features, and the two columns read as if one of
+// them had failed to load. Price, then action, then what you get: the columns
+// now start and finish on their own terms and the ragged bottom is simply where
+// each list ends.
 
 import { useMemo, useState } from 'react';
 import { useAuth, useEntitlement } from '../../auth/AuthContext';
@@ -121,18 +128,18 @@ export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
             {formatPrice(plan, 0)}
           </p>
           <p className="mt-2 text-[13px] text-fg3">Sin caducidad y sin tarjeta.</p>
-          <ul className="mt-7 flex flex-1 flex-col gap-2.5">
+          <button
+            type="button"
+            onClick={onChooseFree}
+            className="mt-6 rounded border border-line px-4 py-2.5 text-sm font-medium text-fg transition-colors hover:bg-brand-wash"
+          >
+            Empezar gratis
+          </button>
+          <ul className="mt-7 flex flex-col gap-2.5">
             {FREE_FEATURES.map((f) => (
               <Feature key={f} text={f} />
             ))}
           </ul>
-          <button
-            type="button"
-            onClick={onChooseFree}
-            className="mt-8 rounded border border-line px-4 py-2.5 text-sm font-medium text-fg transition-colors hover:bg-brand-wash"
-          >
-            Empezar gratis
-          </button>
         </div>
 
         {/* Premium */}
@@ -153,16 +160,11 @@ export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
               : 'Facturación mensual.'}
             {trialEligible ? ` Los primeros ${TRIAL_DAYS} días no se cobran.` : ''}
           </p>
-          <ul className="mt-7 flex flex-1 flex-col gap-2.5">
-            {PREMIUM_FEATURES.map((f) => (
-              <Feature key={f} text={f} />
-            ))}
-          </ul>
           <button
             type="button"
             onClick={goPremium}
             disabled={busy || isPremium}
-            className="mt-8 rounded bg-brand-fill px-4 py-2.5 text-sm font-medium text-brand-on transition-colors hover:bg-brand-deep disabled:opacity-50"
+            className="mt-6 rounded bg-brand-fill px-4 py-2.5 text-sm font-medium text-brand-on transition-colors hover:bg-brand-deep disabled:opacity-50"
           >
             {isPremium
               ? 'Tu plan actual'
@@ -176,6 +178,11 @@ export function Pricing({ onChooseFree, onOpenAuth }: PricingProps) {
                     ? `Crear cuenta y probar ${TRIAL_DAYS} días`
                     : 'Crear cuenta y suscribirme'}
           </button>
+          <ul className="mt-7 flex flex-col gap-2.5">
+            {PREMIUM_FEATURES.map((f) => (
+              <Feature key={f} text={f} />
+            ))}
+          </ul>
         </div>
       </div>
 

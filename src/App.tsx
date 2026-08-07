@@ -722,24 +722,36 @@ function CheckoutToast() {
  * Disclaimer acceptance gate (first run).
  * ------------------------------------------------------------------------ */
 function DisclaimerGate({ onAccept }: { onAccept: () => void }) {
+  // THIS SCREEN BLOCKS THE ENTIRE APP, so it is built to be impossible to get
+  // stuck on. It used to be `h-screen` + `overflow-hidden` with the button in a
+  // pinned footer; on a phone that container is taller than the visible
+  // viewport (see the h-screen note in index.css), which put the button off
+  // screen with no way to scroll to it. The app simply could not be entered.
+  //
+  // `body` is `overflow: hidden` (the app owns its scroll regions), so the fix
+  // cannot be "let the page scroll". Instead the gate is ONE scroll region and
+  // the action bar lives INSIDE it, stuck to its bottom edge. The bar is then
+  // pinned to the bottom of whatever is actually visible, and the notice above
+  // it scrolls under it -- there is no geometry in which the button ends up
+  // somewhere the user cannot reach.
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+    <div className="theme-ink flex h-screen w-full flex-col bg-ink-950 text-slate-200">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <MedicalDisclaimerScreen />
-      </div>
-      <div className="shrink-0 border-t border-slate-800/60 bg-ink-950/90 px-6 py-4">
-        <div className="mx-auto flex max-w-2xl flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs leading-relaxed text-slate-500">
-            Al continuar confirmas que has leído este aviso y que usarás la
-            aplicacion solo con fines educativos.
-          </p>
-          <button
-            type="button"
-            onClick={onAccept}
-            className="shrink-0 rounded-lg bg-accent/20 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/30"
-          >
-            Acepto y continúo
-          </button>
+        <div className="sticky bottom-0 border-t border-slate-800/60 bg-ink-950/95 px-6 pt-4 backdrop-blur pb-safe">
+          <div className="mx-auto flex max-w-2xl flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs leading-relaxed text-slate-500">
+              Al continuar confirmas que has leído este aviso y que usarás la
+              aplicación solo con fines educativos.
+            </p>
+            <button
+              type="button"
+              onClick={onAccept}
+              className="shrink-0 rounded-lg bg-brand-fill px-5 py-3 text-sm font-semibold text-brand-on transition-colors hover:bg-brand-deep"
+            >
+              Acepto y continúo
+            </button>
+          </div>
         </div>
       </div>
     </div>

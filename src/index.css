@@ -5,6 +5,44 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  /* -------------------------------------------------------------------------
+   * VIEWPORT HEIGHT ON PHONES
+   * -------------------------------------------------------------------------
+   * Tailwind's h-screen is `height: 100vh`, and on iOS Safari and Android
+   * Chrome 100vh means the LARGE viewport -- the page as it would be with the
+   * URL bar hidden. With the bar showing, a 100vh box is roughly 60-100px
+   * taller than what you can actually see.
+   *
+   * Everywhere in this app that box also carries `overflow-hidden`, so anything
+   * pinned to its bottom edge is not merely below the fold: it cannot be
+   * scrolled to at all. That is what hid the "Acepto y continuo" button on
+   * phones and made the app impossible to enter.
+   *
+   * `dvh` tracks the visible viewport. The `vh` declaration stays first as the
+   * fallback for engines that do not know `dvh` (they ignore the second line).
+   * ---------------------------------------------------------------------- */
+  .h-screen {
+    height: 100vh;
+    height: 100dvh;
+  }
+  .min-h-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  .max-h-screen {
+    max-height: 100vh;
+    max-height: 100dvh;
+  }
+
+  /* Bottom padding that clears the iPhone home indicator. The document opts
+     into `viewport-fit=cover`, so without this a bottom-pinned control sits
+     under the indicator and is awkward to press. */
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
 @layer base {
   :root {
     color-scheme: dark;
