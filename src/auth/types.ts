@@ -120,4 +120,15 @@ export interface AuthBackend {
    * Returned lazily so it can capture the live session.
    */
   studyCloud?(): StudyCloud | null;
+
+  /**
+   * Fetch a PREMIUM region's clinical library from the entitlement-checked
+   * `content` edge function. Rejects with `PremiumDeniedError` on 403.
+   *
+   * Optional: the mock backend has no endpoint, and in dev the content is read
+   * straight from the bundled library instead (see lib/premiumContent.ts).
+   * Typed as `unknown` here so this module keeps knowing nothing about the
+   * clinical data layer; the caller narrows it.
+   */
+  fetchPremiumRegion?(region: string): Promise<unknown>;
 }

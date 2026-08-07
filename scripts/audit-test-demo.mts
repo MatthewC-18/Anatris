@@ -19,9 +19,20 @@ import { getBoneControl, resolveArmatureName, type Side } from '../src/lib/boneM
 import { layerForMaterial } from '../src/lib/materialColors.ts';
 import { buildMuscleResolution } from '../src/lib/muscleResolver.ts';
 import { parseMeshName } from '../src/lib/parseMeshName.ts';
-import { MUSCLES_BY_REGION } from '../src/data/musclesByRegion.ts';
-import { movementById } from '../src/data/romByRegion.ts';
-import { ORTHOPEDIC_TESTS_BY_REGION as TESTS_BY_REGION } from '../src/data/orthopedicTests/index.ts';
+// Full registry (every region, paid included): the runtime ones now carry only
+// the free tier. See src/data/fullContent.ts.
+import {
+  ALL_MUSCLES_BY_REGION as MUSCLES_BY_REGION,
+  ALL_ROM_BY_REGION,
+  ALL_TESTS_BY_REGION as TESTS_BY_REGION,
+} from '../src/data/fullContent.ts';
+
+const movementById = (id: string | null | undefined) =>
+  id
+    ? Object.values(ALL_ROM_BY_REGION)
+        .flat()
+        .find((m) => m.id === id)
+    : undefined;
 import { applyMirrorRepair } from './lib/mirrorRepair.mts';
 import type { Muscle } from '../src/types/muscle.ts';
 import type { RomMuscleRole } from '../src/types/rom.ts';

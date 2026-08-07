@@ -26,8 +26,27 @@
 
 import type { PostHog } from 'posthog-js';
 
-/** The sales-funnel events, one source of truth. */
+/**
+ * Every event the app can fire, in one place.
+ *
+ * TWO FAMILIES, and the distinction is the whole point:
+ *
+ *   FUNNEL  — did the visitor buy? (landing -> enter -> sign up -> checkout)
+ *   PRODUCT — what did they actually DO once inside?
+ *
+ * The funnel half existed alone for a long time, which meant every question
+ * about the product ("is the movement lab used at all?", "does anyone finish an
+ * exam?", "which region should get content next?") could only be answered with
+ * an opinion. The product half exists so those become measurable.
+ *
+ * WHAT WE DELIBERATELY DO NOT SEND: no free text, no muscle notes, no patient
+ * card contents, no exam answers, no study grades — only WHICH region / mode /
+ * movement / test id was opened. Ids are a fixed, public vocabulary from the
+ * repo's own data files, so nothing here can carry personal or clinical
+ * information about a real person. Keep it that way when adding events.
+ */
 export const EVENTS = {
+  // ---- Sales funnel ----
   landingViewed: 'landing_viewed',
   enterApp: 'enter_app',
   signUp: 'sign_up',
@@ -35,9 +54,35 @@ export const EVENTS = {
   paywallViewed: 'paywall_viewed',
   checkoutStarted: 'checkout_started',
   premiumActivated: 'premium_activated',
+
+  // ---- Product usage ----
+  /** A region was opened. props: { region } */
+  regionOpened: 'region_opened',
+  /** A mode (explorar/aprender/estudiar/movimiento) was opened. props: { mode, region } */
+  modeOpened: 'mode_opened',
+  /** A movement was selected in the lab — NOT fired per drag frame. props: { region, movement } */
+  movementDriven: 'movement_driven',
+  /** A pathological preset was applied. props: { movement, pathology } */
+  pathologySelected: 'pathology_selected',
+  /** The rig was dissected or isolated. props: { action } */
+  dissectionUsed: 'dissection_used',
+  /** An orthopedic test card was expanded. props: { region, test } */
+  testOpened: 'test_opened',
+  /** Exam mode (predict/reveal) was switched on. props: { region } */
+  examModeStarted: 'exam_mode_started',
+  /** The neuro panel was opened. props: { region } */
+  neuroOpened: 'neuro_opened',
+  /** A study tab was opened. props: { region, tab } */
+  studyTabOpened: 'study_tab_opened',
+  /** A patient card was exported. props: { region, movement } */
+  patientCardExported: 'patient_card_exported',
+  /** The clinical-evidence screen was opened. props: { region } */
+  evidenceOpened: 'evidence_opened',
+  /** The quick guide was opened. props: { region, mode } */
+  guideOpened: 'guide_opened',
 } as const;
 
-export type FunnelEvent = (typeof EVENTS)[keyof typeof EVENTS];
+export type AppEvent = (typeof EVENTS)[keyof typeof EVENTS];
 
 let ph: PostHog | null = null;
 let enabled = false;
@@ -77,9 +122,28 @@ export function initAnalytics(): void {
     });
 }
 
-/** Fire a funnel event with optional properties. Safe no-op when disabled. */
-export function track(event: FunnelEvent, props?: Record<string, unknown>): void {
+/** Fire an event with optional properties. Safe no-op when disabled. */
+export function track(event: AppEvent, props?: Record<string, unknown>): void {
   withPosthog((p) => p.capture(event, props));
+}
+
+/**
+ * Fire an event only when its payload CHANGED since the last call for that
+ * event. Product signals live on state that React re-runs freely (a region is
+ * "opened" on every render of an effect, a movement stays selected while the
+ * user drags for a minute), and without this the same fact would be counted
+ * dozens of times and every per-user average would be meaningless.
+ *
+ * Keyed per event name, in module scope: it is deliberately per page-load, so
+ * coming back to the shoulder tomorrow counts again.
+ */
+const lastPayload = new Map<AppEvent, string>();
+
+export function trackChange(event: AppEvent, props: Record<string, unknown>): void {
+  const key = JSON.stringify(props);
+  if (lastPayload.get(event) === key) return;
+  lastPayload.set(event, key);
+  track(event, props);
 }
 
 /** Tie subsequent events to a signed-in user (id + non-sensitive traits). */

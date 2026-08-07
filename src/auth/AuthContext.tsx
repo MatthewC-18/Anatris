@@ -30,6 +30,8 @@ import {
 } from './entitlements';
 import { hasAllAccess } from './devAccess';
 import { EVENTS, identifyUser, resetAnalytics, track } from '../lib/analytics';
+import type { PremiumFetcher } from '../lib/premiumContent';
+import { clearPremiumRegions, type PremiumRegionPayload } from '../data/premiumStore';
 
 /** True when the Supabase env vars are present at build time. */
 export function isSupabaseConfigured(): boolean {
@@ -64,6 +66,12 @@ interface AuthContextValue {
   signIn: AuthBackend['signIn'];
   signUp: AuthBackend['signUp'];
   signOut: AuthBackend['signOut'];
+  /**
+   * Fetch a premium region's clinical library from the entitlement-checked
+   * endpoint, or null when this backend has none (mock / demo mode, where
+   * lib/premiumContent falls back to the bundled library in dev).
+   */
+  fetchPremiumRegion: PremiumFetcher | null;
   signInWithGoogle: AuthBackend['signInWithGoogle'];
   resetPassword: AuthBackend['resetPassword'];
   updatePassword: AuthBackend['updatePassword'];
@@ -215,7 +223,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       resetPassword: backend.resetPassword.bind(backend),
       updatePassword: backend.updatePassword.bind(backend),
-      signOut: backend.signOut.bind(backend),
+      // Signing out must also drop the paid clinical library from memory:
+      // otherwise a shared machine leaves the next person reading it, and a
+      // lapsed subscription would keep rendering a stale copy instead of
+      // re-asking the server (and being refused).
+      signOut: async () => {
+        await backend.signOut();
+        clearPremiumRegions();
+      },
+      fetchPremiumRegion: backend.fetchPremiumRegion
+        ? (region: string) =>
+            backend.fetchPremiumRegion!(region) as Promise<PremiumRegionPayload>
+        : null,
       startCheckout: backend.startCheckout.bind(backend),
       manageBilling: backend.manageBilling
         ? backend.manageBilling.bind(backend)

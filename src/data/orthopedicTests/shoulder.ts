@@ -34,9 +34,14 @@ const tests: OrthopedicTest[] = [
       specificity: 60,
       note: 'Metaanálisis; sensible pero poco específico. Sube su valor combinado con Hawkins.',
     },
-    utility: 'rule-out',
+    // Reclassified 'rule-out' -> 'weak' (2026-08-04). SnNout needs high
+    // sensitivity; 72% is not high enough to make a negative meaningfully rule
+    // impingement out, and 60% specificity means a positive says little either.
+    // Hegedus 2012 concludes exactly this: no single shoulder test is
+    // pathognomonic, clusters do better.
+    utility: 'weak',
     interpretation:
-      'Sensibilidad de moderada a alta y especificidad baja: útil como cribado (un negativo hace menos probable el pinzamiento), no para confirmar por sí solo.',
+      'Sensibilidad moderada (72%) y especificidad baja (60%): aislado no descarta ni confirma. Su valor está en el clúster con Hawkins y arco doloroso.',
     pearl:
       'Comparte falsos positivos con patología acromioclavicular y labral; interprétalo dentro de un clúster.',
     demo: { movementId: 'glenohumeral-flexion', angleDeg: 160, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna del hombro.' },
@@ -53,16 +58,26 @@ const tests: OrthopedicTest[] = [
     maneuver:
       'Hombro y codo en flexión de 90°; el explorador realiza rotación interna forzada del hombro descendiendo el antebrazo.',
     positive: 'Dolor en la reproducción del gesto.',
+    // Figures corrected 2026-08-04: the entry said 74/57, but the cited source
+    // (Hegedus 2012, PMID 22773322) reports pooled 79% / 59% in its own
+    // abstract. Utility likewise reclassified — 79% sensitivity is still below
+    // the SnNout threshold, so a negative does not rule impingement out.
     metrics: {
-      sensitivity: 74,
-      specificity: 57,
-      note: 'Hegedus 2012 (metaanálisis): 74/57. De los más sensibles del grupo de pinzamiento.',
+      sensitivity: 79,
+      specificity: 59,
+      note: 'Hegedus 2012 (metaanálisis): 79/59. El más sensible del grupo de pinzamiento, pero poco específico.',
     },
-    utility: 'rule-out',
+    utility: 'weak',
     interpretation:
-      'Alta sensibilidad, baja especificidad: buen test de cribado. Un negativo reduce la probabilidad de pinzamiento; un positivo requiere confirmación.',
+      'El más sensible del grupo (79%), aunque insuficiente para descartar por sí solo, y con especificidad baja (59%). Úsalo dentro del clúster de pinzamiento, no aislado.',
     demo: { movementId: 'glenohumeral-flexion', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna forzada a 90°.' },
-    cite: [{ ref: 'hegedus-2012', verified: true, locator: 'Hawkins-Kennedy 74/57' }],
+    cite: [
+      {
+        ref: 'hegedus-2012',
+        verified: true,
+        locator: 'Hawkins-Kennedy 79/59 (resumen, metaanálisis)',
+      },
+    ],
   },
   {
     id: 'painful-arc',
@@ -179,7 +194,18 @@ const tests: OrthopedicTest[] = [
     pearl:
       'Si el paciente no alcanza la posición lumbar (hombro rígido/doloroso), usa el belly-press como alternativa.',
     demo: { movementId: 'glenohumeral-internal-rotation', angleDeg: 90, highlightMuscleId: 'subscapularis', note: 'La mano parte del dorso lumbar y se despega de la espalda.' },
-    cite: [{ ref: 'gerber-1991', verified: false }],
+    cite: [
+      {
+        ref: 'gerber-1991',
+        verified: false,
+        // Checked 2026-08-04 against the PubMed record: Gerber & Krushell 1991
+        // is a 16-case series that DESCRIBES the lift-off test but reports no
+        // sensitivity or specificity at all (and, with no control group, could
+        // not yield a meaningful 100% specificity). 62/100 must come from a
+        // later series — find it and re-attribute, or drop the figures.
+        locator: 'PENDIENTE: el original no da sens/espec; 62/100 procede de otra fuente sin identificar',
+      },
+    ],
   },
   {
     id: 'belly-press',
@@ -201,7 +227,17 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Muy específico: un positivo confirma déficit del subescapular. Poco sensible aislado.',
     demo: { movementId: 'glenohumeral-internal-rotation', angleDeg: 45, highlightMuscleId: 'subscapularis', note: 'La palma presiona el abdomen con el codo por delante del cuerpo.' },
-    cite: [{ ref: 'hegedus-2012', verified: false }],
+    cite: [
+      {
+        ref: 'hegedus-2012',
+        verified: false,
+        // Checked 2026-08-04: the Hegedus 2012 abstract lists the MODIFIED
+        // belly press only as a promising test with "high sensitivities and
+        // specificities", giving no figures. 40/98 is not supported by the
+        // cited source — confirm in the full-text tables or re-attribute.
+        locator: 'PENDIENTE: 40/98 no consta en el resumen; comprobar tabla del texto completo',
+      },
+    ],
   },
 
   // ==================== INESTABILIDAD ANTERIOR / LABRUM ====================
@@ -247,7 +283,17 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Confirmatorio de la aprensión: si el alivio es el criterio, es específico de inestabilidad anterior.',
     demo: { movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Desde la posición de aprensión (90° abd + RE), se aplica fuerza posterior sobre la cabeza humeral.' },
-    cite: [{ ref: 'lo-2004', verified: false }],
+    cite: [
+      {
+        ref: 'lo-2004',
+        verified: false,
+        // Checked 2026-08-04: the Lo 2004 abstract gives figures ONLY for the
+        // surprise test (63.89 / 98.91). It reports nothing numeric for the
+        // relocation test — in fact it concludes the relocation test "added
+        // little to the value of the tests". Confirm 65/90 in the full text.
+        locator: 'PENDIENTE: 65/90 no consta en el resumen (solo da cifras del test de sorpresa)',
+      },
+    ],
   },
   {
     id: 'surprise-release',
@@ -339,7 +385,20 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Equilibrado y con buena localización: dolor en la AC (no subacromial) orienta a lesión acromioclavicular.',
-    cite: [{ ref: 'chronopoulos-2004', verified: false }],
+    cite: [
+      {
+        ref: 'chronopoulos-2004',
+        verified: false,
+        // Checked 2026-08-04 against the PubMed abstract: sensitivity 77% is
+        // confirmed verbatim. The 79% is NOT confirmed as specificity — the
+        // abstract reports 79% as the test's overall ACCURACY ("followed by the
+        // cross arm adduction stress test (79%)"), which is a different
+        // quantity. Confirm the specificity in the full-text table before
+        // marking this verified; if it turns out to be the accuracy, the
+        // specificity figure has to be corrected or removed.
+        locator: 'sens 77% confirmada; 79% figura como EXACTITUD en el resumen, no como especificidad',
+      },
+    ],
   },
 ];
 

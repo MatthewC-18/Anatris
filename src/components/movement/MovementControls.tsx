@@ -42,6 +42,7 @@ import { exportPatientCard, type PatientCardInfo } from '../../lib/patientExport
 import { patientInstruction } from '../../lib/patientPhrase';
 import { LockGlyph, useFeatureGate } from '../account/PremiumGate';
 import { FREE_MOVEMENT_QUOTA } from '../../auth/entitlements';
+import { EVENTS, track, trackChange } from '../../lib/analytics';
 import { IconButton, Segmented, Switch } from '../ui/Controls';
 import {
   ChevronDownIcon,
@@ -278,6 +279,7 @@ export function MovementControls({
     setExportMsg(null);
     try {
       await exportPatientCard(info);
+      track(EVENTS.patientCardExported, { region, movement: movement.id });
       setExportMsg('Imagen descargada');
     } catch (e) {
       setExportMsg(e instanceof Error ? e.message : 'No se pudo exportar.');
@@ -295,8 +297,19 @@ export function MovementControls({
     setPlaying(false);
     setAngle(arc ? arc.startDeg : 0);
     setPathologyId(null);
+    // Which movements the lab is actually used for. Fired on SELECTION, never
+    // per drag frame — dragging one arc for a minute is one event, not 3000.
+    trackChange(EVENTS.movementDriven, { region, movement: movementId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [movementId]);
+
+  // Which pathological presets get tried — the differentiator, so worth knowing
+  // whether anyone finds it. Null (back to Normal) is not an event.
+  useEffect(() => {
+    if (!pathologyId) return;
+    trackChange(EVENTS.pathologySelected, { movement: movementId, pathology: pathologyId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathologyId]);
 
   // Pathology range clamp: if the reachable window shrinks past the current angle
   // (selecting a preset that caps the max or floors the min), pull the pose into it.

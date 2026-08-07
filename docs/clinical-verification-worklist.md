@@ -94,9 +94,9 @@
 - [x] **Cajón posterior** — S 90% / E 99% · fuentes: malanga-2003
 - [ ] **Signo del cajón posterior en reposo (sag)** — S 79% / E 100% · fuentes: malanga-2003
 - [x] **Test de McMurray** — S 70% / E 71% · fuentes: hegedus-2007
-- [ ] **Dolor en la interlínea articular** — S 83% / E 76% · fuentes: hegedus-2007
+- [x] **Dolor en la interlínea articular** — S 63% / E 77% · fuentes: hegedus-2007
 - [x] **Test de Thessaly (20°)** — S 89% / E 97% · fuentes: karachalios-2005
-- [ ] **Compresión de Apley** — S 60% / E 70% · fuentes: malanga-2003
+- [x] **Compresión de Apley** — S 60% / E 70% · fuentes: hegedus-2007
 - [ ] **Estrés en valgo** — S 86% / E 68% · fuentes: malanga-2003
 - [ ] **Estrés en varo** — S 25% / E 90% · fuentes: malanga-2003
 
@@ -131,7 +131,7 @@
 
 ### Tests ortopédicos (sens/espec)
 - [x] **Test de Neer** — S 72% / E 60% · fuentes: hegedus-2012
-- [x] **Test de Hawkins-Kennedy** — S 74% / E 57% · fuentes: hegedus-2012
+- [x] **Test de Hawkins-Kennedy** — S 79% / E 59% · fuentes: hegedus-2012
 - [x] **Arco doloroso** — S 74% / E 81% · fuentes: park-2005
 - [x] **Lata vacía (Jobe)** — S 69% / E 62% · fuentes: hegedus-2012
 - [x] **Brazo caído** — S 27% / E 88% · fuentes: park-2005
@@ -152,3 +152,15 @@
 - [ ] **Extensión** — 0–25° · fuentes: kapandji, oatis
 - [ ] **Inclinación lateral** — 0–30° · fuentes: kapandji, oatis
 - [ ] **Rotación** — 0–35° · fuentes: kapandji, oatis
+
+### Tests ortopédicos (sens/espec)
+- [ ] **Percusión con puño cerrado** — S 88% / E 90% · fuentes: langdon-2010
+- [ ] **Signo del supino** — S 81% / E 93% · fuentes: langdon-2010
+- [ ] **Prueba de Adams (flexión anterior)** — S 84% / E 93% · fuentes: cote-1998
+- [ ] **Expansión torácica (cirtometría)** — S —% / E —% · fuentes: vanderlinden-1984
+- [ ] **Prueba de Roos (EAST)** — S 84% / E 30% · fuentes: gillard-2001
+- [ ] **Maniobra de Adson** — S 79% / E 76% · fuentes: gillard-2001
+- [ ] **Maniobra de Wright (hiperabducción)** — S 70% / E 53% · fuentes: gillard-2001
+- [ ] **Compresión de la caja torácica** — S —% / E —% · fuentes: magee
+- [ ] **Prueba de Schepelmann** — S —% / E —% · fuentes: magee
+- [ ] **Rotación torácica en sedestación** — S —% / E —% · fuentes: magee

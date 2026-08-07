@@ -25,6 +25,7 @@ import type {
 import { getReference, formatReference, type ReferenceId } from '../../data/references';
 import { rigChannel } from './RigModel';
 import { demoChannel, useActiveDemo } from './demoChannel';
+import { EVENTS, track } from '../../lib/analytics';
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -754,7 +755,17 @@ export function OrthopedicTestsPanel({
       if (next) {
         setClusterMode(false);
         setSelected(new Set());
+        track(EVENTS.examModeStarted, { region });
       }
+      return next;
+    });
+  };
+
+  /** Expand/collapse a test card, reporting which test was opened. */
+  const toggleTest = (id: string) => {
+    setExpandedId((cur) => {
+      const next = cur === id ? null : id;
+      if (next) track(EVENTS.testOpened, { region, test: next });
       return next;
     });
   };
@@ -1043,7 +1054,7 @@ export function OrthopedicTestsPanel({
                   key={t.id}
                   test={t}
                   expanded={expandedId === t.id}
-                  onToggle={() => setExpandedId((cur) => (cur === t.id ? null : t.id))}
+                  onToggle={() => toggleTest(t.id)}
                   pretest={pretest}
                   clusterMode={clusterMode}
                   selected={selected.has(t.id)}

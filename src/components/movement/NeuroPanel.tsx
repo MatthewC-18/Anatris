@@ -16,6 +16,7 @@ import { getReference, formatReference, type ReferenceId } from '../../data/refe
 import { DermatomeMap } from './DermatomeMap';
 import { rigChannel } from './RigModel';
 import { demoChannel, useActiveDemo } from './demoChannel';
+import { EVENTS, trackChange } from '../../lib/analytics';
 import { ChevronDownIcon, CloseIcon, PlayIcon, StopIcon } from '../ui/Icons';
 
 /** Namespace for this panel's demo ids on the shared demoChannel. */
@@ -165,6 +166,12 @@ export function NeuroPanel({
   // cleanly the moment the console or the tests panel reclaims the rig.
   const activeDemo = useActiveDemo();
   const demoId = activeDemo?.startsWith(DEMO_NS) ? activeDemo.slice(DEMO_NS.length) : null;
+
+  // Is the neuro panel used at all, and in which regions? It is premium, so the
+  // answer decides whether it earns its place in the pitch.
+  useEffect(() => {
+    if (open) trackChange(EVENTS.neuroOpened, { region });
+  }, [open, region]);
 
   const byId = useMemo(
     () => new Map((set?.roots ?? []).map((r) => [r.id, r])),

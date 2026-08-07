@@ -32,6 +32,10 @@
 import { parseMeshName, type ParsedSide } from '../../lib/parseMeshName';
 import { muscleDepthLevel, MUSCLE_PLANE_LABELS } from '../../lib/muscleDepth';
 import type { Muscle } from '../../types/muscle';
+// Usage signal only: which of the two dissection actions gets used, never WHICH
+// structure. Fired from the mutators so the keyboard shortcuts (D / A) and the
+// panel buttons are both covered by one call site each.
+import { EVENTS, track } from '../../lib/analytics';
 
 /** Which peelable tissue a clicked mesh belongs to (never skin/hidden here). */
 export type DissectLayer = 'muscle' | 'connective' | 'bone';
@@ -276,6 +280,7 @@ export const dissectChannel = (() => {
         { key, id: sel.id, label: sel.label, bases: sel.bases, scope: sel.scope },
       ];
       state = { ...state, selection: null, hidden };
+      track(EVENTS.dissectionUsed, { action: 'dissect' });
       notify();
     },
     /** Show the selected structure alone (replaces any previous isolation). */
@@ -287,6 +292,7 @@ export const dissectChannel = (() => {
         selection: null,
         isolated: { id: sel.id, label: sel.label, bases: sel.bases, scope: sel.scope },
       };
+      track(EVENTS.dissectionUsed, { action: 'isolate' });
       notify();
     },
     /** Leave isolation, bringing the rest of the tissue back. */

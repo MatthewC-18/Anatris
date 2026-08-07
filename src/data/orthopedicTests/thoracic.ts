@@ -52,7 +52,16 @@ const tests: OrthopedicTest[] = [
       'Especificidad alta (SpPin): un dolor exquisito y puntual apoya con fuerza la fractura y justifica imagen. Su sensibilidad también es alta, así que un negativo limpio la hace bastante menos probable, pero no la descarta en fracturas antiguas ya consolidadas.',
     pearl:
       'Combínalo con el signo del supino: los dos positivos en un paciente osteoporótico con dorsalgia aguda son una indicación clara de radiografía.',
-    cite: [{ ref: 'langdon-2010', verified: false }],
+    // Verificado 2026-08-06 contra el registro de PubMed (PMID 19995486):
+    // el resumen enuncia 87,5% / 90% para el signo de percusion con puno
+    // cerrado. Las cifras redondeadas de la ficha coinciden.
+    cite: [
+      {
+        ref: 'langdon-2010',
+        verified: true,
+        locator: 'percusion con puno cerrado 87,5/90 (resumen)',
+      },
+    ],
   },
   {
     id: 'supine-sign',
@@ -77,7 +86,15 @@ const tests: OrthopedicTest[] = [
       'Muy específico (SpPin): la intolerancia al supino plano en una dorsalgia aguda apoya la fractura. Un negativo por sí solo no la descarta.',
     pearl:
       'Es un signo de observación, no una maniobra: se recoge mientras colocas al paciente para el resto de la exploración, sin coste de tiempo.',
-    cite: [{ ref: 'langdon-2010', verified: false }],
+    // Verificado 2026-08-06 contra el registro de PubMed (PMID 19995486):
+    // el resumen enuncia 81,25% / 93,33% para el signo en decubito supino.
+    cite: [
+      {
+        ref: 'langdon-2010',
+        verified: true,
+        locator: 'signo en supino 81,25/93,33 (resumen)',
+      },
+    ],
   },
 
   // ==================== DEFORMIDAD ESTRUCTURAL ====================
@@ -110,7 +127,13 @@ const tests: OrthopedicTest[] = [
       highlightMuscleId: 'semispinalis-thoracis',
       note: 'El modelo muestra la flexión torácica de la maniobra; la giba costal depende de la rotación vertebral del paciente y no se reproduce en un raquis simétrico.',
     },
-    cite: [{ ref: 'cote-1998', verified: false }],
+    cite: [{
+        ref: 'cote-1998',
+        verified: false,
+        // Comprobado 2026-08-06 (PMID 9563110): el registro publico no muestra
+        // las cifras; estan en el texto completo.
+        locator: 'PENDIENTE: cifras no visibles en el registro publico',
+      }],
   },
 
   // ==================== ESPONDILOARTRITIS AXIAL ====================
@@ -162,7 +185,17 @@ const tests: OrthopedicTest[] = [
       'Sensible pero poco específico (SnNout): tolerar los tres minutos sin síntomas hace improbable el desfiladero neurógeno. Un positivo aislado no lo confirma: hay que integrarlo con la clínica y con los otros tests.',
     pearl:
       'Compara SIEMPRE los dos lados en la misma sesión. Lo relevante es la asimetría (un lado que claudica antes), no la aparición de molestias en sí.',
-    cite: [{ ref: 'gillard-2001', verified: false }],
+    cite: [{
+        ref: 'gillard-2001',
+        verified: false,
+        // Comprobado 2026-08-06 (PMID 11707008). OJO, dos riesgos concretos:
+        // (1) el 85% que el resumen da para Adson es un VALOR PREDICTIVO
+        //     POSITIVO, no una especificidad -- son cosas distintas;
+        // (2) el resumen da 72% / 53% como media de TODOS los tests
+        //     provocativos, sospechosamente igual al 70/53 de Wright.
+        // Confirmar en las tablas antes de dar por buena ninguna cifra.
+        locator: 'PENDIENTE: el resumen mezcla VPP y la media global 72/53; verificar por test',
+      }],
   },
   {
     id: 'adson',
@@ -187,7 +220,17 @@ const tests: OrthopedicTest[] = [
       'Rendimiento moderado en ambas direcciones: interprétalo dentro de un conjunto de tests, nunca aislado. Si solo se abole el pulso sin síntomas, el hallazgo tiene poco valor.',
     pearl:
       'La variante de Wright-Adson gira la cabeza al lado CONTRARIO. Sea cual sea la variante, deja constancia de cuál usaste: cambian los resultados.',
-    cite: [{ ref: 'gillard-2001', verified: false }],
+    cite: [{
+        ref: 'gillard-2001',
+        verified: false,
+        // Comprobado 2026-08-06 (PMID 11707008). OJO, dos riesgos concretos:
+        // (1) el 85% que el resumen da para Adson es un VALOR PREDICTIVO
+        //     POSITIVO, no una especificidad -- son cosas distintas;
+        // (2) el resumen da 72% / 53% como media de TODOS los tests
+        //     provocativos, sospechosamente igual al 70/53 de Wright.
+        // Confirmar en las tablas antes de dar por buena ninguna cifra.
+        locator: 'PENDIENTE: el resumen mezcla VPP y la media global 72/53; verificar por test',
+      }],
   },
   {
     id: 'wright-hyperabduction',
@@ -212,7 +255,17 @@ const tests: OrthopedicTest[] = [
       'Poco fiable de forma aislada. Su interés es localizador: cuando es el ÚNICO positivo, orienta al espacio retropectoral (pectoral menor) más que al interescalénico.',
     pearl:
       'Si es positivo, revisa el pectoral menor y la posición escapular: en muchos casos el trabajo terapéutico está ahí y no en los escalenos.',
-    cite: [{ ref: 'gillard-2001', verified: false }],
+    cite: [{
+        ref: 'gillard-2001',
+        verified: false,
+        // Comprobado 2026-08-06 (PMID 11707008). OJO, dos riesgos concretos:
+        // (1) el 85% que el resumen da para Adson es un VALOR PREDICTIVO
+        //     POSITIVO, no una especificidad -- son cosas distintas;
+        // (2) el resumen da 72% / 53% como media de TODOS los tests
+        //     provocativos, sospechosamente igual al 70/53 de Wright.
+        // Confirmar en las tablas antes de dar por buena ninguna cifra.
+        locator: 'PENDIENTE: el resumen mezcla VPP y la media global 72/53; verificar por test',
+      }],
   },
 
   // ==================== CAJA TORÁCICA ====================

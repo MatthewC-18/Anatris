@@ -10,11 +10,19 @@
 // movement that isn't drivable, metrics out of range, etc. None of these are
 // type errors, so only a data-aware audit finds them.
 
-import { ROM_BY_REGION } from '../data/romByRegion';
-import { MUSCLES_BY_REGION } from '../data/musclesByRegion';
-import { ORTHOPEDIC_TESTS_BY_REGION } from '../data/orthopedicTests';
-import { PATHOLOGIES } from '../data/pathologies';
-import { CLINICAL_CASES } from '../data/clinicalCases';
+// BUILD/TEST-ONLY IMPORT. The audit must see EVERY region, including the paid
+// ones, so it reads `fullContent` rather than the runtime registries — those
+// now carry only the free tier, with premium content fetched behind an
+// entitlement check (see data/premiumStore.ts). This module never runs in the
+// browser: it is imported by the CLI script and by the regression test only,
+// which is what `fullContent.test.ts` enforces.
+import {
+  ALL_ROM_BY_REGION as ROM_BY_REGION,
+  ALL_MUSCLES_BY_REGION as MUSCLES_BY_REGION,
+  ALL_TESTS_BY_REGION as ORTHOPEDIC_TESTS_BY_REGION,
+  ALL_CASES_BY_REGION as CLINICAL_CASES,
+  ALL_PATHOLOGIES as PATHOLOGIES,
+} from '../data/fullContent';
 import { REFERENCES } from '../data/references';
 import { BONE_MAP } from './boneMap';
 import type { RomMovement } from '../types/rom';

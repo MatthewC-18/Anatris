@@ -23,6 +23,7 @@ import type {
   BillingInterval,
   Subscription,
 } from './types';
+import { PremiumDeniedError } from '../lib/premiumContent';
 import { FREE_SUBSCRIPTION } from './types';
 import type { StudyCloud, StudySnapshot } from '../lib/studyState';
 
@@ -109,6 +110,27 @@ export function createSupabaseBackend(url: string, anonKey: string): AuthBackend
 
     studyCloud() {
       return studyCloud;
+    },
+
+    /**
+     * Ask the `content` edge function for a premium region's clinical library.
+     * The function checks the caller's subscription before answering, so this
+     * is where the paywall stops being cosmetic: a user without a live plan
+     * gets a 403 and the content simply never reaches the browser.
+     *
+     * supabase-js surfaces a non-2xx as a FunctionsHttpError whose `context` is
+     * the Response, so the 403 has to be read off that rather than the message.
+     */
+    async fetchPremiumRegion(region: string): Promise<unknown> {
+      const { data, error } = await supabase.functions.invoke('content', {
+        body: { region },
+      });
+      if (error) {
+        const status = (error as { context?: { status?: number } }).context?.status;
+        if (status === 403 || status === 401) throw new PremiumDeniedError();
+        throw error;
+      }
+      return data;
     },
 
     async init() {

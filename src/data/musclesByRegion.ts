@@ -6,70 +6,34 @@
 // and rebuilding the map locally (which caused the recurring "stale state /
 // forgotten site" bug). Exact mirror of romByRegion.ts.
 //
-// Adding a new region = import its muscle array and add one entry.
+// FREE content is bundled; PREMIUM content arrives at runtime from the
+// entitlement-checked `content` edge function (see data/premiumStore.ts).
 
 import type { Muscle } from '../types/muscle';
 import { shoulderMuscles } from './muscles/shoulder';
-import { elbowMuscles } from './muscles/elbow';
-import { hipMuscles } from './muscles/hip';
-import { kneeMuscles } from './muscles/knee';
-import { ankleMuscles } from './muscles/ankle';
-import {
-  cervicalMuscles,
-  thoracicMuscles,
-  lumbarMuscles,
-} from './muscles/spine';
+import { premiumMuscles, premiumRomLookupMuscles } from './premiumStore';
 
-// The anterolateral abdominal wall + quadratus lumborum flex / side-bend / rotate
-// the WHOLE trunk, so the THORACIC ROM (thoracic-flexion / lateral-flexion /
-// rotation) cites them as movers. They are authored once in lumbarMuscles; share
-// those exact records into the thoracic resolver so their glow/markers resolve
-// (audit fix: without this, thoracic ROM referenced muscle ids absent from the
-// thoracic list and the highlight silently no-oped).
-const THORACIC_SHARED_TRUNK = new Set([
-  'rectus-abdominis',
-  'external-oblique',
-  'internal-oblique',
-  'quadratus-lumborum',
-]);
-const thoracicSharedTrunkMuscles = lumbarMuscles.filter((m) =>
-  THORACIC_SHARED_TRUNK.has(m.id),
-);
-
-/** region id -> muscles. Keys match regiones.ts / store.region. */
+/**
+ * The FREE regions' muscle lists, statically bundled.
+ *
+ * Do NOT add a premium region here — that would put the paid library back into
+ * the public bundle.
+ */
 export const MUSCLES_BY_REGION: Record<string, Muscle[]> = {
   shoulder: shoulderMuscles,
-  elbow: elbowMuscles,
-  hip: hipMuscles,
-  knee: kneeMuscles,
-  ankle: ankleMuscles,
-  cervical: cervicalMuscles,
-  thoracic: [...thoracicMuscles, ...thoracicSharedTrunkMuscles],
-  lumbar: lumbarMuscles,
 };
 
 /**
  * Resolve the muscle list for the active region. Falls back to the shoulder
- * list when no region is set, preserving the components' previous default.
+ * list when no region is set or the region's content has not arrived,
+ * preserving the components' previous default.
  *
  * @param region the store's current region id (null = whole body)
  */
 export function musclesForRegion(region: string | null): Muscle[] {
-  if (region && MUSCLES_BY_REGION[region]) {
-    return MUSCLES_BY_REGION[region];
-  }
-  return shoulderMuscles;
+  if (!region) return shoulderMuscles;
+  return MUSCLES_BY_REGION[region] ?? premiumMuscles(region) ?? shoulderMuscles;
 }
-
-/** The three spine sub-regions, which together form one continuous chain. */
-const SPINE_REGION_IDS = new Set(['cervical', 'thoracic', 'lumbar']);
-
-/** Every muscle of the whole spine, across all three sub-regions. */
-const ALL_SPINE_MUSCLES: Muscle[] = [
-  ...cervicalMuscles,
-  ...thoracicMuscles,
-  ...lumbarMuscles,
-];
 
 /**
  * Muscle universe for resolving the NAMES of muscles that participate in a ROM
@@ -80,14 +44,20 @@ const ALL_SPINE_MUSCLES: Muscle[] = [
  * recruits the abdominal wall, which lives in the lumbar sub-region. Those
  * "guest" muscles must light up in 3D AND show their proper Spanish name in the
  * ROM panel, even though they are not part of the active sub-region's anatomy
- * list. So for any spine sub-region we return the WHOLE spine; otherwise we
- * behave exactly like musclesForRegion.
+ * list.
+ *
+ * The spine is entirely premium, so that whole-spine union is resolved at BUILD
+ * time and shipped inside the region's payload (`romLookupMuscles`). The
+ * runtime therefore never needs a sibling region loaded to render this one.
  *
  * @param region the store's current region id (null = whole body)
  */
 export function musclesForRomLookup(region: string | null): Muscle[] {
-  if (region && SPINE_REGION_IDS.has(region)) {
-    return ALL_SPINE_MUSCLES;
-  }
-  return musclesForRegion(region);
+  if (!region) return shoulderMuscles;
+  return (
+    MUSCLES_BY_REGION[region] ??
+    premiumRomLookupMuscles(region) ??
+    premiumMuscles(region) ??
+    shoulderMuscles
+  );
 }

@@ -53,7 +53,14 @@ const tests: OrthopedicTest[] = [
     },
     cite: [
       { ref: 'deville-2000', verified: true, locator: 'metaanálisis, SLR ipsilateral' },
-      { ref: 'suri-2011', verified: false },
+      {
+        ref: 'suri-2011',
+        verified: false,
+        // Comprobado 2026-08-06 (PMID 20543768): el resumen presenta razones
+        // de verosimilitud, no sensibilidad/especificidad, y no nombra estos
+        // tests. Comprobar en las tablas del texto completo.
+        locator: 'PENDIENTE: el resumen da razones de verosimilitud, no sens/espec',
+      },
     ],
   },
   {
@@ -216,7 +223,14 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Test de provocación individual: interpreta dentro del clúster de Laslett, no aislado. Sensible, aporta al cribado sacroilíaco.',
-    cite: [{ ref: 'laslett-2005', verified: false }],
+    cite: [{
+        ref: 'laslett-2005',
+        verified: false,
+        // Comprobado 2026-08-06 (PMID 16038856): el resumen SOLO publica el
+        // compuesto -- 3 o mas de 6 tests positivos = 94% / 78%. Las cifras
+        // por test individual estan en las tablas del texto completo.
+        locator: 'PENDIENTE: el resumen solo da el compuesto (3+/6 = 94/78); cifras por test en el texto completo',
+      }],
   },
   {
     id: 'si-distraction',
@@ -237,7 +251,14 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Test de provocación específico. Laslett: si la distracción y el empuje del muslo son ambos positivos, casi no hace falta más exploración sacroilíaca.',
-    cite: [{ ref: 'laslett-2005', verified: false }],
+    cite: [{
+        ref: 'laslett-2005',
+        verified: false,
+        // Comprobado 2026-08-06 (PMID 16038856): el resumen SOLO publica el
+        // compuesto -- 3 o mas de 6 tests positivos = 94% / 78%. Las cifras
+        // por test individual estan en las tablas del texto completo.
+        locator: 'PENDIENTE: el resumen solo da el compuesto (3+/6 = 94/78); cifras por test en el texto completo',
+      }],
   },
   {
     id: 'si-compression',
@@ -258,7 +279,14 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Provocación individual de valor moderado: úsala como parte del clúster, no de forma aislada.',
-    cite: [{ ref: 'laslett-2005', verified: false }],
+    cite: [{
+        ref: 'laslett-2005',
+        verified: false,
+        // Comprobado 2026-08-06 (PMID 16038856): el resumen SOLO publica el
+        // compuesto -- 3 o mas de 6 tests positivos = 94% / 78%. Las cifras
+        // por test individual estan en las tablas del texto completo.
+        locator: 'PENDIENTE: el resumen solo da el compuesto (3+/6 = 94/78); cifras por test en el texto completo',
+      }],
   },
   {
     id: 'si-sacral-thrust',
@@ -279,7 +307,14 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Provocación individual: aporta dentro del clúster. Un clúster con 3 o más pruebas positivas orienta a origen sacroilíaco.',
-    cite: [{ ref: 'laslett-2005', verified: false }],
+    cite: [{
+        ref: 'laslett-2005',
+        verified: false,
+        // Comprobado 2026-08-06 (PMID 16038856): el resumen SOLO publica el
+        // compuesto -- 3 o mas de 6 tests positivos = 94% / 78%. Las cifras
+        // por test individual estan en las tablas del texto completo.
+        locator: 'PENDIENTE: el resumen solo da el compuesto (3+/6 = 94/78); cifras por test en el texto completo',
+      }],
   },
   {
     id: 'si-gaenslen',
@@ -302,7 +337,14 @@ const tests: OrthopedicTest[] = [
       'Precisión limitada aislada: interpreta solo dentro del clúster de Laslett. Comparte falsos positivos con la cadera y la columna lumbar.',
     pearl:
       'Clúster de Laslett (distracción, empuje del muslo, compresión, thrust sacro, Gaenslen): con 3 o más positivos, sens ~91% y esp ~78%. Usa el botón "Combinar".',
-    cite: [{ ref: 'laslett-2005', verified: false }],
+    cite: [{
+        ref: 'laslett-2005',
+        verified: false,
+        // Comprobado 2026-08-06 (PMID 16038856): el resumen SOLO publica el
+        // compuesto -- 3 o mas de 6 tests positivos = 94% / 78%. Las cifras
+        // por test individual estan en las tablas del texto completo.
+        locator: 'PENDIENTE: el resumen solo da el compuesto (3+/6 = 94/78); cifras por test en el texto completo',
+      }],
   },
 ];
 

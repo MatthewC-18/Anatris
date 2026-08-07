@@ -26,6 +26,7 @@ import { FlashcardsView } from './FlashcardsView';
 import { ReviewView } from './ReviewView';
 import { CaseView } from './CaseView';
 import { StudyDashboard } from './StudyDashboard';
+import { EVENTS, track } from '../../lib/analytics';
 
 type StudyTab = 'review' | 'cases' | 'quiz' | 'cards';
 
@@ -37,7 +38,17 @@ interface StudyViewProps {
 }
 
 export function StudyView({ region, isConcept }: StudyViewProps) {
-  const [tab, setTab] = useState<StudyTab>('review');
+  const [tab, setTabState] = useState<StudyTab>('review');
+  // Which study surface people choose — repaso (SRS), casos, cuestionario or
+  // tarjetas. The SRS is the retention engine, so knowing whether anyone
+  // actually opens it decides how much the return-loop work (S7) is worth.
+  const setTab = useCallback(
+    (next: StudyTab) => {
+      setTabState(next);
+      track(EVENTS.studyTabOpened, { region, tab: next });
+    },
+    [region],
+  );
   // Bumped after any session activity to re-read persisted progress / schedules.
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = useCallback(() => setRefreshKey((n) => n + 1), []);

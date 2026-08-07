@@ -137,15 +137,20 @@ export const REFERENCES: Record<string, Reference> = {
   // holds the journal. All values authored from these sources should carry
   // `verified: false` until checked against the primary text.
   // -------------------------------------------------------------------------
+  // Title, journal details and PMID corrected 2026-08-04 against the PubMed
+  // record: the entry previously carried a title that does not exist (it mixed
+  // this paper up with the 2008 original) and no pmid, so "Evidencia" could not
+  // link to it and the citation could not be checked by a reader.
   'hegedus-2012': {
     id: 'hegedus-2012',
-    authors: 'Hegedus EJ, Goode AP, Cook CE, et al.',
+    pmid: '22773322',
+    authors: 'Hegedus EJ, Goode AP, Cook CE, Michener L, Myer CA, Myer DM, Wright AA',
     title:
-      'Which physical examination tests provide clinically important changes in shoulder pain? A systematic review with meta-analysis',
-    edition: '',
+      'Which physical examination tests provide clinicians with the most value when examining the shoulder? Update of a systematic review with meta-analysis of individual tests',
+    edition: '46(14):964-78',
     publisher: 'Br J Sports Med',
     year: 2012,
-    note: 'Revisión sistemática con metaanálisis de tests de hombro.',
+    note: 'Metaanálisis de tests de hombro. Su propia conclusión: ningún test aislado permite un diagnóstico patognomónico; los clústeres rinden mejor.',
   },
   'park-2005': {
     id: 'park-2005',
@@ -358,6 +363,7 @@ export const REFERENCES: Record<string, Reference> = {
   // por título en PubMed (siempre resuelve). No inventar identificadores.
   'langdon-2010': {
     id: 'langdon-2010',
+    pmid: '19995486',
     authors: 'Langdon J, Way A, Heaton S, Bernard J, Molloy S',
     title: 'Vertebral compression fractures — new clinical signs to aid diagnosis',
     edition: '',
@@ -367,6 +373,7 @@ export const REFERENCES: Record<string, Reference> = {
   },
   'cote-1998': {
     id: 'cote-1998',
+    pmid: '9563110',
     authors: 'Côté P, Kreitz BG, Cassidy JD, Dzus AK, Hurley J',
     title:
       "A study of the diagnostic accuracy and reliability of the Scoliometer and Adam's forward bend test",
@@ -387,6 +394,7 @@ export const REFERENCES: Record<string, Reference> = {
   },
   'gillard-2001': {
     id: 'gillard-2001',
+    pmid: '11707008',
     authors: 'Gillard J, Pérez-Cousin M, Hachulla E, et al.',
     title:
       'Diagnosing thoracic outlet syndrome: contribution of provocative tests, ultrasonography, electrophysiology, and helical computed tomography',
@@ -471,6 +479,7 @@ export const REFERENCES: Record<string, Reference> = {
   },
   'zwerus-2018': {
     id: 'zwerus-2018',
+    pmid: '28249855',
     authors: 'Zwerus EL, Somford MP, Nagels J, Nieuwenhuis JJ, van Noort A, Eygendaal D',
     title: 'Physical examination of the elbow, what is the evidence? A systematic literature review',
     edition: '',
@@ -484,6 +493,7 @@ export const REFERENCES: Record<string, Reference> = {
   // en PubMed (siempre resuelve). Confirmar pmid/pagina contra la fuente primaria.
   'kibler-2013': {
     id: 'kibler-2013',
+    pmid: '23580420',
     authors: 'Kibler WB, Ludewig PM, McClure PW, Michener LA, Bak K, Sciascia AD',
     title:
       'Clinical implications of scapular dyskinesis in shoulder injury: the 2013 consensus statement from the scapular summit',

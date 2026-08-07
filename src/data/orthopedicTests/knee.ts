@@ -156,7 +156,17 @@ const tests: OrthopedicTest[] = [
       angleDeg: 90,
       note: 'Con cadera y rodilla a 90° la tibia cae hacia posterior por su propio peso (translación no reproducida por el modelo).',
     },
-    cite: [{ ref: 'malanga-2003', verified: false }],
+    cite: [
+      {
+        ref: 'malanga-2003',
+        verified: false,
+        // Checked 2026-08-04 against the PubMed record: Malanga 2003 is a
+        // narrative review whose abstract summarises the tests only in words
+        // ("sensitive and specific", "lack of well-designed studies") and gives
+        // no numbers. The figures live in its full-text tables — confirm there.
+        locator: 'PENDIENTE: el resumen no da cifras; comprobar las tablas del texto completo',
+      },
+    ],
   },
 
   // =============================== MENISCO ===============================
@@ -197,20 +207,31 @@ const tests: OrthopedicTest[] = [
     maneuver:
       'Con la rodilla a ~45-90° de flexión, el explorador palpa la interlínea articular medial y lateral.',
     positive: 'Dolor localizado en la interlínea sobre el menisco afecto.',
+    // Figures corrected 2026-08-04. The entry claimed 83/76 citing Hegedus
+    // 2007, but that meta-analysis reports POOLED 63% / 77% in its own abstract
+    // — the sensitivity was off by 20 points, and in the direction that
+    // oversells the test. The interpretation was wrong as a consequence: joint
+    // line tenderness is NOT a sensitive screen.
     metrics: {
-      sensitivity: 83,
-      specificity: 76,
-      note: 'Hegedus 2007: ~83/76. Sensible pero inespecífico (comparte dolor con la artrosis y las colaterales).',
+      sensitivity: 63,
+      specificity: 77,
+      note: 'Hegedus 2007 (metaanálisis, sensibilidad/especificidad agrupadas): 63/77. Resultados muy heterogéneos entre estudios.',
     },
-    utility: 'balanced',
+    utility: 'weak',
     interpretation:
-      'Sensible y poco específico: un negativo hace menos probable la lesión meniscal; un positivo es inespecífico. Combínalo con McMurray/Thessaly.',
+      'Precisión modesta en ambas direcciones (63/77): ni descarta ni confirma la lesión meniscal por sí solo. Su valor es dentro de un clúster con McMurray y Thessaly.',
     demo: {
       movementId: 'knee-flexion',
       angleDeg: 45,
       note: 'Se palpa la interlínea con la rodilla en flexión; el modelo solo muestra la flexión.',
     },
-    cite: [{ ref: 'hegedus-2007', verified: false }],
+    cite: [
+      {
+        ref: 'hegedus-2007',
+        verified: true,
+        locator: 'interlínea articular 63/77 (agrupadas, resumen)',
+      },
+    ],
   },
   {
     id: 'thessaly',
@@ -252,7 +273,7 @@ const tests: OrthopedicTest[] = [
     metrics: {
       sensitivity: 60,
       specificity: 70,
-      note: 'Datos limitados y de baja calidad; valores orientativos. Úsalo dentro de un clúster.',
+      note: 'Hegedus 2007 (metaanálisis, agrupadas): 60/70. Resultados heterogéneos; úsalo dentro de un clúster.',
     },
     utility: 'weak',
     interpretation:
@@ -262,7 +283,13 @@ const tests: OrthopedicTest[] = [
       angleDeg: 90,
       note: 'En prono a 90° de flexión se comprime y rota la tibia; el modelo muestra la flexión (la compresión axial y la rotación no se reproducen).',
     },
-    cite: [{ ref: 'malanga-2003', verified: false }],
+    // Re-attributed 2026-08-04: the entry cited Malanga 2003, whose abstract
+    // reports no figures for Apley. 60/70 are the POOLED values from Hegedus
+    // 2007, which states them verbatim in its abstract. Same numbers, correct
+    // source — and now checkable by a reader.
+    cite: [
+      { ref: 'hegedus-2007', verified: true, locator: 'Apley 60/70 (agrupadas, resumen)' },
+    ],
   },
 
   // ======================== LIGAMENTOS COLATERALES ========================
@@ -290,7 +317,17 @@ const tests: OrthopedicTest[] = [
       angleDeg: 30,
       note: 'Se aplica fuerza en valgo a 0° y a 30° de flexión; el modelo muestra la flexión de prueba.',
     },
-    cite: [{ ref: 'malanga-2003', verified: false }],
+    cite: [
+      {
+        ref: 'malanga-2003',
+        verified: false,
+        // Checked 2026-08-04 against the PubMed record: Malanga 2003 is a
+        // narrative review whose abstract summarises the tests only in words
+        // ("sensitive and specific", "lack of well-designed studies") and gives
+        // no numbers. The figures live in its full-text tables — confirm there.
+        locator: 'PENDIENTE: el resumen no da cifras; comprobar las tablas del texto completo',
+      },
+    ],
   },
   {
     id: 'varus-stress-knee',
@@ -316,7 +353,17 @@ const tests: OrthopedicTest[] = [
       angleDeg: 30,
       note: 'Se aplica fuerza en varo a 0° y a 30° de flexión; el modelo muestra la flexión de prueba.',
     },
-    cite: [{ ref: 'malanga-2003', verified: false }],
+    cite: [
+      {
+        ref: 'malanga-2003',
+        verified: false,
+        // Checked 2026-08-04 against the PubMed record: Malanga 2003 is a
+        // narrative review whose abstract summarises the tests only in words
+        // ("sensitive and specific", "lack of well-designed studies") and gives
+        // no numbers. The figures live in its full-text tables — confirm there.
+        locator: 'PENDIENTE: el resumen no da cifras; comprobar las tablas del texto completo',
+      },
+    ],
   },
 ];
 
