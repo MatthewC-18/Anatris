@@ -1,7 +1,7 @@
 // src/components/movement/OrthopedicTestsPanel.tsx
 //
 // Biomechanics-lab panel: ORTHOPEDIC SPECIAL TESTS for the active region. Beyond
-// listing maneuver + metrics + study, it adds three premium functions the usual
+// listing maneuver + metrics + study, it adds three functions the usual
 // test-list apps do not have:
 //
 //   1. DEMOSTRAR EN EL MODELO: a test drives the 3D rig THROUGH its provocative
@@ -11,9 +11,41 @@
 //   3. CLUSTER: select several tests and see the combined post-test probability
 //      if all are positive.
 //
-// LAYOUT: a full-height right-side sheet (fills its column, so little scrolling)
-// with a color-coded, low-chrome list instead of stacked cards. Data:
-// src/data/orthopedicTests. Type: OrthopedicTest. UI Spanish LATAM; code ASCII.
+// -----------------------------------------------------------------------------
+// DESIGN RULES. Read before adding anything here.
+// -----------------------------------------------------------------------------
+// This panel is the reason a physio pays, and it had drifted into the look of a
+// generated dashboard: seven saturated colours competing at once, seven type
+// sizes (down to 8px), and every block wrapped in its own tinted rounded box
+// with a gradient on the help card. Dense is fine, this is an instrument. Noisy
+// is not. So:
+//
+// 1. COLOUR IS A TWO-AXIS CODE, and nothing else. Sky is SENSIBILIDAD and
+//    everything that follows from it (SnNout, "descarta", the negative branch).
+//    Emerald is ESPECIFICIDAD and its consequences (SpPin, "confirma", the
+//    positive branch). Amber marks things needing attention: a balanced profile,
+//    a resisted maneuver, an unverified figure. Slate is "no aislado". The cyan
+//    accent means INTERACTIVE STATE only -- selected, active, focused -- and is
+//    never allowed to carry data. That is the whole palette; the loose #ffb877
+//    and the rose stop-button are gone.
+//
+// 2. FOUR TYPE SIZES: 14px for a test name, 13px for prose, 11px for metadata
+//    and every number (mono, tabular). Nothing smaller ships -- an 8px legend on
+//    a clinical figure is decoration pretending to be information.
+//
+// 3. NO BOX INSIDE A BOX. The panel is one instrument surface. Everything within
+//    is separated by hairlines and space. No nested rounded cards, no gradients.
+//
+// 4. SAY IT ONCE. Utility used to be encoded three times per row (edge bar,
+//    dot, word). The edge bar and the word remain; the dot is gone.
+//
+// 5. THE 3D MANEUVER IS THE HEADLINE FEATURE, so it is reachable from the
+//    COLLAPSED row. It used to be a small button buried under the metrics of an
+//    expanded card, which is the last place a new user looks.
+//
+// LAYOUT: a full-height right-side sheet (fills its column, so little scrolling).
+// Data: src/data/orthopedicTests. Type: OrthopedicTest. UI Spanish LATAM; code
+// ASCII.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { testsForRegion } from '../../data/orthopedicTests';
@@ -29,7 +61,6 @@ import { EVENTS, track } from '../../lib/analytics';
 import {
   CheckIcon,
   ChevronDownIcon,
-  ChevronRightIcon,
   CloseIcon,
   PlayIcon,
   StopIcon,
@@ -38,37 +69,36 @@ import {
 /** Namespace for this panel's demo ids on the shared demoChannel. */
 const DEMO_NS = 'test:';
 
-/** Color-coded utility (accent bar + dot + one word, tooltip carries the rule). */
+/**
+ * Utility, as an edge rule + one word. See design rule 1: sky descarta, emerald
+ * confirma, amber balanced, slate weak. The tooltip carries the teaching rule.
+ */
 const UTILITY: Record<
   TestUtility,
-  { word: string; dot: string; text: string; bar: string; tip: string }
+  { word: string; text: string; bar: string; tip: string }
 > = {
   'rule-in': {
     word: 'Confirma',
-    dot: 'bg-emerald-400',
     text: 'text-emerald-300',
     bar: 'border-emerald-400/70',
     tip: 'Alta especificidad (SpPin): un positivo confirma.',
   },
   'rule-out': {
     word: 'Descarta',
-    dot: 'bg-sky-400',
     text: 'text-sky-300',
     bar: 'border-sky-400/70',
     tip: 'Alta sensibilidad (SnNout): un negativo descarta.',
   },
   balanced: {
     word: 'Equilibrado',
-    dot: 'bg-amber-400',
     text: 'text-amber-300',
     bar: 'border-amber-400/70',
     tip: 'Sensibilidad y especificidad parecidas.',
   },
   weak: {
     word: 'En conjunto',
-    dot: 'bg-slate-400',
-    text: 'text-slate-300',
-    bar: 'border-slate-500/70',
+    text: 'text-slate-400',
+    bar: 'border-slate-600/70',
     tip: 'Poca precisión aislado: úsalo dentro de un grupo de tests.',
   },
 };
@@ -125,6 +155,15 @@ function levelOf(value: number | undefined): Level | undefined {
 // Small presentational pieces.
 // ---------------------------------------------------------------------------
 
+/** A micro caption. One component, so the size and colour cannot drift. */
+function Kicker({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="text-[11px] uppercase tracking-[0.08em] text-slate-500">
+      {children}
+    </span>
+  );
+}
+
 /** One slim labelled 0..100 metric bar (sensibilidad / especificidad). */
 function MetricBar({
   label,
@@ -136,17 +175,15 @@ function MetricBar({
   color: string;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-11 shrink-0 text-[10px] uppercase tracking-wide text-slate-500">
-        {label}
-      </span>
-      <span className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800/80">
+    <div className="flex items-center gap-2.5">
+      <span className="w-[5.5rem] shrink-0 text-[11px] text-slate-400">{label}</span>
+      <span className="relative h-1 flex-1 overflow-hidden rounded-full bg-slate-800">
         <span
           className={`absolute inset-y-0 left-0 rounded-full ${color}`}
           style={{ width: `${value ?? 0}%` }}
         />
       </span>
-      <span className="w-9 shrink-0 text-right font-mono text-[11px] tabular-nums text-slate-300">
+      <span className="w-10 shrink-0 text-right font-mono text-[11px] tabular-nums text-slate-300">
         {value != null ? `${value}%` : 's/d'}
       </span>
     </div>
@@ -157,29 +194,41 @@ function MetricBar({
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-      </span>
-      <p className="text-xs leading-relaxed text-slate-300">{children}</p>
+      <Kicker>{label}</Kicker>
+      <p className="mt-0.5 text-[13px] leading-relaxed text-slate-300">{children}</p>
     </div>
   );
 }
 
-/** Fagan reasoning: pretest -> posttest for a positive / negative result. */
+/**
+ * Fagan reasoning: pretest -> posttest for a positive / negative result.
+ * Drawn as two labelled readings on a hairline-separated block rather than a
+ * tinted card, and the arrow states the actual transition (30% -> 68%) because
+ * that difference IS the clinical point of the test.
+ */
 function FaganBlock({ metrics, pretest }: { metrics: DiagnosticMetrics; pretest: number }) {
   const lrPos = lrPosNum(metrics);
   const lrNeg = lrNegNum(metrics);
   const postPos = lrPos != null ? postProb(pretest, lrPos) : null;
   const postNeg = lrNeg != null ? postProb(pretest, lrNeg) : null;
   return (
-    <div className="rounded-lg bg-slate-800/30 px-2.5 py-2">
-      <div className="mb-1.5 flex items-center justify-between text-[10px] uppercase tracking-wide text-slate-500">
-        <span>Probabilidad post-test</span>
-        <span className="font-mono text-slate-400">pre {Math.round(pretest)}%</span>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <FaganResult title="Si positivo" value={postPos} lr={`LR+ ${lrLabel(lrPos)}`} up />
-        <FaganResult title="Si negativo" value={postNeg} lr={`LR− ${lrLabel(lrNeg, 2)}`} up={false} />
+    <div className="border-t border-slate-800/70 pt-2.5">
+      <Kicker>Probabilidad post-test</Kicker>
+      <div className="mt-2 grid grid-cols-2 gap-4">
+        <FaganResult
+          title="Si sale positivo"
+          pretest={pretest}
+          value={postPos}
+          lr={`LR+ ${lrLabel(lrPos)}`}
+          tone="emerald"
+        />
+        <FaganResult
+          title="Si sale negativo"
+          pretest={pretest}
+          value={postNeg}
+          lr={`LR− ${lrLabel(lrNeg, 2)}`}
+          tone="sky"
+        />
       </div>
     </div>
   );
@@ -187,29 +236,33 @@ function FaganBlock({ metrics, pretest }: { metrics: DiagnosticMetrics; pretest:
 
 function FaganResult({
   title,
+  pretest,
   value,
   lr,
-  up,
+  tone,
 }: {
   title: string;
+  pretest: number;
   value: number | null;
   lr: string;
-  up: boolean;
+  tone: 'emerald' | 'sky';
 }) {
-  const color = up ? 'text-emerald-300' : 'text-sky-300';
-  const bar = up ? 'bg-emerald-400' : 'bg-sky-400';
+  const text = tone === 'emerald' ? 'text-emerald-300' : 'text-sky-300';
+  const bar = tone === 'emerald' ? 'bg-emerald-400' : 'bg-sky-400';
   return (
     <div>
-      <div className="flex items-baseline justify-between">
-        <span className="text-[10px] text-slate-500">{title}</span>
-        <span className={`font-mono text-base font-bold tabular-nums ${color}`}>
+      <span className="block text-[11px] text-slate-400">{title}</span>
+      <span className="mt-1 flex items-baseline gap-1.5 font-mono tabular-nums">
+        <span className="text-[11px] text-slate-500">{Math.round(pretest)}%</span>
+        <span className="text-[11px] text-slate-600">→</span>
+        <span className={`text-lg font-semibold leading-none ${text}`}>
           {value != null ? `${Math.round(value)}%` : 's/d'}
         </span>
-      </div>
-      <span className="mt-1 flex h-1 w-full overflow-hidden rounded-full bg-slate-800">
+      </span>
+      <span className="mt-1.5 flex h-1 w-full overflow-hidden rounded-full bg-slate-800">
         <span className={`h-full rounded-full ${bar}`} style={{ width: `${value ?? 0}%` }} />
       </span>
-      <span className="mt-0.5 block font-mono text-[9px] text-slate-500">{lr}</span>
+      <span className="mt-1 block font-mono text-[11px] text-slate-500">{lr}</span>
     </div>
   );
 }
@@ -223,32 +276,27 @@ function LevelChoice({
   label,
   picked,
   onPick,
-  disabled,
 }: {
   label: string;
   picked: Level | null;
   onPick: (l: Level) => void;
-  disabled: boolean;
 }) {
   const btn = (l: Level, text: string) => (
     <button
       type="button"
-      disabled={disabled}
       onClick={() => onPick(l)}
-      className={`flex-1 rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors ${
+      className={`flex-1 rounded border px-2 py-1 text-[11px] font-medium transition-colors ${
         picked === l
-          ? 'border-accent/50 bg-accent/15 text-accent'
-          : 'border-slate-700 text-slate-400 hover:bg-slate-800/60 disabled:hover:bg-transparent'
+          ? 'border-accent/50 bg-accent/10 text-accent'
+          : 'border-slate-700 text-slate-400 hover:text-slate-200'
       }`}
     >
       {text}
     </button>
   );
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-16 shrink-0 text-[10px] uppercase tracking-wide text-slate-500">
-        {label}
-      </span>
+    <div className="flex items-center gap-2.5">
+      <span className="w-[5.5rem] shrink-0 text-[11px] text-slate-400">{label}</span>
       <div className="flex flex-1 gap-1.5">
         {btn('alta', 'Alta')}
         {btn('baja', 'Baja')}
@@ -272,7 +320,7 @@ function AxisResult({
   if (actual === undefined) {
     return (
       <div className="flex items-center justify-between text-[11px]">
-        <span className="text-slate-500">{label}</span>
+        <span className="text-slate-400">{label}</span>
         <span className="text-slate-500">sin dato reportado</span>
       </div>
     );
@@ -282,7 +330,7 @@ function AxisResult({
     <div className="flex items-center justify-between text-[11px]">
       <span className="text-slate-400">{label}</span>
       <span className="flex items-center gap-1.5">
-        <span className={ok ? 'text-emerald-300' : 'text-rose-300'}>
+        <span className={ok ? 'text-emerald-300' : 'text-amber-300'}>
           {ok ? <CheckIcon size={12} /> : <CloseIcon size={12} />}
         </span>
         <span className="font-mono tabular-nums text-slate-200">
@@ -315,20 +363,18 @@ function ExamBlock({
     const especOk = !hasEspec || prediction.espec === especActual;
     const bothOk = sensOk && especOk;
     return (
-      <div className="rounded-lg bg-slate-800/30 px-2.5 py-2">
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-wide text-slate-500">
-            Tu predicción
-          </span>
+      <div className="border-t border-slate-800/70 pt-2.5">
+        <div className="flex items-center justify-between">
+          <Kicker>Tu predicción</Kicker>
           <span
-            className={`text-[11px] font-semibold ${
+            className={`text-[11px] font-medium ${
               bothOk ? 'text-emerald-300' : 'text-amber-300'
             }`}
           >
             {bothOk ? 'Bien razonado' : 'Revisa el perfil'}
           </span>
         </div>
-        <div className="space-y-1">
+        <div className="mt-1.5 space-y-1">
           <AxisResult
             label="Sensibilidad"
             guess={prediction.sens}
@@ -342,38 +388,33 @@ function ExamBlock({
             value={test.metrics.specificity}
           />
         </div>
-        <p className="mt-1.5 flex items-center gap-1.5 text-[11px]">
-          <span className={`h-1.5 w-1.5 rounded-full ${u.dot}`} />
-          <span className={u.text}>Uso: {u.word}.</span>
-          <span className="text-slate-500">{u.tip}</span>
+        <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+          <span className={u.text}>Uso: {u.word}.</span> {u.tip}
         </p>
       </div>
     );
   }
 
-  const canReveal = (!hasSens || prediction.sens != null) && (!hasEspec || prediction.espec != null);
+  const canReveal =
+    (!hasSens || prediction.sens != null) && (!hasEspec || prediction.espec != null);
   return (
-    <div className="rounded-lg border border-accent/20 bg-accent/5 px-2.5 py-2">
-      <p className="mb-2 text-[10px] uppercase tracking-wide text-slate-500">
-        Predice antes de ver los números
-      </p>
-      <div className="space-y-1.5">
+    <div className="border-t border-slate-800/70 pt-2.5">
+      <Kicker>Predice antes de ver los números</Kicker>
+      <div className="mt-2 space-y-1.5">
         {hasSens ? (
           <LevelChoice
-            label="Sens"
+            label="Sensibilidad"
             picked={prediction.sens}
             onPick={(l) => onPredict('sens', l)}
-            disabled={false}
           />
         ) : (
           <p className="text-[11px] text-slate-500">Esta prueba no reporta sensibilidad.</p>
         )}
         {hasEspec ? (
           <LevelChoice
-            label="Espec"
+            label="Especificidad"
             picked={prediction.espec}
             onPick={(l) => onPredict('espec', l)}
-            disabled={false}
           />
         ) : (
           <p className="text-[11px] text-slate-500">Esta prueba no reporta especificidad.</p>
@@ -383,7 +424,7 @@ function ExamBlock({
         type="button"
         onClick={onReveal}
         disabled={!canReveal}
-        className="mt-2 w-full rounded-md border border-accent/40 bg-accent/15 px-2.5 py-1 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/25 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-transparent disabled:text-slate-600"
+        className="mt-2.5 w-full rounded border border-accent/40 px-2.5 py-1.5 text-[11px] font-medium text-accent transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:border-slate-800 disabled:text-slate-600 disabled:hover:bg-transparent"
       >
         Revelar
       </button>
@@ -392,7 +433,7 @@ function ExamBlock({
 }
 
 // ---------------------------------------------------------------------------
-// Premium "how to use" guide (probabilities + Fagan). Shown once, re-openable.
+// "How to use" guide (probabilities + Fagan). Shown once, re-openable.
 // ---------------------------------------------------------------------------
 const HELP_KEY = 'anatris.testsHelp.v1';
 function readHelpSeen(): boolean {
@@ -412,85 +453,50 @@ function writeHelpSeen(): void {
 
 function HelpStep({ n, children }: { n: number; children: React.ReactNode }) {
   return (
-    <li className="flex gap-2">
-      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent/20 text-[10px] font-bold text-accent">
+    <li className="flex gap-2.5">
+      <span className="w-4 shrink-0 font-mono text-[11px] tabular-nums text-slate-600">
         {n}
       </span>
-      <span className="text-[11px] leading-snug text-slate-300">{children}</span>
+      <span className="text-[13px] leading-relaxed text-slate-300">{children}</span>
     </li>
   );
 }
 
 function HelpCard({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-accent/25 bg-gradient-to-br from-accent/10 via-slate-900/30 to-slate-900/30">
-      <div className="flex items-center justify-between gap-2 border-b border-accent/15 px-3 py-2">
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-100">
-          <InfoIcon />
-          Cómo leer estos tests
-        </span>
+    <div className="border-b border-slate-800/70 px-4 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <Kicker>Cómo leer estos tests</Kicker>
         <button
           type="button"
           onClick={onDismiss}
-          className="rounded-md border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 transition-colors hover:bg-slate-800"
+          className="text-[11px] text-slate-400 transition-colors hover:text-slate-100"
         >
           Entendido
         </button>
       </div>
-
-      {/* Mini pre -> post visual. */}
-      <div className="flex items-center gap-2 px-3 py-2.5">
-        <div className="flex flex-col items-center rounded-lg border border-slate-700/70 bg-slate-900/60 px-2.5 py-1.5">
-          <span className="text-[9px] uppercase tracking-wide text-slate-500">Pre-test</span>
-          <span className="font-mono text-base font-bold tabular-nums text-slate-200">30%</span>
-          <span className="text-[8px] text-slate-500">tu sospecha</span>
-        </div>
-        <div className="flex flex-1 flex-col gap-1.5">
-          <div className="flex items-center gap-1.5">
-            <ChevronRightIcon size={11} className="text-slate-600" />
-            <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">
-              Positivo
-            </span>
-            <ChevronRightIcon size={11} className="text-slate-600" />
-            <span className="font-mono text-sm font-bold tabular-nums text-emerald-300">44%</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <ChevronRightIcon size={11} className="text-slate-600" />
-            <span className="rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-sky-300">
-              Negativo
-            </span>
-            <ChevronRightIcon size={11} className="text-slate-600" />
-            <span className="font-mono text-sm font-bold tabular-nums text-sky-300">17%</span>
-          </div>
-        </div>
-      </div>
-
-      <ol className="space-y-1.5 px-3 pb-2.5">
+      <ol className="mt-2.5 space-y-2">
         <HelpStep n={1}>
-          Ajusta la <b className="text-slate-100">probabilidad pre-test</b> con el
-          deslizador: qué tan probable crees la lesión antes de explorar.
+          Ajusta la <span className="text-slate-100">probabilidad pre-test</span>: que
+          tan probable crees la lesión antes de explorar.
         </HelpStep>
         <HelpStep n={2}>
-          Cada test trae <span className="text-sky-300">sensibilidad</span> y{' '}
-          <span className="text-emerald-300">especificidad</span>. Regla práctica:
-          un negativo descarta cuando la sensibilidad es alta, un positivo confirma
-          cuando la especificidad es alta.
+          Cada prueba trae <span className="text-sky-300">sensibilidad</span> y{' '}
+          <span className="text-emerald-300">especificidad</span>. Un negativo descarta
+          cuando la sensibilidad es alta; un positivo confirma cuando la especificidad
+          lo es.
         </HelpStep>
         <HelpStep n={3}>
-          Al abrir un test, la <b className="text-slate-100">calculadora de Fagan</b>{' '}
-          te muestra la <b className="text-slate-100">probabilidad post-test</b> si
-          sale positivo o negativo, partiendo de tu pre-test.
+          Cada fila muestra a cuanto sube tu sospecha si esa prueba sale positiva. Al
+          abrirla verás también el caso negativo.
         </HelpStep>
         <HelpStep n={4}>
-          <b className="text-slate-100">Conjunto</b>: combina varios tests para ver
-          cuánto sube la certeza si todos resultan positivos.
+          <span className="text-slate-100">Combinar</span> suma varias pruebas y calcula
+          la certeza si todas resultan positivas.
         </HelpStep>
         <HelpStep n={5}>
-          <b className="inline-flex items-center gap-1 align-baseline text-accent">
-            <PlayIcon size={10} />
-            Demostrar
-          </b>
-          : reproduce la maniobra en el modelo 3D y resalta la estructura evaluada.
+          <span className="text-accent">Demostrar</span> reproduce la maniobra sobre el
+          modelo 3D y resalta la estructura evaluada.
         </HelpStep>
       </ol>
     </div>
@@ -498,9 +504,7 @@ function HelpCard({ onDismiss }: { onDismiss: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// One test: a COMPACT row (accent bar + name + one metric line) that expands to
-// the full detail. Compact collapsed height keeps the list scannable; the bars,
-// Fagan and demo live in the expanded view.
+// One test: a COMPACT row that expands to the full detail.
 // ---------------------------------------------------------------------------
 function TestRow({
   test,
@@ -539,13 +543,17 @@ function TestRow({
   const espec = test.metrics.specificity;
   // In exam mode the numbers stay hidden until the user reveals their prediction.
   const hideMetrics = examMode && !prediction.revealed;
+  // The headline number of the whole panel: where this test leaves you if it is
+  // positive, from the pretest currently on the slider.
+  const postPos = lrPos != null ? postProb(pretest, lrPos) : null;
+
   return (
     <div
-      className={`border-l-2 pl-3 pr-1 transition-colors ${u.bar} ${
-        selected ? 'bg-accent/5' : expanded ? 'bg-slate-800/25' : 'hover:bg-slate-800/25'
+      className={`border-l-2 transition-colors ${u.bar} ${
+        selected ? 'bg-accent/[0.06]' : expanded ? 'bg-slate-800/20' : 'hover:bg-slate-800/20'
       }`}
     >
-      <div className="flex items-center gap-2 py-1.5">
+      <div className="flex items-center gap-2 py-2 pl-3 pr-2">
         {clusterMode && (
           <input
             type="checkbox"
@@ -555,92 +563,99 @@ function TestRow({
             className="accent-accent"
           />
         )}
+
         <button
           type="button"
           onClick={onToggle}
           aria-expanded={expanded}
           className="flex min-w-0 flex-1 flex-col text-left"
         >
-          <span className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm font-semibold text-slate-100">{test.name}</span>
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="truncate text-sm font-medium text-slate-100">{test.name}</span>
             <span
-              className="flex shrink-0 items-center gap-1.5"
+              className={`shrink-0 text-[11px] ${hideMetrics ? 'text-slate-600' : u.text}`}
               title={hideMetrics ? 'Predice el uso antes de revelar' : u.tip}
             >
-              {hideMetrics ? (
-                <>
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-600" />
-                  <span className="text-[11px] font-medium text-slate-500">?</span>
-                </>
-              ) : (
-                <>
-                  <span className={`h-1.5 w-1.5 rounded-full ${u.dot}`} />
-                  <span className={`text-[11px] font-medium ${u.text}`}>{u.word}</span>
-                </>
-              )}
-              <ChevronDownIcon
-                size={12}
-                className={`text-slate-500 transition-transform ${expanded ? 'rotate-180' : ''}`}
-              />
+              {hideMetrics ? '?' : u.word}
             </span>
           </span>
-          <span className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-slate-500">
+
+          <span className="mt-1 flex items-center gap-2 truncate text-[11px] text-slate-500">
             <span className="truncate">{test.target}</span>
-            <span className="text-slate-700">·</span>
-            {hideMetrics ? (
-              <span className="shrink-0 font-mono text-slate-600">Se ? · Es ?</span>
-            ) : (
-              <>
-                <span className="shrink-0 font-mono text-sky-300/90">Se {sens ?? 's/d'}</span>
-                <span className="shrink-0 font-mono text-emerald-300/90">Es {espec ?? 's/d'}</span>
-              </>
-            )}
-            {/* Resisted marker on the COLLAPSED row: which tests need the physio's
-                hand is a property of the list, and hiding it inside the expanded
-                detail meant the resisted tests could not be found at all. */}
             {test.demo?.resisted && (
-              <span className="shrink-0 font-semibold text-[#ffb877]/90">Resistido</span>
+              <span className="shrink-0 text-amber-400/90">Resistido</span>
             )}
           </span>
+
+          {/* The pretest -> posttest transition, on every row. This is what turns
+              the list from a reference table into a decision aid: the slider at
+              the top visibly moves every test at once. */}
+          {!hideMetrics && (
+            <span className="mt-1 flex items-center gap-3 font-mono text-[11px] tabular-nums">
+              {postPos != null ? (
+                <span className="flex items-baseline gap-1">
+                  <span className="text-slate-600">{Math.round(pretest)}</span>
+                  <span className="text-slate-700">→</span>
+                  <span className="font-semibold text-emerald-300">
+                    {Math.round(postPos)}%
+                  </span>
+                  <span className="ml-0.5 text-slate-600">si +</span>
+                </span>
+              ) : (
+                <span className="text-slate-600">sin LR</span>
+              )}
+              <span className="text-sky-300/80">Se {sens ?? 's/d'}</span>
+              <span className="text-emerald-300/80">Es {espec ?? 's/d'}</span>
+            </span>
+          )}
+        </button>
+
+        {/* Star action, reachable without expanding. */}
+        {test.demo && (
+          <button
+            type="button"
+            onClick={onDemo}
+            aria-label={demoing ? `Detener ${test.name}` : `Demostrar ${test.name} en el modelo`}
+            title={demoing ? 'Detener la maniobra' : 'Reproducir la maniobra en el modelo 3D'}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors ${
+              demoing
+                ? 'border-accent bg-accent/20 text-accent'
+                : 'border-slate-700 text-slate-400 hover:border-accent/60 hover:text-accent'
+            }`}
+          >
+            {demoing ? <StopIcon size={12} /> : <PlayIcon size={12} />}
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-label={expanded ? `Cerrar ${test.name}` : `Abrir ${test.name}`}
+          className="shrink-0 p-1 text-slate-600 transition-colors hover:text-slate-300"
+        >
+          <ChevronDownIcon
+            size={13}
+            className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
+          />
         </button>
       </div>
 
       {expanded && (
-        <div className="space-y-2.5 pb-3 pt-1">
-          {/* Full metric bars + demo. Bars/LR hide in exam mode until revealed;
-              the demo button never leaks a number, so it stays available. */}
-          <div className="space-y-1">
-            {!hideMetrics && (
-              <>
-                <MetricBar label="Sens" value={sens} color="bg-sky-400" />
-                <MetricBar label="Espec" value={espec} color="bg-emerald-400" />
-              </>
-            )}
-            <div className="flex items-center justify-between pt-0.5">
-              {hideMetrics ? (
-                <span className="font-mono text-[10px] text-slate-600">LR oculto</span>
-              ) : (
-                <span className="font-mono text-[10px] text-slate-500">
-                  LR+ {lrLabel(lrPos)} · LR− {lrLabel(lrNeg, 2)}
-                  {derived && <span className="ml-1 text-slate-600">aprox.</span>}
-                </span>
-              )}
-              {test.demo && (
-                <button
-                  type="button"
-                  onClick={onDemo}
-                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                    demoing
-                      ? 'bg-rose-500/15 text-rose-300 ring-1 ring-inset ring-rose-500/40'
-                      : 'bg-accent/15 text-accent ring-1 ring-inset ring-accent/40 hover:bg-accent/25'
-                  }`}
-                >
-                  {demoing ? <StopIcon size={11} /> : <PlayIcon size={11} />}
-                  {demoing ? 'Detener' : 'Demostrar'}
-                </button>
-              )}
+        <div className="space-y-3 pb-4 pl-3 pr-2 pt-1">
+          {!hideMetrics && (
+            <div className="space-y-1.5">
+              <MetricBar label="Sensibilidad" value={sens} color="bg-sky-400" />
+              <MetricBar label="Especificidad" value={espec} color="bg-emerald-400" />
+              <p className="pl-[6.5rem] font-mono text-[11px] text-slate-500">
+                LR+ {lrLabel(lrPos)} · LR− {lrLabel(lrNeg, 2)}
+                {derived && <span className="ml-1.5 text-slate-600">aprox.</span>}
+              </p>
             </div>
-          </div>
+          )}
+          {hideMetrics && (
+            <p className="font-mono text-[11px] text-slate-600">Métricas ocultas</p>
+          )}
 
           {examMode && (
             <ExamBlock
@@ -663,47 +678,47 @@ function TestRow({
               movement. Pressing Demostrar shows the same thing on the model:
               the physio's hand opposing the gesture. */}
           {test.demo?.resisted && (
-            <div className="border-l-2 border-[#ffb877]/70 bg-[#ffb877]/[0.09] py-1.5 pl-2.5">
-              <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#ffb877]">
-                Prueba resistida
-              </span>
-              <ol className="mt-1 space-y-1 text-[11px] leading-snug text-slate-200">
+            <div className="border-l-2 border-amber-400/60 pl-3">
+              <Kicker>Prueba resistida</Kicker>
+              <ol className="mt-1 space-y-1 text-[13px] leading-relaxed text-slate-300">
                 <li>1. El paciente sostiene la posición y empuja.</li>
-                <li>
-                  2. Aplica resistencia en el segmento distal, oponiéndote al movimiento.
-                </li>
+                <li>2. Aplica resistencia en el segmento distal, oponiéndote al movimiento.</li>
               </ol>
-              <p className="mt-1 text-[10px] text-slate-400">
+              <p className="mt-1 text-[11px] text-slate-500">
                 En Demostrar verás la mano del fisio resistiendo sobre el modelo.
               </p>
             </div>
           )}
-          {/* Interpretación reveals the intended use (the exam answer); hold it
+
+          {/* Interpretacion reveals the intended use (the exam answer); hold it
               until the prediction is revealed. */}
           {!hideMetrics && <Detail label="Interpretación">{test.interpretation}</Detail>}
-
           {!hideMetrics && <FaganBlock metrics={test.metrics} pretest={pretest} />}
 
           {test.demo?.note && (
-            <p className="text-[10px] text-slate-500">En el modelo: {test.demo.note}</p>
+            <p className="text-[11px] text-slate-500">En el modelo: {test.demo.note}</p>
           )}
           {!hideMetrics && test.metrics.note && (
-            <p className="text-[11px] text-slate-400">{test.metrics.note}</p>
+            <p className="text-[11px] leading-relaxed text-slate-400">{test.metrics.note}</p>
           )}
-          {test.pearl && <p className="text-[11px] italic text-slate-400">💡 {test.pearl}</p>}
-          <div>
+          {test.pearl && (
+            <p className="border-l-2 border-slate-700 pl-3 text-[13px] leading-relaxed text-slate-400">
+              {test.pearl}
+            </p>
+          )}
+          <div className="space-y-0.5 pt-0.5">
             {test.cite.map((c) => {
               const ref = getReference(c.ref as ReferenceId);
               if (!ref) return null;
               return (
-                <p key={c.ref} className="text-[10px] leading-snug text-slate-500">
-                  {formatReference(ref)}{' '}
+                <p key={c.ref} className="text-[11px] leading-snug text-slate-500">
+                  {formatReference(ref)}
                   {!c.verified && (
                     <span
-                      className="text-amber-500/80"
+                      className="ml-1.5 text-amber-500/80"
                       title="Valores por verificar contra la fuente primaria"
                     >
-                      · por verificar
+                      por verificar
                     </span>
                   )}
                 </p>
@@ -733,6 +748,10 @@ export function OrthopedicTestsPanel({
   const [pretest, setPretest] = useState(30);
   const [clusterMode, setClusterMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Filters. A region can carry a couple of dozen maneuvers, and until now the
+  // only way to reach one was to scroll and read every name.
+  const [query, setQuery] = useState('');
+  const [only3d, setOnly3d] = useState(false);
   // The demoChannel arbiter owns which demo (if any) animates the rig. Deriving
   // demoId from it (instead of local state) means a demo started here stops
   // cleanly the moment the console or the neuro panel reclaims the rig.
@@ -781,15 +800,33 @@ export function OrthopedicTestsPanel({
       return { ...cur, [testId]: { ...p, revealed: true } };
     });
 
+  // Name, alias and target all match, because a physio looking for "Neer" and a
+  // student looking for "supraespinoso" are both looking for the same row.
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return tests.filter((t) => {
+      if (only3d && !t.demo) return false;
+      if (!q) return true;
+      return (
+        t.name.toLowerCase().includes(q) ||
+        t.target.toLowerCase().includes(q) ||
+        t.category.toLowerCase().includes(q) ||
+        (t.aka ?? []).some((a) => a.toLowerCase().includes(q))
+      );
+    });
+  }, [tests, query, only3d]);
+
+  const demoCount = useMemo(() => tests.filter((t) => t.demo).length, [tests]);
+
   const groups = useMemo(() => {
     const map = new Map<string, OrthopedicTest[]>();
-    for (const t of tests) {
+    for (const t of visible) {
       const arr = map.get(t.category) ?? [];
       arr.push(t);
       map.set(t.category, arr);
     }
     return [...map.entries()];
-  }, [tests]);
+  }, [visible]);
 
   const byId = useMemo(() => new Map(tests.map((t) => [t.id, t])), [tests]);
 
@@ -924,11 +961,11 @@ export function OrthopedicTestsPanel({
       <button
         type="button"
         onClick={() => onOpenChange(true)}
-        className="instrument pointer-events-auto flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-200 transition-colors hover:text-white"
+        className="instrument pointer-events-auto flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-slate-200 transition-colors hover:text-white"
       >
         <TestTubeIcon />
         Tests ortopédicos
-        <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+        <span className="font-mono text-[11px] tabular-nums text-slate-400">
           {tests.length}
         </span>
       </button>
@@ -938,64 +975,41 @@ export function OrthopedicTestsPanel({
   return (
     <div className="instrument pointer-events-auto flex min-h-0 w-[24rem] max-w-[calc(100vw-2rem)] flex-1 flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 border-b border-slate-800/60 px-4 py-3">
+      <div className="flex items-start justify-between gap-3 border-b border-slate-800/70 px-4 py-3">
         <div className="min-w-0">
-          <h2 className="flex items-center gap-1.5 font-display text-sm font-bold text-slate-50">
+          <h2 className="flex items-center gap-1.5 font-display text-sm font-semibold text-slate-50">
             <TestTubeIcon />
             Tests ortopédicos
           </h2>
           <p className="mt-0.5 text-[11px] text-slate-500">
             {examMode
               ? 'Modo examen: predice el perfil y revela'
-              : `${tests.length} pruebas con sensibilidad, especificidad, estudio y modelo 3D`}
+              : `${tests.length} pruebas, ${demoCount} con maniobra en 3D`}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
-            onClick={toggleExam}
-            aria-label="Modo examen"
-            aria-pressed={examMode}
-            title="Oculta los números: predice el perfil de cada test y revélalo"
-            className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] transition-colors ${
-              examMode
-                ? 'border-accent/40 bg-accent/15 text-accent'
-                : 'border-slate-700 text-slate-300 hover:bg-slate-800'
-            }`}
-          >
+        <div className="flex shrink-0 items-center gap-1">
+          <HeaderToggle active={examMode} onClick={toggleExam} label="Examen" title="Oculta los números: predice el perfil de cada test y revélalo">
             <ExamIcon />
-            Examen
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowHelp((s) => !s)}
-            aria-label="Cómo se usa"
-            aria-pressed={showHelp}
-            className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] transition-colors ${
-              showHelp
-                ? 'border-accent/40 bg-accent/15 text-accent'
-                : 'border-slate-700 text-slate-300 hover:bg-slate-800'
-            }`}
-          >
+          </HeaderToggle>
+          <HeaderToggle active={showHelp} onClick={() => setShowHelp((s) => !s)} label="Guía" title="Cómo se usa este panel">
             <InfoIcon />
-            Guía
-          </button>
+          </HeaderToggle>
           <button
             type="button"
             onClick={() => onOpenChange(false)}
             aria-label="Cerrar tests"
-            className="-mr-1 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100/[0.06] hover:text-slate-200"
+            className="-mr-1 rounded p-1.5 text-slate-500 transition-colors hover:text-slate-200"
           >
             <CloseIcon size={15} />
           </button>
         </div>
       </div>
 
-      {/* Pretest slider (drives Fagan + conjunto) */}
-      <div className="border-b border-slate-800/60 px-4 py-2.5">
-        <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-slate-500">
-          <span>Probabilidad pre-test</span>
-          <span className="font-mono text-sm font-bold tabular-nums text-slate-200">
+      {/* Pretest slider: the control every number in the list answers to. */}
+      <div className="border-b border-slate-800/70 px-4 py-3">
+        <div className="flex items-baseline justify-between">
+          <Kicker>Probabilidad pre-test</Kicker>
+          <span className="font-mono text-base font-semibold tabular-nums text-slate-100">
             {Math.round(pretest)}%
           </span>
         </div>
@@ -1007,11 +1021,11 @@ export function OrthopedicTestsPanel({
           value={pretest}
           onChange={(e) => setPretest(Number(e.target.value))}
           aria-label="Probabilidad pre-test"
-          className="mt-1.5 w-full accent-accent"
+          className="mt-2 w-full accent-accent"
         />
-        <div className="mt-0.5 flex items-center justify-between">
-          <span className="text-[10px] text-slate-500">
-            Tu sospecha clínica antes de explorar.
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <span className="text-[11px] text-slate-500">
+            Tu sospecha antes de explorar.
           </span>
           {!examMode && (
             <button
@@ -1020,10 +1034,10 @@ export function OrthopedicTestsPanel({
                 setClusterMode((c) => !c);
                 setSelected(new Set());
               }}
-              className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors ${
+              className={`flex shrink-0 items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium transition-colors ${
                 clusterMode
-                  ? 'bg-accent/15 text-accent ring-1 ring-inset ring-accent/40'
-                  : 'text-slate-300 ring-1 ring-inset ring-slate-700 hover:bg-slate-100/[0.06]'
+                  ? 'border-accent/50 bg-accent/10 text-accent'
+                  : 'border-slate-700 text-slate-400 hover:text-slate-200'
               }`}
             >
               {clusterMode && <CheckIcon size={10} />}
@@ -1033,22 +1047,54 @@ export function OrthopedicTestsPanel({
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="flex items-center gap-2 border-b border-slate-800/70 px-4 py-2">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Buscar prueba, estructura o grupo"
+          aria-label="Buscar prueba"
+          className="min-w-0 flex-1 rounded border border-slate-800 bg-slate-900/60 px-2.5 py-1.5 text-[13px] text-slate-100 outline-none transition-colors placeholder:text-slate-600 focus:border-accent/60"
+        />
+        <button
+          type="button"
+          onClick={() => setOnly3d((v) => !v)}
+          aria-pressed={only3d}
+          title="Mostrar solo las pruebas con maniobra en el modelo 3D"
+          className={`flex shrink-0 items-center gap-1.5 rounded border px-2 py-1.5 text-[11px] font-medium transition-colors ${
+            only3d
+              ? 'border-accent/50 bg-accent/10 text-accent'
+              : 'border-slate-700 text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <PlayIcon size={10} />
+          3D
+        </button>
+      </div>
+
       {/* Scrollable body */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {showHelp && (
-          <div className="p-3 pb-0">
-            <HelpCard onDismiss={dismissHelp} />
-          </div>
+        {showHelp && <HelpCard onDismiss={dismissHelp} />}
+
+        {groups.length === 0 && (
+          <p className="px-4 py-6 text-center text-[13px] text-slate-500">
+            Ninguna prueba coincide con el filtro.
+          </p>
         )}
+
         {groups.map(([category, list]) => (
-          <section key={category} className="px-3 pt-3">
-            <div className="mb-1 flex items-center gap-2">
-              <h3 className="text-[10px] font-semibold uppercase tracking-wide text-accent">
+          <section key={category} className="pt-3">
+            <div className="mb-1 flex items-center gap-2 px-4">
+              <h3 className="text-[11px] uppercase tracking-[0.08em] text-slate-400">
                 {category}
               </h3>
               <span className="h-px flex-1 bg-slate-800/70" />
+              <span className="font-mono text-[11px] tabular-nums text-slate-600">
+                {list.length}
+              </span>
             </div>
-            <div>
+            <div className="pl-2 pr-1">
               {list.map((t) => (
                 <TestRow
                   key={t.id}
@@ -1077,20 +1123,21 @@ export function OrthopedicTestsPanel({
             </div>
           </section>
         ))}
-        <div className="px-4 py-3">
+
+        <div className="px-4 py-4">
           {onOpenEvidence && (
             <button
               type="button"
               onClick={onOpenEvidence}
-              className="mb-2 inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-2.5 py-1 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/20"
+              className="mb-2.5 inline-flex items-center gap-1.5 text-[11px] font-medium text-accent transition-opacity hover:opacity-80"
             >
               <BookIcon />
               Ver toda la evidencia
             </button>
           )}
-          <p className="text-[10px] leading-snug text-slate-600">
+          <p className="text-[11px] leading-relaxed text-slate-600">
             Valores orientativos de la literatura, por verificar contra la fuente
-            primaria. Interpreta cada test dentro del cuadro clínico y en conjunto,
+            primaria. Interpreta cada prueba dentro del cuadro clínico y en conjunto,
             no de forma aislada.
           </p>
         </div>
@@ -1098,30 +1145,66 @@ export function OrthopedicTestsPanel({
 
       {/* Combined result (only when combining with a selection). */}
       {clusterMode && cluster && (
-        <div className="border-t border-slate-800/60 bg-slate-900/60 px-4 py-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-wide text-slate-500">
-              {cluster.count} test{cluster.count > 1 ? 's' : ''} positivo
+        <div className="border-t border-slate-800/70 px-4 py-3">
+          <div className="flex items-baseline justify-between">
+            <Kicker>
+              {cluster.count} prueba{cluster.count > 1 ? 's' : ''} positiva
               {cluster.count > 1 ? 's' : ''} a la vez
-            </span>
-            <span className="font-mono text-lg font-bold tabular-nums text-emerald-300">
-              {Math.round(cluster.post)}%
+            </Kicker>
+            <span className="flex items-baseline gap-1.5 font-mono tabular-nums">
+              <span className="text-[11px] text-slate-500">{Math.round(pretest)}%</span>
+              <span className="text-[11px] text-slate-600">→</span>
+              <span className="text-lg font-semibold leading-none text-emerald-300">
+                {Math.round(cluster.post)}%
+              </span>
             </span>
           </div>
-          <span className="mt-1 flex h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+          <span className="mt-2 flex h-1 w-full overflow-hidden rounded-full bg-slate-800">
             <span
               className="h-full rounded-full bg-emerald-400"
               style={{ width: `${cluster.post}%` }}
             />
           </span>
-          <p className="mt-1 text-[9px] leading-snug text-slate-600">
-            Probabilidad post-test si todos resultan positivos (LR+ combinado{' '}
-            {lrLabel(cluster.lr)}). Asume independencia entre tests: es una
-            aproximación docente, no un valor de estudio.
+          <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">
+            LR+ combinado {lrLabel(cluster.lr)}. Asume independencia entre pruebas: es
+            una aproximación docente, no un valor de estudio.
           </p>
         </div>
       )}
     </div>
+  );
+}
+
+/** Header segmented toggle. One component so the two never drift apart. */
+function HeaderToggle({
+  active,
+  onClick,
+  label,
+  title,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={label}
+      title={title}
+      className={`flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-medium transition-colors ${
+        active
+          ? 'border-accent/50 bg-accent/10 text-accent'
+          : 'border-slate-700 text-slate-400 hover:text-slate-200'
+      }`}
+    >
+      {children}
+      {label}
+    </button>
   );
 }
 
