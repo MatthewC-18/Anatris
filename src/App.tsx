@@ -728,14 +728,23 @@ function DisclaimerGate({ onAccept }: { onAccept: () => void }) {
   // viewport (see the h-screen note in index.css), which put the button off
   // screen with no way to scroll to it. The app simply could not be entered.
   //
-  // `body` is `overflow: hidden` (the app owns its scroll regions), so the fix
-  // cannot be "let the page scroll". Instead the gate is ONE scroll region and
-  // the action bar lives INSIDE it, stuck to its bottom edge. The bar is then
-  // pinned to the bottom of whatever is actually visible, and the notice above
-  // it scrolls under it -- there is no geometry in which the button ends up
-  // somewhere the user cannot reach.
+  // `position: fixed` + `inset-0`, NOT `h-screen`.
+  //
+  // Viewport units were the wrong tool twice over. `100vh` is the large
+  // viewport on mobile, so the box ran taller than the screen; `100dvh` fixes
+  // that but still leaves the gate as a normal child of #root, which is
+  // `height: 100%` inside a `body` that is `overflow: hidden` -- so if those two
+  // heights ever disagree, the bottom of the gate is clipped away with no
+  // scrollbar to recover it. That is a lot of assumptions for the one screen
+  // that stands between a visitor and the entire product.
+  //
+  // A fixed, inset-0 element is measured against the viewport itself. It cannot
+  // be clipped by #root's height or by the body's overflow, and it needs no
+  // viewport-unit support to be exactly as tall as the screen. Inside it, one
+  // scroll region carries the notice with the action bar stuck to its bottom
+  // edge, so the button is on screen whether the text overflows or not.
   return (
-    <div className="theme-ink flex h-screen w-full flex-col bg-ink-950 text-slate-200">
+    <div className="theme-ink fixed inset-0 z-50 flex flex-col bg-ink-950 text-slate-200">
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <MedicalDisclaimerScreen />
         <div className="sticky bottom-0 border-t border-slate-800/60 bg-ink-950/95 px-6 pt-4 backdrop-blur pb-safe">
