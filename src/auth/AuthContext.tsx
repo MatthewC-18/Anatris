@@ -199,6 +199,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     prevPremiumRef.current = isPremium;
   }, [snapshot]);
 
+  // STABLE IDENTITY, ON PURPOSE. `usePremiumRegion` has this function in its
+  // effect deps, so a new closure on every snapshot means a new request for the
+  // region on every auth event — and supabase-js emits one whenever the tab
+  // regains visibility (it revalidates the session). With the endpoint healthy
+  // that is merely wasteful (the second call short-circuits on the installed
+  // payload); with the endpoint failing it retries the same failure forever, on
+  // every tab focus. It only ever needs the backend, which never changes.
+  const fetchPremiumRegion = useMemo<PremiumFetcher | null>(
+    () =>
+      backend.fetchPremiumRegion
+        ? (region: string) =>
+            backend.fetchPremiumRegion!(region) as Promise<PremiumRegionPayload>
+        : null,
+    [backend],
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       loading,
@@ -231,10 +247,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await backend.signOut();
         clearPremiumRegions();
       },
-      fetchPremiumRegion: backend.fetchPremiumRegion
-        ? (region: string) =>
-            backend.fetchPremiumRegion!(region) as Promise<PremiumRegionPayload>
-        : null,
+      fetchPremiumRegion,
       startCheckout: backend.startCheckout.bind(backend),
       manageBilling: backend.manageBilling
         ? backend.manageBilling.bind(backend)
@@ -247,7 +260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearRecovery: () => setRecoveryMode(false),
       studyCloud: backend.studyCloud ? backend.studyCloud() : null,
     }),
-    [backend, loading, snapshot, checkoutNotice, recoveryMode],
+    [backend, loading, snapshot, checkoutNotice, recoveryMode, fetchPremiumRegion],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
