@@ -21,6 +21,8 @@ useAuth() / useEntitlement()       Auth (correo+contraseña)
   ├─ signIn/signUp ───────────────▶ Supabase Auth
   ├─ startCheckout(interval,cur) ─▶ fn create-checkout ────────▶ Checkout Session
   │                                                              (redirección)
+  ├─ fetchPremiumRegion(region) ──▶ fn content
+  │                                   └─ ¿plan activo? → JSON clínico
   │                                 fn stripe-webhook  ◀──────── customer.subscription.*
   │                                   └─ upsert subscriptions
   └─ fetchSubscription ◀──────────── select subscriptions (RLS: dueño)
@@ -109,9 +111,22 @@ supabase secrets set \
 `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` los inyecta Supabase solo; no los
 pongas. `STRIPE_WEBHOOK_SECRET` lo añadirás en el paso 7.
 
-### 6. Despliega las tres funciones
+**Opcional — acceso total del dueño en el servidor:**
 
 ```bash
+supabase secrets set OWNER_USER_IDS=tu-uuid-de-auth   # varios: separados por comas
+```
+
+El interruptor de cliente (`?acceso=…`, `VITE_ALL_ACCESS`) desbloquea la
+navegación, pero el contenido de pago lo decide la función `content`: sin esto,
+el dueño ve el muro de pago en las siete regiones aunque tenga «acceso total».
+Vacío por defecto = nadie lo salta.
+
+### 6. Despliega las CUATRO funciones
+
+```bash
+npm run build-premium-content          # regenera los payloads que sirve `content`
+supabase functions deploy content
 supabase functions deploy create-checkout
 supabase functions deploy billing-portal
 supabase functions deploy stripe-webhook --no-verify-jwt
@@ -119,6 +134,16 @@ supabase functions deploy stripe-webhook --no-verify-jwt
 
 `stripe-webhook` va con `--no-verify-jwt` porque Stripe la llama **sin** JWT de
 Supabase; su seguridad es la **verificación de firma** con `whsec_…`.
+
+⚠️ **`content` no es opcional.** Sirve la biblioteca clínica de las siete
+regiones de pago (el hombro y Fundamentos van dentro de la app). Si no está
+desplegada, la app abre el hombro con normalidad y **todas las demás regiones
+fallan** con «No se pudo cargar el contenido clínico de esta región» — que
+parece un problema del modelo 3D y no lo es. Detalle en
+`docs/entitlement-servidor.md`.
+
+Vuelve a ejecutar los dos comandos (`build-premium-content` + `deploy content`)
+**cada vez que edites contenido clínico de pago**.
 
 ### 7. Registra el webhook en Stripe
 

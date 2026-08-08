@@ -33,6 +33,25 @@ const cors = {
  */
 const PREMIUM_STATUSES = new Set(['active', 'trialing']);
 
+/**
+ * OWNER ALL-ACCESS, server side. Optional comma-separated list of auth user ids
+ * in the `OWNER_USER_IDS` secret; empty (the default) means nobody bypasses.
+ *
+ * The client already has an owner override (`src/auth/devAccess.ts`, the
+ * `?acceso=` switch) so the owner can review every region. Since the paid
+ * content moved behind this function, that override only unlocks the NAVIGATION:
+ * the content request still gets a 403 and the owner sees the paywall — or the
+ * failure card — on all seven paid regions. This is the server half, so the
+ * switch works end to end without weakening anything for anyone else: it grants
+ * exactly the ids listed in a secret only the project owner can set.
+ */
+const OWNER_USER_IDS = new Set(
+  (Deno.env.get('OWNER_USER_IDS') ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean),
+);
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
@@ -62,16 +81,18 @@ Deno.serve(async (req) => {
     } = await supabase.auth.getUser();
     if (!user) return json({ error: 'No autenticado' }, 401);
 
-    const { data: sub, error } = await supabase
-      .from('subscriptions')
-      .select('plan, status, current_period_end')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (error) return json({ error: 'No se pudo verificar la suscripcion' }, 500);
+    if (!OWNER_USER_IDS.has(user.id)) {
+      const { data: sub, error } = await supabase
+        .from('subscriptions')
+        .select('plan, status, current_period_end')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error) return json({ error: 'No se pudo verificar la suscripcion' }, 500);
 
-    const live =
-      sub?.plan === 'premium' && PREMIUM_STATUSES.has(String(sub?.status ?? ''));
-    if (!live) return json({ error: 'Se requiere suscripcion activa' }, 403);
+      const live =
+        sub?.plan === 'premium' && PREMIUM_STATUSES.has(String(sub?.status ?? ''));
+      if (!live) return json({ error: 'Se requiere suscripcion activa' }, 403);
+    }
 
     // no-store: this is per-user paid content. A shared/CDN cache holding it
     // would hand the payload to the next anonymous request and undo the check.

@@ -23,7 +23,7 @@ import type {
   BillingInterval,
   Subscription,
 } from './types';
-import { PremiumDeniedError } from '../lib/premiumContent';
+import { PremiumContentError, PremiumDeniedError } from '../lib/premiumContent';
 import { FREE_SUBSCRIPTION } from './types';
 import type { StudyCloud, StudySnapshot } from '../lib/studyState';
 
@@ -65,6 +65,30 @@ function createStudyCloud(supabase: SupabaseClient): StudyCloud {
       if (error) throw error;
     },
   };
+}
+
+/**
+ * Name the reason the `content` function did not answer, so the failure card
+ * says which of these it is instead of a generic "no cargó".
+ *
+ * The distinction that matters most is 404: it is what a project gets when the
+ * function was never deployed (`supabase functions deploy content`), and since
+ * the free region is bundled, the symptom is exactly "only the shoulder loads"
+ * — which reads like a data problem and is not one.
+ */
+function explainInvokeFailure(status: number | undefined): string {
+  if (status === 404) {
+    return 'La funcion "content" no existe en tu proyecto Supabase: despliegala con "supabase functions deploy content"';
+  }
+  if (status === 400) {
+    return 'La funcion "content" no reconocio la region pedida';
+  }
+  if (status != null && status >= 500) {
+    return 'La funcion "content" fallo en el servidor: revisa sus logs y sus secretos (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)';
+  }
+  if (status != null) return 'La funcion "content" respondio con un error';
+  // No response at all: offline, DNS, a blocked preflight, an ad blocker.
+  return 'No se pudo contactar con el servidor de contenido (sin conexion, CORS o peticion bloqueada)';
 }
 
 /** Translate a raw Supabase auth error into Spanish UI copy. */
@@ -128,7 +152,7 @@ export function createSupabaseBackend(url: string, anonKey: string): AuthBackend
       if (error) {
         const status = (error as { context?: { status?: number } }).context?.status;
         if (status === 403 || status === 401) throw new PremiumDeniedError();
-        throw error;
+        throw new PremiumContentError(explainInvokeFailure(status), status);
       }
       return data;
     },

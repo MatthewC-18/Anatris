@@ -58,11 +58,38 @@ supabase functions deploy content
 ```
 
 Secretos que necesita la función (los mismos que las otras): `SUPABASE_URL`,
-`SUPABASE_SERVICE_ROLE_KEY`.
+`SUPABASE_SERVICE_ROLE_KEY`, ambos inyectados por Supabase. Opcionalmente
+`OWNER_USER_IDS` para el acceso total del dueño (abajo).
 
 **Regenera y redespliega SIEMPRE que edites contenido clínico de pago.** Si se
 te olvida, `npm test` lo caza: hay un test que compara los payloads escritos
 contra los datos fuente. No llega a un usuario.
+
+### Diagnóstico: «solo carga el hombro, el resto no»
+
+Ese es el **síntoma normal de cualquier fallo de esta función**, no un problema
+del modelo 3D ni de los datos: el hombro y Fundamentos van empaquetados en la
+app y las otras siete regiones pasan por aquí. La app dice ahora *cuál* de las
+causas es, en la propia tarjeta de error y en la consola:
+
+| Lo que ves | Causa | Arreglo |
+|---|---|---|
+| `La funcion "content" no existe…` (HTTP 404) | Nunca se desplegó (§2) | `supabase functions deploy content` |
+| `…fallo en el servidor` (HTTP 5xx) | Excepción dentro de la función | `supabase functions logs content` |
+| `No se pudo contactar con el servidor…` (sin HTTP) | Sin conexión, CORS, bloqueador | Red / extensiones del navegador |
+| `Esta build no tiene Supabase configurado` | Faltan `VITE_SUPABASE_*` en el deploy | Ponlas en Vercel y **rebuild** |
+| `El servidor devolvio un contenido invalido` | Payload corrupto o de otra región | Regenera y redespliega |
+| **Muro de pago** (no tarjeta roja) | 401/403: sin sesión o sin plan | Inicia sesión / `OWNER_USER_IDS` |
+
+Las tres primeras traen botón **Reintentar**: antes había que salir de la región
+y volver a entrar para que el efecto se disparara otra vez.
+
+**Acceso total del dueño.** `?acceso=…` y `VITE_ALL_ACCESS` son de **cliente**:
+desbloquean la navegación, no el contenido. Desde que el contenido lo sirve el
+servidor, el dueño choca con el 403 en las siete regiones igual que cualquiera.
+La mitad de servidor es el secreto `OWNER_USER_IDS` (lista de user ids de Auth
+separados por comas) que la función respeta saltándose la comprobación de plan.
+Vacío por defecto.
 
 ### Cómo comprobar que la fuga está cerrada
 

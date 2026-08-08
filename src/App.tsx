@@ -81,6 +81,7 @@ import { UpgradeProvider } from './components/account/PremiumGate';
 import { LandingScreen } from './components/landing/LandingScreen';
 import { Pricing } from './components/landing/Pricing';
 import { useAuth, useEntitlement } from './auth/AuthContext';
+import { hasAllAccess } from './auth/devAccess';
 import { AttributionScreen } from './components/AttributionScreen';
 import {
   MedicalDisclaimerBanner,
@@ -241,9 +242,9 @@ export default function App() {
   // 'denied' means the server refused (no live subscription), which is the same
   // outcome as `locked` and shows the same Paywall; the client-side flag can be
   // spoofed, this cannot.
-  const contentState = usePremiumRegion(locked ? null : regionId);
-  const contentPending = contentState === 'loading' || contentState === 'idle';
-  const contentDenied = contentState === 'denied';
+  const content = usePremiumRegion(locked ? null : regionId);
+  const contentPending = content.state === 'loading' || content.state === 'idle';
+  const contentDenied = content.state === 'denied';
 
   // ROUTE -> STATE, once on mount. A deep link (/rodilla/movimiento) sets the
   // region; anything else settles on the default. Runs before the URL sync
@@ -417,10 +418,10 @@ export default function App() {
             <ContentLoading />
           </main>
         </div>
-      ) : contentState === 'error' ? (
+      ) : content.state === 'error' ? (
         <div className="flex min-h-0 flex-1">
           <main className="min-w-0 flex-1 overflow-hidden">
-            <ContentError />
+            <ContentError reason={content.reason} onRetry={content.retry} />
           </main>
         </div>
       ) : mode === 'study' ? (
@@ -895,18 +896,49 @@ function ContentLoading() {
  * The content endpoint failed for a reason that is NOT "you have not paid"
  * (network, function down). Says so plainly instead of showing an empty region,
  * which would read as missing content and make the product look broken.
+ *
+ * It now carries the CAUSE and a retry, for the same reason IndexError names the
+ * missing anatomy index: the free region is bundled and every paid one comes
+ * through the endpoint, so this card is what "todo menos el hombro está roto"
+ * looks like — and without the cause there is nothing to act on. Retrying in
+ * place also beats the old recovery, which was to leave the region and re-enter.
  */
-function ContentError() {
+function ContentError({
+  reason,
+  onRetry,
+}: {
+  reason?: string;
+  onRetry: () => void;
+}) {
   return (
     <div className="flex h-full items-center justify-center viewer-bg px-6">
       <div className="max-w-sm rounded-xl border border-rose-900/40 bg-rose-950/20 px-5 py-4 text-center">
         <p className="text-sm font-medium text-rose-300">
           No se pudo cargar el contenido clínico de esta región.
         </p>
+        {reason && (
+          <p className="mt-2 font-mono text-xs leading-relaxed text-slate-500">
+            {reason}
+          </p>
+        )}
         <p className="mt-2 text-xs leading-relaxed text-slate-500">
-          Revisa tu conexión y vuelve a intentarlo. Si el problema sigue, cambia
-          de región y vuelve a entrar.
+          El hombro y Fundamentos van incluidos en la app; el resto de regiones
+          las sirve el servidor, así que un fallo aquí las afecta a todas.
         </p>
+        {hasAllAccess() && (
+          <p className="mt-2 text-xs leading-relaxed text-amber-300/80">
+            Acceso total del dueño: desbloquea la navegación, pero el contenido
+            de pago sigue viniendo del servidor y necesita sesión con plan activo
+            (o tu id en OWNER_USER_IDS).
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-3 rounded-lg border border-rose-900/50 bg-rose-950/40 px-3 py-1.5 text-xs font-medium text-rose-200 transition-colors hover:bg-rose-900/40"
+        >
+          Reintentar
+        </button>
       </div>
     </div>
   );
