@@ -32,6 +32,7 @@ import { rigChannel, type RigHighlight } from './RigModel';
 import { demoChannel, useActiveDemo } from './demoChannel';
 import { romForRegion } from '../../data/romByRegion';
 import { useRailFade } from '../../hooks/useRailFade';
+import { useIsCompact } from '../../hooks/useIsCompact';
 import { getBoneControl, isDrivable, type Side } from '../../lib/boneMap';
 import type { RomMovement } from '../../types/rom';
 import { buildLabArc, phaseAtAngleIn } from '../../lib/romPhaseAtAngle';
@@ -114,6 +115,8 @@ export function MovementControls({
 }: MovementControlsProps) {
   const movements = useMemo(() => romForRegion(region), [region]);
   const reducedMotion = usePrefersReducedMotion();
+  // Phones get a throttled playback commit rate -- see the loop below.
+  const compact = useIsCompact();
   // Trailing fade on the movement strip, but only while it really overflows.
   const movementRail = useRailFade<HTMLDivElement>();
 
@@ -403,6 +406,15 @@ export function MovementControls({
 
   // --- Playback loop (requestAnimationFrame). Sweeps min<->max; loops or stops
   // after one bounce; honored only when reduced motion is OFF.
+  //
+  // ON A PHONE THIS LOOP IS THROTTLED. `setAngle` is React state, so every frame
+  // it fires re-renders this console, the sheet that now wraps it, the readout,
+  // the activation bars and the slider -- a full reconcile, 60 times a second,
+  // on top of the CPU skinning of 1300+ meshes. That was the other half of the
+  // stutter. A ROM sweep runs at 30-60 deg/s, so at 30 Hz the model advances
+  // about one degree between updates: nobody can see the difference, and the
+  // main thread gets half its budget back for the actual animation. Desktop is
+  // left at full rate.
   const rafRef = useRef<number>(0);
   const dirRef = useRef<1 | -1>(1);
   const lastTsRef = useRef<number>(0);
@@ -411,11 +423,20 @@ export function MovementControls({
     const min = effMin; // pathology floor bounds the sweep (extension lag)
     const max = effMax; // pathology cap bounds the sweep (ROM loss)
     const dps = SPEEDS[speedIdx].dps;
+    const minStepMs = compact ? 1000 / 30 : 0;
     lastTsRef.current = 0;
+    let lastCommit = 0;
     const tick = (ts: number) => {
       if (lastTsRef.current === 0) lastTsRef.current = ts;
+      // Skip the COMMIT, never the clock: dt keeps accumulating, so a throttled
+      // sweep covers the same degrees in the same seconds as an unthrottled one.
+      if (minStepMs && ts - lastCommit < minStepMs) {
+        rafRef.current = window.requestAnimationFrame(tick);
+        return;
+      }
       const dt = Math.min(0.05, (ts - lastTsRef.current) / 1000);
       lastTsRef.current = ts;
+      lastCommit = ts;
       setAngle((prev) => {
         let next = prev + dirRef.current * dps * dt;
         if (next >= max) {
@@ -437,7 +458,7 @@ export function MovementControls({
     };
     rafRef.current = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(rafRef.current);
-  }, [playing, arc, speedIdx, loop, reducedMotion, effMax, effMin]);
+  }, [playing, arc, speedIdx, loop, reducedMotion, effMax, effMin, compact]);
 
   const togglePlay = () => {
     if (!arc) return;

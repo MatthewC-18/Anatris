@@ -35,7 +35,10 @@ export function PartFocusControls({ variant = 'panel' }: PartFocusControlsProps)
 
   if (variant === 'toolbar') {
     return (
-      <div className="flex items-center gap-1">
+      // `contents` so these buttons become direct children of the toolbar's
+      // scroll rail: nested inside a flex box of their own they were the one
+      // group that could not be scrolled to on a narrow phone.
+      <div className="flex shrink-0 items-center gap-1">
         {PARTS.map((p) => {
           const active = partFocus === p.value;
           return (
@@ -50,7 +53,9 @@ export function PartFocusControls({ variant = 'panel' }: PartFocusControlsProps)
                   : `Resaltar ${p.label.toLowerCase()} en el modelo`
               }
               className={[
-                'rounded-xl px-3 py-2 text-xs font-medium transition-all active:scale-95',
+                // 44px tall on touch, the same target as the view buttons next
+                // to it; back to the tighter 36 from lg up.
+                'flex h-11 shrink-0 items-center rounded-xl px-3 text-xs font-medium transition-all active:scale-95 lg:h-9',
                 disabled
                   ? 'cursor-not-allowed text-slate-600'
                   : active

@@ -19,14 +19,22 @@ import {
   useProgress,
 } from '@react-three/drei';
 import * as THREE from 'three';
-import { RigModel } from './RigModel';
+import { RigModel, rigChannel } from './RigModel';
 import { RigOverlays } from './RigOverlays';
 import { ShoulderRhythmArc } from './ShoulderRhythmArc';
+import { useIsCompact } from '../../hooks/useIsCompact';
 
 // The rig is 1300+ skinned meshes; skinning is vertex-heavy and each mesh is a
 // draw call. Cap DPR low so mid-range physio laptops stay smooth -- geometry,
 // not render resolution, is what makes this model read.
+//
+// PHONES GET THEIR OWN BUDGET. A laptop absorbs 1.25x with MSAA; a phone paints
+// those same 1300 draw calls onto a 3x panel with a fraction of the fill rate,
+// and playback turned into the stutter the user reported. At 1x without MSAA the
+// still frame is barely distinguishable at arm's length and the sweep actually
+// runs. Geometry is what carries this model, not resolution.
 const RIG_DPR: [number, number] = [1, 1.25];
+const RIG_DPR_COMPACT: [number, number] = [1, 1];
 
 /**
  * Auto-fit the camera onto the rig once it has a valid bounding box, and AGAIN
@@ -216,12 +224,46 @@ function StudioEnvironment() {
  * smoothTime was 0.4s, long enough that the model visibly trailed the cursor and
  * read as a stutter even when frames were fine.
  */
-function NavigationRig() {
+/**
+ * Regress the scene while the RIG is moving, not only while the camera is.
+ *
+ * AdaptiveDpr was already here, but the only thing calling `regress()` was
+ * CameraControls.onChange. So dragging the camera dropped the resolution and
+ * playback -- the one moment the model is deforming 1300+ skinned meshes every
+ * single frame -- ran at full resolution with picking enabled. On a phone that
+ * is exactly the "trabado" the user saw when pressing play.
+ *
+ * Subscribing to rigChannel and regressing on every angle change puts playback
+ * on the same budget as a camera drag: lower resolution and no raycasting while
+ * it sweeps, full quality restored the moment it settles. The still frame -- the
+ * only one anyone studies -- is untouched.
+ *
+ * PHONES ONLY, deliberately. A camera drag regresses everywhere because nobody
+ * reads the model while swinging it around, but during playback they ARE reading
+ * it -- that is the whole feature. Measured, desktop playback dropped to 0.5x
+ * with this on, which is a quality cost on a surface nobody reported as slow.
+ */
+function RigMotionBudget({ enabled }: { enabled: boolean }) {
+  const regress = useThree((s) => s.performance.regress);
+  useEffect(() => {
+    if (!enabled) return;
+    let last = rigChannel.get().angleDeg;
+    return rigChannel.subscribe((s) => {
+      if (s.angleDeg === last) return;
+      last = s.angleDeg;
+      regress();
+    });
+  }, [regress, enabled]);
+  return null;
+}
+
+function NavigationRig({ compact }: { compact: boolean }) {
   const regress = useThree((s) => s.performance.regress);
   return (
     <>
       <AdaptiveDpr pixelated={false} />
       <AdaptiveEvents />
+      <RigMotionBudget enabled={compact} />
       {/* Free navigation: dollyToCursor makes the wheel zoom TOWARD the pointer
           (point at a muscle and scroll in), and a small minDistance lets the
           camera get right up to a single muscle. Right-drag trucks (pans) up/
@@ -277,6 +319,7 @@ function ProgressReporter({ onProgress }: { onProgress: (p: number) => void }) {
 export function RigViewer({ refitKey }: { refitKey?: string | number } = {}) {
   const [progress, setProgress] = useState(0);
   const [ready, setReady] = useState(false);
+  const compact = useIsCompact();
 
   // The rig itself reports when it's loaded AND styled (onReady). We dismiss the
   // loader on that signal -- NOT on drei's progress reaching 100, which never
@@ -294,12 +337,16 @@ export function RigViewer({ refitKey }: { refitKey?: string | number } = {}) {
         // WebGL canvas (preserveDrawingBuffer is on, so toDataURL/drawImage work).
         id="rig-gl-canvas"
         camera={{ position: [2, 1.5, 4], fov: 45, near: 0.05, far: 100 }}
-        dpr={RIG_DPR}
-        // Floor for the adaptive quality drop while the camera moves. The still
-        // frame -- the only one anyone studies -- keeps full resolution.
-        performance={{ min: 0.5 }}
+        dpr={compact ? RIG_DPR_COMPACT : RIG_DPR}
+        // Floor for the adaptive quality drop while the camera or the rig moves.
+        // The still frame -- the only one anyone studies -- keeps full
+        // resolution. Phones drop further, because there the sweep is the part
+        // that was failing, not the still.
+        performance={{ min: compact ? 0.35 : 0.5 }}
         gl={{
-          antialias: true,
+          // MSAA is a fill-rate tax, and fill rate is exactly what a phone does
+          // not have spare while skinning 1300+ meshes per frame.
+          antialias: !compact,
           preserveDrawingBuffer: true,
           powerPreference: 'high-performance',
           // ACES filmic gives the muscle reds and ivory bone a richer, more
@@ -330,7 +377,7 @@ export function RigViewer({ refitKey }: { refitKey?: string | number } = {}) {
           <DoubleClickFocus />
         </Suspense>
 
-        <NavigationRig />
+        <NavigationRig compact={compact} />
       </Canvas>
 
       {/* Premium depth: a soft radial spotlight behind the model and a vignette

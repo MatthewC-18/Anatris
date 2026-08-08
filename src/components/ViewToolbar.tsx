@@ -5,11 +5,21 @@
 // origin/insertion focus controls (shared with the SelectionPanel) for quick
 // access without opening the side panel.
 // Icons are inline SVG to avoid an icon dependency.
+//
+// TWO ANCHORS, because on a phone this bar had a neighbour it did not know
+// about. App.tsx floats "Controles" and "Detalle" at `bottom-4 z-30`; this bar
+// sat at `bottom-6 z-20`, centred and ~350px wide on a 390px screen. The three
+// overlapped, and being the lower z-index this one lost: the camera views were
+// behind the pills and could not be seen or tapped at all.
+//
+// Below `lg` it now rides ABOVE that row and scrolls horizontally instead of
+// overflowing, so every view stays reachable on the narrowest phone.
 
 import { useEffect } from 'react';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { VIEW_META, VIEW_ORDER } from '../lib/anatomyMeta';
 import { PartFocusControls } from './PartFocusControls';
+import { useRailFade } from '../hooks/useRailFade';
 import type { CameraView } from '../types/anatomy';
 
 /** Minimal inline icon per view; purely decorative orientation cues. */
@@ -100,18 +110,34 @@ export function ViewToolbar() {
 
   const primary = VIEW_ORDER.slice(0, 4);
   const secondary = VIEW_ORDER.slice(4);
+  // Only fades when the strip really overflows, which on a wide viewer it does
+  // not.
+  const rail = useRailFade<HTMLDivElement>();
 
   return (
-    <div className="pointer-events-auto absolute bottom-6 left-1/2 z-20 -translate-x-1/2 animate-slide-up">
-      <div className="glass-strong flex items-center gap-1 rounded-2xl px-2 py-2">
+    <div
+      className={[
+        'pointer-events-auto absolute z-20 animate-slide-up',
+        // Phone: clear of the "Controles" / "Detalle" row, and never wider than
+        // the screen. Desktop: centred, unchanged.
+        'inset-x-3 bottom-[4.75rem]',
+        'lg:inset-x-auto lg:bottom-6 lg:left-1/2 lg:-translate-x-1/2',
+      ].join(' ')}
+    >
+      <div
+        ref={rail.ref}
+        className={`glass-strong rail w-full items-center gap-1 rounded-2xl px-2 py-2 lg:w-auto ${
+          rail.faded ? 'rail-fade-end' : ''
+        }`}
+      >
         {primary.map((view) => (
           <ToolbarButton key={view} view={view} onClick={() => requestView(view)} />
         ))}
-        <div className="mx-1 h-7 w-px bg-slate-600/40" />
+        <div className="mx-1 h-7 w-px shrink-0 bg-slate-600/40" />
         {secondary.map((view) => (
           <ToolbarButton key={view} view={view} onClick={() => requestView(view)} />
         ))}
-        <div className="mx-1 h-7 w-px bg-slate-600/40" />
+        <div className="mx-1 h-7 w-px shrink-0 bg-slate-600/40" />
         {/* Origin / insertion focus — disabled until a muscle is selected. */}
         <PartFocusControls variant="toolbar" />
       </div>
@@ -132,7 +158,7 @@ function ToolbarButton({
       type="button"
       onClick={onClick}
       title={`${meta.label}  ·  tecla ${meta.key}`}
-      className="group relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-all hover:bg-accent/10 hover:text-accent active:scale-95"
+      className="group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-400 transition-all hover:bg-accent/10 hover:text-accent active:scale-95 lg:h-10 lg:w-10"
     >
       <ViewIcon view={view} />
       <span className="kbd absolute -bottom-1 -right-1 scale-90 opacity-0 transition-opacity group-hover:opacity-100">
