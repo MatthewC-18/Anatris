@@ -25,6 +25,7 @@ import { muscleContentForRegion } from '../data/muscleContentByRegion';
 import { musclesForRomLookup } from '../data/musclesByRegion';
 import { REFERENCES } from '../data/references';
 import { PartFocusControls } from './PartFocusControls';
+import { SaveButton } from './SaveButton';
 import type { AnatomyEntry } from '../types/anatomy';
 import type { Muscle } from '../types/muscle';
 import { FUNCTIONAL_GROUP_LABEL } from '../types/muscle';
@@ -93,7 +94,12 @@ export function SelectionPanel({ byMesh }: SelectionPanelProps) {
         {!entry ? (
           <EmptyState />
         ) : content ? (
-          <MuscleCard entry={entry} content={content} />
+          <MuscleCard
+            entry={entry}
+            content={content}
+            region={region}
+            muscleId={muscleId}
+          />
         ) : (
           <BasicDetail entry={entry} muscle={muscle} />
         )}
@@ -276,9 +282,15 @@ function BasicSection({
 function MuscleCard({
   entry,
   content,
+  region,
+  muscleId,
 }: {
   entry: AnatomyEntry;
   content: MuscleContent;
+  /** Active region, so a saved muscle can be reopened where it belongs. */
+  region: string | null;
+  /** Clinical muscle id (the collection key), null when unresolved. */
+  muscleId: string | null;
 }) {
   const layer = LAYER_META[entry.layer];
   const sideLabel = SIDE_META[entry.side].label;
@@ -288,10 +300,22 @@ function MuscleCard({
 
   return (
     <div className="w-full animate-slide-in-right">
-      <h3 className="font-display text-xl font-semibold leading-snug text-slate-50">
-        {content.nameEs}
-      </h3>
-      <p className="mt-0.5 text-sm italic text-slate-400">{content.nameLat}</p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="font-display text-xl font-semibold leading-snug text-slate-50">
+            {content.nameEs}
+          </h3>
+          <p className="mt-0.5 text-sm italic text-slate-400">{content.nameLat}</p>
+        </div>
+        {region && muscleId && (
+          <SaveButton
+            kind="muscle"
+            region={region}
+            id={muscleId}
+            label={content.nameEs}
+          />
+        )}
+      </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-800/60 px-2.5 py-1 text-xs font-medium text-slate-300">

@@ -653,10 +653,31 @@ con Kapandji cierra el 48%.
 El camino de verificar desde resúmenes de PubMed **está agotado**: solo funciona
 con metaanálisis que publican sus cifras agrupadas, y ya se cosecharon todos.
 
-#### ⬜ S7 · Retención: bucle de vuelta + "mi colección"
-Push de la PWA para el repaso pendiente (§3.8) + marcadores y notas
-sincronizados (§3.9). **Aceptación:** un usuario que no abre la app en 3 días
-recibe un aviso y vuelve; se puede guardar un músculo y encontrarlo mañana.
+#### 🟡 S7 · Retención — *"Mi colección" hecha 2026-08-07; el push queda aplazado a propósito*
+**Informe: [`mi-coleccion.md`](mi-coleccion.md).**
+
+**✅ Hecho — "Mi colección" (§3.9), completa y verificada en navegador:**
+- Marcador para guardar músculos y tests desde donde ya los estás mirando,
+  **una nota libre** por elemento, y pestaña propia en *Estudiar* con contador
+  en vivo. Guardar **no exige cuenta**; con sesión se sincroniza solo.
+- **Sin backend nuevo:** la colección viaja dentro del `StudySnapshot` que ya
+  existía, así que hereda pull + merge monótono + push con debounce.
+- **Las bajas son lápidas**, no ausencias: sin eso, el merge (una unión)
+  resucitaría cualquier elemento borrado en otro dispositivo. 17 tests cubren
+  justo esa lógica. 138 -> **150 tests**. Entrada +0,6 KB gzip.
+- Verificado en vivo: guardar -> contador 2, nota persiste tras recargar,
+  quitar -> contador 1 y `deleted: true` en almacenamiento. Consola limpia.
+
+**⬜ Aplazado a propósito — el bucle de vuelta con push (§3.8):**
+Requiere claves VAPID, tabla de suscripciones, edge function, cron y **cambiar
+el service worker** a `injectManifest`. Ese último punto es el motivo: un fallo
+en el SW no da error visible, deja **contenido viejo cacheado** en los
+navegadores de los usuarios y tarda días en salir. A tres semanas de los eAwards
+y con la demo dependiendo de que la app cargue, no es el momento.
+Además: en iOS el push web **solo funciona con la PWA instalada**, y el permiso
+se pide una sola vez -- si se pregunta mal, no hay segunda oportunidad.
+**Hacerlo después del 1 de septiembre**, eligiendo el momento del permiso con
+los datos de PostHog (p. ej. solo a quien ya completó dos sesiones de repaso).
 
 #### ⬜ S8 · Casos clínicos (de 15 a ~40)
 Cervical y lumbar tienen 1 caso cada una. El razonamiento clínico es tu

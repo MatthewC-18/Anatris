@@ -26,9 +26,11 @@ import { FlashcardsView } from './FlashcardsView';
 import { ReviewView } from './ReviewView';
 import { CaseView } from './CaseView';
 import { StudyDashboard } from './StudyDashboard';
+import { CollectionView } from './CollectionView';
+import { useCollection } from '../../hooks/useCollection';
 import { EVENTS, track } from '../../lib/analytics';
 
-type StudyTab = 'review' | 'cases' | 'quiz' | 'cards';
+type StudyTab = 'review' | 'cases' | 'quiz' | 'cards' | 'collection';
 
 interface StudyViewProps {
   /** Active region id from the store. null/concept => empty state. */
@@ -73,6 +75,9 @@ export function StudyView({ region, isConcept }: StudyViewProps) {
     [regionId, cardIds, refreshKey],
   );
   const caseCount = useMemo(() => casesForRegion(regionId).length, [regionId]);
+  // Saved items in THIS region, for the tab badge. `useCollection` subscribes,
+  // so saving from the muscle sheet updates the badge without a refresh.
+  const savedCount = useCollection(regionId).count;
 
   if (isConcept) {
     return (
@@ -120,6 +125,13 @@ export function StudyView({ region, isConcept }: StudyViewProps) {
             <TabButton id="cases" label="Casos" tab={tab} setTab={setTab} badge={caseCount} />
             <TabButton id="quiz" label="Cuestionario" tab={tab} setTab={setTab} />
             <TabButton id="cards" label="Tarjetas" tab={tab} setTab={setTab} />
+            <TabButton
+              id="collection"
+              label="Mi colección"
+              tab={tab}
+              setTab={setTab}
+              badge={savedCount}
+            />
           </div>
         </div>
       </div>
@@ -142,6 +154,8 @@ export function StudyView({ region, isConcept }: StudyViewProps) {
             muscles={muscles}
             onFinished={refresh}
           />
+        ) : tab === 'collection' ? (
+          <CollectionView key={`collection-${regionId}`} region={regionId} />
         ) : (
           <FlashcardsView
             key={`cards-${regionId}`}

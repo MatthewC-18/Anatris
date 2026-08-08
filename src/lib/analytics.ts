@@ -80,6 +80,8 @@ export const EVENTS = {
   evidenceOpened: 'evidence_opened',
   /** The quick guide was opened. props: { region, mode } */
   guideOpened: 'guide_opened',
+  /** Something was saved to "Mi colección". props: { kind, region } */
+  itemSaved: 'item_saved',
 } as const;
 
 export type AppEvent = (typeof EVENTS)[keyof typeof EVENTS];

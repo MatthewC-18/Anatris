@@ -19,6 +19,13 @@
 import { SRS_KEY } from './srsStore';
 import { STREAK_KEY, type StreakState } from './streak';
 import { PROGRESS_KEY, type RegionProgress } from './studyProgress';
+import {
+  COLLECTION_KEY,
+  EMPTY_COLLECTION,
+  mergeCollections,
+  pruneTombstones,
+  type CollectionBlob,
+} from './collection';
 import type { CardSchedule } from './srs';
 
 /* ----- Raw persisted shapes (mirrors the three stores) ----- */
@@ -40,6 +47,12 @@ export interface StudySnapshot {
   srs: SrsBlob;
   streak: StreakState | null;
   progress: ProgressBlob;
+  /**
+   * "Mi colección" (saved items + notes). OPTIONAL so snapshots written before
+   * the feature existed still merge: an old payload simply contributes nothing
+   * instead of wiping a newer device's collection.
+   */
+  collection?: CollectionBlob;
 }
 
 /**
@@ -89,6 +102,7 @@ export function exportStudyState(): StudySnapshot {
     srs: readJson<SrsBlob>(SRS_KEY, { decks: {} }),
     streak: readJson<StreakState | null>(STREAK_KEY, null),
     progress: readJson<ProgressBlob>(PROGRESS_KEY, {}),
+    collection: readJson<CollectionBlob>(COLLECTION_KEY, EMPTY_COLLECTION),
   };
 }
 
@@ -184,6 +198,15 @@ export function mergeSnapshots(local: StudySnapshot, remote: StudySnapshot): Stu
     srs: mergeSrs(local.srs, remote.srs),
     streak: mergeStreak(local.streak, remote.streak),
     progress: mergeProgress(local.progress, remote.progress),
+    // Tombstones are pruned only on merge (not on every local write), so a
+    // deletion always survives at least one full reconciliation.
+    collection: pruneTombstones(
+      mergeCollections(
+        local.collection ?? EMPTY_COLLECTION,
+        remote.collection ?? EMPTY_COLLECTION,
+      ),
+      Date.now(),
+    ),
   };
 }
 
@@ -200,5 +223,6 @@ export function importStudyState(remote: StudySnapshot): StudySnapshot {
   writeJson(SRS_KEY, merged.srs);
   if (merged.streak) writeJson(STREAK_KEY, merged.streak);
   writeJson(PROGRESS_KEY, merged.progress);
+  if (merged.collection) writeJson(COLLECTION_KEY, merged.collection);
   return merged;
 }

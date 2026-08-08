@@ -58,6 +58,7 @@ import { getReference, formatReference, type ReferenceId } from '../../data/refe
 import { rigChannel } from './RigModel';
 import { demoChannel, useActiveDemo } from './demoChannel';
 import { EVENTS, track } from '../../lib/analytics';
+import { SaveButton } from '../SaveButton';
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -609,6 +610,11 @@ function TestRow({
             </span>
           )}
         </button>
+
+        {/* Save to "Mi colección" — reachable without expanding, because the
+            moment you decide a test matters to you is while scanning the list,
+            not after reading the whole card. */}
+        <SaveButton kind="test" region={test.region} id={test.id} label={test.name} size="sm" />
 
         {/* Star action, reachable without expanding. */}
         {test.demo && (
