@@ -19,7 +19,7 @@ import {
   useProgress,
 } from '@react-three/drei';
 import * as THREE from 'three';
-import { RigModel, rigChannel } from './RigModel';
+import { RigModel } from './RigModel';
 import { RigOverlays } from './RigOverlays';
 import { ShoulderRhythmArc } from './ShoulderRhythmArc';
 import { useIsCompact } from '../../hooks/useIsCompact';
@@ -225,45 +225,32 @@ function StudioEnvironment() {
  * read as a stutter even when frames were fine.
  */
 /**
- * Regress the scene while the RIG is moving, not only while the camera is.
+ * DO NOT regress the scene while the rig is animating.
  *
- * AdaptiveDpr was already here, but the only thing calling `regress()` was
- * CameraControls.onChange. So dragging the camera dropped the resolution and
- * playback -- the one moment the model is deforming 1300+ skinned meshes every
- * single frame -- ran at full resolution with picking enabled. On a phone that
- * is exactly the "trabado" the user saw when pressing play.
+ * That was tried and it was the wrong tool. `regress()` exists for TRANSIENT
+ * interactions: it drops AdaptiveDpr to the `performance.min` floor and snaps
+ * back the moment you let go, which is right for a camera flick. A ROM sweep is
+ * not transient -- it runs for five to ten seconds -- so regressing on every
+ * angle change parked the render at the floor for the whole animation. On a
+ * phone that measured 0.349x, i.e. about 136 backing pixels across a 390px
+ * screen. It did buy fluidity, and it made the movement impossible to actually
+ * read, which is the entire point of the lab.
  *
- * Subscribing to rigChannel and regressing on every angle change puts playback
- * on the same budget as a camera drag: lower resolution and no raycasting while
- * it sweeps, full quality restored the moment it settles. The still frame -- the
- * only one anyone studies -- is untouched.
+ * The savings that cost nothing visually are the ones that stay: the compact DPR
+ * cap, MSAA off on phones, and the 30 Hz commit throttle in MovementControls.
+ * Resolution during the sweep is left alone.
  *
- * PHONES ONLY, deliberately. A camera drag regresses everywhere because nobody
- * reads the model while swinging it around, but during playback they ARE reading
- * it -- that is the whole feature. Measured, desktop playback dropped to 0.5x
- * with this on, which is a quality cost on a surface nobody reported as slow.
+ * If playback still needs to be cheaper, the next lever is the CPU side of
+ * `apply()` in RigModel -- the per-frame skeleton walk and `updateMatrixWorld`
+ * -- not the pixels. Reducing pixels further just makes the feature illegible.
  */
-function RigMotionBudget({ enabled }: { enabled: boolean }) {
-  const regress = useThree((s) => s.performance.regress);
-  useEffect(() => {
-    if (!enabled) return;
-    let last = rigChannel.get().angleDeg;
-    return rigChannel.subscribe((s) => {
-      if (s.angleDeg === last) return;
-      last = s.angleDeg;
-      regress();
-    });
-  }, [regress, enabled]);
-  return null;
-}
 
-function NavigationRig({ compact }: { compact: boolean }) {
+function NavigationRig() {
   const regress = useThree((s) => s.performance.regress);
   return (
     <>
       <AdaptiveDpr pixelated={false} />
       <AdaptiveEvents />
-      <RigMotionBudget enabled={compact} />
       {/* Free navigation: dollyToCursor makes the wheel zoom TOWARD the pointer
           (point at a muscle and scroll in), and a small minDistance lets the
           camera get right up to a single muscle. Right-drag trucks (pans) up/
@@ -338,11 +325,10 @@ export function RigViewer({ refitKey }: { refitKey?: string | number } = {}) {
         id="rig-gl-canvas"
         camera={{ position: [2, 1.5, 4], fov: 45, near: 0.05, far: 100 }}
         dpr={compact ? RIG_DPR_COMPACT : RIG_DPR}
-        // Floor for the adaptive quality drop while the camera or the rig moves.
-        // The still frame -- the only one anyone studies -- keeps full
-        // resolution. Phones drop further, because there the sweep is the part
-        // that was failing, not the still.
-        performance={{ min: compact ? 0.35 : 0.5 }}
+        // Floor for the adaptive quality drop while the CAMERA moves (nothing
+        // else regresses -- see the note above NavigationRig). Same on phones:
+        // a lower floor here made a drag on mobile blocky for no real gain.
+        performance={{ min: 0.5 }}
         gl={{
           // MSAA is a fill-rate tax, and fill rate is exactly what a phone does
           // not have spare while skinning 1300+ meshes per frame.
@@ -377,7 +363,7 @@ export function RigViewer({ refitKey }: { refitKey?: string | number } = {}) {
           <DoubleClickFocus />
         </Suspense>
 
-        <NavigationRig compact={compact} />
+        <NavigationRig />
       </Canvas>
 
       {/* Premium depth: a soft radial spotlight behind the model and a vignette
