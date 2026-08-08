@@ -35,6 +35,17 @@ desktop.ini
 # live in public/; these sources stay local (back them up separately).
 rig-src/
 *-bones.txt
+*.blend
+*.blend[0-9]*
+
+# The full source model. 155 MB, and NOTHING uses it: it is not in public/, no
+# module imports it, the runtime never fetches it, and the README calls it a
+# reference. It was tracked through LFS anyway, so every Vercel build pulled
+# those 155 MB before compiling -- 77% of a 201 MB per-build LFS bill against a
+# 1 GB/month free quota, which is five builds a month before deploys start
+# failing at checkout with "over its data quota". Keep it locally and back it up
+# outside the repo.
+cuerpo_completo.glb
 
 # Local Claude Code tooling / preview config
 .claude/
