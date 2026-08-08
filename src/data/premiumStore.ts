@@ -55,9 +55,38 @@ export interface PremiumRegionPayload {
 
 const installed = new Map<string, PremiumRegionPayload>();
 
+/**
+ * Bumped on every install/clear. React memos that derive from the WHOLE set of
+ * loaded regions (rather than from one region id) depend on this, because the
+ * set changing is not otherwise observable to them — see useMuscleResolution,
+ * whose mesh-name map has to grow as regions arrive.
+ */
+let version = 0;
+
+/** Current store version. Use as a memo dependency, never as data. */
+export function premiumVersion(): number {
+  return version;
+}
+
+const versionListeners = new Set<() => void>();
+
+/** Subscribe to installs/clears (for useSyncExternalStore). */
+export function subscribePremium(cb: () => void): () => void {
+  versionListeners.add(cb);
+  return () => {
+    versionListeners.delete(cb);
+  };
+}
+
+function bump(): void {
+  version += 1;
+  for (const cb of versionListeners) cb();
+}
+
 /** Make a fetched region's content available to the synchronous registries. */
 export function installPremiumRegion(payload: PremiumRegionPayload): void {
   installed.set(payload.region, payload);
+  bump();
 }
 
 /** True once this region's content has arrived. */
@@ -72,6 +101,14 @@ export function isPremiumRegionLoaded(region: string | null): boolean {
  */
 export function clearPremiumRegions(): void {
   installed.clear();
+  bump();
+}
+
+/** Every muscle of every LOADED premium region (for the mesh-name resolver). */
+export function allLoadedPremiumMuscles(): Muscle[] {
+  const out: Muscle[] = [];
+  for (const p of installed.values()) out.push(...p.muscles);
+  return out;
 }
 
 /* ---------------------------------------------------------------------------

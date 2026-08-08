@@ -80,6 +80,30 @@ describe('app code never imports the full clinical library', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('no app file imports a PREMIUM region data file directly', () => {
+    // The gap that actually shipped. `useMuscleResolution` imported
+    // `data/muscles/knee`, `/elbow` and `/spine` straight, so five paid
+    // regions' muscle records (origin, insertion, innervation, clinical note)
+    // were compiled into the entry chunk every anonymous visitor downloads —
+    // while BOTH other guards passed, because it neither touched `fullContent`
+    // nor added a region to a runtime registry.
+    //
+    // Only `data/` may reference these files: that is where `fullContent`
+    // (build/test-only) and the per-region content modules live, and none of
+    // them is reachable from app code any more.
+    const premium = ['elbow', 'hip', 'knee', 'ankle', 'spine', 'cervical', 'thoracic', 'lumbar'];
+    const pattern = new RegExp(
+      `from\\s+['"][^'"]*(?:muscles|cases|pathology|orthopedicTests)/(?:${premium.join('|')})['"]`,
+    );
+
+    const offenders = appSourceFiles(SRC)
+      .filter((f) => !f.startsWith(resolve(SRC, 'data')))
+      .filter((f) => pattern.test(readFileSync(f, 'utf8')))
+      .map((f) => f.slice(SRC.length + 1).replace(/\\/g, '/'));
+
+    expect(offenders).toEqual([]);
+  });
+
   it("the dev-only fullContent import stays behind import.meta.env.DEV", () => {
     const src = readFileSync(resolve(SRC, 'lib/premiumContent.ts'), 'utf8');
     // A STATIC import would be bundled unconditionally; it must be dynamic and
