@@ -76,13 +76,23 @@ causas es, en la propia tarjeta de error y en la consola:
 |---|---|---|
 | `La funcion "content" no existe…` (HTTP 404) | Nunca se desplegó (§2) | `supabase functions deploy content` |
 | `…fallo en el servidor` (HTTP 5xx) | Excepción dentro de la función | `supabase functions logs content` |
-| `No se pudo contactar con el servidor…` (sin HTTP) | Sin conexión, CORS, bloqueador | Red / extensiones del navegador |
+| `El proyecto Supabase responde pero la funcion "content" no` | **Sin desplegar** (el caso normal) | `supabase functions deploy content` |
+| `No se llega al proyecto Supabase (host)` | `VITE_SUPABASE_URL` mal, o proyecto en pausa | Revisa la env var / reactiva el proyecto |
+| `El navegador esta sin conexion` | Offline | Las regiones de pago aún no funcionan offline (§6) |
 | `Esta build no tiene Supabase configurado` | Faltan `VITE_SUPABASE_*` en el deploy | Ponlas en Vercel y **rebuild** |
 | `El servidor devolvio un contenido invalido` | Payload corrupto o de otra región | Regenera y redespliega |
 | **Muro de pago** (no tarjeta roja) | 401/403: sin sesión o sin plan | Inicia sesión / `OWNER_USER_IDS` |
 
-Las tres primeras traen botón **Reintentar**: antes había que salir de la región
-y volver a entrar para que el efecto se disparara otra vez.
+Todas menos el muro de pago traen botón **Reintentar**: antes había que salir de
+la región y volver a entrar para que el efecto se disparara otra vez.
+
+**Ojo con el 404 invisible.** Una función sin desplegar casi nunca se ve como
+`404` en el navegador: el preflight `OPTIONS` vuelve del gateway **sin cabeceras
+CORS**, el navegador lo bloquea y JavaScript solo recibe un error de red opaco,
+sin status. Por eso «sin desplegar» y «sin internet» eran indistinguibles. Ahora,
+cuando no hay status, el cliente hace **una sonda** a `/auth/v1/health` del
+proyecto (público, CORS permisivo): si el proyecto responde y la función no, es
+que no está desplegada, y el mensaje lo dice.
 
 **Acceso total del dueño.** `?acceso=…` y `VITE_ALL_ACCESS` son de **cliente**:
 desbloquean la navegación, no el contenido. Desde que el contenido lo sirve el

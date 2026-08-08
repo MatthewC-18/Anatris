@@ -68,27 +68,74 @@ function createStudyCloud(supabase: SupabaseClient): StudyCloud {
 }
 
 /**
- * Name the reason the `content` function did not answer, so the failure card
- * says which of these it is instead of a generic "no cargó".
- *
- * The distinction that matters most is 404: it is what a project gets when the
- * function was never deployed (`supabase functions deploy content`), and since
- * the free region is bundled, the symptom is exactly "only the shoulder loads"
- * — which reads like a data problem and is not one.
+ * Name the reason the `content` function ANSWERED with an error, so the failure
+ * card says which of these it is instead of a generic "no cargó". The
+ * no-response case is handled by `explainUnreachable` below, which has to do
+ * real work to tell the possibilities apart.
  */
-function explainInvokeFailure(status: number | undefined): string {
+function explainInvokeFailure(status: number): string {
   if (status === 404) {
     return 'La funcion "content" no existe en tu proyecto Supabase: despliegala con "supabase functions deploy content"';
   }
   if (status === 400) {
     return 'La funcion "content" no reconocio la region pedida';
   }
-  if (status != null && status >= 500) {
+  if (status >= 500) {
     return 'La funcion "content" fallo en el servidor: revisa sus logs y sus secretos (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)';
   }
-  if (status != null) return 'La funcion "content" respondio con un error';
-  // No response at all: offline, DNS, a blocked preflight, an ad blocker.
-  return 'No se pudo contactar con el servidor de contenido (sin conexion, CORS o peticion bloqueada)';
+  return 'La funcion "content" respondio con un error';
+}
+
+/**
+ * WHY A PROBE AND NOT JUST A MESSAGE.
+ *
+ * When the request never gets a response, `invoke` reports a bare fetch failure
+ * with NO status, and the three causes behind it need completely different
+ * fixes: the browser is offline, the project is unreachable (wrong
+ * VITE_SUPABASE_URL, or a free project paused for inactivity), or the project is
+ * fine and only this function is missing.
+ *
+ * That last one is the trap, and it is why a plain "sin conexión o CORS" is not
+ * good enough. A function that was never deployed does NOT surface as 404 in the
+ * browser: the preflight OPTIONS comes back from the gateway without CORS
+ * headers, the browser blocks it, and JavaScript is handed an opaque network
+ * error — the 404 is never visible. So "no deployment" and "no network" look
+ * identical from here unless we go and ask.
+ *
+ * The probe is one GET to the project's auth health endpoint (public, permissive
+ * CORS, no session needed). It answers "is the PROJECT reachable", which is
+ * exactly the bit that splits the three cases apart.
+ */
+async function explainUnreachable(url: string, anonKey: string): Promise<string> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return 'El navegador esta sin conexion: el contenido de las regiones de pago no se puede descargar (aun no se guarda para uso offline)';
+  }
+
+  const host = safeHost(url);
+  let projectReachable: boolean;
+  try {
+    const res = await fetch(`${url.replace(/\/+$/, '')}/auth/v1/health`, {
+      headers: { apikey: anonKey },
+      signal: AbortSignal.timeout(6000),
+    });
+    projectReachable = res.ok;
+  } catch {
+    projectReachable = false;
+  }
+
+  if (!projectReachable) {
+    return `No se llega al proyecto Supabase (${host}): comprueba VITE_SUPABASE_URL en el deploy y que el proyecto no este en pausa`;
+  }
+  return 'El proyecto Supabase responde pero la funcion "content" no: casi seguro que no esta desplegada (el navegador oculta el 404 al fallar el preflight CORS). Ejecuta "supabase functions deploy content"';
+}
+
+/** Host of the project URL, for the message. Never throws on a malformed URL. */
+function safeHost(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
 }
 
 /** Translate a raw Supabase auth error into Spanish UI copy. */
@@ -152,6 +199,9 @@ export function createSupabaseBackend(url: string, anonKey: string): AuthBackend
       if (error) {
         const status = (error as { context?: { status?: number } }).context?.status;
         if (status === 403 || status === 401) throw new PremiumDeniedError();
+        if (status == null) {
+          throw new PremiumContentError(await explainUnreachable(url, anonKey));
+        }
         throw new PremiumContentError(explainInvokeFailure(status), status);
       }
       return data;
