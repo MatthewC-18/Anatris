@@ -33,7 +33,14 @@ const LAYERS: ReadonlyArray<{ key: keyof LayerState; label: string; swatch: stri
   { key: 'connective', label: 'Tendones', swatch: '#e6e9ee' },
 ] as const;
 
-export function LayerControls() {
+/**
+ * @param embedded Render bare, for the compact bottom sheet: no frosted panel,
+ * no fixed width, no self-collapsing header. Inside the sheet the TAB is already
+ * the disclosure, so a second one just adds a tap between the user and the
+ * switches -- and the fixed 11.5rem width would leave two thirds of a phone
+ * empty. The floating desktop variant is unchanged.
+ */
+export function LayerControls({ embedded = false }: { embedded?: boolean } = {}) {
   const [state, setState] = useState<LayerState>(() => layerChannel.get());
   // Collapsible so it doesn't cover the model on phones. Default collapsed on
   // small screens (where it otherwise overlaps the bottom control panel), open
@@ -42,6 +49,7 @@ export function LayerControls() {
     if (typeof window === 'undefined') return true;
     return !window.matchMedia('(max-width: 639px)').matches;
   });
+  const isOpen = embedded || open;
 
   // Stay in sync if anything else writes the channel.
   useEffect(() => layerChannel.subscribe(setState), []);
@@ -49,25 +57,33 @@ export function LayerControls() {
   const toggle = (key: keyof LayerState) => layerChannel.set({ [key]: !state[key] });
 
   return (
-    <div className="instrument pointer-events-auto w-[11.5rem] overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-2 px-3.5 py-3 text-slate-300 transition-colors hover:text-slate-100"
-      >
-        <LayersIcon size={14} className="text-slate-500" />
-        <h3 className="kicker flex-1 text-left">Capas</h3>
-        {/* Chevron only on phones: desktop stays open. */}
-        <ChevronDownIcon
-          size={12}
-          className={`text-slate-600 transition-transform sm:hidden ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
-      {open && (
+    <div
+      className={
+        embedded
+          ? 'w-full'
+          : 'instrument pointer-events-auto w-[11.5rem] overflow-hidden'
+      }
+    >
+      {!embedded && (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex w-full items-center gap-2 px-3.5 py-3 text-slate-300 transition-colors hover:text-slate-100"
+        >
+          <LayersIcon size={14} className="text-slate-500" />
+          <h3 className="kicker flex-1 text-left">Capas</h3>
+          {/* Chevron only on phones: desktop stays open. */}
+          <ChevronDownIcon
+            size={12}
+            className={`text-slate-600 transition-transform sm:hidden ${open ? 'rotate-180' : ''}`}
+          />
+        </button>
+      )}
+      {isOpen && (
         <>
-          <div className="hairline" />
-          <div className="px-3.5 py-1.5">
+          {!embedded && <div className="hairline" />}
+          <div className={embedded ? 'px-4 py-1' : 'px-3.5 py-1.5'}>
             {LAYERS.map(({ key, label, swatch }) => {
               const on = state[key];
               return (
@@ -77,7 +93,11 @@ export function LayerControls() {
                   role="switch"
                   aria-checked={on}
                   onClick={() => toggle(key)}
-                  className="group flex w-full items-center gap-2.5 py-2 text-left"
+                  // 44px rows in the sheet: these are the switches a physio taps
+                  // most, and py-2 gave a 30px target.
+                  className={`group flex w-full items-center gap-2.5 text-left ${
+                    embedded ? 'min-h-[44px] py-2.5' : 'py-2'
+                  }`}
                 >
                   <span
                     className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/30 transition-opacity"
@@ -106,8 +126,14 @@ export function LayerControls() {
               );
             })}
           </div>
-          <div className="hairline" />
-          <p className="px-3.5 py-2.5 text-[10px] leading-snug text-slate-500">
+          {!embedded && <div className="hairline" />}
+          <p
+            className={
+              embedded
+                ? 'px-4 pb-3 pt-1 text-[13px] leading-relaxed text-slate-500'
+                : 'px-3.5 py-2.5 text-[10px] leading-snug text-slate-500'
+            }
+          >
             Toca un músculo del modelo para diseccionarlo o aislarlo, lado por lado.
           </p>
         </>

@@ -154,10 +154,14 @@ export function NeuroPanel({
   region,
   open,
   onOpenChange,
+  bare = false,
 }: {
   region: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Render inside the compact bottom sheet: no frosted panel, no fixed width,
+   *  no close button. See the same flag on OrthopedicTestsPanel. */
+  bare?: boolean;
 }) {
   const set = useMemo(() => neuroForRegion(region), [region]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -276,7 +280,7 @@ export function NeuroPanel({
 
   if (!set) return null;
 
-  if (!open) {
+  if (!open && !bare) {
     return (
       <button
         type="button"
@@ -293,7 +297,13 @@ export function NeuroPanel({
   }
 
   return (
-    <div className="instrument pointer-events-auto flex min-h-0 w-[24rem] max-w-[calc(100vw-2rem)] flex-1 flex-col overflow-hidden">
+    <div
+      className={
+        bare
+          ? 'flex min-h-0 w-full flex-1 flex-col'
+          : 'instrument pointer-events-auto flex min-h-0 w-[24rem] max-w-[calc(100vw-2rem)] flex-1 flex-col overflow-hidden'
+      }
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-3 border-b border-slate-800/60 px-4 py-3">
         <div className="min-w-0">
@@ -303,14 +313,16 @@ export function NeuroPanel({
           </h2>
           <p className="mt-0.5 text-[11px] text-slate-500">{set.subtitle}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => onOpenChange(false)}
-          aria-label="Cerrar neuro"
-          className="-mr-1 shrink-0 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100/[0.06] hover:text-slate-200"
-        >
-          <CloseIcon size={15} />
-        </button>
+        {!bare && (
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            aria-label="Cerrar neuro"
+            className="-mr-1 shrink-0 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100/[0.06] hover:text-slate-200"
+          >
+            <CloseIcon size={15} />
+          </button>
+        )}
       </div>
 
       {/* Dermatome map */}

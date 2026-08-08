@@ -9,8 +9,15 @@
 // signature so the App call site is unchanged, but the rig lab is self-contained
 // and does not consume them.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { RigViewer } from './RigViewer';
+import {
+  MobileLabSheet,
+  type LabTab,
+  type LabTabDef,
+  type SheetDetent,
+} from './MobileLabSheet';
+import { useIsCompact } from '../../hooks/useIsCompact';
 import { MovementControls } from './MovementControls';
 import { RhythmReadout } from './RhythmReadout';
 import { LayerControls } from './LayerControls';
@@ -80,6 +87,69 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   const [patientMode, setPatientMode] = useState(false);
   useEffect(() => setPatientMode(false), [region]);
 
+  // ---------------------------------------------------------------------------
+  // COMPACT LAYOUT
+  // ---------------------------------------------------------------------------
+  // Below lg the floating-instrument layout is abandoned entirely rather than
+  // shrunk: see the note at the top of MobileLabSheet for why a 21.5rem column
+  // and a right-hand stack cannot share 390px with the body they annotate.
+  const compact = useIsCompact();
+  const [sheetTab, setSheetTab] = useState<LabTab>('movimiento');
+  const [detent, setDetent] = useState<SheetDetent>('peek');
+  useEffect(() => setSheetTab('movimiento'), [region]);
+
+  const sheetTabs = useMemo<LabTabDef[]>(() => {
+    const tabs: LabTabDef[] = [
+      {
+        id: 'movimiento',
+        label: 'Movimiento',
+        render: () => (
+          <MovementControls
+            key={region ?? 'shoulder'}
+            region={region}
+            embedded
+            inSheet
+          />
+        ),
+      },
+      { id: 'capas', label: 'Capas', render: () => <LayerControls embedded /> },
+      {
+        id: 'tests',
+        label: 'Tests',
+        locked: !testsGate.unlocked,
+        onLocked: testsGate.requestUpgrade,
+        render: () => (
+          <OrthopedicTestsPanel
+            key={`tests-${region ?? 'shoulder'}`}
+            region={region}
+            open
+            bare
+            onOpenChange={() => {}}
+            onOpenEvidence={onOpenEvidence}
+          />
+        ),
+      },
+    ];
+    if (hasNeuro(region)) {
+      tabs.push({
+        id: 'neuro',
+        label: 'Neuro',
+        locked: !neuroGate.unlocked,
+        onLocked: neuroGate.requestUpgrade,
+        render: () => (
+          <NeuroPanel
+            key={`neuro-${region ?? 'shoulder'}`}
+            region={region}
+            open
+            bare
+            onOpenChange={() => {}}
+          />
+        ),
+      });
+    }
+    return tabs;
+  }, [region, onOpenEvidence, testsGate, neuroGate]);
+
   if (!hasDrivable) {
     return (
       <div className="flex h-full items-center justify-center px-6">
@@ -99,6 +169,55 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
             Ir al hombro
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // COMPACT, CLINICIAN VIEW: two rows. The scene owns a real rectangle and the
+  // sheet owns everything else, so nothing is drawn on top of the body except
+  // the dissection card (which is about the thing under it).
+  if (compact && !patientMode) {
+    return (
+      <div className="flex h-full w-full flex-col">
+        <div className="relative min-h-0 flex-1">
+          {/* `refitKey` re-frames the model whenever the sheet resizes the
+              canvas; without it the body keeps the framing it had when the
+              sheet was a different height and the limb swings out of view. */}
+          <RigViewer refitKey={detent} />
+          {patientGate.unlocked ? (
+            <button
+              type="button"
+              onClick={() => setPatientMode(true)}
+              title="Vista simplificada para mostrar al paciente"
+              className="pointer-events-auto absolute top-3 right-3 z-30 flex min-h-[36px] items-center gap-2 rounded-full border border-slate-700/80 bg-ink-950/85 px-3.5 text-xs font-medium text-slate-200 shadow-lg backdrop-blur"
+            >
+              <PersonIcon size={13} />
+              Paciente
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={patientGate.requestUpgrade}
+              title="Modo paciente: vista simplificada a pantalla completa (Premium)"
+              className="pointer-events-auto absolute top-3 right-3 z-30 flex min-h-[36px] items-center gap-2 rounded-full border border-amber-500/30 bg-ink-950/85 px-3.5 text-xs font-medium text-amber-200 shadow-lg backdrop-blur"
+            >
+              <PersonIcon size={13} />
+              Paciente
+              <LockGlyph />
+            </button>
+          )}
+          <div className="pointer-events-none absolute inset-x-0 bottom-3 z-30 flex justify-center px-3">
+            <DissectionPanel />
+          </div>
+        </div>
+
+        <MobileLabSheet
+          tabs={sheetTabs}
+          active={sheetTab}
+          onActiveChange={setSheetTab}
+          detent={detent}
+          onDetentChange={setDetent}
+        />
       </div>
     );
   }

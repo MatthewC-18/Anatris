@@ -357,6 +357,18 @@
     -ms-overflow-style: none;
     scroll-snap-type: x proximity;
   }
+
+  /* Fade the trailing edge instead of slicing it. The scrollbar is hidden, so a
+     chip cut mid-word ("Rotación in|", "Rot|") read as a layout bug rather than
+     an invitation to scroll -- which is how the movement rail looked on a phone.
+     A soft edge is the only cue left once the bar is gone.
+     Applied through a separate class because a mask is unconditional: on a rail
+     whose chips already fit, it would fade the last one for no reason. The
+     component adds this only while the rail actually overflows (useRailFade). */
+  .rail-fade-end {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.25rem), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 2.25rem), transparent);
+  }
   .rail::-webkit-scrollbar {
     display: none;
   }

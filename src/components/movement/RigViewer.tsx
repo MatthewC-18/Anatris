@@ -28,11 +28,29 @@ import { ShoulderRhythmArc } from './ShoulderRhythmArc';
 // not render resolution, is what makes this model read.
 const RIG_DPR: [number, number] = [1, 1.25];
 
-/** Auto-fit the camera onto the rig once, after it has a valid bounding box. */
-function AutoFit() {
+/**
+ * Auto-fit the camera onto the rig once it has a valid bounding box, and AGAIN
+ * whenever `refitKey` changes.
+ *
+ * The refit exists for the compact layout. There the canvas is a flex row above
+ * the control sheet, so opening or collapsing the sheet changes the canvas box
+ * by a third of the screen. `fitToBox` had already run against the old box, and
+ * r3f's resize handling only updates the projection aspect -- it does not
+ * re-frame. The visible result was the arm sliding out of the left edge partway
+ * through an abduction sweep, which is exactly the frame a user is studying.
+ */
+function AutoFit({ refitKey }: { refitKey?: string | number }) {
   const { scene } = useThree();
   const controls = useThree((s) => s.controls) as CameraControls | null;
   const framed = useRef(false);
+  const lastKey = useRef(refitKey);
+
+  // A changed key means the viewport changed shape, not that a new model
+  // arrived: allow the one-shot guard to fire again.
+  if (lastKey.current !== refitKey) {
+    lastKey.current = refitKey;
+    framed.current = false;
+  }
 
   useEffect(() => {
     if (framed.current || !controls) return;
@@ -67,7 +85,7 @@ function AutoFit() {
       cancelAnimationFrame(raf1);
       if (raf2) cancelAnimationFrame(raf2);
     };
-  }, [controls, scene]);
+  }, [controls, scene, refitKey]);
 
   return null;
 }
@@ -256,7 +274,7 @@ function ProgressReporter({ onProgress }: { onProgress: (p: number) => void }) {
   return null;
 }
 
-export function RigViewer() {
+export function RigViewer({ refitKey }: { refitKey?: string | number } = {}) {
   const [progress, setProgress] = useState(0);
   const [ready, setReady] = useState(false);
 
@@ -308,7 +326,7 @@ export function RigViewer() {
           <RigModel onReady={() => setReady(true)} />
           <RigOverlays />
           <ShoulderRhythmArc />
-          <AutoFit />
+          <AutoFit refitKey={refitKey} />
           <DoubleClickFocus />
         </Suspense>
 

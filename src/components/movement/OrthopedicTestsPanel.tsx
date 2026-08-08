@@ -736,12 +736,20 @@ export function OrthopedicTestsPanel({
   open,
   onOpenChange,
   onOpenEvidence,
+  bare = false,
 }: {
   region: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Open the region's full "Evidencia" page (all sources + PubMed links). */
   onOpenEvidence?: () => void;
+  /**
+   * Render for the compact bottom sheet: no frosted panel, no fixed width, no
+   * close button. The sheet's tab bar already frames and dismisses this, so the
+   * floating chrome would be a second card inside the first -- and `w-[24rem]`
+   * is wider than the phone it is sitting on.
+   */
+  bare?: boolean;
 }) {
   const tests = useMemo(() => testsForRegion(region), [region]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -956,7 +964,7 @@ export function OrthopedicTestsPanel({
 
   if (tests.length === 0) return null;
 
-  if (!open) {
+  if (!open && !bare) {
     return (
       <button
         type="button"
@@ -973,7 +981,13 @@ export function OrthopedicTestsPanel({
   }
 
   return (
-    <div className="instrument pointer-events-auto flex min-h-0 w-[24rem] max-w-[calc(100vw-2rem)] flex-1 flex-col overflow-hidden">
+    <div
+      className={
+        bare
+          ? 'flex min-h-0 w-full flex-1 flex-col'
+          : 'instrument pointer-events-auto flex min-h-0 w-[24rem] max-w-[calc(100vw-2rem)] flex-1 flex-col overflow-hidden'
+      }
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-3 border-b border-slate-800/70 px-4 py-3">
         <div className="min-w-0">
@@ -994,14 +1008,16 @@ export function OrthopedicTestsPanel({
           <HeaderToggle active={showHelp} onClick={() => setShowHelp((s) => !s)} label="Guía" title="Cómo se usa este panel">
             <InfoIcon />
           </HeaderToggle>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            aria-label="Cerrar tests"
-            className="-mr-1 rounded p-1.5 text-slate-500 transition-colors hover:text-slate-200"
-          >
-            <CloseIcon size={15} />
-          </button>
+          {!bare && (
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              aria-label="Cerrar tests"
+              className="-mr-1 rounded p-1.5 text-slate-500 transition-colors hover:text-slate-200"
+            >
+              <CloseIcon size={15} />
+            </button>
+          )}
         </div>
       </div>
 

@@ -31,6 +31,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { rigChannel, type RigHighlight } from './RigModel';
 import { demoChannel, useActiveDemo } from './demoChannel';
 import { romForRegion } from '../../data/romByRegion';
+import { useRailFade } from '../../hooks/useRailFade';
 import { getBoneControl, isDrivable, type Side } from '../../lib/boneMap';
 import type { RomMovement } from '../../types/rom';
 import { buildLabArc, phaseAtAngleIn } from '../../lib/romPhaseAtAngle';
@@ -95,15 +96,26 @@ interface MovementControlsProps {
    * readout is hidden, so the header comes back to carry that identity.
    */
   embedded?: boolean;
+  /**
+   * True when this console is the body of the compact bottom sheet
+   * (MobileLabSheet). The sheet's detent IS the collapse and the sheet owns the
+   * scrolling, so the console must not do either: self-collapsing left the
+   * expanded sheet showing a header and 400px of nothing, and its own
+   * `max-h-[34vh]` cap would fight the sheet's height for the same pixels.
+   */
+  inSheet?: boolean;
 }
 
 export function MovementControls({
   region,
   patientMode = false,
   embedded = false,
+  inSheet = false,
 }: MovementControlsProps) {
   const movements = useMemo(() => romForRegion(region), [region]);
   const reducedMotion = usePrefersReducedMotion();
+  // Trailing fade on the movement strip, but only while it really overflows.
+  const movementRail = useRailFade<HTMLDivElement>();
 
   // CAPABILITY GATES. The free tier drives a DEMO of the lab (the first drivable
   // movement) so the rig proves itself, but the tools a physio uses in front of a
@@ -141,10 +153,12 @@ export function MovementControls({
   /** Stop any running demo so the console owns the rig again. */
   const claimRig = () => demoChannel.stop();
   // Start collapsed on phones so the model is visible; expanded on desktop.
-  const [collapsed, setCollapsed] = useState(() => {
+  const [selfCollapsed, setCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
     return window.matchMedia('(max-width: 639px)').matches;
   });
+  // Inside the sheet the detent already decides how much of this is on screen.
+  const collapsed = inSheet ? false : selfCollapsed;
   // Session settings (markers, clinical state) fold away unless the screen is
   // tall enough to show them without the console reaching the readout.
   const [settingsOpen, setSettingsOpen] = useState(() => {
@@ -532,7 +546,9 @@ export function MovementControls({
           exists below `sm`, where the readout above is hidden and this line is
           the panel's only identity. */}
       <div
-        className={`flex items-start gap-3 px-4 pt-3.5 pb-3 ${embedded ? 'sm:hidden' : ''}`}
+        className={`flex items-start gap-3 px-4 pt-3.5 pb-3 ${
+          embedded && !inSheet ? 'sm:hidden' : ''
+        }`}
       >
         <button
           type="button"
@@ -554,15 +570,17 @@ export function MovementControls({
               <span className="text-base font-medium text-slate-500">°</span>
             </span>
           )}
-          <button
-            type="button"
-            onClick={() => setCollapsed((c) => !c)}
-            aria-label={collapsed ? 'Expandir panel' : 'Colapsar panel'}
-            aria-expanded={!collapsed}
-            className="-mr-1 ml-1 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100/[0.06] hover:text-slate-200 lg:hidden"
-          >
-            <ChevronDownIcon size={14} className={collapsed ? '-rotate-90' : ''} />
-          </button>
+          {!inSheet && (
+            <button
+              type="button"
+              onClick={() => setCollapsed((c) => !c)}
+              aria-label={collapsed ? 'Expandir panel' : 'Colapsar panel'}
+              aria-expanded={!collapsed}
+              className="-mr-1 ml-1 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100/[0.06] hover:text-slate-200 lg:hidden"
+            >
+              <ChevronDownIcon size={14} className={collapsed ? '-rotate-90' : ''} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -595,7 +613,11 @@ export function MovementControls({
         // Height-capped and scrollable at EVERY size, not just on phones. The
         // console shares its column with the readout, so an unbounded body (open
         // settings on a laptop) squeezed the readout down to a sliver.
-        className={`${collapsed ? 'hidden' : 'block'} max-h-[34vh] overflow-y-auto sm:max-h-[36vh] ${embedded ? 'sm:block' : 'lg:block'}`}
+        className={
+          inSheet
+            ? 'block'
+            : `${collapsed ? 'hidden' : 'block'} max-h-[34vh] overflow-y-auto sm:max-h-[36vh] ${embedded ? 'sm:block' : 'lg:block'}`
+        }
       >
         {/* MOVEMENT RAIL. Every arc of the region in one strip, so the library's
             size is visible at a glance. Premium arcs stay listed with a lock and
@@ -603,7 +625,10 @@ export function MovementControls({
         <div className="hairline" />
         <div className="px-4 py-3">
           <span className="kicker">Movimiento</span>
-          <div className="rail mt-2 -mx-1 px-1 pb-0.5">
+          <div
+            ref={movementRail.ref}
+            className={`rail mt-2 -mx-1 px-1 pb-0.5 ${movementRail.faded ? 'rail-fade-end' : ''}`}
+          >
             {movements.map((m) => {
               const unavailable = !isDrivable(m.id);
               const locked = isLockedMovement(m.id);
