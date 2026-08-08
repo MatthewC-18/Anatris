@@ -214,12 +214,17 @@ function StudioEnvironment() {
  * Camera + interaction budget. Lives inside the Canvas so it can read r3f's
  * `performance.regress`.
  *
- * Every camera change regresses the scene for a moment, which lets AdaptiveDpr
- * drop the render resolution and AdaptiveEvents stop raycasting WHILE the camera
- * moves, then restores both the instant it settles. That matters more here than
- * in the atlas: these are 1300+ SKINNED meshes, so every frame also pays for CPU
- * skinning, and picking a skinned mesh is the most expensive raycast three.js
- * does -- it was competing with the drag for the same main thread.
+ * A camera change regresses the scene, and regressing does TWO separate things.
+ * AdaptiveEvents stops raycasting, which is pure profit: picking a skinned mesh
+ * is the most expensive raycast three.js does and there are 1300+ of them here,
+ * so it was competing with the drag for the same main thread, and nobody is
+ * clicking a muscle mid-swipe anyway. AdaptiveDpr drops the render resolution,
+ * which costs image quality.
+ *
+ * ON PHONES ONLY THE FIRST HALF APPLIES. The compact cap is already 1.0, so a
+ * regress meant 0.5x -- about 195 backing pixels across a 390px screen -- and
+ * the user reported the model distorting on every pinch and drag. Desktop starts
+ * from a bigger budget and nobody complained, so it keeps both halves.
  *
  * smoothTime was 0.4s, long enough that the model visibly trailed the cursor and
  * read as a stutter even when frames were fine.
@@ -245,11 +250,12 @@ function StudioEnvironment() {
  * -- not the pixels. Reducing pixels further just makes the feature illegible.
  */
 
-function NavigationRig() {
+function NavigationRig({ compact }: { compact: boolean }) {
   const regress = useThree((s) => s.performance.regress);
   return (
     <>
-      <AdaptiveDpr pixelated={false} />
+      {/* Resolution stays constant on phones -- see the note above. */}
+      {!compact && <AdaptiveDpr pixelated={false} />}
       <AdaptiveEvents />
       {/* Free navigation: dollyToCursor makes the wheel zoom TOWARD the pointer
           (point at a muscle and scroll in), and a small minDistance lets the
@@ -363,7 +369,7 @@ export function RigViewer({ refitKey }: { refitKey?: string | number } = {}) {
           <DoubleClickFocus />
         </Suspense>
 
-        <NavigationRig />
+        <NavigationRig compact={compact} />
       </Canvas>
 
       {/* Premium depth: a soft radial spotlight behind the model and a vignette

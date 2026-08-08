@@ -177,6 +177,8 @@ function SceneContents({
   // Signals "the user is interacting, cheapen the frame" to AdaptiveDpr /
   // AdaptiveEvents below. r3f restores full quality on its own once idle.
   const regress = useThree((s) => s.performance.regress);
+  // Phones opt out of the resolution half of that trade -- see AdaptiveDpr below.
+  const compact = useIsCompact();
   const controlsRef = useRef<CameraControls | null>(null);
   const boundsRef = useRef<{ box: THREE.Box3; radius: number } | null>(null);
   const hasFramedRef = useRef(false);
@@ -500,8 +502,15 @@ function SceneContents({
                               picking against the visible set on every pointer
                               move was competing with the drag for the same
                               main thread.
-          Both are no-ops once the scene is idle. */}
-      <AdaptiveDpr pixelated={false} />
+          Both are no-ops once the scene is idle.
+
+          AdaptiveDpr IS SKIPPED ON PHONES. The two halves of a regress are not
+          equally priced: dropping the raycast is free, dropping the resolution
+          is not. On a phone the ceiling is already 1.5, so the 0.5 floor landed
+          around 195 backing pixels across a 390px screen and the model visibly
+          broke up on every pinch and drag -- reported by the user on the lab's
+          canvas, and this one shared the defect. Raycasting still stops. */}
+      {!compact && <AdaptiveDpr pixelated={false} />}
       <AdaptiveEvents />
 
       {/* dollyToCursor zooms the wheel TOWARD the pointer so you can dive into any
@@ -588,7 +597,9 @@ export function Viewer3D({
         // Exposure slightly under 1.0 keeps highlights from blowing out under
         // the env; sRGB output keeps the atlas hues faithful.
         gl={{
-          antialias: true,
+          // MSAA is a fill-rate tax, and fill rate is what a phone has least of
+          // while drawing thousands of meshes. Same call as the lab's canvas.
+          antialias: !compact,
           powerPreference: 'high-performance',
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 0.95,
