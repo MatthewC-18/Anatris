@@ -79,6 +79,31 @@ Por región en `src/data/{shoulder,elbow,knee,thoracic,cervical,lumbar}Rom.ts`,
 (`OrthopedicTestsPanel.tsx`, `src/types/orthopedicTest.ts`), neuro
 (`NeuroPanel.tsx`, `DermatomeMap.tsx`), evidencia con PubMed (`evidence.ts`).
 
+**Neuro, reconstruido.** Ya no es una lista: es un tamizaje que concluye.
+
+- `src/lib/neuroPlate.ts` — geometría pura. Un miembro se describe UNA vez como
+  eje (línea media + semiancho por nodo) y de ahí salen su silueta y sus bandas,
+  así que un dermatoma no puede desalinearse del miembro. Un territorio se
+  escribe como rectángulo en (t, c): t proximal→distal, c medial(−1)→lateral(+1),
+  con `flip` en los miembros espejados para que "lateral" siga siendo lateral.
+- `src/data/neuro/plate.ts` — la lámina: ejes, bandas por raíz y vista, pines
+  ASIA, recorte por figura, y `SEGMENT_PIGMENTS` (la escala segmentaria; el cian
+  sigue reservado a estado interactivo).
+- `src/lib/neuroScreen.ts` — escalas reales (ASIA 0-2, MMT 0-5, reflejos 0-4),
+  `localizeRoot` y el resumen para la historia. **La hiperreflexia NO puntúa como
+  radicular a propósito**: sale como signo por encima de la raíz. Los pesos son
+  criterio clínico ordinario, no coeficientes publicados, y el panel lo dice.
+- `NeuroScreenReadout.tsx` — el localizador (el equivalente al Fagan de Tests).
+
+**Verificar la lámina**: `npm run neuro-plate` la rasteriza a PNG con el MISMO
+constructor que usa el componente (`buildPlateGeometry`), y `npm run
+neuro-plate-box` comprueba con números que el recorte no corte una mano. Es la
+salida al agujero del §3: el WebGL no pinta en el preview, y "¿esto se parece a
+un brazo?" no es una pregunta que responda un bounding box. Para el panel en sí,
+`NeuroScreenReadout` se puede renderizar con `react-dom/server` + el CSS de
+Tailwind y capturar con el Chromium del entorno; no arrastra three.js, así que
+funciona en node (`NeuroPanel` sí lo arrastra, vía `RigModel`).
+
 ---
 
 ## 3. Notas del entorno de verificación (LEER antes de tocar el preview)

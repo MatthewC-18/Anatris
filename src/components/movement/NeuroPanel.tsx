@@ -44,6 +44,17 @@
 // 7. RED FLAGS SIT ABOVE THE ROOTS, where they cannot be scrolled past. A
 //    segmental screen exists partly to catch what must not be treated.
 //
+// 8. THE SCREEN IS THE LIST, NOT A SECOND TABLE. Grading controls live inside the
+//    lane they grade, and each row carries three state dots, so the five rows ARE
+//    the root-by-axis grid at a glance. A separate matrix would have printed every
+//    root twice on one surface, which breaks rule 3 and rule "say it once".
+//
+// 9. AMBER MEANS ABNORMAL, on the dots as everywhere else on this panel: it is
+//    already the attention colour (red flags, unverified figures), and a row that
+//    turns amber across all three axes is precisely the thing needing attention.
+//    Recorded-and-normal is a quiet slate dot; not examined is a hollow ring,
+//    because blank and normal are different clinical statements.
+//
 // LAYOUT: a full-height right-side sheet (mirrors the tests panel), plus a `bare`
 // mode for the mobile bottom sheet. Data: src/data/neuro. UI Spanish LATAM; code
 // and comments ASCII/English.
@@ -54,9 +65,21 @@ import { pigmentFor } from '../../data/neuro/plate';
 import type { NerveRoot } from '../../types/neuro';
 import { getReference, formatReference, type ReferenceId } from '../../data/references';
 import { DermatomeMap } from './DermatomeMap';
+import { NeuroScreenReadout } from './NeuroScreenReadout';
 import { rigChannel } from './RigModel';
 import { demoChannel, useActiveDemo } from './demoChannel';
-import { EVENTS, trackChange } from '../../lib/analytics';
+import { EVENTS, track, trackChange } from '../../lib/analytics';
+import {
+  EMPTY_FINDING,
+  REFLEX_SCALE,
+  SENSATION_SCALE,
+  STRENGTH_SCALE,
+  isScreenEmpty,
+  localizeRoot,
+  screenSummary,
+  type NeuroScreenState,
+  type RootFinding,
+} from '../../lib/neuroScreen';
 import { ChevronDownIcon, CloseIcon, PlayIcon, StopIcon } from '../ui/Icons';
 
 /** Namespace for this panel's demo ids on the shared demoChannel. */
@@ -206,6 +229,111 @@ function Lane({
   );
 }
 
+/**
+ * A clinical scale as a segmented row.
+ *
+ * Two behaviours worth keeping. Clicking the selected grade CLEARS it, because
+ * "not examined" is a real state of a screen and there has to be a way back to it
+ * without reloading the panel. And the buttons are numbered with the scale's own
+ * numbers (0-5 for strength, 0-4 for reflexes), never re-labelled "leve /
+ * moderado": a physio already thinks in these numbers, and translating out of
+ * their vocabulary and back is how a form starts feeling like paperwork.
+ */
+function Scale<T extends number>({
+  options,
+  value,
+  onChange,
+  legend,
+}: {
+  options: { value: T; label?: string; hint: string }[];
+  value: T | null;
+  onChange: (v: T | null) => void;
+  /** What the scale is, for screen readers. Spanish. */
+  legend: string;
+}) {
+  return (
+    <div role="group" aria-label={legend} className="mt-1.5 flex gap-1">
+      {options.map((o) => {
+        const on = value === o.value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(on ? null : o.value)}
+            aria-pressed={on}
+            aria-label={`${legend}: ${o.hint}`}
+            title={o.hint}
+            className={`min-w-0 flex-1 rounded border px-1 py-1 text-[11px] font-medium tabular-nums transition-colors ${
+              o.label ? '' : 'font-mono'
+            } ${
+              on
+                ? 'border-accent/50 bg-accent/10 text-accent'
+                : 'border-slate-700 text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {o.label ?? o.value}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The row's three state dots: sensibilidad, fuerza, reflejo, in the same order as
+ * the lanes below. Five of these rows are the screening grid (design rule 8), and
+ * a row that goes amber across is the level (rule 9).
+ */
+function StateDots({ root, finding }: { root: NerveRoot; finding: RootFinding }) {
+  const axes: { key: string; graded: boolean; abnormal: boolean; text: string }[] = [
+    {
+      key: 'S',
+      graded: finding.sensation != null,
+      abnormal: finding.sensation != null && finding.sensation < 2,
+      text:
+        finding.sensation == null
+          ? 'sensibilidad sin explorar'
+          : `sensibilidad ${SENSATION_SCALE.find((s) => s.value === finding.sensation)?.label?.toLowerCase()}`,
+    },
+    {
+      key: 'F',
+      graded: finding.strength != null,
+      abnormal: finding.strength != null && finding.strength < 5,
+      text: finding.strength == null ? 'fuerza sin explorar' : `fuerza ${finding.strength} de 5`,
+    },
+  ];
+  if (root.reflex) {
+    axes.push({
+      key: 'R',
+      graded: finding.reflex != null,
+      // Both directions are abnormal: 0 is a root sign, 4 is a cord sign.
+      abnormal: finding.reflex != null && finding.reflex !== 2,
+      text: finding.reflex == null ? 'reflejo sin explorar' : `reflejo ${finding.reflex} de 4`,
+    });
+  }
+  return (
+    <span
+      className="flex shrink-0 items-center gap-1"
+      title={`${root.label} · ${axes.map((a) => a.text).join(', ')}`}
+      aria-label={`${root.label}: ${axes.map((a) => a.text).join(', ')}`}
+    >
+      {axes.map((a) => (
+        <span
+          key={a.key}
+          aria-hidden="true"
+          className={`h-1.5 w-1.5 rounded-full border ${
+            !a.graded
+              ? 'border-slate-700'
+              : a.abnormal
+                ? 'border-amber-400 bg-amber-400'
+                : 'border-slate-600 bg-slate-600'
+          }`}
+        />
+      ))}
+    </span>
+  );
+}
+
 /** The root's identity chip: mono, in its segmental pigment. */
 function RootChip({ root, pigment, on }: { root: string; pigment: string; on: boolean }) {
   return (
@@ -332,6 +460,8 @@ function RootRow({
   onPick,
   demoing,
   onDemo,
+  finding,
+  onGrade,
 }: {
   root: NerveRoot;
   pigment: string;
@@ -340,6 +470,8 @@ function RootRow({
   onPick: () => void;
   demoing: boolean;
   onDemo: () => void;
+  finding: RootFinding;
+  onGrade: (patch: Partial<RootFinding>) => void;
 }) {
   const reflexWord = root.reflex ? shortReflex(root.reflex.name) : null;
   return (
@@ -380,6 +512,10 @@ function RootRow({
           </span>
         </button>
 
+        {/* Design rule 8: three dots per row, five rows, and the grid is legible
+            without opening anything. */}
+        <StateDots root={root} finding={finding} />
+
         {/* Design rule 5: the rig demo lives HERE, not inside the detail. Same
             round control the tests panel uses for its maneuvers. */}
         {root.demo && (
@@ -414,6 +550,12 @@ function RootRow({
           <Lane glyph={<PinGlyph color={pigment} />} label="Sensibilidad · dermatoma">
             {root.dermatome.area}{' '}
             <span className="text-slate-400">Punto clave: {root.dermatome.keyPoint}</span>
+            <Scale
+              legend={`Sensibilidad en el punto clave de ${root.label}`}
+              options={SENSATION_SCALE}
+              value={finding.sensation}
+              onChange={(v) => onGrade({ sensation: v })}
+            />
           </Lane>
 
           <Lane glyph={<MotionGlyph />} label="Fuerza · miotoma">
@@ -426,6 +568,12 @@ function RootRow({
             {!root.demo && root.demoNote && (
               <span className="mt-1 block text-[11px] text-slate-500">{root.demoNote}</span>
             )}
+            <Scale
+              legend={`Fuerza del miotoma ${root.label}, escala 0 a 5`}
+              options={STRENGTH_SCALE}
+              value={finding.strength}
+              onChange={(v) => onGrade({ strength: v })}
+            />
           </Lane>
 
           {/* Design rule 6: absence is information, so the lane always exists. */}
@@ -434,6 +582,12 @@ function RootRow({
               <>
                 <span className="text-slate-200">{root.reflex.name}.</span>{' '}
                 {root.reflex.elicitation}
+                <Scale
+                  legend={`Reflejo de ${root.label}, escala 0 a 4`}
+                  options={REFLEX_SCALE}
+                  value={finding.reflex}
+                  onChange={(v) => onGrade({ reflex: v })}
+                />
               </>
             ) : (
               <span className="text-slate-400">
@@ -506,6 +660,16 @@ export function NeuroPanel({
    */
   const [picked, setPicked] = useState<string[]>([]);
   const [compare, setCompare] = useState(false);
+  /**
+   * What has been recorded, root by root.
+   *
+   * Component state, and deliberately scoped to ONE limb: MovementView keys this
+   * panel by region, so switching from the knee to the shoulder starts a new
+   * screen instead of carrying lumbosacral findings onto a cervical figure. A
+   * screen belongs to one examination.
+   */
+  const [screen, setScreen] = useState<NeuroScreenState>({});
+  const [copied, setCopied] = useState(false);
 
   // The demoChannel arbiter owns which demo (if any) animates the rig. Deriving
   // demoId from it (instead of local state) means a demo started here stops
@@ -528,6 +692,32 @@ export function NeuroPanel({
       // FIFO once full, so a third pick means "compare with this one instead".
       return [...cur, id].slice(-MAX_PICKED);
     });
+  };
+
+  const grade = (id: string, patch: Partial<RootFinding>) => {
+    setScreen((cur) => {
+      // Counts screens STARTED, not taps: fired only on the transition out of an
+      // empty screen.
+      if (isScreenEmpty(cur)) track(EVENTS.neuroScreenGraded, { region });
+      return { ...cur, [id]: { ...(cur[id] ?? EMPTY_FINDING), ...patch } };
+    });
+  };
+
+  const copySummary = async () => {
+    if (!set) return;
+    const text = screenSummary(set.roots, screen, set.title);
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      track(EVENTS.neuroScreenCopied, { region, roots: set.roots.length });
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard access can be refused (insecure context, denied permission).
+      // Staying silent here would look like the button is broken, and there is no
+      // second channel for the text, so say so plainly.
+      window.prompt('Copia el tamizaje:', text);
+    }
   };
 
   const startDemo = (r: NerveRoot) => {
@@ -645,6 +835,8 @@ export function NeuroPanel({
     .map((id) => byId.get(id))
     .filter((r): r is NerveRoot => Boolean(r));
   const comparing = pickedRoots.length === MAX_PICKED;
+  const screenStarted = !isScreenEmpty(screen);
+  const localization = localizeRoot(set.roots, screen);
 
   return (
     <div
@@ -713,8 +905,28 @@ export function NeuroPanel({
         <CompareBlock figure={set.figure} a={pickedRoots[0]} b={pickedRoots[1]} />
       )}
 
-      {/* Roots */}
+      {/* Roots, and above them the conclusion they feed.
+          The readout sits at the TOP of the scroll region rather than after the
+          five rows: it is the panel's answer, and an answer found only after
+          scrolling past everything reads as a footnote. It scrolls, though -- the
+          fixed area above is already carrying the plate. */}
       <div className="min-h-0 flex-1 overflow-y-auto py-1">
+        {screenStarted && (
+          <NeuroScreenReadout
+            figure={set.figure}
+            localization={localization}
+            onShowLevel={(ids) => {
+              // A tie proposes two levels, so showing it means turning compare on:
+              // the plate can hold two territories and this is exactly the case
+              // that needs it.
+              setPicked(ids.slice(0, MAX_PICKED));
+              setCompare(ids.length > 1);
+            }}
+            onClear={() => setScreen({})}
+            onCopy={copySummary}
+            copied={copied}
+          />
+        )}
         {set.roots.map((r) => (
           <RootRow
             key={r.id}
@@ -725,8 +937,16 @@ export function NeuroPanel({
             onPick={() => pick(r.id)}
             demoing={demoId === r.id}
             onDemo={() => (demoId === r.id ? stopDemo() : startDemo(r))}
+            finding={screen[r.id] ?? EMPTY_FINDING}
+            onGrade={(patch) => grade(r.id, patch)}
           />
         ))}
+        {!screenStarted && (
+          <p className="px-4 pb-1 pt-2 text-[11px] leading-snug text-slate-500">
+            Abre una raíz y registra sensibilidad, fuerza y reflejo: el panel te dirá
+            qué nivel explica mejor lo que encuentres.
+          </p>
+        )}
         <p className="px-4 py-3 text-[11px] leading-snug text-slate-600">
           Los mapas dermatómicos y las raíces de los reflejos varían entre autores
           (ASIA, Keegan). Úsalo como guía de razonamiento segmentario, no como

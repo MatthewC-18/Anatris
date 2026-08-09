@@ -72,6 +72,12 @@ export const EVENTS = {
   examModeStarted: 'exam_mode_started',
   /** The neuro panel was opened. props: { region } */
   neuroOpened: 'neuro_opened',
+  /** First finding recorded in a segmental screen. Fired ONCE per screen, so it
+   *  counts exams started rather than taps. props: { region } */
+  neuroScreenGraded: 'neuro_screen_graded',
+  /** A screen was copied out for the record -- the strongest signal that neuro is
+   *  used clinically and not just browsed. props: { region, roots } */
+  neuroScreenCopied: 'neuro_screen_copied',
   /** A study tab was opened. props: { region, tab } */
   studyTabOpened: 'study_tab_opened',
   /** A patient card was exported. props: { region, movement } */
