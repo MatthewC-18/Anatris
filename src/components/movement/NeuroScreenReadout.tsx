@@ -89,6 +89,7 @@ export function NeuroScreenReadout({
   onClear,
   onCopy,
   copied,
+  copyFailed = false,
 }: {
   figure: PlateFigure;
   localization: Localization;
@@ -102,6 +103,9 @@ export function NeuroScreenReadout({
   onClear: () => void;
   onCopy: () => void;
   copied: boolean;
+  /** The clipboard refused. Said out loud, because a silent failure here looks
+   *  like a dead button and the record is the reason the screen was filled in. */
+  copyFailed?: boolean;
 }) {
   const { ranked, byLevel, leading, contenders, caveats } = localization;
   // Scale the bars to the best score, not to the theoretical maximum: at 3 of 10
@@ -129,7 +133,7 @@ export function NeuroScreenReadout({
             title="Copiar el tamizaje como texto para la historia clínica"
             className="rounded border border-slate-700 px-2 py-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-slate-200"
           >
-            {copied ? 'Copiado' : 'Copiar'}
+            {copyFailed ? 'No se pudo' : copied ? 'Copiado' : 'Copiar'}
           </button>
           <button
             type="button"

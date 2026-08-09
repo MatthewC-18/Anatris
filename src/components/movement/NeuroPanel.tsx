@@ -80,6 +80,7 @@ import {
   type NeuroScreenState,
   type RootFinding,
 } from '../../lib/neuroScreen';
+import { clearScreen, readScreen, writeScreen } from './neuroScreenStore';
 import { ChevronDownIcon, CloseIcon, PlayIcon, StopIcon } from '../ui/Icons';
 
 /** Namespace for this panel's demo ids on the shared demoChannel. */
@@ -462,6 +463,7 @@ function RootRow({
   onDemo,
   finding,
   onGrade,
+  showVerifyMark,
 }: {
   root: NerveRoot;
   pigment: string;
@@ -472,6 +474,17 @@ function RootRow({
   onDemo: () => void;
   finding: RootFinding;
   onGrade: (patch: Partial<RootFinding>) => void;
+  /**
+   * Whether to mark THIS root's citations as pending.
+   *
+   * When every root on the screen is pending -- which is the state the whole set
+   * ships in -- the mark is printed once for the panel instead of ten times. Ten
+   * "por verificar" stamps do not communicate ten times as much; they read as an
+   * unfinished product, which is the opposite of what an honest provenance note is
+   * for. It comes back per root the moment the roots actually differ, because then
+   * it is information about that root.
+   */
+  showVerifyMark: boolean;
 }) {
   const reflexWord = root.reflex ? shortReflex(root.reflex.name) : null;
   return (
@@ -618,7 +631,7 @@ function RootRow({
               return (
                 <p key={c.ref} className="text-[11px] leading-snug text-slate-600">
                   {formatReference(ref)}{' '}
-                  {!c.verified && (
+                  {showVerifyMark && !c.verified && (
                     <span
                       className="text-amber-500/80"
                       title="Valores por verificar contra la fuente primaria"
@@ -634,6 +647,44 @@ function RootRow({
       )}
     </div>
   );
+}
+
+/**
+ * Put text on the clipboard, or report that it could not be done.
+ *
+ * Two paths on purpose: the modern API, then the old selection trick for the
+ * contexts it refuses to run in (plain http, denied permission). Returns a
+ * boolean rather than throwing, because the caller's job is to tell the user
+ * whether their record made it out -- not to swallow the failure silently, which
+ * looks exactly like a broken button.
+ */
+async function writeToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // fall through to the legacy path
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    // Off-screen but still selectable, and readOnly so no keyboard opens on a
+    // phone while it is briefly in the document.
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -663,13 +714,16 @@ export function NeuroPanel({
   /**
    * What has been recorded, root by root.
    *
-   * Component state, and deliberately scoped to ONE limb: MovementView keys this
-   * panel by region, so switching from the knee to the shoulder starts a new
-   * screen instead of carrying lumbosacral findings onto a cervical figure. A
-   * screen belongs to one examination.
+   * Mirrored into neuroScreenStore rather than living here alone: the mobile sheet
+   * renders one tab at a time, so this panel unmounts when the user goes to look
+   * at the model and a half-finished exam used to vanish. See that module for why
+   * it is in memory and not on disk.
    */
-  const [screen, setScreen] = useState<NeuroScreenState>({});
+  const [screen, setScreen] = useState<NeuroScreenState>(() =>
+    set ? readScreen(set.id) : {},
+  );
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   // The demoChannel arbiter owns which demo (if any) animates the rig. Deriving
   // demoId from it (instead of local state) means a demo started here stops
@@ -694,30 +748,43 @@ export function NeuroPanel({
     });
   };
 
-  const grade = (id: string, patch: Partial<RootFinding>) => {
+  /** Single door to the screen state, so the store can never fall out of step. */
+  const updateScreen = (next: (cur: NeuroScreenState) => NeuroScreenState) => {
     setScreen((cur) => {
-      // Counts screens STARTED, not taps: fired only on the transition out of an
-      // empty screen.
-      if (isScreenEmpty(cur)) track(EVENTS.neuroScreenGraded, { region });
-      return { ...cur, [id]: { ...(cur[id] ?? EMPTY_FINDING), ...patch } };
+      const value = next(cur);
+      if (set) writeScreen(set.id, value);
+      return value;
     });
+  };
+
+  const grade = (id: string, patch: Partial<RootFinding>) => {
+    // Counts screens STARTED, not taps: fired on the transition out of an empty
+    // screen. Read and fired OUTSIDE the updater -- React is free to call an
+    // updater more than once (StrictMode does, in development), so a side effect
+    // in there is a double-counted event waiting to happen. `screen` is current
+    // here because this only runs from an event handler.
+    if (isScreenEmpty(screen)) track(EVENTS.neuroScreenGraded, { region });
+    updateScreen((cur) => ({ ...cur, [id]: { ...(cur[id] ?? EMPTY_FINDING), ...patch } }));
   };
 
   const copySummary = async () => {
     if (!set) return;
     const text = screenSummary(set.roots, screen, set.title);
     if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      track(EVENTS.neuroScreenCopied, { region, roots: set.roots.length });
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      // Clipboard access can be refused (insecure context, denied permission).
-      // Staying silent here would look like the button is broken, and there is no
-      // second channel for the text, so say so plainly.
-      window.prompt('Copia el tamizaje:', text);
+    // The async Clipboard API needs a secure context and a granted permission,
+    // and a clinic laptop on plain http has neither. The legacy execCommand path
+    // is the fallback because a screen you cannot get out of the app is a screen
+    // nobody will use. A prompt() was the first fallback and is not one: it
+    // collapses a multi-line record into a single input and some browsers block it.
+    const ok = await writeToClipboard(text);
+    if (!ok) {
+      setCopyFailed(true);
+      window.setTimeout(() => setCopyFailed(false), 4000);
+      return;
     }
+    setCopied(true);
+    track(EVENTS.neuroScreenCopied, { region, roots: set.roots.length });
+    window.setTimeout(() => setCopied(false), 1800);
   };
 
   const startDemo = (r: NerveRoot) => {
@@ -836,6 +903,9 @@ export function NeuroPanel({
     .filter((r): r is NerveRoot => Boolean(r));
   const comparing = pickedRoots.length === MAX_PICKED;
   const screenStarted = !isScreenEmpty(screen);
+  // Every root pending against its primary source -- which is how the set ships.
+  // Stated once below instead of stamped on all ten rows.
+  const allPending = set.roots.every((r) => r.cite.every((c) => !c.verified));
   const localization = localizeRoot(set.roots, screen);
 
   return (
@@ -922,9 +992,13 @@ export function NeuroPanel({
               setPicked(ids.slice(0, MAX_PICKED));
               setCompare(ids.length > 1);
             }}
-            onClear={() => setScreen({})}
+            onClear={() => {
+              if (set) clearScreen(set.id);
+              setScreen({});
+            }}
             onCopy={copySummary}
             copied={copied}
+            copyFailed={copyFailed}
           />
         )}
         {set.roots.map((r) => (
@@ -939,12 +1013,19 @@ export function NeuroPanel({
             onDemo={() => (demoId === r.id ? stopDemo() : startDemo(r))}
             finding={screen[r.id] ?? EMPTY_FINDING}
             onGrade={(patch) => grade(r.id, patch)}
+            showVerifyMark={!allPending}
           />
         ))}
         {!screenStarted && (
           <p className="px-4 pb-1 pt-2 text-[11px] leading-snug text-slate-500">
             Abre una raíz y registra sensibilidad, fuerza y reflejo: el panel te dirá
             qué nivel explica mejor lo que encuentres.
+          </p>
+        )}
+        {allPending && (
+          <p className="px-4 pt-3 text-[11px] leading-snug text-slate-600">
+            Los valores de esta pantalla siguen pendientes de cotejo contra la fuente
+            primaria (ASIA/ISNCSCI y Magee).
           </p>
         )}
         <p className="px-4 py-3 text-[11px] leading-snug text-slate-600">

@@ -129,14 +129,17 @@ export const ARM_AXIS: LimbAxis = {
  */
 export const LEG_AXIS: LimbAxis = {
   id: 'leg',
+  // A blunt toe edge instead of a rounded tip: the first pass rounded a 6-unit
+  // half-width by the default 0.95 and the figure ended in two bulbs.
+  tipCap: 0.3,
   nodes: [
     { x: 61.5, y: 132, w: 12 }, // proximal thigh (meets its pair at the midline)
     { x: 64, y: 162, w: 10.2 }, // mid thigh
     { x: 65.5, y: 194, w: 8 }, // knee
     { x: 67, y: 217, w: 7.4 }, // mid leg
-    { x: 68.5, y: 242, w: 4.8 }, // ankle
-    { x: 69.5, y: 250, w: 6.4 }, // foot
-    { x: 70.5, y: 256, w: 6 }, // toes
+    { x: 68.5, y: 240, w: 4.6 }, // ankle: the narrowest point of the whole limb
+    { x: 69.5, y: 247, w: 6.2 }, // tarsus, flaring forward
+    { x: 70.8, y: 253, w: 6.6 }, // forefoot: WIDEST at the toes, as a foot is
   ],
 };
 
@@ -278,7 +281,7 @@ export interface PlateSpec {
 
 export const PLATES: Record<PlateFigure, PlateSpec> = {
   'upper-limb': {
-    viewBox: '-4 -3 108 195',
+    viewBox: '-4 -3 108 191',
     drawLimbs: ['arm', 'leg'],
     order: ['C5', 'C6', 'C7', 'C8', 'T1'],
     bands: { anterior: UPPER_ANTERIOR, posterior: UPPER_POSTERIOR },
@@ -289,7 +292,7 @@ export const PLATES: Record<PlateFigure, PlateSpec> = {
     },
   },
   'lower-limb': {
-    viewBox: '16 104 68 162',
+    viewBox: '18 118 64 143',
     drawLimbs: ['leg'],
     order: ['L2', 'L3', 'L4', 'L5', 'S1'],
     bands: { anterior: LOWER_ANTERIOR, posterior: LOWER_POSTERIOR },

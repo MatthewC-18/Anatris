@@ -75,6 +75,15 @@ export interface LimbAxis {
    * would otherwise silently swap medial and lateral.
    */
   flip?: boolean;
+  /**
+   * How far past the last node the tip is rounded, as a multiple of the
+   * half-width there. Default 0.95 gives a fingertip.
+   *
+   * The FOOT needs much less. Seen from the front a foot is foreshortened to a
+   * broad stub with a nearly flat toe edge, and rounding a 6-unit half-width by
+   * 0.95 pushed out a balloon -- the figure had two bulbs where its feet should be.
+   */
+  tipCap?: number;
 }
 
 /** A resolved point on a limb: position, unit cross normal, half-width, arc t. */
@@ -200,6 +209,7 @@ export function mirrorLimb(axis: LimbAxis, midX: number, id: string): LimbAxis {
     id,
     nodes: axis.nodes.map((p) => ({ x: 2 * midX - p.x, y: p.y, w: p.w })),
     flip: !axis.flip,
+    tipCap: axis.tipCap,
   };
 }
 
@@ -248,6 +258,7 @@ export function limbOutline(axis: LimbAxis): string {
   const s = sampleLimb(axis);
   const last = s[s.length - 1];
   const first = s[0];
+  const tipCap = axis.tipCap ?? 0.95;
   // Limb direction at each end (perpendicular to the cross normal).
   const tipDir: [number, number] = [-last.ny, last.nx];
   const rootDir: [number, number] = [first.ny, -first.nx];
@@ -256,8 +267,8 @@ export function limbOutline(axis: LimbAxis): string {
   const loop: [number, number][] = [];
   for (const p of s) loop.push(offset(p, 1));
   loop.push([
-    last.x + tipDir[0] * last.w * 0.95 * flip,
-    last.y + tipDir[1] * last.w * 0.95 * flip,
+    last.x + tipDir[0] * last.w * tipCap * flip,
+    last.y + tipDir[1] * last.w * tipCap * flip,
   ]);
   for (let i = s.length - 1; i >= 0; i--) loop.push(offset(s[i], -1));
   // The proximal end is buried in the torso, so it only needs to not be hollow.
