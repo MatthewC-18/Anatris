@@ -26,6 +26,7 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
       dermatome: {
         area: 'Cara anterior y medial del muslo, tercio proximal.',
         keyPoint: 'Cara anterior del muslo, mitad de la distancia entre pliegue inguinal y cóndilo (punto clave ASIA).',
+        keyPointShort: 'Muslo anterior, tercio medio',
       },
       myotome: {
         action: 'Flexión de cadera.',
@@ -33,6 +34,11 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
       },
       demoNote:
         'La flexión de cadera no está riggeada en este modelo (la pierna se mueve desde la rodilla).',
+      mimic: {
+        nerve: 'Nervio femorocutáneo lateral (meralgia parestésica)',
+        discriminator:
+          'La meralgia adormece y quema la cara lateral del muslo sin quitar un gramo de fuerza: si la flexión de cadera está conservada, no es radicular.',
+      },
       pearl:
         'L1-L2-L3 comparten la flexión de cadera; sepáralas por el nivel del dermatoma en el muslo.',
       cite: CITE,
@@ -43,6 +49,7 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
       dermatome: {
         area: 'Cara anterior del muslo hasta la rodilla, lado medial.',
         keyPoint: 'Cóndilo femoral medial (punto clave ASIA).',
+        keyPointShort: 'Cóndilo femoral medial',
       },
       myotome: {
         action: 'Extensión de rodilla.',
@@ -58,6 +65,11 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
         angleDeg: 90,
         side: 'R',
       },
+      mimic: {
+        nerve: 'Nervio femoral',
+        discriminator:
+          'El femoral también debilita el cuádriceps y abole el rotuliano, pero su déficit sensitivo sigue el territorio del safeno interno y no el dermatoma, y no hay dolor radicular a la puesta en tensión.',
+      },
       pearl:
         'El reflejo rotuliano cubre L3 y L4; usa el dermatoma (rodilla medial en L3, maléolo interno en L4) para separarlas.',
       cite: CITE,
@@ -68,6 +80,7 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
       dermatome: {
         area: 'Cara medial de la pierna hasta el maléolo interno.',
         keyPoint: 'Maléolo medial o interno (punto clave ASIA).',
+        keyPointShort: 'Maléolo medial',
       },
       myotome: {
         action: 'Dorsiflexión de tobillo.',
@@ -90,6 +103,7 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
       dermatome: {
         area: 'Cara lateral de la pierna y dorso del pie.',
         keyPoint: 'Dorso del pie, tercera articulación metatarsofalángica (punto clave ASIA).',
+        keyPointShort: 'Dorso del pie, tercera metatarsofalángica',
       },
       myotome: {
         action: 'Extensión del dedo gordo.',
@@ -97,6 +111,11 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
       },
       demoNote:
         'La extensión del dedo gordo no está riggeada en este modelo.',
+      mimic: {
+        nerve: 'Nervio peroneo común en la cabeza del peroné',
+        discriminator:
+          'El pie caído es el mismo. Explora la inversión del pie y la abducción de cadera: el peroneo las respeta, L5 las debilita.',
+      },
       pearl:
         'La raíz lumbar más afectada. Explora el extensor del hallux: se debilita pronto y no tiene reflejo propio.',
       cite: CITE,
@@ -107,6 +126,7 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
       dermatome: {
         area: 'Cara posterior de la pierna, borde lateral y planta del pie.',
         keyPoint: 'Cara lateral del talón (punto clave ASIA).',
+        keyPointShort: 'Talón, cara lateral',
       },
       myotome: {
         action: 'Flexión plantar de tobillo (y flexión de rodilla).',
@@ -123,9 +143,31 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
         side: 'R',
         note: 'El modelo muestra la flexión de rodilla (isquiotibiales, S1); la flexión plantar no está riggeada.',
       },
+      mimic: {
+        nerve: 'Ciático troncular (incluido el sindrome piriforme)',
+        discriminator:
+          'Una lesión del tronco del ciático mezcla territorios de L4 a S2 a la vez; una radiculopatía S1 se queda dentro de un solo dermatoma y un solo miotoma.',
+      },
       pearl:
         'Marcha de puntillas débil y reflejo aquíleo abolido apuntan a S1.',
       cite: CITE,
+    },
+  ],
+  redFlags: [
+    {
+      label: 'Síndrome de cola de caballo',
+      detail:
+        'Anestesia en silla de montar, retención o incontinencia urinaria, déficit motor bilateral o pérdida del tono anal. Es una urgencia: derivación inmediata, no tratamiento.',
+    },
+    {
+      label: 'Déficit motor progresivo',
+      detail:
+        'Pie caído nuevo, o fuerza que baja entre sesiones. Valoración médica sin esperar la evolución.',
+    },
+    {
+      label: 'Bandera roja sistémica',
+      detail:
+        'Fiebre, inmunosupresión, uso de drogas por vía parenteral, antecedente oncológico o traumatismo importante.',
     },
   ],
 };

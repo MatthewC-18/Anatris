@@ -22,6 +22,14 @@ export interface Dermatome {
   area: string;
   /** The single key point tested (ASIA key point), Spanish. */
   keyPoint: string;
+  /**
+   * The same key point in two or three words ("Pulgar", "Maleolo medial"), for
+   * the caption beside its pin on the plate. Separate from `keyPoint` because
+   * that one carries the full locating sentence, and a plate caption that reads
+   * "Fosa antecubital, lado lateral (punto clave ASIA)" is a paragraph pointing
+   * at a dot.
+   */
+  keyPointShort?: string;
 }
 
 /** Myotome: the key movement a root drives, and how to grade it. */
@@ -55,6 +63,22 @@ export interface MyotomeDemo {
   note?: string;
 }
 
+/**
+ * The PERIPHERAL NERVE that imitates this root.
+ *
+ * The single most useful differential in a limb screen, and the one a list of
+ * roots cannot express: weak finger abduction with numb little finger is C8/T1
+ * OR an ulnar neuropathy, and what separates them is whether the deficit
+ * respects a dermatome or a nerve's own territory. Roots with no serious
+ * peripheral mimic simply omit this.
+ */
+export interface RootMimic {
+  /** Nerve or entrapment, Spanish (e.g. "Nervio cubital en el codo"). */
+  nerve: string;
+  /** What tells them apart at the bedside, Spanish. */
+  discriminator: string;
+}
+
 export interface NerveRoot {
   /** Root id, e.g. "C5", "L4". Stable, ASCII. */
   id: string;
@@ -68,10 +92,26 @@ export interface NerveRoot {
   demo?: MyotomeDemo;
   /** Why the rig cannot demo this myotome (when `demo` is absent). */
   demoNote?: string;
+  /** Peripheral nerve that mimics this root, when there is a real one. */
+  mimic?: RootMimic;
   /** Optional teaching pearl (red flags, overlap, confounders). */
   pearl?: string;
   /** Supporting citations (verified=false until checked). */
   cite: StudyCitation[];
+}
+
+/**
+ * A finding that takes the screen out of the physio's hands and into a referral.
+ *
+ * On the panel these are not one more expandable row: a segmental screen exists
+ * partly to catch the cases that must NOT be treated, so they sit above the
+ * roots where they cannot be scrolled past.
+ */
+export interface NeuroRedFlag {
+  /** The syndrome, Spanish (e.g. "Sindrome de cola de caballo"). */
+  label: string;
+  /** What would show it, Spanish. */
+  detail: string;
 }
 
 /** A named group of roots for one body area (cervical/upper vs lumbosacral). */
@@ -85,6 +125,8 @@ export interface NeuroSegmentSet {
   /** Which body figure the dermatome map should draw. */
   figure: 'upper-limb' | 'lower-limb';
   roots: NerveRoot[];
+  /** Findings that stop the screen and start a referral. */
+  redFlags?: NeuroRedFlag[];
 }
 
 /** region id -> neuro set. */

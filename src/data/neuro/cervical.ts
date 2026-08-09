@@ -28,6 +28,7 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
       dermatome: {
         area: 'Cara lateral del brazo, sobre el deltoides.',
         keyPoint: 'Fosa antecubital, lado lateral (punto clave ASIA).',
+        keyPointShort: 'Fosa antecubital, lado lateral',
       },
       myotome: {
         action: 'Abducción del hombro y flexión de codo.',
@@ -44,6 +45,11 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
         side: 'R',
         highlightMuscleId: 'deltoid',
       },
+      mimic: {
+        nerve: 'Nervio axilar',
+        discriminator:
+          'El axilar también debilita la abducción y adormece el hombro lateral, pero no toca el bíceps ni el reflejo bicipital, y el déficit sensitivo no baja del hombro.',
+      },
       pearl:
         'Debilidad de abducción con dolor de hombro: distingue la raíz C5 de una lesión del manguito por el patrón sensitivo y el reflejo.',
       cite: CITE,
@@ -54,6 +60,7 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
       dermatome: {
         area: 'Cara lateral del antebrazo hasta el pulgar.',
         keyPoint: 'Pulgar (punto clave ASIA).',
+        keyPointShort: 'Pulgar',
       },
       myotome: {
         action: 'Extensión de muñeca (y flexión de codo).',
@@ -70,6 +77,11 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
         side: 'R',
         note: 'En el modelo se muestra la flexión de codo (C5-C6); la extensión de muñeca no está riggeada.',
       },
+      mimic: {
+        nerve: 'Nervio mediano en el carpo (túnel carpiano)',
+        discriminator:
+          'El túnel carpiano adormece el pulgar igual que C6, pero se detiene en la muñeca: la sensibilidad del antebrazo lateral queda intacta y la flexión de codo conserva su fuerza.',
+      },
       pearl:
         'C6 y C7 comparten territorio en la mano; apóyate en el dedo afectado (pulgar en C6, medio en C7) y en el reflejo.',
       cite: CITE,
@@ -80,6 +92,7 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
       dermatome: {
         area: 'Cara posterior del antebrazo hasta el dedo medio.',
         keyPoint: 'Dedo medio (punto clave ASIA).',
+        keyPointShort: 'Dedo medio',
       },
       myotome: {
         action: 'Extensión de codo (y flexión de muñeca).',
@@ -96,6 +109,11 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
         side: 'R',
         note: 'El modelo recorre el arco flexión-extensión del codo (tríceps); la flexión de muñeca no está riggeada.',
       },
+      mimic: {
+        nerve: 'Nervio radial',
+        discriminator:
+          'Una lesión radial baja debilita los extensores de muñeca y dedos con el tríceps y su reflejo conservados; en C7 el tríceps cede y el reflejo tricipital baja.',
+      },
       pearl:
         'La raíz cervical más afectada. Un tríceps débil con reflejo tricipital disminuido orienta a C7.',
       cite: CITE,
@@ -106,6 +124,7 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
       dermatome: {
         area: 'Cara medial del antebrazo hasta el meñique.',
         keyPoint: 'Dedo meñique (punto clave ASIA).',
+        keyPointShort: 'Dedo meñique',
       },
       myotome: {
         action: 'Flexión de los dedos.',
@@ -113,6 +132,11 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
       },
       demoNote:
         'La flexión de los dedos no está riggeada en este modelo (la extremidad llega hasta muñeca).',
+      mimic: {
+        nerve: 'Nervio cubital en el codo',
+        discriminator:
+          'El cubital respeta la sensibilidad del antebrazo medial, que viaja por el cutáneo medial del antebrazo: si el antebrazo medial también está dormido, el problema está en la raíz o en el plexo, no en el cubital.',
+      },
       pearl:
         'C8 y T1 dan la fuerza intrínseca de la mano; explóralas con la pinza y la abducción de los dedos.',
       cite: CITE,
@@ -123,6 +147,7 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
       dermatome: {
         area: 'Cara medial del codo y del brazo.',
         keyPoint: 'Cara medial de la fosa antecubital (punto clave ASIA).',
+        keyPointShort: 'Fosa antecubital, lado medial',
       },
       myotome: {
         action: 'Abducción y aducción de los dedos.',
@@ -133,6 +158,23 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
       pearl:
         'Debilidad intrínseca con signo de Froment o mano en garra: valora también el nervio cubital, no solo la raíz.',
       cite: CITE,
+    },
+  ],
+  redFlags: [
+    {
+      label: 'Mielopatía cervical',
+      detail:
+        'Hiperreflexia, Hoffmann o Babinski presentes, marcha inestable, torpeza de manos o alteración de esfínteres. No es una radiculopatía: deriva.',
+    },
+    {
+      label: 'Déficit motor progresivo',
+      detail:
+        'Fuerza que baja entre sesiones, o debilidad que abarca más de una raíz. Valoración médica sin esperar la evolución.',
+    },
+    {
+      label: 'Bandera roja sistémica',
+      detail:
+        'Dolor nocturno que no cede con el reposo, pérdida de peso, fiebre o antecedente oncológico.',
     },
   ],
 };
