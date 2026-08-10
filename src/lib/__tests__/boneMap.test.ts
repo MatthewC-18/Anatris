@@ -85,6 +85,44 @@ describe('boneMap', () => {
     });
   });
 
+  // Left and right must always show the SAME movement. On this rig that is not
+  // the same thing as "opposite signs": femur_base rests with an identical world
+  // frame on both sides (unlike shin_flex, which is mirrored), so the sagittal
+  // hip signs have to MATCH or the right leg runs the arc backwards -- which is
+  // exactly how it shipped, kicking 75 cm behind the body when asked for 90 deg
+  // of flexion. Measured by scripts/audit-limb-symmetry.mts against the GLB;
+  // locked here because the "obvious" edit is to mirror the sign back.
+  describe('hip left/right symmetry', () => {
+    const sign = (id: string) => {
+      const c = BONE_MAP[id];
+      if (c?.kind !== 'joint') throw new Error(`${id} is not a joint control`);
+      return c.sign;
+    };
+
+    it('drives the sagittal hip with the SAME sign on both sides', () => {
+      for (const id of ['hip-flexion', 'hip-extension']) {
+        const s = sign(id);
+        expect(s.L, `${id}: the femurs are not mirrored`).toBe(s.R);
+      }
+      // ...and flexion must go the opposite way to extension.
+      expect(sign('hip-flexion').R).toBe(-sign('hip-extension').R);
+    });
+
+    it('drives the frontal and transverse hip with OPPOSITE signs per side', () => {
+      // These movements ARE mirror-opposite in world terms (the right leg abducts
+      // toward +x, the left toward -x), so on a shared axis they need to differ.
+      for (const id of [
+        'hip-abduction',
+        'hip-adduction',
+        'hip-internal-rotation',
+        'hip-external-rotation',
+      ]) {
+        const s = sign(id);
+        expect(s.L, id).toBe(-s.R);
+      }
+    });
+  });
+
   it('the hip and ankle joints added for Priority 1 are drivable', () => {
     for (const id of [
       'hip-flexion',

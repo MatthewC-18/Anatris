@@ -263,7 +263,8 @@ function scapulaWrap(upDeg: number): [number, number] {
 // A standing straight-leg hip flexion is NOT a femur-on-fixed-pelvis rotation:
 // past ~45 deg the trunk participates so the raise reads as a whole-body gesture
 // rather than a frozen, impossible kick ("debe moverse todo el cuerpo, si no no
-// es real"). The trunk inclines FORWARD with the rising leg (calibrated in-lab).
+// es real"). The trunk leans AWAY from the rising leg -- the raised leg carries
+// the centre of mass forward and the trunk settles back over the stance foot.
 //
 // We add a modest LUMBAR counter-lean that ramps in with the angle, reusing the
 // vertebra block + local axis the lumbar-extension movement already drives
@@ -275,10 +276,17 @@ const HIP_BALANCE_LUMBAR = ['vert_L5', 'vert_L4', 'vert_L3', 'vert_L2', 'vert_L1
 const HIP_BALANCE_START_DEG = 25; // below this the trunk stays neutral
 const HIP_BALANCE_FULL_DEG = 90; // full counter-lean reached here
 const HIP_BALANCE_MAX_DEG = 16; // total lumbar lean at the top of range
-// movementId -> lean direction on the lumbar local X axis. CALIBRATED in the
-// lab: the trunk leans FORWARD with the rising leg (+1 = lumbar-flexion sign);
-// leaning back (-1) looked wrong.
-const HIP_BALANCE_DIR: Record<string, 1 | -1> = { 'hip-flexion': 1 };
+// movementId -> lean direction on the lumbar local X axis. +1 is the
+// lumbar-flexion sign and bows the trunk FORWARD (measured on the shipped GLB:
+// +16 deg across the block carries the head 10.2 cm anteriorly), -1 leans it
+// BACK by 12.4 cm.
+//
+// This was +1 while hip flexion ran BACKWARDS on the right leg (see boneMap:
+// the two femurs are not mirrored, so the sagittal sign was reversed there), and
+// against a leg kicking behind the body a forward bow read as the counter-weight.
+// With the flexion corrected the leg rises in FRONT on both sides, so a forward
+// bow would throw the whole figure the same way the leg went. It leans back.
+const HIP_BALANCE_DIR: Record<string, 1 | -1> = { 'hip-flexion': -1 };
 
 // ---------------------------------------------------------------------------
 // SHOULDER-YOKE CARRY (spine movements).

@@ -414,19 +414,35 @@ export const BONE_MAP: Record<string, BoneControl> = {
   // femur points hip -> knee (distally down), sharing shin_flex's local frame:
   //   x = sagittal (flexion/extension), z = frontal (abduction/adduction),
   //   y = longitudinal (internal/external rotation).
-  // SIGNS are the physiological best-guess mirrored off the knee (same armature,
-  // same axis convention) and flagged needsVisualCheck: the KINEMATICS (axis +
-  // range) are correct; only the +/- direction is calibrated once in the lab,
-  // exactly as the shoulder rotations / lateral flexions were. Ranges follow
-  // Kapandji / Neumann active norms.
+  // Ranges follow Kapandji / Neumann active norms.
+  //
+  // THE TWO FEMURS ARE NOT MIRRORED. This is the one place on the rig where the
+  // "opposite sign per side" convention does not hold, and it is worth stating
+  // plainly because it looks like a typo otherwise. Measured on the shipped GLB
+  // (scripts/audit-limb-symmetry.mts), femur_base rests with the SAME world frame
+  // on both sides -- local x = +x, y = -y, z = -z on the right AND on the left --
+  // while shin_flex (the knee, one bone below) IS mirrored, x = -x on the right vs
+  // +x on the left. So the knee's sign convention cannot be copied up to the hip:
+  //   - FRONTAL and TRANSVERSE movements (abduction/adduction, rotations) are
+  //     themselves mirror-opposite in world terms -- the right leg swings toward
+  //     +x to abduct, the left toward -x -- so on a SHARED axis they need OPPOSITE
+  //     signs, and those four were already right.
+  //   - SAGITTAL movements are NOT: both thighs swing the SAME way in world space
+  //     to flex (anteriorly, +z). On a shared axis that needs the SAME sign on
+  //     both sides. They shipped opposite, so the right hip ran the arc BACKWARDS:
+  //     asking for 90 deg of flexion kicked the right leg 75 cm posteriorly while
+  //     the left rose 82 cm anteriorly (the 180 deg mirror mismatch the audit
+  //     reports). Corrected below to the direction the LEFT was already doing,
+  //     which is the anatomical one.
   'hip-flexion': {
     kind: 'joint',
     armatureBase: 'Leg_Armature',
     bone: 'femur_base',
     axis: 'x',
-    // Flexion swings the distal femur ANTERIORLY -> opposite local sign to knee
-    // flexion (which folds the shin posteriorly on the same axis).
-    sign: { R: 1, L: -1 },
+    // Flexion swings the distal femur ANTERIORLY. Same sign on both sides: see
+    // the note above -- the femurs share one world frame, so mirroring the sign
+    // here reverses the movement instead of mirroring it.
+    sign: { R: -1, L: -1 },
     // RANGE = 90, NOT the 120 clinical maximum: the rig raises the WHOLE leg with
     // the knee STRAIGHT (no knee-flexion coupling), so this is a straight-leg
     // raise, limited to ~90 deg by the hamstrings before the pelvis tilts. 120
@@ -434,7 +450,6 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // reads as an inhuman over-kick. The true 120 deg (knee-flexed) is taught in
     // hipRom.ts's overview.
     clinicalRange: { min: 0, max: 90 },
-    needsVisualCheck: true,
   },
   'hip-extension': {
     kind: 'joint',
@@ -443,10 +458,9 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'x',
     // A REAL movement past neutral (unlike the knee, where extension only
     // returns toward 0): the thigh travels posteriorly, so the sign is the
-    // opposite of hip flexion.
-    sign: { R: -1, L: 1 },
+    // opposite of hip flexion -- on BOTH sides, for the same reason.
+    sign: { R: 1, L: 1 },
     clinicalRange: { min: 0, max: 20 },
-    needsVisualCheck: true,
   },
   'hip-abduction': {
     kind: 'joint',

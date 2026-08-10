@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "build-anatomy": "tsx --tsconfig tsconfig.scripts.json scripts/build-anatomy-index.ts",
     "audit-data": "tsx --tsconfig tsconfig.scripts.json scripts/audit-clinical-data.mts",
+    "audit-symmetry": "tsx --tsconfig tsconfig.scripts.json scripts/audit-limb-symmetry.mts",
     "neuro-plate": "tsx --tsconfig tsconfig.scripts.json scripts/render-neuro-plate.mts",
     "neuro-plate-box": "tsx --tsconfig tsconfig.scripts.json scripts/measure-neuro-plate.mts",
     "gen-pwa-icons": "node scripts/gen-pwa-icons.mjs",
