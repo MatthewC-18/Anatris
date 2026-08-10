@@ -53,8 +53,9 @@ import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
 import {
-  patchesForRoot,
+  ownedPatches,
   resolvePatches,
+  type PatchConfidence,
   type ResolvedPatch,
 } from '../../lib/neuroSkin';
 import { pigmentFor, type PlateFigure } from '../../data/neuro/plate';
@@ -76,10 +77,27 @@ import { neuroSkinChannel, type NeuroSkinCommand } from './neuroSkinChannel';
  * back of the leg). The 2D plate can afford the muted version because it sits on
  * dark tissue; a body cannot.
  */
-const TINT_LIGHTEN = 0.18;
-const TINT_EMISSIVE = 0.7;
+// The APP is lit far more brightly than the offline harness this was first tuned
+// in -- studio IBL, a rim light and a higher exposure -- so values that read as a
+// confident teal in the harness came out as pale mint in the product. Tuned against
+// the app, and left low on purpose: it is easier to lose a pigment to light than to
+// too little of it.
+const TINT_LIGHTEN = 0.06;
+const TINT_EMISSIVE = 0.4;
 /** Slightly glossier than skin, so the region catches the key light as one surface. */
 const TINT_ROUGHNESS = 0.55;
+
+/**
+ * A BROAD territory is a wash, not a fill.
+ *
+ * Where the rig only knows the region and not the band (see confidenceFor), the
+ * patch is drawn translucent so the skin reads through it. That is the difference
+ * between "this area, roughly" and "the boundary is here" -- and it is what stops
+ * one wide shell of the forearm from teaching that C6 owns the whole thing.
+ */
+const BROAD_OPACITY = 0.5;
+const BROAD_EMISSIVE = 0.18;
+const BROAD_LIGHTEN = 0.02;
 
 /** A skin patch of the live scene, positioned within its region. */
 type Patch = ResolvedPatch<THREE.Mesh>;
@@ -101,14 +119,31 @@ function worldCentre(mesh: THREE.Mesh, out: THREE.Vector3): THREE.Vector3 {
  * snapshot of the real rig.
  */
 function indexPatches(scene: THREE.Object3D): Patch[] {
-  const raw: { ref: THREE.Mesh; name: string; x: number; y: number }[] = [];
+  const raw: {
+    ref: THREE.Mesh;
+    name: string;
+    x: number;
+    y: number;
+    span?: number;
+  }[] = [];
   const c = new THREE.Vector3();
   scene.traverse((o) => {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
     if (mesh.userData.rigLayer !== 'skin') return;
     worldCentre(mesh, c);
-    raw.push({ ref: mesh, name: mesh.name, x: c.x, y: c.y });
+    const bb = mesh.geometry.boundingBox;
+    // World-space width, so `spread` compares like with like across patches. The
+    // mesh's own scale is baked in by localToWorld on the two corners.
+    const lo = bb ? mesh.localToWorld(bb.min.clone()) : null;
+    const hi = bb ? mesh.localToWorld(bb.max.clone()) : null;
+    raw.push({
+      ref: mesh,
+      name: mesh.name,
+      x: c.x,
+      y: c.y,
+      span: lo && hi ? Math.abs(hi.x - lo.x) : undefined,
+    });
   });
   return resolvePatches(raw);
 }
@@ -132,24 +167,34 @@ export function NeuroSkinLayer(): JSX.Element {
     return built;
   };
 
-  const tintFor = (figure: PlateFigure, root: string, from: THREE.Material): THREE.Material => {
-    const key = `${figure}:${root}`;
+  const tintFor = (
+    figure: PlateFigure,
+    root: string,
+    confidence: PatchConfidence,
+    from: THREE.Material,
+  ): THREE.Material => {
+    const key = `${figure}:${root}:${confidence}`;
     const cached = materialsRef.current.get(key);
     if (cached) return cached;
+    const sure = confidence === 'sure';
     const pigment = new THREE.Color(pigmentFor(figure, root));
     const clone = from.clone();
     const std = clone as THREE.MeshStandardMaterial;
-    if (std.color) std.color.copy(pigment).lerp(new THREE.Color(0xffffff), TINT_LIGHTEN);
+    if (std.color) {
+      std.color
+        .copy(pigment)
+        .lerp(new THREE.Color(0xffffff), sure ? TINT_LIGHTEN : BROAD_LIGHTEN);
+    }
     if (std.emissive) {
       std.emissive = pigment.clone();
-      std.emissiveIntensity = TINT_EMISSIVE;
+      std.emissiveIntensity = sure ? TINT_EMISSIVE : BROAD_EMISSIVE;
     }
     if (typeof std.roughness === 'number') std.roughness = TINT_ROUGHNESS;
-    // The shared skin material is transparent for the ghost fade; a painted
-    // territory is the subject, so it stays solid and writes depth.
-    std.transparent = false;
-    std.opacity = 1;
-    std.depthWrite = true;
+    // A SURE territory is the subject: solid, writing depth. A BROAD one is a wash
+    // over skin, so it stays translucent and does not occlude what is behind it.
+    std.transparent = !sure;
+    std.opacity = sure ? 1 : BROAD_OPACITY;
+    std.depthWrite = sure;
     materialsRef.current.set(key, clone);
     return clone;
   };
@@ -169,16 +214,16 @@ export function NeuroSkinLayer(): JSX.Element {
     const patches = ensureIndex();
     if (patches.length === 0) return;
     for (const root of cmd.roots) {
-      for (const p of patchesForRoot(patches, cmd.figure, root)) {
+      for (const { patch, confidence } of ownedPatches(patches, cmd.figure, root)) {
         // First writer wins: with two roots selected (compare mode) a patch that
         // somehow matched both keeps the first, so the pair never flickers by
         // iteration order.
-        if (paintedRef.current.has(p.ref)) continue;
-        const material = p.ref.material as THREE.Material;
-        paintedRef.current.set(p.ref, { material, visible: p.ref.visible });
-        p.ref.material = tintFor(cmd.figure, root, material);
+        if (paintedRef.current.has(patch.ref)) continue;
+        const material = patch.ref.material as THREE.Material;
+        paintedRef.current.set(patch.ref, { material, visible: patch.ref.visible });
+        patch.ref.material = tintFor(cmd.figure, root, confidence, material);
         // Asking for a dermatome is asking to see skin, even with the layer peeled.
-        p.ref.visible = true;
+        patch.ref.visible = true;
       }
     }
   };

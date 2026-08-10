@@ -25,6 +25,16 @@ export interface PatchInput {
   x: number;
   /** World y at rest. Up is proximal on both limbs of a standing body. */
   y: number;
+  /**
+   * How wide the patch is across the body, in world units.
+   *
+   * This is what separates a patch that is HALF of a region from one that is
+   * nearly all of it, and the rig is full of the latter: one shell of "Anterior
+   * region of forearm" spans 68% of the whole region's width. Without this, a
+   * window that means "the lateral half" quietly swallowed the entire forearm and
+   * the 3D map taught a boundary that does not exist.
+   */
+  span?: number;
 }
 
 /** A patch with its position turned into the fractions the mapping speaks. */
@@ -39,6 +49,16 @@ export interface ResolvedPatch<T = unknown> {
   lateral: number;
   /** 0 = most distal patch of its group, 1 = most proximal. */
   level: number;
+  /**
+   * The patch's width as a fraction of its whole region's width, 0..1.
+   *
+   * 1 means this single shell IS the region, so it cannot honestly be called its
+   * lateral or medial half. Used to decide how CONFIDENTLY a territory is drawn
+   * (see confidenceFor), not whether it is drawn at all: dropping these patches
+   * would empty half the limb, and drawing them at full strength taught a wrong
+   * edge. A wash says "this region, broadly", which is the truth.
+   */
+  spread: number;
 }
 
 /**
@@ -77,6 +97,10 @@ export function resolvePatches<T>(
     const xHi = Math.max(...xs);
     const yLo = Math.min(...ys);
     const yHi = Math.max(...ys);
+    // The region's true width: the outermost EDGES, not the outermost centres. A
+    // single shell can be wider than the spread of every centre in its group.
+    const spans = g.map((p) => p.span ?? 0);
+    const regionWidth = Math.max(xHi - xLo + Math.max(...spans), 1e-6);
     g.forEach((p, i) => {
       out.push({
         ref: p.ref,
@@ -84,6 +108,7 @@ export function resolvePatches<T>(
         side: p.side,
         lateral: xHi - xLo > 1e-4 ? (xs[i] - xLo) / (xHi - xLo) : 0.5,
         level: yHi - yLo > 1e-4 ? (ys[i] - yLo) / (yHi - yLo) : 0.5,
+        spread: Math.min(1, spans[i] / regionWidth),
       });
     });
   }
@@ -114,6 +139,56 @@ export function matchesRule(
   if (rule.lateral && !inWindow(patch.lateral, rule.lateral)) return false;
   if (rule.level && !inWindow(patch.level, rule.level)) return false;
   return true;
+}
+
+/**
+ * How much of a region a single shell may cover and still be called a part of it.
+ *
+ * Measured, not guessed: on the shipped rig the genuine halves come in at 0.15 to
+ * 0.45 of their region's width, while the offenders -- the shells that made C6 and
+ * C8 each look like the whole forearm -- sit at 0.54 and 0.68.
+ */
+const PART_OF_REGION = 0.5;
+
+/**
+ * How confidently a territory can be drawn on this patch.
+ *
+ * 'sure' when the rig is genuinely precise here: either the rule takes a whole
+ * NAMED region ("Medial malleolus", "Heel region", "Radial foveola" -- the name IS
+ * the precision, and several of these are the ASIA key points themselves), or the
+ * patch is small enough to really be the half the window asks for.
+ *
+ * 'broad' otherwise: a shell covering most of its region, claimed by a window that
+ * wanted half of it. Still drawn, because leaving it out empties the limb -- but
+ * drawn as a wash, so the eye reads "this region, broadly" instead of a boundary
+ * the geometry cannot support.
+ */
+export type PatchConfidence = 'sure' | 'broad';
+
+export function confidenceFor(
+  patch: Pick<ResolvedPatch, 'spread'>,
+  rule: SkinRule,
+): PatchConfidence {
+  const windowed = Boolean(rule.lateral || rule.level);
+  if (!windowed) return 'sure';
+  return patch.spread <= PART_OF_REGION ? 'sure' : 'broad';
+}
+
+/** The patches a root owns, with how confidently each one can be drawn. */
+export function ownedPatches<T>(
+  patches: ResolvedPatch<T>[],
+  figure: PlateFigure,
+  root: string,
+): { patch: ResolvedPatch<T>; confidence: PatchConfidence }[] {
+  const rules = SKIN_BY_ROOT[figure]?.[root];
+  if (!rules) return [];
+  const out: { patch: ResolvedPatch<T>; confidence: PatchConfidence }[] = [];
+  for (const patch of patches) {
+    const hit = rules.find((r) => matchesRule(patch, r));
+    if (!hit) continue;
+    out.push({ patch, confidence: confidenceFor(patch, hit) });
+  }
+  return out;
 }
 
 /** The patches a root owns, on both sides of the body. */
