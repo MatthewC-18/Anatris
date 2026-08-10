@@ -95,6 +95,38 @@ Por región en `src/data/{shoulder,elbow,knee,thoracic,cervical,lumbar}Rom.ts`,
   criterio clínico ordinario, no coeficientes publicados, y el panel lo dice.
 - `NeuroScreenReadout.tsx` — el localizador (el equivalente al Fagan de Tests).
 
+**El dermatoma sobre el modelo 3D** (`NeuroSkinLayer.tsx`, `neuroSkinChannel.ts`,
+`src/data/neuro/skinRegions.ts`, `src/lib/neuroSkin.ts`). Se pudo hacer sin Blender
+porque el rig **ya trae la piel segmentada**: 486 parches de superficie con nombre
+anatómico, y varios SON los puntos clave ASIA (`Medial malleolus` → L4,
+`Dorsum of foot` → L5, `Heel region` → S1, `Radial foveola` → pulgar/C6). Un
+territorio se direcciona con las mismas dos fracciones que la lámina 2D (lateral
+a través del miembro, nivel a lo largo), calculadas al cargar a partir de los
+parches presentes, así que un re-export con otro número de parches sigue cayendo
+bien. La lateralidad es GEOMÉTRICA (`Palm.r` está en x negativa).
+
+Tinta con un material propio por raíz en vez de tocar el compartido: la piel del
+cuerpo comparte UNA instancia que `RigModel` anima cada frame para el fundido de
+cristal, así que escribir en ella pintaría todo el cuerpo. Efecto secundario
+buscado: los parches teñidos no participan del fundido, así que durante el demo
+del miotoma el cuerpo se vuelve cristal y el dermatoma sigue encendido.
+
+**Trampa que costó un fallo silencioso**: three's GLTFLoader SANEA los nombres de
+nodo. `Anterior region of forearm.001` llega como `Anterior_region_of_forearm_1`, y
+`Dorsum of hand.l` como `Dorsum_of_handl`, con la letra de lateralidad PEGADA. La
+primera versión de `canonicalRegion` estaba escrita contra los nombres de dentro
+del GLB y acertaba 1 parche de 486, con todos los tests en verde. Ahora resuelve
+por candidatos contra `VERIFIED_SKIN_REGIONS` y los nombres de ejecución están
+fijados en `src/lib/__tests__/neuroSkin.test.ts`.
+
+**Ver el 3D sin arrancar la app**: `scripts/harness/neuro3d.html` (con `npm run
+dev`) carga el rig real y pinta una raíz con el mismo resolvedor. Fue lo que cazó
+el fallo de arriba. No reproduce el descarte de mallas duplicadas de `RigModel`,
+así que el cuerpo sale doble y una de cada pareja queda sin pintar: artefacto del
+banco, no de la app. `scripts/dump-rig-skin.mts` volcó el vocabulario verificado y
+las posiciones; el fixture `src/lib/__tests__/fixtures/rigSkinPatches.json` es ese
+volcado, comprometido para que el test corra sin el GLB (que es un objeto LFS).
+
 **Verificar la lámina**: `npm run neuro-plate` la rasteriza a PNG con el MISMO
 constructor que usa el componente (`buildPlateGeometry`), y `npm run
 neuro-plate-box` comprueba con números que el recorte no corte una mano. Es la

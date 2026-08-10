@@ -22,6 +22,7 @@ import * as THREE from 'three';
 import { RigModel } from './RigModel';
 import { RigOverlays } from './RigOverlays';
 import { ShoulderRhythmArc } from './ShoulderRhythmArc';
+import { NeuroSkinLayer } from './NeuroSkinLayer';
 import { useIsCompact } from '../../hooks/useIsCompact';
 
 // The rig is 1300+ skinned meshes; skinning is vertex-heavy and each mesh is a
@@ -365,6 +366,9 @@ export function RigViewer({ refitKey }: { refitKey?: string | number } = {}) {
           <RigModel onReady={() => setReady(true)} />
           <RigOverlays />
           <ShoulderRhythmArc />
+          {/* Paints the selected root's dermatome on the body's own skin. Idle
+              until the neuro panel publishes a selection. */}
+          <NeuroSkinLayer />
           <AutoFit refitKey={refitKey} />
           <DoubleClickFocus />
         </Suspense>

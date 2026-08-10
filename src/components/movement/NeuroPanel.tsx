@@ -80,6 +80,7 @@ import {
   type NeuroScreenState,
   type RootFinding,
 } from '../../lib/neuroScreen';
+import { neuroSkinChannel } from './neuroSkinChannel';
 import { clearScreen, readScreen, writeScreen } from './neuroScreenStore';
 import { ChevronDownIcon, CloseIcon, PlayIcon, StopIcon } from '../ui/Icons';
 
@@ -737,6 +738,23 @@ export function NeuroPanel({
     if (open) trackChange(EVENTS.neuroOpened, { region });
   }, [open, region]);
 
+  /**
+   * Publish the selection to the 3D body, so the same root that is highlighted on
+   * the plate is painted on the rig's own skin (see NeuroSkinLayer).
+   *
+   * Only while the panel is OPEN: a dermatome left glowing on the model behind a
+   * closed panel is paint nobody asked for. Cleared on unmount for the same reason.
+   */
+  useEffect(() => {
+    if (!open || !set) {
+      neuroSkinChannel.clear();
+      return;
+    }
+    neuroSkinChannel.set({ figure: set.figure, roots: picked });
+  }, [open, set, picked]);
+
+  useEffect(() => () => neuroSkinChannel.clear(), []);
+
   const byId = useMemo(() => new Map((set?.roots ?? []).map((r) => [r.id, r])), [set]);
 
   const pick = (id: string) => {
@@ -969,6 +987,18 @@ export function NeuroPanel({
           onSelectRoot={pick}
           keyPointFor={(id) => byId.get(id)?.dermatome.keyPointShort}
         />
+        {/* The 3D layer is silent by design -- it just paints -- so it needs one
+            line to be discoverable, and that line is also where its limit is
+            stated. The rig has no per-dermatome geometry: it is painted by named
+            skin REGION, which is why the plate above keeps the finger-level
+            detail. See NeuroSkinLayer. */}
+        {picked.length > 0 && (
+          <p className="mt-2.5 text-[11px] leading-snug text-slate-500">
+            El territorio se pinta también sobre la piel del modelo 3D, por regiones
+            anatómicas. Gíralo para verlo, y usa el miotoma para ver moverse la misma
+            raíz.
+          </p>
+        )}
       </div>
 
       {comparing && (
