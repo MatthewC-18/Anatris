@@ -229,8 +229,7 @@ export function NeuroScreenReadout({
       ))}
 
       <p className="mt-3 text-[11px] leading-snug text-slate-600">
-        Esto pesa lo que registraste sobre un solo miembro; no es un diagnóstico ni
-        sustituye la valoración médica.
+        Pesa lo que registraste en un miembro. No es un diagnóstico.
       </p>
     </div>
   );

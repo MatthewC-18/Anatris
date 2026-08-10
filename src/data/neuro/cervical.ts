@@ -28,7 +28,7 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
       dermatome: {
         area: 'Cara lateral del brazo, sobre el deltoides.',
         keyPoint: 'Fosa antecubital, lado lateral (punto clave ASIA).',
-        keyPointShort: 'Fosa antecubital, lado lateral',
+        keyPointShort: 'Fosa antecubital lateral',
       },
       myotome: {
         action: 'Abducción del hombro y flexión de codo.',
@@ -75,7 +75,7 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
         movementId: 'elbow-flexion',
         angleDeg: 120,
         side: 'R',
-        note: 'En el modelo se muestra la flexión de codo (C5-C6); la extensión de muñeca no está riggeada.',
+        note: 'El modelo muestra la flexión de codo (C5-C6); la extensión de muñeca no se puede reproducir aquí.',
       },
       mimic: {
         nerve: 'Nervio mediano en el carpo (túnel carpiano)',
@@ -107,7 +107,7 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
         movementId: 'elbow-extension',
         angleDeg: 120,
         side: 'R',
-        note: 'El modelo recorre el arco flexión-extensión del codo (tríceps); la flexión de muñeca no está riggeada.',
+        note: 'El modelo recorre el arco de flexión y extensión del codo (tríceps); la flexión de muñeca no se puede reproducir aquí.',
       },
       mimic: {
         nerve: 'Nervio radial',
@@ -131,7 +131,7 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
         muscles: 'Flexor profundo de los dedos.',
       },
       demoNote:
-        'La flexión de los dedos no está riggeada en este modelo (la extremidad llega hasta muñeca).',
+        'El modelo llega hasta la muñeca, así que la flexión de los dedos no se puede reproducir aquí.',
       mimic: {
         nerve: 'Nervio cubital en el codo',
         discriminator:
@@ -147,14 +147,14 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
       dermatome: {
         area: 'Cara medial del codo y del brazo.',
         keyPoint: 'Cara medial de la fosa antecubital (punto clave ASIA).',
-        keyPointShort: 'Fosa antecubital, lado medial',
+        keyPointShort: 'Fosa antecubital medial',
       },
       myotome: {
         action: 'Abducción y aducción de los dedos.',
         muscles: 'Músculos interóseos de la mano.',
       },
       demoNote:
-        'La motricidad fina de la mano no está riggeada en este modelo.',
+        'La motricidad fina de la mano no se puede reproducir en el modelo.',
       pearl:
         'Debilidad intrínseca con signo de Froment o mano en garra: valora también el nervio cubital, no solo la raíz.',
       cite: CITE,

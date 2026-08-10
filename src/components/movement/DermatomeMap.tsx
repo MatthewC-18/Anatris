@@ -133,7 +133,10 @@ export function DermatomeMap({
             <svg
               viewBox={plate.spec.viewBox}
               className="mx-auto block h-auto w-full"
-              style={{ maxHeight: 'min(34vh, 17rem)' }}
+              // Capped rather than sized: the plate shares a fixed header with the
+              // red flags and everything below it scrolls, so a plate that took its
+              // natural height pushed the roots off the screen on a laptop.
+              style={{ maxHeight: 'min(29vh, 15rem)' }}
               // NOT role="img" when the territories are selectable: role="img"
               // makes an element's whole subtree presentational, which would hide
               // every one of the root buttons below from assistive tech.

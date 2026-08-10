@@ -63,7 +63,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { neuroForRegion } from '../../data/neuro';
 import { pigmentFor } from '../../data/neuro/plate';
 import type { NerveRoot } from '../../types/neuro';
-import { getReference, formatReference, type ReferenceId } from '../../data/references';
 import { DermatomeMap } from './DermatomeMap';
 import { NeuroScreenReadout } from './NeuroScreenReadout';
 import { rigChannel } from './RigModel';
@@ -71,9 +70,6 @@ import { demoChannel, useActiveDemo } from './demoChannel';
 import { EVENTS, track, trackChange } from '../../lib/analytics';
 import {
   EMPTY_FINDING,
-  REFLEX_SCALE,
-  SENSATION_SCALE,
-  STRENGTH_SCALE,
   isScreenEmpty,
   localizeRoot,
   screenSummary,
@@ -82,7 +78,8 @@ import {
 } from '../../lib/neuroScreen';
 import { neuroSkinChannel } from './neuroSkinChannel';
 import { clearScreen, readScreen, writeScreen } from './neuroScreenStore';
-import { ChevronDownIcon, CloseIcon, PlayIcon, StopIcon } from '../ui/Icons';
+import { HowToUse, Kicker, NeuroRootRow, shortReflex } from './NeuroRootRow';
+import { ChevronDownIcon, CloseIcon } from '../ui/Icons';
 
 /** Namespace for this panel's demo ids on the shared demoChannel. */
 const DEMO_NS = 'neuro:';
@@ -90,76 +87,10 @@ const DEMO_NS = 'neuro:';
 /** At most two roots can be held side by side; a third would stop comparing. */
 const MAX_PICKED = 2;
 
-/**
- * A reflex's short name, for the collapsed row.
- *
- * The data carries the full clinical name ("Reflejo rotuliano o patelar (L3 y
- * L4)") because that is what belongs in the detail. A row has room for the word
- * that identifies it, and the levels in the parenthesis are already the row it
- * sits on. Derived rather than authored twice: two spellings of the same reflex
- * in two fields is a data bug waiting to happen.
- */
-function shortReflex(name: string): string {
-  const core = name
-    .replace(/^Reflejo\s+/i, '')
-    .replace(/\s*\([^)]*\)\s*$/, '')
-    .trim();
-  return core.charAt(0).toUpperCase() + core.slice(1);
-}
-
 // ---------------------------------------------------------------------------
-// Glyphs. Design rule 4: the three lanes are told apart by form.
+// Glyphs kept HERE: only the ones this file still uses. The three lane glyphs moved
+// to NeuroRootRow with the lanes they label.
 // ---------------------------------------------------------------------------
-
-/** Key point: the ring-and-core pin the plate marks the ASIA point with. */
-function PinGlyph({ color }: { color: string }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-      <circle cx="6" cy="6" r="4.2" fill="none" stroke={color} strokeWidth="1.4" />
-      <circle cx="6" cy="6" r="1.2" fill="#f8fafc" />
-    </svg>
-  );
-}
-
-/** Myotome: a limb sweeping against resistance. */
-function MotionGlyph() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.3"
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      <path d="M2.5 10.5V5A2.5 2.5 0 0 1 7 3.4" />
-      <path d="M5.4 1.6 7.6 3.3 5.6 5" />
-      <path d="M9.6 7.2v3.3" />
-    </svg>
-  );
-}
-
-/** Reflex: the hammer on the tendon. */
-function HammerGlyph() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.3"
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      <path d="M2 9.6 7.2 4.4" />
-      <path d="M6 2.6a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8" />
-      <path d="M1.4 10.6h1.6" />
-    </svg>
-  );
-}
 
 function AlertGlyph() {
   return (
@@ -197,158 +128,6 @@ function NerveIcon() {
       <circle cx="6" cy="17" r="2" />
       <circle cx="19" cy="11" r="2" />
     </svg>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Small presentational pieces. One component each, so a size cannot drift.
-// ---------------------------------------------------------------------------
-
-function Kicker({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="text-[11px] uppercase tracking-[0.08em] text-slate-500">{children}</span>
-  );
-}
-
-/** One lane of the screen: glyph + kicker + prose. No card chrome (rule 3). */
-function Lane({
-  glyph,
-  label,
-  children,
-}: {
-  glyph: React.ReactNode;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex gap-2.5">
-      <span className="mt-[2px] shrink-0 text-slate-500">{glyph}</span>
-      <div className="min-w-0 flex-1">
-        <Kicker>{label}</Kicker>
-        <p className="mt-0.5 text-[13px] leading-relaxed text-slate-300">{children}</p>
-      </div>
-    </div>
-  );
-}
-
-/**
- * A clinical scale as a segmented row.
- *
- * Two behaviours worth keeping. Clicking the selected grade CLEARS it, because
- * "not examined" is a real state of a screen and there has to be a way back to it
- * without reloading the panel. And the buttons are numbered with the scale's own
- * numbers (0-5 for strength, 0-4 for reflexes), never re-labelled "leve /
- * moderado": a physio already thinks in these numbers, and translating out of
- * their vocabulary and back is how a form starts feeling like paperwork.
- */
-function Scale<T extends number>({
-  options,
-  value,
-  onChange,
-  legend,
-}: {
-  options: { value: T; label?: string; hint: string }[];
-  value: T | null;
-  onChange: (v: T | null) => void;
-  /** What the scale is, for screen readers. Spanish. */
-  legend: string;
-}) {
-  return (
-    <div role="group" aria-label={legend} className="mt-1.5 flex gap-1">
-      {options.map((o) => {
-        const on = value === o.value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => onChange(on ? null : o.value)}
-            aria-pressed={on}
-            aria-label={`${legend}: ${o.hint}`}
-            title={o.hint}
-            className={`min-w-0 flex-1 rounded border px-1 py-1 text-[11px] font-medium tabular-nums transition-colors ${
-              o.label ? '' : 'font-mono'
-            } ${
-              on
-                ? 'border-accent/50 bg-accent/10 text-accent'
-                : 'border-slate-700 text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {o.label ?? o.value}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/**
- * The row's three state dots: sensibilidad, fuerza, reflejo, in the same order as
- * the lanes below. Five of these rows are the screening grid (design rule 8), and
- * a row that goes amber across is the level (rule 9).
- */
-function StateDots({ root, finding }: { root: NerveRoot; finding: RootFinding }) {
-  const axes: { key: string; graded: boolean; abnormal: boolean; text: string }[] = [
-    {
-      key: 'S',
-      graded: finding.sensation != null,
-      abnormal: finding.sensation != null && finding.sensation < 2,
-      text:
-        finding.sensation == null
-          ? 'sensibilidad sin explorar'
-          : `sensibilidad ${SENSATION_SCALE.find((s) => s.value === finding.sensation)?.label?.toLowerCase()}`,
-    },
-    {
-      key: 'F',
-      graded: finding.strength != null,
-      abnormal: finding.strength != null && finding.strength < 5,
-      text: finding.strength == null ? 'fuerza sin explorar' : `fuerza ${finding.strength} de 5`,
-    },
-  ];
-  if (root.reflex) {
-    axes.push({
-      key: 'R',
-      graded: finding.reflex != null,
-      // Both directions are abnormal: 0 is a root sign, 4 is a cord sign.
-      abnormal: finding.reflex != null && finding.reflex !== 2,
-      text: finding.reflex == null ? 'reflejo sin explorar' : `reflejo ${finding.reflex} de 4`,
-    });
-  }
-  return (
-    <span
-      className="flex shrink-0 items-center gap-1"
-      title={`${root.label} · ${axes.map((a) => a.text).join(', ')}`}
-      aria-label={`${root.label}: ${axes.map((a) => a.text).join(', ')}`}
-    >
-      {axes.map((a) => (
-        <span
-          key={a.key}
-          aria-hidden="true"
-          className={`h-1.5 w-1.5 rounded-full border ${
-            !a.graded
-              ? 'border-slate-700'
-              : a.abnormal
-                ? 'border-amber-400 bg-amber-400'
-                : 'border-slate-600 bg-slate-600'
-          }`}
-        />
-      ))}
-    </span>
-  );
-}
-
-/** The root's identity chip: mono, in its segmental pigment. */
-function RootChip({ root, pigment, on }: { root: string; pigment: string; on: boolean }) {
-  return (
-    <span
-      className="flex h-6 w-9 shrink-0 items-center justify-center rounded-md border font-mono text-[11px] font-bold transition-colors"
-      style={{
-        borderColor: on ? pigment : 'rgba(148,163,184,0.28)',
-        backgroundColor: on ? `${pigment}33` : 'rgba(15,22,38,0.6)',
-        color: on ? '#e2e8f0' : '#94a3b8',
-      }}
-    >
-      {root}
-    </span>
   );
 }
 
@@ -450,214 +229,14 @@ function CompareBlock({
   );
 }
 
-// ---------------------------------------------------------------------------
-// A root's row: collapsed summary + the three lanes when open.
-// ---------------------------------------------------------------------------
-
-function RootRow({
-  root,
-  pigment,
-  picked,
-  expanded,
-  onPick,
-  demoing,
-  onDemo,
-  finding,
-  onGrade,
-  showVerifyMark,
-}: {
-  root: NerveRoot;
-  pigment: string;
-  picked: boolean;
-  expanded: boolean;
-  onPick: () => void;
-  demoing: boolean;
-  onDemo: () => void;
-  finding: RootFinding;
-  onGrade: (patch: Partial<RootFinding>) => void;
-  /**
-   * Whether to mark THIS root's citations as pending.
-   *
-   * When every root on the screen is pending -- which is the state the whole set
-   * ships in -- the mark is printed once for the panel instead of ten times. Ten
-   * "por verificar" stamps do not communicate ten times as much; they read as an
-   * unfinished product, which is the opposite of what an honest provenance note is
-   * for. It comes back per root the moment the roots actually differ, because then
-   * it is information about that root.
-   */
-  showVerifyMark: boolean;
-}) {
-  const reflexWord = root.reflex ? shortReflex(root.reflex.name) : null;
-  return (
-    <div
-      className="border-l-2 pl-3 pr-2 transition-colors"
-      style={{
-        borderColor: picked ? pigment : 'rgba(51,65,85,0.7)',
-        backgroundColor: picked ? 'rgba(30,41,59,0.28)' : undefined,
-      }}
-    >
-      <div className="flex items-center gap-2 py-2">
-        <button
-          type="button"
-          onClick={onPick}
-          aria-expanded={expanded}
-          aria-pressed={picked}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
-        >
-          <RootChip root={root.label} pigment={pigment} on={picked} />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold text-slate-100">
-              {root.myotome.action}
-            </span>
-            <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500">
-              <span className="truncate">
-                {root.dermatome.keyPointShort ?? root.dermatome.keyPoint}
-              </span>
-              {reflexWord && (
-                <>
-                  <span className="text-slate-700">·</span>
-                  <span className="flex shrink-0 items-center gap-1 truncate">
-                    <HammerGlyph />
-                    {reflexWord}
-                  </span>
-                </>
-              )}
-            </span>
-          </span>
-        </button>
-
-        {/* Design rule 8: three dots per row, five rows, and the grid is legible
-            without opening anything. */}
-        <StateDots root={root} finding={finding} />
-
-        {/* Design rule 5: the rig demo lives HERE, not inside the detail. Same
-            round control the tests panel uses for its maneuvers. */}
-        {root.demo && (
-          <button
-            type="button"
-            onClick={onDemo}
-            aria-label={
-              demoing
-                ? `Detener el miotoma ${root.label}`
-                : `Demostrar el miotoma ${root.label} en el modelo`
-            }
-            title={
-              demoing ? 'Detener el movimiento' : 'Reproducir el movimiento resistido en el modelo 3D'
-            }
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors ${
-              demoing
-                ? 'border-accent bg-accent/20 text-accent'
-                : 'border-slate-700 text-slate-400 hover:border-accent/60 hover:text-accent'
-            }`}
-          >
-            {demoing ? <StopIcon size={12} /> : <PlayIcon size={12} />}
-          </button>
-        )}
-        <ChevronDownIcon
-          size={12}
-          className={`shrink-0 text-slate-600 transition-transform ${expanded ? 'rotate-180' : ''}`}
-        />
-      </div>
-
-      {expanded && (
-        <div className="space-y-3 pb-3.5 pt-0.5">
-          <Lane glyph={<PinGlyph color={pigment} />} label="Sensibilidad · dermatoma">
-            {root.dermatome.area}{' '}
-            <span className="text-slate-400">Punto clave: {root.dermatome.keyPoint}</span>
-            <Scale
-              legend={`Sensibilidad en el punto clave de ${root.label}`}
-              options={SENSATION_SCALE}
-              value={finding.sensation}
-              onChange={(v) => onGrade({ sensation: v })}
-            />
-          </Lane>
-
-          <Lane glyph={<MotionGlyph />} label="Fuerza · miotoma">
-            {root.myotome.action} <span className="text-slate-400">({root.myotome.muscles})</span>
-            {root.demo?.note && (
-              <span className="mt-1 block text-[11px] text-slate-500">
-                En el modelo: {root.demo.note}
-              </span>
-            )}
-            {!root.demo && root.demoNote && (
-              <span className="mt-1 block text-[11px] text-slate-500">{root.demoNote}</span>
-            )}
-            <Scale
-              legend={`Fuerza del miotoma ${root.label}, escala 0 a 5`}
-              options={STRENGTH_SCALE}
-              value={finding.strength}
-              onChange={(v) => onGrade({ strength: v })}
-            />
-          </Lane>
-
-          {/* Design rule 6: absence is information, so the lane always exists. */}
-          <Lane glyph={<HammerGlyph />} label="Reflejo">
-            {root.reflex ? (
-              <>
-                <span className="text-slate-200">{root.reflex.name}.</span>{' '}
-                {root.reflex.elicitation}
-                <Scale
-                  legend={`Reflejo de ${root.label}, escala 0 a 4`}
-                  options={REFLEX_SCALE}
-                  value={finding.reflex}
-                  onChange={(v) => onGrade({ reflex: v })}
-                />
-              </>
-            ) : (
-              <span className="text-slate-400">
-                Esta raíz no tiene reflejo profundo propio, así que el dermatoma y la fuerza
-                cargan todo el peso del tamizaje.
-              </span>
-            )}
-          </Lane>
-
-          {root.mimic && (
-            <div className="border-t border-slate-800/70 pt-2.5">
-              <Kicker>No confundir con</Kicker>
-              <p className="mt-0.5 text-[13px] leading-relaxed text-slate-300">
-                <span className="text-slate-200">{root.mimic.nerve}.</span>{' '}
-                {root.mimic.discriminator}
-              </p>
-            </div>
-          )}
-
-          {root.pearl && (
-            <p className="text-[13px] leading-relaxed text-slate-400">{root.pearl}</p>
-          )}
-
-          <div>
-            {root.cite.map((c) => {
-              const ref = getReference(c.ref as ReferenceId);
-              if (!ref) return null;
-              return (
-                <p key={c.ref} className="text-[11px] leading-snug text-slate-600">
-                  {formatReference(ref)}{' '}
-                  {showVerifyMark && !c.verified && (
-                    <span
-                      className="text-amber-500/80"
-                      title="Valores por verificar contra la fuente primaria"
-                    >
-                      · por verificar
-                    </span>
-                  )}
-                </p>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /**
  * Put text on the clipboard, or report that it could not be done.
  *
  * Two paths on purpose: the modern API, then the old selection trick for the
- * contexts it refuses to run in (plain http, denied permission). Returns a
- * boolean rather than throwing, because the caller's job is to tell the user
- * whether their record made it out -- not to swallow the failure silently, which
- * looks exactly like a broken button.
+ * contexts it refuses to run in (plain http, denied permission). Returns a boolean
+ * rather than throwing, because the caller's job is to tell the user whether their
+ * record made it out -- not to swallow the failure, which looks exactly like a
+ * broken button.
  */
 async function writeToClipboard(text: string): Promise<boolean> {
   try {
@@ -671,8 +250,8 @@ async function writeToClipboard(text: string): Promise<boolean> {
   try {
     const ta = document.createElement('textarea');
     ta.value = text;
-    // Off-screen but still selectable, and readOnly so no keyboard opens on a
-    // phone while it is briefly in the document.
+    // Off-screen but still selectable, and readOnly so no keyboard opens on a phone
+    // while it is briefly in the document.
     ta.setAttribute('readonly', '');
     ta.style.position = 'fixed';
     ta.style.top = '-1000px';
@@ -993,10 +572,8 @@ export function NeuroPanel({
             skin REGION, which is why the plate above keeps the finger-level
             detail. See NeuroSkinLayer. */}
         {picked.length > 0 && (
-          <p className="mt-2.5 text-[11px] leading-snug text-slate-500">
-            El territorio se pinta también sobre la piel del modelo 3D, por regiones
-            anatómicas. Gíralo para verlo, y usa el miotoma para ver moverse la misma
-            raíz.
+          <p className="mt-2 text-[11px] leading-snug text-slate-500">
+            También se pinta sobre la piel del modelo 3D, por regiones. Gíralo para verlo.
           </p>
         )}
       </div>
@@ -1032,7 +609,7 @@ export function NeuroPanel({
           />
         )}
         {set.roots.map((r) => (
-          <RootRow
+          <NeuroRootRow
             key={r.id}
             root={r}
             pigment={pigmentFor(set.figure, r.id)}
@@ -1046,12 +623,7 @@ export function NeuroPanel({
             showVerifyMark={!allPending}
           />
         ))}
-        {!screenStarted && (
-          <p className="px-4 pb-1 pt-2 text-[11px] leading-snug text-slate-500">
-            Abre una raíz y registra sensibilidad, fuerza y reflejo: el panel te dirá
-            qué nivel explica mejor lo que encuentres.
-          </p>
-        )}
+        {!screenStarted && <HowToUse />}
         {allPending && (
           <p className="px-4 pt-3 text-[11px] leading-snug text-slate-600">
             Los valores de esta pantalla siguen pendientes de cotejo contra la fuente

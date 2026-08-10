@@ -26,14 +26,14 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
       dermatome: {
         area: 'Cara anterior y medial del muslo, tercio proximal.',
         keyPoint: 'Cara anterior del muslo, mitad de la distancia entre pliegue inguinal y cóndilo (punto clave ASIA).',
-        keyPointShort: 'Muslo anterior, tercio medio',
+        keyPointShort: 'Muslo anterior medio',
       },
       myotome: {
         action: 'Flexión de cadera.',
         muscles: 'Psoas ilíaco.',
       },
       demoNote:
-        'La flexión de cadera no está riggeada en este modelo (la pierna se mueve desde la rodilla).',
+        'El modelo mueve la pierna desde la rodilla, así que la flexión de cadera no se puede reproducir aquí.',
       mimic: {
         nerve: 'Nervio femorocutáneo lateral (meralgia parestésica)',
         discriminator:
@@ -92,7 +92,7 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
           'Percute el tendón rotuliano; respuesta: extensión de rodilla (comparte nivel con L3).',
       },
       demoNote:
-        'La dorsiflexión de tobillo no está riggeada; el modelo llega hasta la flexión de rodilla.',
+        'El modelo llega hasta la flexión de rodilla, así que la dorsiflexión de tobillo no se puede reproducir aquí.',
       pearl:
         'Marcha del talón débil (no puede caminar sobre los talones): sospecha L4-L5 por el tibial anterior.',
       cite: CITE,
@@ -103,14 +103,14 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
       dermatome: {
         area: 'Cara lateral de la pierna y dorso del pie.',
         keyPoint: 'Dorso del pie, tercera articulación metatarsofalángica (punto clave ASIA).',
-        keyPointShort: 'Dorso del pie, tercera metatarsofalángica',
+        keyPointShort: 'Dorso del pie',
       },
       myotome: {
         action: 'Extensión del dedo gordo.',
         muscles: 'Extensor largo del hallux.',
       },
       demoNote:
-        'La extensión del dedo gordo no está riggeada en este modelo.',
+        'La extensión del dedo gordo no se puede reproducir en el modelo.',
       mimic: {
         nerve: 'Nervio peroneo común en la cabeza del peroné',
         discriminator:
@@ -141,7 +141,7 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
         movementId: 'knee-flexion',
         angleDeg: 90,
         side: 'R',
-        note: 'El modelo muestra la flexión de rodilla (isquiotibiales, S1); la flexión plantar no está riggeada.',
+        note: 'El modelo muestra la flexión de rodilla (isquiotibiales, S1); la flexión plantar no se puede reproducir aquí.',
       },
       mimic: {
         nerve: 'Ciático troncular (incluido el sindrome piriforme)',

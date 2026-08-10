@@ -50,11 +50,16 @@
 // -----------------------------------------------------------------------------
 // WHAT IS LEFT UNPAINTED, ON PURPOSE
 // -----------------------------------------------------------------------------
-// The inguinal region (L1), the posterior thigh and gluteal region (S2-S3), the
-// popliteal fossa (S2) and the shoulder cap's deltopectoral triangle (C4) all
-// belong to roots this screen does not cover. The wrist is skipped too: it is a
-// boundary zone the rig gives as one patch spanning C6, C7 and C8, and assigning
-// it whole to any one of them would be inventing a boundary.
+// The inguinal region (L1), the posterior thigh, gluteal region and fold (S2-S3),
+// the popliteal fossa and posterior knee (S2) and the shoulder cap's deltopectoral
+// triangle (C4) all belong to roots this screen does not cover.
+//
+// Those are the only gaps left. The first pass also skipped the WRIST and left a
+// strip of the anterior forearm and the medial half of the antecubital region
+// unpainted, on the grounds that they were boundary zones. On the body that read as
+// breakage rather than as honesty: a bare ring around the wrist between a painted
+// forearm and a painted hand looks like the feature failed. A boundary belongs to
+// the roots on either side of it, so it is now divided between them.
 //
 // This layer is REGIONAL. The rig has no per-dermatome geometry, and the patches it
 // does have cannot resolve one finger from the next -- the three "digits of hand"
@@ -158,33 +163,42 @@ const UPPER: Record<string, SkinRule[]> = {
     { region: 'Radial foveola' },
     { region: 'Anterior region of elbow', lateral: [0.5, 1] },
     { region: 'Posterior region of elbow', lateral: [0.5, 1] },
-    { region: 'Anterior region of forearm', lateral: [0.55, 1] },
+    { region: 'Anterior region of forearm', lateral: [0.5, 1] },
     { region: 'Posterior region of forearm', lateral: [0.66, 1] },
-    { region: 'Palm', lateral: [0.66, 1] },
+    { region: 'Anterior region of wrist', lateral: [0.5, 1] },
+    // The hand splits three ways, thumb side outward. The windows are set to the
+    // fractions the rig's own patch spacing produces (0, ~0.7, 1 for a
+    // three-patch region), so each of C6, C7 and C8 actually receives one.
+    { region: 'Palm', lateral: [0.85, 1] },
     { region: 'Palmar surfaces of digits of hand', lateral: [0.5, 1] },
-    { region: 'Dorsal surfaces of digits of hand', lateral: [0.66, 1] },
+    { region: 'Dorsal surfaces of digits of hand', lateral: [0.85, 1] },
   ],
   C7: [
     { region: 'Posterior region of forearm', lateral: [0.33, 0.66] },
-    // One patch per side, and the mid dorsum is C7's. Taken whole rather than
-    // split, because a single patch has no fraction to window on.
+    // One patch per side each, and the back of the wrist and hand is C7's road to
+    // the middle finger. Taken whole: a single-patch region has no fraction to
+    // window on.
+    { region: 'Posterior region of wrist' },
     { region: 'Dorsum of hand' },
-    { region: 'Dorsal surfaces of digits of hand', lateral: [0.33, 0.66] },
+    { region: 'Palm', lateral: [0.5, 0.85] },
+    { region: 'Dorsal surfaces of digits of hand', lateral: [0.34, 0.85] },
   ],
   C8: [
     { region: 'Medial border of forearm' },
-    { region: 'Anterior region of forearm', lateral: [0, 0.45] },
+    { region: 'Anterior region of forearm', lateral: [0, 0.5] },
     { region: 'Posterior region of forearm', lateral: [0, 0.33] },
     { region: 'Posterior region of elbow', lateral: [0, 0.5] },
+    { region: 'Anterior region of wrist', lateral: [0, 0.5] },
     { region: 'Palm', lateral: [0, 0.5] },
     { region: 'Palmar surfaces of digits of hand', lateral: [0, 0.5] },
-    { region: 'Dorsal surfaces of digits of hand', lateral: [0, 0.33] },
+    { region: 'Dorsal surfaces of digits of hand', lateral: [0, 0.34] },
   ],
   T1: [
     { region: 'Medial bicipital groove' },
     { region: 'Anterior region of arm', lateral: [0, 0.5] },
     { region: 'Posterior region of arm', lateral: [0, 0.5] },
     { region: 'Cubital fossa', lateral: [0, 0.5] },
+    { region: 'Anterior region of elbow', lateral: [0, 0.5] },
   ],
 };
 
