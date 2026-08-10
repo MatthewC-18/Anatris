@@ -156,6 +156,35 @@ describe('every root lands on real patches', () => {
   });
 });
 
+describe('medial roots really are medial', () => {
+  // The one invariant that breaks SILENTLY and looks fine in a screenshot: a
+  // rotated limb can make a medial band look lateral, so this is checked with
+  // numbers rather than by eye. If the geometric laterality rule (side from the
+  // sign of x, `flip` on mirrored limbs) ever inverts, a whole side of the body
+  // teaches the wrong territory and nothing else here would notice.
+  const meanDistanceFromMidline = (figure: PlateFigure, root: string, side: 1 | -1) => {
+    const mine = patchesForRoot(resolved, figure, root).filter((p) => p.side === side);
+    expect(mine.length, `${figure} ${root} side ${side}`).toBeGreaterThan(0);
+    const xs = mine.map((p) => rows[p.ref][2]);
+    return xs.reduce((a, b) => a + b, 0) / xs.length;
+  };
+
+  const pairs: [PlateFigure, string, string][] = [
+    ['upper-limb', 'T1', 'C5'], // medial arm vs lateral arm
+    ['upper-limb', 'C8', 'C6'], // medial forearm vs lateral forearm
+    ['lower-limb', 'L4', 'L5'], // medial leg vs lateral leg
+  ];
+
+  it.each(pairs)('%s: %s sits closer to the midline than %s, on both sides', (figure, medial, lateral) => {
+    for (const side of [1, -1] as const) {
+      expect(
+        meanDistanceFromMidline(figure, medial, side),
+        `${figure} ${medial} vs ${lateral}, side ${side}`,
+      ).toBeLessThan(meanDistanceFromMidline(figure, lateral, side));
+    }
+  });
+});
+
 describe('the ASIA key points land on the right root', () => {
   /** Which root owns every patch of this region, as a set. */
   const ownersOf = (region: string, figure: PlateFigure): string[] => {
