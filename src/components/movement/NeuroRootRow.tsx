@@ -341,22 +341,35 @@ function Lane({
  *
  * The panel used to open on a plate, five rows of clinical shorthand and a strip of
  * bare numbers -- readable only to someone who already knew the exam. Its actual
- * audience is a student going over a class again, so it now opens by naming the
- * three things it screens and saying what to do. It disappears for good the moment
- * the first finding is recorded: this is scaffolding, not chrome.
+ * audience is a student going over a class again, so it opens by naming the three
+ * things it screens and saying what to do.
+ *
+ * DISMISSED ONCE, REMEMBERED, AND RE-OPENABLE, exactly as the tests panel's own
+ * guide behaves (same "Guía" toggle in the header, same "Entendido" to close, same
+ * versioned key). Two reasons it is not merely tied to the empty screen: the screen
+ * empties every time "Limpiar" is pressed, so scaffolding a student has outgrown
+ * would keep coming back; and help that cannot be reopened is help you have to
+ * remember the first time.
  */
-export function HowToUse() {
+export function HowToUse({ onDismiss }: { onDismiss: () => void }) {
   const rows: [React.ReactNode, string, string][] = [
     [<PinGlyph key="s" color="#94a3b8" />, 'Dermatoma', 'la piel que inerva una raíz'],
     [<MotionGlyph key="m" />, 'Miotoma', 'el movimiento que gobierna'],
     [<HammerGlyph key="r" />, 'Reflejo', 'la respuesta al percutir su tendón'],
   ];
   return (
-    <div className="px-4 pb-1 pt-2">
-      <p className="text-[13px] leading-relaxed text-slate-400">
-        Cada raíz nerviosa se explora por tres vías:
-      </p>
-      <ul className="mt-1.5 space-y-1">
+    <div className="border-b border-slate-800/70 px-4 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <Kicker>Cómo se explora una raíz</Kicker>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-[11px] text-slate-400 transition-colors hover:text-slate-100"
+        >
+          Entendido
+        </button>
+      </div>
+      <ul className="mt-2 space-y-1">
         {rows.map(([glyph, term, meaning]) => (
           <li key={term} className="flex items-baseline gap-2 text-[13px] leading-snug">
             <span className="mt-[3px] shrink-0 text-slate-500">{glyph}</span>

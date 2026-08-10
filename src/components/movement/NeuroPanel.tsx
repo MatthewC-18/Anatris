@@ -84,6 +84,28 @@ import { ChevronDownIcon, CloseIcon } from '../ui/Icons';
 /** Namespace for this panel's demo ids on the shared demoChannel. */
 const DEMO_NS = 'neuro:';
 
+// ---------------------------------------------------------------------------
+// "How to use" guide: shown once, remembered, re-openable from the header. Same
+// contract and the same shape of helper as the tests panel's guide, so the two
+// panels behave identically -- a user who dismissed one knows how to get it back
+// in the other. Versioned key, so rewriting the guide can show it again on purpose.
+// ---------------------------------------------------------------------------
+const HELP_KEY = 'anatris.neuroHelp.v1';
+function readHelpSeen(): boolean {
+  try {
+    return typeof window !== 'undefined' && window.localStorage.getItem(HELP_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function writeHelpSeen(): void {
+  try {
+    window.localStorage.setItem(HELP_KEY, '1');
+  } catch {
+    /* storage unavailable: guide reappears next session */
+  }
+}
+
 /** At most two roots can be held side by side; a third would stop comparing. */
 const MAX_PICKED = 2;
 
@@ -304,6 +326,12 @@ export function NeuroPanel({
   );
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
+  const [showHelp, setShowHelp] = useState(() => !readHelpSeen());
+
+  const dismissHelp = () => {
+    setShowHelp(false);
+    writeHelpSeen();
+  };
 
   // The demoChannel arbiter owns which demo (if any) animates the rig. Deriving
   // demoId from it (instead of local state) means a demo started here stops
@@ -522,17 +550,35 @@ export function NeuroPanel({
           </h2>
           <p className="mt-0.5 text-[11px] text-slate-500">{set.subtitle}</p>
         </div>
-        {!bare && (
+        <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
-            onClick={() => onOpenChange(false)}
-            aria-label="Cerrar neuro"
-            className="-mr-1 shrink-0 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100/[0.06] hover:text-slate-200"
+            onClick={() => setShowHelp((v) => !v)}
+            aria-pressed={showHelp}
+            aria-label="Guía"
+            title="Cómo se usa este panel"
+            className={`rounded border px-2 py-1 text-[11px] font-medium transition-colors ${
+              showHelp
+                ? 'border-accent/50 bg-accent/10 text-accent'
+                : 'border-slate-700 text-slate-400 hover:text-slate-200'
+            }`}
           >
-            <CloseIcon size={15} />
+            Guía
           </button>
-        )}
+          {!bare && (
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              aria-label="Cerrar neuro"
+              className="-mr-1 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100/[0.06] hover:text-slate-200"
+            >
+              <CloseIcon size={15} />
+            </button>
+          )}
+        </div>
       </div>
+
+      {showHelp && <HowToUse onDismiss={dismissHelp} />}
 
       {set.redFlags && set.redFlags.length > 0 && <RedFlags flags={set.redFlags} />}
 
@@ -623,7 +669,7 @@ export function NeuroPanel({
             showVerifyMark={!allPending}
           />
         ))}
-        {!screenStarted && <HowToUse />}
+
         {allPending && (
           <p className="px-4 pt-3 text-[11px] leading-snug text-slate-600">
             Los valores de esta pantalla siguen pendientes de cotejo contra la fuente
