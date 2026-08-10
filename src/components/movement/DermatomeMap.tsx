@@ -134,9 +134,13 @@ export function DermatomeMap({
               viewBox={plate.spec.viewBox}
               className="mx-auto block h-auto w-full"
               // Capped rather than sized: the plate shares a fixed header with the
-              // red flags and everything below it scrolls, so a plate that took its
-              // natural height pushed the roots off the screen on a laptop.
-              style={{ maxHeight: 'min(29vh, 15rem)' }}
+              // red flags and everything below it scrolls, so a plate at its natural
+              // height would push the roots off a laptop screen. The cap was tighter
+              // still for a while and the figures came out about 110px wide, with
+              // forearm bands too thin to read -- the expanded root row is where the
+              // scrolling actually came from, and once that was cut the height could
+              // come back here, where it buys legibility.
+              style={{ maxHeight: 'min(38vh, 19rem)' }}
               // NOT role="img" when the territories are selectable: role="img"
               // makes an element's whole subtree presentational, which would hide
               // every one of the root buttons below from assistive tech.
@@ -304,14 +308,21 @@ export function DermatomeMap({
             <figcaption className="mt-1.5 text-center text-[11px] uppercase tracking-[0.08em] text-slate-500">
               {VIEW_LABEL[view]}
             </figcaption>
-            {plate.spec.notes[view] && (
-              <p className="mt-1 text-center text-[11px] leading-snug text-slate-600">
-                {plate.spec.notes[view]}
-              </p>
-            )}
           </figure>
         ))}
       </div>
+
+      {/* What the plate does NOT cover, once, under both figures. Hanging each
+          view's note under its own figure gave the two columns different heights and
+          the plate looked lopsided -- and the note is about the anatomy, not about
+          one drawing of it. */}
+      {VIEWS.some((v) => plate.spec.notes[v]) && (
+        <p className="mt-2 text-[11px] leading-snug text-slate-600">
+          {VIEWS.filter((v) => plate.spec.notes[v])
+            .map((v) => plate.spec.notes[v])
+            .join(' ')}
+        </p>
+      )}
 
       {/* The pin's meaning, in type rather than in 9px SVG labels. */}
       {shownPins.length > 0 && (

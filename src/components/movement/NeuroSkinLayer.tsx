@@ -60,12 +60,26 @@ import {
 import { pigmentFor, type PlateFigure } from '../../data/neuro/plate';
 import { neuroSkinChannel, type NeuroSkinCommand } from './neuroSkinChannel';
 
-/** How strongly a painted territory glows. Enough to read on the lit stage. */
-const TINT_EMISSIVE = 0.55;
-
-/** How far the pigment pulls the skin's own colour. Not a flat repaint: the
- *  territory should look like skin under a stain, not like plastic. */
-const TINT_MIX = 0.68;
+/**
+ * How a painted territory is coloured.
+ *
+ * The first pass stained the skin -- it pulled the patch's own colour 68% toward the
+ * pigment and left it there, on the theory that a territory should look like skin
+ * under a wash rather than like plastic. On the real body that theory failed: a
+ * desaturated teal mixed into a warm skin tone under studio lighting comes out
+ * GREY, and C5's territory read as a grey plaque on the arm instead of as a marked
+ * region. Nobody would guess it was the answer to what they clicked.
+ *
+ * So the territory is now painted, not stained. The pigment IS the colour, lifted a
+ * little toward white so it still reads as lit rather than flat, with a matching
+ * emissive so it holds up where the stage lighting falls away (the medial arm, the
+ * back of the leg). The 2D plate can afford the muted version because it sits on
+ * dark tissue; a body cannot.
+ */
+const TINT_LIGHTEN = 0.18;
+const TINT_EMISSIVE = 0.7;
+/** Slightly glossier than skin, so the region catches the key light as one surface. */
+const TINT_ROUGHNESS = 0.55;
 
 /** A skin patch of the live scene, positioned within its region. */
 type Patch = ResolvedPatch<THREE.Mesh>;
@@ -125,11 +139,12 @@ export function NeuroSkinLayer(): JSX.Element {
     const pigment = new THREE.Color(pigmentFor(figure, root));
     const clone = from.clone();
     const std = clone as THREE.MeshStandardMaterial;
-    if (std.color) std.color.lerp(pigment, TINT_MIX);
+    if (std.color) std.color.copy(pigment).lerp(new THREE.Color(0xffffff), TINT_LIGHTEN);
     if (std.emissive) {
       std.emissive = pigment.clone();
       std.emissiveIntensity = TINT_EMISSIVE;
     }
+    if (typeof std.roughness === 'number') std.roughness = TINT_ROUGHNESS;
     // The shared skin material is transparent for the ghost fade; a painted
     // territory is the subject, so it stays solid and writes depth.
     std.transparent = false;
