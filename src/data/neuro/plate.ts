@@ -307,26 +307,34 @@ export const PLATES: Record<PlateFigure, PlateSpec> = {
 /**
  * SEGMENTAL COLOUR RAMP, proximal to distal.
  *
- * Muted atlas pigments -- teal, sage, ochre, terracotta, mauve -- not a
- * saturated data palette. Two reasons, both structural:
+ * ALL FIVE ARE COOL, and that is the whole rule. These pigments are painted on the
+ * 3D body as well as on the plate, and the body is made of warm tissue: red muscle,
+ * tan skin, and an amber glow on whichever muscle the movement console is calling
+ * the prime mover. The first ramp included ochre and terracotta -- chosen to look
+ * like atlas pigments on a dark plate -- and on the model C8's terracotta was
+ * simply indistinguishable from muscle. A dermatome that reads as a muscle is worse
+ * than no dermatome.
  *
- *  1. The lab's cyan accent means INTERACTIVE STATE and is never allowed to
- *     carry data (see the design rules atop OrthopedicTestsPanel). A dermatome
- *     painted cyan would be claiming to be a selection. Selection on this plate
- *     is a cyan RING around a territory; the fill is always the root's pigment.
- *  2. Amber, sky and violet are already spoken for by the muscle-role code, and
- *     emerald/sky by the tests panel's two-axis code. Borrowing any of them here
- *     would make a dermatome look like a prime mover or a rule-in test.
+ * So the ramp runs green -> teal -> blue -> violet -> magenta: five hues about 45
+ * degrees apart, none of them anywhere near the red-orange-amber sector the body
+ * already occupies. Only ONE root is ever painted on the model at a time, so what
+ * each pigment has to survive is the warm tissue behind it, not the other four.
+ *
+ * Two colours stay out of the ramp on purpose. The lab's cyan accent means
+ * INTERACTIVE STATE and is never allowed to carry data -- a dermatome painted cyan
+ * would be claiming to be a selection, and selection here is a cyan RIM around a
+ * territory, never its fill. Amber is reserved for what needs attention (red flags,
+ * unverified figures) and is the muscle-role prime-mover colour besides.
  *
  * Ordered rather than arbitrary, so a physio reads "descending the limb" off the
  * plate before reading a single label.
  */
 export const SEGMENT_PIGMENTS = [
-  '#3d7f91', // teal
-  '#62956a', // sage
-  '#b5964a', // ochre, deliberately the LIGHTEST of the five
-  '#a85a4c', // terracotta
-  '#7f63a2', // violet
+  '#5bb06d', // green
+  '#2c9aa4', // teal
+  '#4f79dd', // blue
+  '#9b5fd6', // violet
+  '#d45ba6', // magenta
 ] as const;
 
 /** Pigment for a root within its figure, or a neutral when it is not on the plate. */

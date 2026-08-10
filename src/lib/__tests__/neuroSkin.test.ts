@@ -276,6 +276,49 @@ describe('how confidently a territory can be drawn', () => {
     expect(confidenceOf('Posterior region of forearm', 'upper-limb', 'C7')).toContain('broad');
   });
 
+  it('never washes out the mark a root is identified by', () => {
+    // Every root's ASIA key point has to be legible on the body, whatever the
+    // width rule thinks of the shell it lands on. C5's key point IS the lateral
+    // antecubital fossa and it was being drawn as a wash; C6's territory runs
+    // "hasta el pulgar" and its hand came out bare.
+    const keyPoint: [PlateFigure, string, string][] = [
+      ['upper-limb', 'C5', 'Cubital fossa'],
+      ['upper-limb', 'C6', 'Radial foveola'],
+      ['upper-limb', 'C7', 'Dorsum of hand'],
+      ['upper-limb', 'C8', 'Palmar surfaces of digits of hand'],
+      ['upper-limb', 'T1', 'Cubital fossa'],
+      ['lower-limb', 'L2', 'Anterior region of thigh'],
+      ['lower-limb', 'L3', 'Anterior region of knee'],
+      ['lower-limb', 'L4', 'Medial malleolus'],
+      ['lower-limb', 'L5', 'Dorsum of foot'],
+      ['lower-limb', 'S1', 'Heel region'],
+    ];
+    for (const [figure, root, region] of keyPoint) {
+      const mine = ownedPatches(resolved, figure, root).filter(
+        (o) => o.patch.region === region,
+      );
+      expect(mine.length, `${root} ${region}`).toBeGreaterThan(0);
+      expect(
+        mine.some((o) => o.confidence === 'sure'),
+        `${root}'s key point (${region}) must be drawn solid`,
+      ).toBe(true);
+    }
+  });
+
+  it('only ever marks a landmark at an END of its region', () => {
+    // A landmark in the MIDDLE of a region would be forcing a boundary the
+    // geometry cannot support, which is the exact thing the wash exists to avoid.
+    for (const figure of FIGURES) {
+      for (const [root, rules] of Object.entries(SKIN_BY_ROOT[figure])) {
+        for (const rule of rules) {
+          if (!rule.landmark || !rule.lateral) continue;
+          const [lo, hi] = rule.lateral;
+          expect(lo === 0 || hi === 1, `${figure} ${root} ${rule.region}`).toBe(true);
+        }
+      }
+    }
+  });
+
   it('still paints every root, on both sides, at some confidence', () => {
     // The wash exists so that nothing had to be dropped. If a root lost its skin
     // to this rule, the cure was worse than the disease.

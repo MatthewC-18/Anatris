@@ -95,8 +95,8 @@ const TINT_ROUGHNESS = 0.55;
  * between "this area, roughly" and "the boundary is here" -- and it is what stops
  * one wide shell of the forearm from teaching that C6 owns the whole thing.
  */
-const BROAD_OPACITY = 0.5;
-const BROAD_EMISSIVE = 0.18;
+const BROAD_OPACITY = 0.68;
+const BROAD_EMISSIVE = 0.28;
 const BROAD_LIGHTEN = 0.02;
 
 /** A skin patch of the live scene, positioned within its region. */

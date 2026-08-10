@@ -79,6 +79,23 @@ export interface SkinRule {
   lateral?: [number, number];
   /** Window along the limb: 0 most distal patch, 1 most proximal. */
   level?: [number, number];
+  /**
+   * Draw this at full strength even if the patch is a wide shell.
+   *
+   * For the places a student MUST be able to see: the ASIA key point, and the two
+   * ends of the hand. Width is a good proxy for "the rig cannot resolve this
+   * boundary", but it is a bad reason to hide the one mark the whole root is
+   * identified by -- C5's key point IS the lateral antecubital fossa, and the width
+   * rule was quietly drawing it as a wash. C6 hit the same wall from the other
+   * side: its territory runs "hasta el pulgar", and every patch that could show a
+   * thumb was either tiny or wide, so the hand came out bare.
+   *
+   * Only ever on rules that sit at an EXTREME of their region (the most lateral or
+   * most medial window). A landmark in the middle of a region would be claiming a
+   * boundary the geometry cannot support, which is the thing the wash exists to
+   * avoid.
+   */
+  landmark?: boolean;
 }
 
 /**
@@ -156,7 +173,7 @@ const UPPER: Record<string, SkinRule[]> = {
     { region: 'Posterior region of arm', lateral: [0.5, 1] },
     // The ASIA C5 key point is the LATERAL antecubital fossa; T1's is the medial
     // one, and the rig gives the fossa as two patches that separate cleanly.
-    { region: 'Cubital fossa', lateral: [0.5, 1] },
+    { region: 'Cubital fossa', lateral: [0.5, 1], landmark: true },
   ],
   C6: [
     { region: 'Lateral border of forearm' },
@@ -169,9 +186,9 @@ const UPPER: Record<string, SkinRule[]> = {
     // The hand splits three ways, thumb side outward. The windows are set to the
     // fractions the rig's own patch spacing produces (0, ~0.7, 1 for a
     // three-patch region), so each of C6, C7 and C8 actually receives one.
-    { region: 'Palm', lateral: [0.85, 1] },
-    { region: 'Palmar surfaces of digits of hand', lateral: [0.5, 1] },
-    { region: 'Dorsal surfaces of digits of hand', lateral: [0.85, 1] },
+    { region: 'Palm', lateral: [0.85, 1], landmark: true },
+    { region: 'Palmar surfaces of digits of hand', lateral: [0.5, 1], landmark: true },
+    { region: 'Dorsal surfaces of digits of hand', lateral: [0.85, 1], landmark: true },
   ],
   C7: [
     { region: 'Posterior region of forearm', lateral: [0.33, 0.66] },
@@ -190,14 +207,14 @@ const UPPER: Record<string, SkinRule[]> = {
     { region: 'Posterior region of elbow', lateral: [0, 0.5] },
     { region: 'Anterior region of wrist', lateral: [0, 0.5] },
     { region: 'Palm', lateral: [0, 0.5] },
-    { region: 'Palmar surfaces of digits of hand', lateral: [0, 0.5] },
-    { region: 'Dorsal surfaces of digits of hand', lateral: [0, 0.34] },
+    { region: 'Palmar surfaces of digits of hand', lateral: [0, 0.5], landmark: true },
+    { region: 'Dorsal surfaces of digits of hand', lateral: [0, 0.34], landmark: true },
   ],
   T1: [
     { region: 'Medial bicipital groove' },
     { region: 'Anterior region of arm', lateral: [0, 0.5] },
     { region: 'Posterior region of arm', lateral: [0, 0.5] },
-    { region: 'Cubital fossa', lateral: [0, 0.5] },
+    { region: 'Cubital fossa', lateral: [0, 0.5], landmark: true },
     { region: 'Anterior region of elbow', lateral: [0, 0.5] },
   ],
 };

@@ -153,10 +153,12 @@ const PART_OF_REGION = 0.5;
 /**
  * How confidently a territory can be drawn on this patch.
  *
- * 'sure' when the rig is genuinely precise here: either the rule takes a whole
- * NAMED region ("Medial malleolus", "Heel region", "Radial foveola" -- the name IS
- * the precision, and several of these are the ASIA key points themselves), or the
- * patch is small enough to really be the half the window asks for.
+ * 'sure' when the rig is genuinely precise here, OR when the rule is a LANDMARK the
+ * student has to be able to see whatever the geometry can manage. Precise means
+ * either the rule takes a whole NAMED region ("Medial malleolus", "Heel region",
+ * "Radial foveola" -- the name IS the precision, and several of these are the ASIA
+ * key points themselves), or the patch is small enough to really be the half the
+ * window asks for.
  *
  * 'broad' otherwise: a shell covering most of its region, claimed by a window that
  * wanted half of it. Still drawn, because leaving it out empties the limb -- but
@@ -169,6 +171,7 @@ export function confidenceFor(
   patch: Pick<ResolvedPatch, 'spread'>,
   rule: SkinRule,
 ): PatchConfidence {
+  if (rule.landmark) return 'sure';
   const windowed = Boolean(rule.lateral || rule.level);
   if (!windowed) return 'sure';
   return patch.spread <= PART_OF_REGION ? 'sure' : 'broad';
