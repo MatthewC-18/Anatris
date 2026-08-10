@@ -5,13 +5,13 @@
 // deliberate order, rather than just browsing an atlas.
 //
 // THE 7 PHASES (fixed order):
-//   1. anatomy        Anatomia        origin / insertion / innervation
-//   2. biomechanics   Biomecanica     actions, force couples, ROM, synergies
-//   3. palpation      Palpacion       how to locate and feel each muscle
-//   4. tests          Tests clinicos  special tests, grouped, cross-muscle
-//   5. pathology      Patologia       region-level injuries & syndromes
+//   1. anatomy        Anatomía        origin / insertion / innervation
+//   2. biomechanics   Biomecánica     actions, force couples, ROM, synergies
+//   3. palpation      Palpación       how to locate and feel each muscle
+//   4. tests          Tests clínicos  special tests, grouped, cross-muscle
+//   5. pathology      Patología       region-level injuries & syndromes
 //   6. treatment      Tratamiento     intervention reasoning
-//   7. case           Caso clinico    an integrative clinical case
+//   7. case           Caso clínico    an integrative clinical case
 //
 // CORE DESIGN PRINCIPLE: phases REFERENCE existing content, they do not copy it.
 //   - Phases 1-3 are PER-MUSCLE PROJECTIONS of fields that already live in
@@ -71,50 +71,50 @@ export const PHASE_META: Record<PhaseId, PhaseMeta> = {
   anatomy: {
     id: 'anatomy',
     step: 1,
-    label: 'Anatomia',
-    blurb: 'Origen, insercion e inervacion de cada musculo de la region.',
+    label: 'Anatomía',
+    blurb: 'Origen, inserción e inervación de cada músculo de la región.',
     scope: 'per-muscle',
   },
   biomechanics: {
     id: 'biomechanics',
     step: 2,
-    label: 'Biomecanica',
-    blurb: 'Acciones, pares de fuerzas y sinergias que mueven la region.',
+    label: 'Biomecánica',
+    blurb: 'Acciones, pares de fuerzas y sinergias que mueven la región.',
     scope: 'per-muscle',
   },
   palpation: {
     id: 'palpation',
     step: 3,
-    label: 'Palpacion',
-    blurb: 'Como localizar y palpar cada musculo bajo la piel.',
+    label: 'Palpación',
+    blurb: 'Cómo localizar y palpar cada músculo bajo la piel.',
     scope: 'per-muscle',
   },
   tests: {
     id: 'tests',
     step: 4,
-    label: 'Tests clinicos',
+    label: 'Tests clínicos',
     blurb: 'Pruebas especiales para valorar cada estructura.',
     scope: 'region',
   },
   pathology: {
     id: 'pathology',
     step: 5,
-    label: 'Patologia',
-    blurb: 'Lesiones y sindromes frecuentes de la region.',
+    label: 'Patología',
+    blurb: 'Lesiones y síndromes frecuentes de la región.',
     scope: 'region',
   },
   treatment: {
     id: 'treatment',
     step: 6,
     label: 'Tratamiento',
-    blurb: 'Razonamiento de intervencion: que, por que y cuando.',
+    blurb: 'Razonamiento de intervención: qué, por qué y cuándo.',
     scope: 'region',
   },
   case: {
     id: 'case',
     step: 7,
-    label: 'Caso clinico',
-    blurb: 'Un caso que integra todo el razonamiento de la region.',
+    label: 'Caso clínico',
+    blurb: 'Un caso que integra todo el razonamiento de la región.',
     scope: 'region',
   },
 };

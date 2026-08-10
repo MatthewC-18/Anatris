@@ -329,6 +329,27 @@
     cursor: default;
   }
 
+  /* The arc slider is the single most-dragged control in the lab, and at 22px
+     tall with a 15px thumb it was the last thing left under the touch floor
+     after the chips and switches were fixed. On a coarse pointer the track keeps
+     its thin machined look while the ELEMENT grows to 40px, so the extra height
+     is invisible hit area either side of the rail, and the thumb grows enough to
+     be caught without covering it. */
+  @media (pointer: coarse) {
+    .range-clinical {
+      height: 40px;
+    }
+    .range-clinical::-webkit-slider-thumb {
+      width: 20px;
+      height: 20px;
+      margin-top: -8px;
+    }
+    .range-clinical::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
   /* Big patient-facing variant of the same slider. */
   .range-clinical.range-lg {
     height: 30px;
@@ -376,6 +397,41 @@
     scroll-snap-align: start;
   }
 
+  /* ------------------------------------------------------------------------
+   * TAP TARGET
+   * ------------------------------------------------------------------------
+   * The console's controls are deliberately small: it is a dense clinical
+   * instrument sharing a 21.5rem column with the live readout, and inflating
+   * every chip would push the readout off screen. But "dense" had drifted into
+   * "unusable with a thumb": measured in the browser, the side switch
+   * (Derecho/Izquierdo) and the speed switch (Lento/Normal/Rápido) were 21px
+   * tall, which is BELOW the 24x24 CSS px floor of WCAG 2.5.8 (AA) — and those
+   * are exactly the two a physio taps mid-consultation, one-handed, with a
+   * patient waiting.
+   *
+   * Two floors instead of one compromise:
+   *   - 24px everywhere, so nothing fails AA on a mouse-driven laptop and the
+   *     desktop instrument keeps its density.
+   *   - 40px on a COARSE pointer (phone, tablet, touch laptop), approaching the
+   *     44px comfort guidance. The controls that grow all live inside scrolling
+   *     containers (the mobile sheet, the console's own capped scroll area), so
+   *     the extra height is absorbed instead of pushing anything off screen.
+   *
+   * Deliberately NOT an invisible ::after overlay, the usual trick for this. A
+   * 44px overlay centred on a 21px control reaches 11px past its own box, and
+   * in this console the next control up is a 22px slider 8px away — the overlay
+   * would have covered its top edge and swallowed drags meant for the arc.
+   * Growing the real box reflows honestly and can't steal a neighbour's input.
+   * --------------------------------------------------------------------- */
+  .tap-target {
+    min-height: 24px;
+  }
+  @media (pointer: coarse) {
+    .tap-target {
+      min-height: 40px;
+    }
+  }
+
   /* Keyboard hint chip. */
   .kbd {
     display: inline-flex;
@@ -417,8 +473,20 @@
     text-overflow: ellipsis;
     /* Symmetric padding keeps the same gap to the leader tip on either margin,
        so the frame loop only has to write a transform (the side a label sits on
-       changes as the camera orbits). */
-    padding: 0 10px;
+       changes as the camera orbits).
+
+       The VERTICAL padding is a hit target, not spacing. These names are
+       clickable, and with `line-height: 1` at 11px the box was literally 11px
+       tall — measured in the browser at 74x11 for "Deltoides" — less than half
+       the 24px WCAG 2.5.8 floor. 7px top and bottom brings the box to ~25px
+       while the text stays optically where it was, because the frame loop
+       centres each label with `translateY(-50%)`.
+
+       It stops at 25px rather than following .tap-target up to 40px on touch:
+       the plate stacks these on a fixed LABEL_GAP of 26px (AtlasLabels.tsx), so
+       a taller box would make adjacent names overlap. Going bigger means making
+       that gap pointer-aware too. */
+    padding: 7px 10px;
     font-size: 0.6875rem;
     line-height: 1;
     letter-spacing: 0.02em;

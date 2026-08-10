@@ -6,7 +6,7 @@
 // teaching payload the movement lab shows beside the moving 3D model.
 
 import type { RomMovement, RomPhase } from '../types/rom';
-import { MUSCLES_BY_REGION } from '../data/musclesByRegion';
+import { musclesForRomLookup } from '../data/musclesByRegion';
 
 export interface PhaseAtAngle {
   phase: RomPhase;
@@ -83,12 +83,28 @@ export function phaseAtAngleIn(
   };
 }
 
-/** Resolve a muscle id (e.g. "serratus-anterior") to its Spanish display name. */
+/**
+ * Resolve a muscle id (e.g. "serratus-anterior") to its Spanish display name.
+ *
+ * MUST go through `musclesForRomLookup`, never through the raw
+ * `MUSCLES_BY_REGION` map. That map only holds the FREE regions — the paid
+ * libraries are installed into `premiumStore` at runtime — so reading it
+ * directly missed on every premium region and fell through to the humanized-id
+ * fallback below. The visible symptom was the movement readout printing the
+ * mesh slug in English/Latin ("Popliteus", "Biceps Femoris") for the knee, hip,
+ * ankle, elbow and spine, while the patient export card on the SAME screen
+ * (which already resolved through musclesForRomLookup) said "Poplíteo".
+ *
+ * The lookup variant is also the right one on its own merits: a spine movement
+ * legitimately recruits muscles owned by a sibling sub-region, and only
+ * `romLookupMuscles` carries that union.
+ */
 export function muscleNameById(region: string, muscleId: string): string {
-  const list = MUSCLES_BY_REGION[region];
-  const hit = list?.find((m) => m.id === muscleId);
+  const hit = musclesForRomLookup(region).find((m) => m.id === muscleId);
   if (hit) return hit.name;
-  // Fallback: humanize the id so the UI never shows a raw slug.
+  // Fallback: humanize the id so the UI never shows a raw slug. Reaching this
+  // now means the id genuinely has no muscle behind it, not that the region's
+  // payload had not landed yet.
   return muscleId
     .split('-')
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))

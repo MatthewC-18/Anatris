@@ -96,7 +96,10 @@ export function Sidebar({ index, resolution, onNavigate }: SidebarProps) {
         <a
           href="mailto:soporte@anatris.app?subject=Anatris%20%E2%80%94%20reportar%20un%20problema"
           onClick={onNavigate}
-          className="text-xs text-slate-600 transition-colors hover:text-slate-400"
+          // `inline-flex` + tap-target: as a bare inline <a> its hit box was the
+          // 14px line box, well under the 24px floor, and this is the one link a
+          // frustrated user reaches for.
+          className="tap-target inline-flex items-center text-xs text-slate-600 transition-colors hover:text-slate-400"
         >
           Reportar un problema
         </a>

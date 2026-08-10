@@ -103,7 +103,11 @@ export function Segmented<T extends string | number>({
   ariaLabel: string;
   size?: 'sm' | 'xs';
 }) {
-  const pad = size === 'xs' ? 'px-2 py-[3px] text-[10px]' : 'px-2.5 py-1 text-[11px]';
+  // `tap-target` sets the accessible floor (24px, 40px on a coarse pointer);
+  // the padding here only controls the horizontal breathing room and the type
+  // size, so the segmented control stays visually compact on a laptop while
+  // still being thumb-sized on a tablet. See the note in index.css.
+  const pad = size === 'xs' ? 'px-2 text-[10px]' : 'px-2.5 text-[11px]';
   return (
     <div
       role="radiogroup"
@@ -119,7 +123,7 @@ export function Segmented<T extends string | number>({
             role="radio"
             aria-checked={active}
             onClick={() => onChange(o.value)}
-            className={`rounded-[6px] font-medium transition-colors ${pad} ${
+            className={`tap-target inline-flex items-center justify-center rounded-[6px] font-medium transition-colors ${pad} ${
               active
                 ? 'bg-slate-200/95 text-ink-950 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
@@ -163,7 +167,10 @@ export function IconButton({
       disabled={disabled}
       aria-label={label}
       title={label}
-      className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-40 ${skin} ${className}`}
+      // h-8 clears the 24px AA floor on a mouse; `tap-target` lifts it to 40px
+      // on a touch screen, where these are the transport controls (play, pause,
+      // neutral, loop) a physio drives with a thumb.
+      className={`tap-target flex h-8 w-8 min-w-[24px] items-center justify-center rounded-lg transition-colors disabled:opacity-40 [@media(pointer:coarse)]:w-10 ${skin} ${className}`}
     >
       {children}
     </button>

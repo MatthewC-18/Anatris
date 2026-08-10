@@ -136,8 +136,8 @@ function EmptyState() {
         Explora el modelo
       </p>
       <p className="mt-1.5 max-w-[230px] text-sm leading-relaxed text-slate-500">
-        Pasa el cursor para identificar una estructura y haz click para ver su
-        informacion clinica detallada.
+        Pasa el cursor para identificar una estructura y haz clic para ver su
+        información clínica detallada.
       </p>
 
       {/* Quick keyboard hints — small, premium instrument-panel touch. */}
@@ -145,7 +145,7 @@ function EmptyState() {
         <div className="flex items-center gap-2">
           <span className="kbd">1</span>
           <span className="kbd">6</span>
-          <span>Vistas de camara</span>
+          <span>Vistas de cámara</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="kbd">Ctrl</span>
@@ -340,12 +340,12 @@ function MuscleCard({
           <PartFocusControls variant="panel" />
         </Section>
 
-        <Section title="Insercion" defaultOpen>
+        <Section title="Inserción" defaultOpen>
           <Sourced item={content.insertion} />
           <PartFocusControls variant="panel" />
         </Section>
 
-        <Section title="Inervacion">
+        <Section title="Inervación">
           <Sourced item={content.innervation.nerve} />
           {content.innervation.roots && (
             <div className="mt-2">
@@ -399,18 +399,18 @@ function MuscleCard({
         )}
 
         {content.biomechanics && content.biomechanics.length > 0 && (
-          <Section title="Biomecanica">
+          <Section title="Biomecánica">
             <SourcedList items={content.biomechanics} />
           </Section>
         )}
 
         {content.palpation && (
-          <Section title="Palpacion">
+          <Section title="Palpación">
             <Sourced item={content.palpation.howTo} />
             {content.palpation.position && (
               <div className="mt-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  Posicion de acceso
+                  Posición de acceso
                 </p>
                 <Sourced item={content.palpation.position} />
               </div>
@@ -431,13 +431,13 @@ function MuscleCard({
         )}
 
         {content.pathologies && content.pathologies.length > 0 && (
-          <Section title="Patologias frecuentes">
+          <Section title="Patologías frecuentes">
             <SourcedList items={content.pathologies} />
           </Section>
         )}
 
         {content.clinicalNotes && content.clinicalNotes.length > 0 && (
-          <Section title="Relevancia clinica">
+          <Section title="Relevancia clínica">
             <SourcedList items={content.clinicalNotes} />
           </Section>
         )}

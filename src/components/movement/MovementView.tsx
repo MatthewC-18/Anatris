@@ -24,6 +24,9 @@ import { LayerControls } from './LayerControls';
 import { DissectionPanel } from './DissectionPanel';
 import { dissectChannel } from './dissectChannel';
 import { demoChannel } from './demoChannel';
+import { cameraChannel } from './cameraChannel';
+import { LabViewBar } from './LabViewBar';
+import { RecruitmentBand } from './RecruitmentBand';
 import { OrthopedicTestsPanel } from './OrthopedicTestsPanel';
 import { NeuroPanel } from './NeuroPanel';
 import { romForRegion } from '../../data/romByRegion';
@@ -72,12 +75,18 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   // unmounts, so a new joint always opens with the full model. Releasing the
   // demo arbiter here too means a test/myotome demo can never survive a region
   // change and keep animating the rig behind the new region's console.
+  //
+  // The camera goes back to defaults with them: a user who pulled out to
+  // "Cuerpo entero" to look at the trunk should not arrive at the knee still
+  // zoomed out, and a pending view request must never cross a region boundary.
   useEffect(() => {
     dissectChannel.reset();
     demoChannel.stop();
+    cameraChannel.reset();
     return () => {
       dissectChannel.reset();
       demoChannel.stop();
+      cameraChannel.reset();
     };
   }, [region]);
 
@@ -312,9 +321,36 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
       {!patientMode && (
         <>
           {/* Raised on phones so the dissection card clears the collapsed
-              controls bar at the bottom and stays visible. */}
-          <div className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 sm:bottom-3">
+              controls bar at the bottom and stays visible. From `lg` it also has
+              to clear the bottom strip — by the view bar's height normally, and
+              by the whole band's when the viewport is tall enough to show it
+              (same breakpoint as the band itself, below). */}
+          <div className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 sm:bottom-3 lg:bottom-[4.5rem] lg:[@media(min-height:820px)]:bottom-[13rem]">
             <DissectionPanel />
+          </div>
+
+          {/* THE BOTTOM STRIP — the dead space, put to work.
+              It starts where the console ends and runs to the right edge, so it
+              occupies exactly the band of stage that was empty at every width
+              (see the measurements in RecruitmentBand / labFraming). It yields to
+              a right-hand sheet when one is open, because that sheet takes the
+              full column height and the strip would otherwise slide under it.
+              `lg` only: below that the compact layout owns the bottom with its
+              sheet, and this would be fighting for the same pixels. */}
+          <div
+            className={`pointer-events-none absolute bottom-3 left-[22.5rem] z-20 hidden items-end justify-end gap-3 lg:flex ${
+              rightPanel === 'none' ? 'right-3' : 'right-[23.5rem]'
+            }`}
+          >
+            {/* The band needs vertical room the view bar does not. On a 1280x720
+                laptop it ate 190px of a 640px stage and squeezed the model back
+                down to the size this whole change set out to fix, so below
+                ~820px of viewport it stands down and the camera controls — the
+                part you cannot work without — keep the corner to themselves. */}
+            <div className="hidden min-w-0 flex-1 [@media(min-height:820px)]:block">
+              <RecruitmentBand region={region} />
+            </div>
+            <LabViewBar />
           </div>
           <div className="pointer-events-none absolute top-4 right-4 bottom-4 z-20 flex flex-col items-end gap-3">
             {rightPanel !== 'neuro' &&

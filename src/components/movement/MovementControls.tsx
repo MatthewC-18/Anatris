@@ -674,7 +674,7 @@ export function MovementControls({
                         ? `${m.name}, disponible en Premium`
                         : m.name
                   }
-                  className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+                  className={`tap-target flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[11px] font-medium transition-colors ${
                     active
                       ? 'bg-accent/15 text-accent ring-1 ring-inset ring-accent/40'
                       : unavailable
@@ -895,7 +895,7 @@ export function MovementControls({
                             claimRig();
                             setPathologyId(null);
                           }}
-                          className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                          className={`tap-target rounded-lg px-2.5 text-[11px] font-medium transition-colors ${
                             pathologyId === null
                               ? 'bg-clinical/15 text-clinical-soft ring-1 ring-inset ring-clinical/40'
                               : 'text-slate-400 ring-1 ring-inset ring-slate-700/70 hover:bg-slate-100/[0.06]'
@@ -915,7 +915,7 @@ export function MovementControls({
                                   }
                                 : pathologyGate.requestUpgrade
                             }
-                            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                            className={`tap-target flex items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-medium transition-colors ${
                               !pathologyGate.unlocked
                                 ? 'text-amber-200/80 ring-1 ring-inset ring-amber-500/25 hover:bg-amber-400/10'
                                 : pathologyId === p.id

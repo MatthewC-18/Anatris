@@ -19,10 +19,13 @@ import {
   useProgress,
 } from '@react-three/drei';
 import * as THREE from 'three';
-import { RigModel } from './RigModel';
+import { RigModel, rigChannel } from './RigModel';
+import { movementById } from '../../data/romByRegion';
 import { RigOverlays } from './RigOverlays';
 import { ShoulderRhythmArc } from './ShoulderRhythmArc';
 import { NeuroSkinLayer } from './NeuroSkinLayer';
+import { cameraChannel, type LabView } from './cameraChannel';
+import { focalPaddingLeft, movementFocusBox } from './labFraming';
 import { useIsCompact } from '../../hooks/useIsCompact';
 
 // The rig is 1300+ skinned meshes; skinning is vertex-heavy and each mesh is a
@@ -37,64 +40,161 @@ import { useIsCompact } from '../../hooks/useIsCompact';
 const RIG_DPR: [number, number] = [1, 1.25];
 const RIG_DPR_COMPACT: [number, number] = [1, 1];
 
-/**
- * Auto-fit the camera onto the rig once it has a valid bounding box, and AGAIN
- * whenever `refitKey` changes.
+/** World-space box of the rig's body, i.e. the visible skinned meshes only.
  *
- * The refit exists for the compact layout. There the canvas is a flex row above
- * the control sheet, so opening or collapsing the sheet changes the canvas box
- * by a third of the screen. `fitToBox` had already run against the old box, and
- * r3f's resize handling only updates the projection aspect -- it does not
- * re-frame. The visible result was the arm sliding out of the left edge partway
- * through an abduction sweep, which is exactly the frame a user is studying.
- */
-function AutoFit({ refitKey }: { refitKey?: string | number }) {
-  const { scene } = useThree();
-  const controls = useThree((s) => s.controls) as CameraControls | null;
-  const framed = useRef(false);
-  const lastKey = useRef(refitKey);
+ *  The rig GLB also carries far-away Z-Anatomy text/label panels ("VENOUS
+ *  SYSTEM", ...) that are plain meshes; including them blows up the bounding box
+ *  and shrinks the body to a dot off to the side. The body is the SkinnedMesh
+ *  set. */
+function bodyBoxOf(scene: THREE.Object3D): THREE.Box3 {
+  const box = new THREE.Box3();
+  const tmp = new THREE.Box3();
+  scene.traverse((o) => {
+    const m = o as THREE.SkinnedMesh;
+    if (!m.isSkinnedMesh || !m.visible) return;
+    tmp.setFromObject(m);
+    if (isFinite(tmp.min.x) && !tmp.isEmpty()) box.union(tmp);
+  });
+  return box;
+}
 
-  // A changed key means the viewport changed shape, not that a new model
-  // arrived: allow the one-shot guard to fire again.
-  if (lastKey.current !== refitKey) {
-    lastKey.current = refitKey;
-    framed.current = false;
-  }
+/** Azimuth / polar for each named station, in camera-controls terms. */
+const VIEW_ANGLES: Record<Exclude<LabView, 'default'>, { azimuth: number; polar: number }> = {
+  anterior: { azimuth: 0, polar: Math.PI / 2 },
+  posterior: { azimuth: Math.PI, polar: Math.PI / 2 },
+  lateral: { azimuth: Math.PI / 2, polar: Math.PI / 2 },
+  superior: { azimuth: 0, polar: 0.35 },
+};
+
+/**
+ * The station that best reads a movement, from its clinical plane. Same mapping
+ * RigOverlays uses to orient the camera when an arc is first selected, so
+ * "Recentrar" returns you to the view the lab chose for you rather than to some
+ * arbitrary front-on default.
+ */
+function defaultViewFor(movementId: string | null): Exclude<LabView, 'default'> {
+  const plane = movementById(movementId)?.plane ?? '';
+  if (plane === 'Sagital') return 'lateral';
+  if (plane === 'Transversal') return 'superior';
+  return 'anterior';
+}
+
+/**
+ * Frame the camera on the JOINT the active movement drives, and re-frame when
+ * that movement, the side, the canvas shape or the user's own request changes.
+ *
+ * WHAT CHANGED AND WHY
+ *
+ * This used to be `AutoFit`: a one-shot fit onto every skinned mesh, i.e. the
+ * whole standing body, for every region. That is what left 95% of the canvas
+ * empty and the studied joint at a few percent of the frame (the numbers are in
+ * labFraming.ts). It now asks `movementFocusBox` where the joint is and fits
+ * that instead, falling back to the whole body whenever the movement cannot be
+ * located — an unmapped id, the rest pose, or a rig that has not finished
+ * loading — so the worst case is exactly the old behaviour.
+ *
+ * `refitKey` still exists for the compact layout: there the canvas is a flex row
+ * above the control sheet, so opening or collapsing the sheet changes the canvas
+ * box by a third of the screen. r3f's resize handling only updates the
+ * projection aspect, it does not re-frame, and the visible result was the arm
+ * sliding out of the left edge partway through an abduction sweep.
+ *
+ * ORIENTATION IS NOT OURS. RigOverlays already turns the camera to the gesture's
+ * plane on movement change (`frameForPlane`), and `fitToBox` deliberately only
+ * moves the target and dollies — it preserves the current orientation, so the
+ * two compose instead of fighting. The one exception is an explicit view request
+ * from the toolbar, which is the user overriding that choice on purpose.
+ */
+function MovementFramer({ refitKey }: { refitKey?: string | number }) {
+  const { scene, size } = useThree();
+  const controls = useThree((s) => s.controls) as CameraControls | null;
+  const compact = useIsCompact();
+
+  // What the last applied fit was keyed on. A fit re-runs when any part of this
+  // changes -- including `nonce`, which is how "Recentrar" re-applies a framing
+  // that is otherwise identical to the one already on screen.
+  const appliedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (framed.current || !controls) return;
+    if (!controls) return;
+
     let raf1 = 0;
     let raf2 = 0;
+    let disposed = false;
+
+    const apply = (transition: boolean): void => {
+      const cam = cameraChannel.get();
+      const cmd = rigChannel.get();
+      const key = [
+        cameraChannel.get().framing,
+        cmd.movementId ?? 'rest',
+        cmd.side,
+        refitKey ?? '',
+        cam.nonce,
+        size.width,
+        size.height,
+      ].join('|');
+      if (appliedRef.current === key) return;
+
+      scene.updateWorldMatrix(true, true);
+      const body = bodyBoxOf(scene);
+      // Nothing loaded yet: leave the guard unset so the next command retries.
+      if (body.isEmpty() || !isFinite(body.min.x)) return;
+
+      const focus =
+        cam.framing === 'region'
+          ? movementFocusBox(scene, cmd.movementId, cmd.side, body)
+          : null;
+      const box = focus ?? body;
+
+      appliedRef.current = key;
+
+      // A station request rotates BEFORE the fit, so the dolly lands on the new
+      // angle. It has to happen here and not only in RigOverlays because
+      // `fitToBox` preserves whatever orientation the camera currently has: a
+      // fit alone would faithfully re-frame the joint as seen from under the
+      // floor, which is where an orbiting user usually ends up.
+      if (cam.view) {
+        const view = cam.view === 'default' ? defaultViewFor(cmd.movementId) : cam.view;
+        const { azimuth, polar } = VIEW_ANGLES[view];
+        // Mirror the azimuth for a left-sided movement so "lateral" always means
+        // "from the driven limb's side", never through the trunk.
+        const signed = view === 'lateral' && cmd.side === 'L' ? -azimuth : azimuth;
+        void controls.rotateTo(signed, polar, transition);
+        cameraChannel.consumeView();
+      }
+
+      const boxH = box.getSize(new THREE.Vector3()).y;
+      const pad = boxH * 0.06;
+      void controls.fitToBox(box, transition, {
+        paddingTop: pad,
+        paddingBottom: pad,
+        // Bias the subject out from under the floating console. No-op on
+        // compact, where the console is a bottom sheet.
+        paddingLeft: pad + focalPaddingLeft(boxH, size.height, compact),
+        paddingRight: pad,
+      });
+    };
+
+    // Two frames of grace on the FIRST fit: the rig's skinned meshes only get
+    // their real world bounds after the skeleton has been posed once.
     raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
-        scene.updateWorldMatrix(true, true);
-        const box = new THREE.Box3();
-        const tmp = new THREE.Box3();
-        // Frame ONLY the skinned body. The rig GLB also carries far-away
-        // Z-Anatomy text/label panels ("VENOUS SYSTEM", ...) that are plain
-        // meshes; including them blows up the bounding box and shrinks the body
-        // to a dot off to the side. The body is the SkinnedMesh set.
-        scene.traverse((o) => {
-          const m = o as THREE.SkinnedMesh;
-          if (!m.isSkinnedMesh || !m.visible) return;
-          tmp.setFromObject(m);
-          if (isFinite(tmp.min.x) && !tmp.isEmpty()) box.union(tmp);
-        });
-        if (box.isEmpty() || !isFinite(box.min.x)) return;
-        framed.current = true;
-        void controls.fitToBox(box, true, {
-          paddingTop: 0.15,
-          paddingBottom: 0.15,
-          paddingLeft: 0.15,
-          paddingRight: 0.15,
-        });
+        if (!disposed) apply(false);
       });
     });
+
+    const offCamera = cameraChannel.subscribe(() => apply(true));
+    const offRig = rigChannel.subscribe(() => apply(true));
+
     return () => {
+      disposed = true;
       cancelAnimationFrame(raf1);
       if (raf2) cancelAnimationFrame(raf2);
+      offCamera();
+      offRig();
     };
-  }, [controls, scene, refitKey]);
+  }, [controls, scene, refitKey, size.width, size.height, compact]);
 
   return null;
 }
@@ -369,7 +469,7 @@ export function RigViewer({ refitKey }: { refitKey?: string | number } = {}) {
           {/* Paints the selected root's dermatome on the body's own skin. Idle
               until the neuro panel publishes a selection. */}
           <NeuroSkinLayer />
-          <AutoFit refitKey={refitKey} />
+          <MovementFramer refitKey={refitKey} />
           <DoubleClickFocus />
         </Suspense>
 

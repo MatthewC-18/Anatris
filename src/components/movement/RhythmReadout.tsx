@@ -430,11 +430,25 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
         </div>
 
         <div className="mt-2 flex items-start justify-between gap-2">
+          {/* The joint line is the one string here that is routinely longer than
+              the column ("Glenohumeral (con participación escapulotorácica)"),
+              and it used to `truncate` to "...con participación es…". A tooltip
+              alone does not fix that: `title` is unreachable on touch, which is
+              half the audience. So it WRAPS to two lines and only clamps beyond
+              that, with the full text still in `title` for the mouse. The
+              gesture name above is always short; it keeps the single-line
+              truncate as a safety net. */}
           <div className="min-w-0">
-            <div className="truncate font-display text-[15px] font-semibold leading-tight text-slate-50">
+            <div
+              className="truncate font-display text-[15px] font-semibold leading-tight text-slate-50"
+              title={demo ? demo.label : gestureName}
+            >
               {demo ? demo.label : gestureName}
             </div>
-            <div className="mt-0.5 truncate text-[11px] text-slate-500">
+            <div
+              className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-slate-500"
+              title={demo ? gestureName : movement?.joint}
+            >
               {demo ? gestureName : movement?.joint}
             </div>
           </div>
