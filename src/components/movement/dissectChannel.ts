@@ -283,6 +283,34 @@ export const dissectChannel = (() => {
       track(EVENTS.dissectionUsed, { action: 'dissect' });
       notify();
     },
+    /**
+     * Show a muscle alone WITHOUT a click on the model.
+     *
+     * `isolateSelected` needs a selection, and a selection only exists after a
+     * raycast hit, so isolating used to mean finding the muscle on the rig
+     * yourself. That is the wrong way round during a movement: the readout has
+     * just told you which muscle is working at this angle, and a physio reviewing
+     * the lab asked to isolate exactly that one ("en el mov deberian aislarse los
+     * musculos"). This lets the readout act on what it names.
+     *
+     * Scope is always 'both': the readout speaks about a muscle, not about a side.
+     * Isolating the same muscle again clears it, so the name toggles.
+     */
+    isolateMuscle: (id: string, label: string, bases: string[]): void => {
+      if (!bases.length) return;
+      if (state.isolated?.id === id) {
+        state = { ...state, isolated: null };
+        notify();
+        return;
+      }
+      state = {
+        ...state,
+        selection: null,
+        isolated: { id, label, bases, scope: 'both' },
+      };
+      track(EVENTS.dissectionUsed, { action: 'isolate' });
+      notify();
+    },
     /** Show the selected structure alone (replaces any previous isolation). */
     isolateSelected: (): void => {
       const sel = state.selection;

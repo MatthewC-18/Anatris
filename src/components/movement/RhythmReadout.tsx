@@ -41,6 +41,8 @@ import { ROM_ROLE_LABEL, type RomMuscleRole } from '../../types/rom';
 import { getReference } from '../../data/references';
 import type { Citation } from '../../types/muscleContent';
 import { pathologyById } from '../../data/pathologies';
+import { musclesForRomLookup } from '../../data/musclesByRegion';
+import { dissectChannel, type DissectState } from './dissectChannel';
 
 /** Role -> text color / swatch / chip (matches the app role palette). */
 const ROLE_TEXT: Record<RomMuscleRole, string> = {
@@ -284,6 +286,9 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
     );
   }, []);
 
+  const [dissect, setDissect] = useState<DissectState>(() => dissectChannel.get());
+  useEffect(() => dissectChannel.subscribe(setDissect), []);
+
   const movement = useMemo(() => movementById(cmd.movementId), [cmd.movementId]);
   const control = cmd.movementId ? getBoneControl(cmd.movementId) : undefined;
   const drivable = !!movement && !!control && control.kind !== 'unsupported';
@@ -331,10 +336,27 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
     // When a pathology is active, keep the NORMAL ratio at this angle as a
     // reference so the alteration reads as "X:1 vs normal Y:1".
     const normalRatio = pathology ? shoulderChain(angle, cmd.side).readout.ratio : null;
+    // WHERE THE SCAPULAR SHARE COMES FROM. The blade does not turn on the chest:
+    // it turns because the clavicle elevates at the sternoclavicular joint AND the
+    // blade turns on the clavicle at the acromioclavicular. Splitting the girdle
+    // was what fixed the rig ("no se mueve en conjunto"), and the same two numbers
+    // are the biomechanics a physio wants to read while the arm goes up.
+    const chain = shoulderChain(angle, cmd.side, pathology?.shoulderMod);
+    const R2D = 180 / Math.PI;
+    const scTotal = chain.scapulothoracicUpwardRot * R2D;
+    // The readout's scapular figure is rescaled once the trunk joins in (>150),
+    // so carry that same scaling into the two joints or they would not add up to
+    // the number printed right next to them.
+    const scale = scTotal > 0.01 ? sc / scTotal : 0;
+    const girdle = {
+      sternoclavicularDeg: chain.clavicleElevation * R2D * scale,
+      acromioclavicularDeg: chain.scapulaUpwardRot * R2D * scale,
+    };
     return {
       gh,
       sc,
       tr,
+      girdle,
       ratio: r.ratio,
       normalRatio,
       ghPct: (gh / total) * 100,
@@ -374,6 +396,25 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
   // left the embedded console headerless.)
   const hero = live[0] ?? null;
   const others = live.slice(1, 4);
+
+  // ISOLATE FROM THE READOUT. The panel names the muscle working at this angle;
+  // until now that was a dead end -- to see it alone you had to find it on the rig
+  // and click it, mid-movement. Clicking the NAME isolates it, and clicking the
+  // isolated one again brings everything back.
+  // musclesForRomLookup, not the static registry: premium regions get their
+  // catalogue at runtime, and this is the same universe the ROM phases resolve
+  // names against, so a muscle the panel can NAME is a muscle it can isolate.
+  const recordFor = (muscleId: string) =>
+    musclesForRomLookup(muscleRegion).find((m) => m.id === muscleId);
+  const isolateByName = (muscleId: string) => {
+    const record = recordFor(muscleId);
+    if (!record?.meshBases?.length) return;
+    dissectChannel.isolateMuscle(muscleId, record.name, record.meshBases);
+  };
+  /** True when this muscle is the one currently shown alone. */
+  const isIsolated = (muscleId: string) => dissect.isolated?.id === muscleId;
+  /** A muscle can only be isolated if the catalogue knows which meshes are its. */
+  const canIsolate = (muscleId: string) => !!recordFor(muscleId)?.meshBases?.length;
 
   // Optional rows are shed on short viewports so the readout never collides with
   // the bottom-left controller; on normal screens the full clinical detail shows.
@@ -755,11 +796,28 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
                 </span>
               ))}
             </div>
+            {/* The scapular share, opened up into the two joints that produce it.
+                Only worth showing once the girdle is actually doing something. */}
+            {showDescription && rhythm.sc > 1 && (
+              <p className="mt-2 text-[10px] leading-snug text-slate-400">
+                <span className="text-slate-500">De la escápula: </span>
+                <span className="tabular-nums text-amber-200/90">
+                  {Math.round(rhythm.girdle.sternoclavicularDeg)}°
+                </span>
+                <span className="text-slate-500"> esternoclavicular (la clavícula se eleva) y </span>
+                <span className="tabular-nums text-amber-200/90">
+                  {Math.round(rhythm.girdle.acromioclavicularDeg)}°
+                </span>
+                <span className="text-slate-500"> acromioclavicular (la escápula gira sobre ella).</span>
+              </p>
+            )}
             {/* Source: the joint split is Inman's scapulohumeral rhythm; the trunk
-                share above 150° is Kapandji's phase-3 spine contribution. */}
+                share above 150° is Kapandji's phase-3 spine contribution; the
+                sternoclavicular / acromioclavicular division follows Inman and
+                Ludewig. */}
             {!compact && (
               <p className="mt-2 text-[9px] tracking-[0.08em] text-slate-600">
-                Fuente: Inman, Kapandji
+                Fuente: Inman, Ludewig, Kapandji
               </p>
             )}
           </div>
@@ -894,9 +952,27 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
           </span>
         </div>
         <div className="mt-1.5 flex items-end justify-between gap-2">
-          <span className="min-w-0 flex-1 truncate font-display text-[17px] font-semibold leading-tight text-slate-50">
-            {muscleNameById(muscleRegion, hero.muscleId)}
-          </span>
+          {canIsolate(hero.muscleId) ? (
+            <button
+              type="button"
+              onClick={() => isolateByName(hero.muscleId)}
+              title={
+                isIsolated(hero.muscleId)
+                  ? 'Mostrar el resto otra vez'
+                  : 'Ver este músculo solo en el modelo'
+              }
+              aria-pressed={isIsolated(hero.muscleId)}
+              className={`min-w-0 flex-1 truncate text-left font-display text-[17px] font-semibold leading-tight underline-offset-4 transition-colors hover:underline ${
+                isIsolated(hero.muscleId) ? 'text-amber-200 underline' : 'text-slate-50'
+              }`}
+            >
+              {muscleNameById(muscleRegion, hero.muscleId)}
+            </button>
+          ) : (
+            <span className="min-w-0 flex-1 truncate font-display text-[17px] font-semibold leading-tight text-slate-50">
+              {muscleNameById(muscleRegion, hero.muscleId)}
+            </span>
+          )}
           <span className={`shrink-0 font-display text-xl font-bold tabular-nums ${ROLE_TEXT[hero.role]}`}>
             {Math.round(hero.level * 100)}
             <span className="text-xs font-medium text-slate-500">%</span>
@@ -909,7 +985,20 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
             <span className="text-slate-500">También </span>
             {others.map((m, i) => (
               <span key={m.muscleId}>
-                <span className={ROLE_TEXT[m.role]}>{muscleNameById(muscleRegion, m.muscleId)}</span>
+                {canIsolate(m.muscleId) ? (
+                  <button
+                    type="button"
+                    onClick={() => isolateByName(m.muscleId)}
+                    aria-pressed={isIsolated(m.muscleId)}
+                    className={`underline-offset-4 transition-colors hover:underline ${
+                      isIsolated(m.muscleId) ? 'text-amber-200 underline' : ROLE_TEXT[m.role]
+                    }`}
+                  >
+                    {muscleNameById(muscleRegion, m.muscleId)}
+                  </button>
+                ) : (
+                  <span className={ROLE_TEXT[m.role]}>{muscleNameById(muscleRegion, m.muscleId)}</span>
+                )}
                 <span className="tabular-nums text-slate-500"> {Math.round(m.level * 100)}%</span>
                 {i < others.length - 1 ? <span className="text-slate-600">, </span> : null}
               </span>

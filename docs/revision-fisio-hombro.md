@@ -13,6 +13,16 @@ ver el fallo descrito y hace falta que lo detalle).
 
 ## Resumen
 
+**Estado del bloque de movimiento (el elegido para empezar):**
+
+| Nota | Estado |
+|---|---|
+| 16 · los huesos se atraviesan | ✅ hecho |
+| 14 · rotaciones mal | ✅ hecho |
+| 11 · aislar músculos | ✅ hecho |
+| 13 · flexión mal | 🟡 parcial |
+| 17 · ver la biomecánica | 🟡 parcial, necesita concreción |
+
 | Bloque | Puntos | Peso |
 |---|---|---|
 | Contenido anatómico (falta o está mal) | 2, 3, 4, 8, 25, 26 | 🔴 alto |
@@ -90,10 +100,39 @@ Tres cosas distintas:
 ### 11 · En el movimiento deberían aislarse los músculos
 > *"en el mov deberían aislarse los músculos"*
 
-Durante la reproducción no se puede dejar un músculo solo para ver qué hace.
+Aislar **ya existía**, pero solo llegaba por clic sobre el modelo: había que
+encontrar el músculo en el 3D, en marcha, y acertarle. Y justo al lado, el
+panel del ritmo te estaba diciendo por su nombre qué músculo trabaja en ese
+ángulo — como texto muerto.
 
-- **Dónde:** `src/components/movement/MovementView.tsx`, `MuscleBands.tsx`
-- **Estado:** pendiente
+**Corregido:** los nombres del panel son ahora accionables. Clic en el músculo
+protagonista (o en cualquiera de la línea "También") lo deja solo en el
+modelo; clic otra vez lo deshace. Sale en el panel de disección con su salida,
+y Escape también lo quita.
+
+- `dissectChannel.isolateMuscle(id, label, bases)`, que aísla por id sin
+  necesitar una selección de clic.
+- Los músculos se resuelven con `musclesForRomLookup`, no con el registro
+  estático, para que funcione también en las regiones de pago.
+- **Estado:** ✅ hecho
+
+### 17 · En el movimiento quiere ver la biomecánica
+> *"en el mov quisiera ver la biomecánica"*
+
+`BiomechanicsGuide` existe, pero vive en la pestaña **"Aprender"**, no en el
+laboratorio de movimiento.
+
+**Hecho a medias.** He añadido lo que la corrección de la nota 16 acaba de
+hacer posible: el panel del ritmo abre ahora la parte escapular en las dos
+articulaciones que la producen — cuántos grados pone la **esternoclavicular**
+(la clavícula que se eleva) y cuántos la **acromioclavicular** (la escápula
+girando sobre ella). Antes eso no se podía enseñar porque el modelo no lo
+hacía.
+
+- **Estado:** parcial — ⚠️ **hace falta que lo concrete.** "Ver la
+  biomecánica" admite varias lecturas (¿los brazos de palanca? ¿las fuerzas?
+  ¿la guía narrada de "Aprender" dentro del laboratorio?) y no quiero adivinar
+  y construir la equivocada.
 
 ### 14 · Las rotaciones interna y externa están mal
 > *"Rot int y ext mal"*
@@ -380,7 +419,13 @@ bloques de relevancia clínica de las fichas de músculo (no solo los tests).
 
 ---
 
-## Dos cosas que hay que preguntarle al fisio
+## Lo que hay que preguntarle al fisio
 
-1. **Punto 10 (porcentajes):** ¿en qué pantalla los vio?
+1. **Punto 10 (porcentajes):** ¿en qué pantalla los vio? Sospecho que son los
+   de reclutamiento muscular del panel del ritmo, que llevan al lado un aviso
+   de que son un modelo y no un EMG medido — si son esos, el aviso no está
+   funcionando.
 2. **Punto 12 (240°):** ¿es el giro de la cámara o un valor de un movimiento?
+   No hay ningún 240 en los datos de hombro.
+3. **Punto 17 (biomecánica):** ¿qué esperaba ver? ¿Brazos de palanca, fuerzas,
+   o la guía narrada de "Aprender" dentro del laboratorio?
