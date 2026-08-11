@@ -18,6 +18,7 @@ ver el fallo descrito y hace falta que lo detalle).
 | Nota | Estado |
 |---|---|
 | 2 · clavícula no se encuentra | ✅ hecho |
+| 8 · origen e inserción | ✅ hecho |
 | 16 · los huesos se atraviesan | ✅ hecho |
 | 14 · rotaciones mal | ✅ hecho |
 | 11 · aislar músculos | ✅ hecho |
@@ -104,16 +105,53 @@ seleccionable con su recorrido. Se repite en el punto **26**.
 > *"Origen: puntos muy grandes, no se diferencia. Inserción se repite
 > (pectoral) ✗ está mal puesta"*
 
-Tres cosas distintas:
-1. Los marcadores son tan grandes que **origen e inserción no se distinguen**.
-2. La inserción **se repite** (aparece más de un marcador donde debería
-   haber uno).
-3. La del **pectoral mayor está en el sitio equivocado**. El dato de texto
-   ("cresta del troquíter") es correcto; lo que falla es dónde se pinta.
+Las tres cosas eran ciertas, y las dos últimas salían de las **etiquetas del
+propio modelo**.
 
-- **Dónde:** `src/components/AttachmentMarkers.tsx`,
-  `src/data/attachmentLandmarks.ts`
-- **Estado:** pendiente
+**"Se repite" y "está mal puesta".** El pectoral mayor traía **8 marcadores
+de inserción** en vez de 2. Seis pertenecen a la cabeza esternocostal y están
+sobre el **esternón** (x ≈ 0,01–0,06 · z ≈ +0,10), que es donde esa cabeza
+*se origina*. La app dibujaba por tanto cuatro chinchetas que decían
+"Inserción: cresta del troquíter" repartidas por el pecho.
+
+Auditando el resto apareció un segundo fallo que el fisio no llegó a anotar:
+el **trapecio tiene las dos inserciones invertidas**. Su única "inserción"
+estaba en la línea media de la nuca (0,020 · 1,572) y sus "orígenes",
+lateralmente sobre el hombro.
+
+Ninguna de las dos correcciones es opinión mía: **contradicen el contenido
+citado de la propia app**. `shoulderMuscles.ts` da el origen del trapecio como
+*"protuberancia occipital externa, ligamento nucal y apófisis espinosas de C7
+a T12"* y su inserción como *"tercio lateral de la clavícula, acromion y
+espina de la escápula"* — exactamente al revés que los sufijos de malla. Y
+lista la cabeza esternocostal del pectoral bajo **origen**.
+
+Tras la corrección, medido sobre el modelo:
+
+| Músculo | Origen | Inserción |
+|---|---|---|
+| Pectoral mayor | 5 puntos (esternón, clavícula, vaina abdominal) | **1, en el húmero** |
+| Trapecio | 1 (nuca, línea media) | 3 (clavícula, acromion, espina) |
+| Deltoides | 3 (clavícula, acromion, espina) | 1 (tuberosidad deltoidea) |
+
+El deltoides queda **igual que antes**, que es la comprobación de que la
+corrección no toca lo que ya estaba bien.
+
+**"Puntos muy grandes".** La chincheta medía 1,2 cm de radio y su halo 2,6 cm:
+dos anclajes a pocos centímetros se fundían en un solo borrón. Reducidos a la
+mitad. Y ahora **origen e inserción se distinguen por forma** (esfera contra
+octaedro), no solo por color — el color solo falla con los dos en pantalla, en
+un proyector lavado, o para alguien daltónico.
+
+Además, varias mallas-punto a un centímetro entre sí se funden en una sola
+chincheta, así que un mismo anclaje deja de apilar etiquetas.
+
+Se hace con **tabla curada, no con heurística geométrica** ("las inserciones
+son laterales"): una heurística que reetiqueta anclajes en silencio es justo
+lo que rompería un músculo que nadie vuelva a mirar.
+
+- **Dónde:** `src/lib/attachmentParts.ts`, `src/components/AttachmentMarkers.tsx`
+- **Estado:** ✅ hecho — 259 pruebas en verde.
 
 ### 25 · No están todos los dermatomas ni todos los miotomas
 ### 26 · No hay nervios

@@ -26,6 +26,7 @@ import * as THREE from 'three';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { parseMeshName } from '../lib/parseMeshName';
 import { getLandmarks } from '../data/attachmentLandmarks';
+import { mergeNearbyMarkers, resolveAttachmentPart } from '../lib/attachmentParts';
 import type { MuscleResolution } from '../lib/muscleResolver';
 import type { SideFilter } from '../store/anatomyStore';
 
@@ -34,10 +35,13 @@ import type { SideFilter } from '../store/anatomyStore';
 const ORIGIN_COLOR = 0xffb24d;
 const INSERTION_COLOR = 0x2ee6a6;
 
-// Marker sizing is in world units. The shoulder model is roughly ~1 unit tall
-// per arm span fragment, so these are tuned small. Adjust if your scale differs.
-const PIN_RADIUS = 0.012;
-const HALO_RADIUS = 0.026;
+// Marker sizing is in world units. A physio reviewing the shoulder wrote
+// "Origen: puntos muy grandes, no se diferencia" -- at the old 1.2 cm pin and
+// 2.6 cm halo, two attachments a few centimetres apart merged into one glowing
+// blob and neither could be told from the other. Halved, so a pin reads as a
+// point ON a landmark rather than as the landmark.
+const PIN_RADIUS = 0.006;
+const HALO_RADIUS = 0.013;
 
 interface AttachmentTarget {
   position: THREE.Vector3;
@@ -150,9 +154,13 @@ export function AttachmentMarkers({ resolution }: AttachmentMarkersProps) {
       // Does this mesh belong to the selected muscle?
       const muscle = resolution.muscleByMeshName.get(m.name);
       if (!muscle || muscle.id !== selectedMuscleId) return;
-      // Is it the focused part?
+      // Is it the focused part? Z-Anatomy mislabels some attachments (the
+      // pectoralis major's sternocostal head, the whole trapezius), so the
+      // suffix is corrected against the app's own clinical content first --
+      // otherwise "Inserción: cresta del troquíter" gets drawn on the sternum.
       const parsed = parseMeshName(m.name);
-      if (parsed.part !== partFocus) return;
+      const part = resolveAttachmentPart(muscle.id, m.name, parsed.part);
+      if (part !== partFocus) return;
       if (!sidePasses(parsed.side, sideFilter)) return;
 
       m.getWorldPosition(wpos);
@@ -178,7 +186,10 @@ export function AttachmentMarkers({ resolution }: AttachmentMarkersProps) {
       });
     });
 
-    setTargets(out);
+    // One landmark, one pin: the model can carry several point-meshes a
+    // centimetre apart for a single attachment, and each used to get its own
+    // sphere and its own label.
+    setTargets(mergeNearbyMarkers(out));
   }, [selectedMuscleId, partFocus, sideFilter, resolution, scene, partLabel]);
 
   // Build the marker objects (sphere + halo + label) whenever targets change.
@@ -201,9 +212,15 @@ export function AttachmentMarkers({ resolution }: AttachmentMarkersProps) {
       const pin = new THREE.Group();
       pin.position.copy(t.position);
 
-      // Solid glowing core.
+      // Solid glowing core. SHAPE carries the part as well as colour: a SPHERE
+      // for the origin, an OCTAHEDRON for the insertion. Colour alone was the
+      // only difference before, which fails whenever both pins are on screen at
+      // once, on a washed-out projector, or for a colour-blind user -- and the
+      // review that prompted this said the two could not be told apart.
       const core = new THREE.Mesh(
-        new THREE.SphereGeometry(PIN_RADIUS, 24, 24),
+        t.part === 'origin'
+          ? new THREE.SphereGeometry(PIN_RADIUS, 24, 24)
+          : new THREE.OctahedronGeometry(PIN_RADIUS * 1.35, 0),
         new THREE.MeshBasicMaterial({ color, depthTest: false }),
       );
       core.renderOrder = 998;
