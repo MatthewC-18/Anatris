@@ -36,3 +36,27 @@ export function rigGlbPath(): string {
     'cuerpo-rig.opt.glb',
   );
 }
+
+/** The Explorar model, a different GLB from the rig (public/modelo-opt.dec.glb). */
+export function explorerGlbPath(): string {
+  return firstThatExists(
+    [
+      process.env.ANATRIS_MODEL_GLB,
+      resolve(REPO, 'public/modelo-opt.dec.glb'),
+      'C:/Users/Matthew/Documents/Fisio/public/modelo-opt.dec.glb',
+    ],
+    'modelo-opt.dec.glb',
+  );
+}
+
+/** The generated anatomy index (npm run build-anatomy). */
+export function anatomyIndexPath(): string {
+  return firstThatExists(
+    [
+      process.env.ANATRIS_INDEX,
+      resolve(REPO, 'public/anatomy-index.json'),
+      'C:/Users/Matthew/Documents/Fisio/public/anatomy-index.json',
+    ],
+    'anatomy-index.json',
+  );
+}

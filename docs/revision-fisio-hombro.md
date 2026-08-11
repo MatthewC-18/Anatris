@@ -17,6 +17,7 @@ ver el fallo descrito y hace falta que lo detalle).
 
 | Nota | Estado |
 |---|---|
+| 2 · clavícula no se encuentra | ✅ hecho |
 | 16 · los huesos se atraviesan | ✅ hecho |
 | 14 · rotaciones mal | ✅ hecho |
 | 11 · aislar músculos | ✅ hecho |
@@ -40,15 +41,43 @@ ver el fallo descrito y hace falta que lo detalle).
 ### 2 · No se muestran todos los músculos o huesos — romboides ✓, clavícula ✗
 > *"No se muestra todos los músculos o huesos: romboides ✓ / clavícula ✗"*
 
-El fisio comprobó dos piezas: el romboides sí aparece, la **clavícula no**.
-La clavícula existe en el rig (`RigModel.tsx` la ligó en la pasada v11 de
-completado de esqueleto) pero no es seleccionable ni aparece en la lista de
-la región de hombro. Hay que auditar la región entera: qué huesos y músculos
-del hombro se pueden ver y seleccionar, frente a la lista que debería haber.
+**La barra lateral solo listaba músculos.** Comprobado antes de tocar nada: la
+clavícula **sí** está en el modelo, **sí** entra en la región de hombro (la
+definición incluye `clavic`) y **sí** se etiqueta al margen en Explorar (lo
+verifica `npm exec tsx scripts/audit-atlas-labels.mts`). Lo que no se podía
+hacer era **encontrarla**: el único listado del carril es `MuscleList`, y una
+clavícula no es un músculo. El romboides aparecía porque sí lo es.
 
-- **Dónde:** `src/data/musclesByRegion.ts`, `src/data/shoulderMuscles.ts`,
-  `src/components/movement/RigModel.tsx`, `src/components/MuscleList.tsx`
-- **Estado:** pendiente
+Y es justo al revés de lo deseable: los huesos profundos son los que **no**
+se pueden alcanzar con un clic, que es exactamente la razón por la que existe
+la lista de músculos.
+
+**Corregido:** sección **"Huesos"** nueva en la barra lateral. Para el hombro
+lista las 6 estructuras que un fisio busca:
+
+> Clavícula · Escápula · Húmero · Rodete glenoideo · Disco articular
+> acromioclavicular · Disco articular esternoclavicular
+
+Clic en una la selecciona **como estructura** (los dos lados) y lleva la
+cámara hasta ella.
+
+Lo difícil fue **agrupar**. Z-Anatomy nombra los lados de forma inconsistente:
+unas estructuras llevan sufijo `l`/`r` (`Glenoid_labruml`), otras codifican el
+segundo lado como cola duplicada de Blender sin lateralidad ninguna
+(`Clavicle` / `Clavicle_1`), y encima el mismo nombre de malla aparece dos
+veces en la escena. Además la lateralidad no se puede deducir de la letra
+final: `Glenoid_labruml` tiene que perder su `l`, y `Femur` tiene que
+conservar su `r` — mi primera versión rebautizó el fémur como "Femu". Lo que
+los distingue es que existe `Glenoid_labrumr` y no existe `Femul`, así que
+ahora decide el **emparejamiento**, no la letra.
+
+Como el store no sabía expresar "un hueso" (solo `selectedMeshName`, que
+alumbraría media clavícula), se añade `selectBone(id, meshNames)` y el modelo
+resalta la unión.
+
+- **Dónde:** `src/lib/boneList.ts`, `src/components/BoneList.tsx`,
+  `src/components/Sidebar.tsx`, `src/store/anatomyStore.ts`, `AnatomyModel.tsx`
+- **Estado:** ✅ hecho — 10 pruebas del agrupador, 249 en total en verde.
 
 ### 3 · Los músculos deberían agruparse, no ir por fibras
 > *"3 músculos no por fibras sino en conjunto (deltoides ant, medio, post)"*

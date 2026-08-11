@@ -131,6 +131,19 @@ interface AnatomyState {
   clearSelection: () => void;
   setHovered: (meshName: string | null) => void;
 
+  /**
+   * A BONE selected as a whole structure, not as one mesh.
+   *
+   * `selectedMeshName` cannot express it: Z-Anatomy ships the two sides of a bone
+   * as separate meshes with DIFFERENT names (Clavicle / Clavicle_1), and the same
+   * name can even appear twice in the scene. Selecting one of them lights half a
+   * clavicle. The bone list writes every mesh of the structure here instead, and
+   * the model highlights the union.
+   */
+  selectedBoneId: string | null;
+  selectedBoneMeshes: string[] | null;
+  selectBone: (boneId: string | null, meshNames?: string[]) => void;
+
   /* ----- muscle selection (clinical entity, spans many meshes) ----- */
   selectedMuscleId: string | null;
   selectMuscle: (muscleId: string | null) => void;
@@ -248,11 +261,39 @@ export const useAnatomyStore = create<AnatomyState>((set) => ({
   selectedMeshName: null,
   hoveredMeshName: null,
   selectMesh: (meshName) =>
-    set({ selectedMeshName: meshName, romSelection: null, romHighlight: null, romFocusMuscleId: null }),
+    set({
+      selectedMeshName: meshName,
+      // A mesh click and a bone-list pick are two ways of selecting; the second
+      // must not linger behind the first.
+      selectedBoneId: null,
+      selectedBoneMeshes: null,
+      romSelection: null,
+      romHighlight: null,
+      romFocusMuscleId: null,
+    }),
+  selectedBoneId: null,
+  selectedBoneMeshes: null,
+  selectBone: (boneId, meshNames) =>
+    set({
+      selectedBoneId: boneId,
+      selectedBoneMeshes: boneId && meshNames?.length ? meshNames : null,
+      // Point the detail panel at one of the bone's meshes so it can name what
+      // was picked. The HIGHLIGHT still comes from selectedBoneMeshes above, so
+      // the whole structure lights even though the panel reads a single mesh.
+      selectedMeshName: boneId && meshNames?.length ? meshNames[0] : null,
+      // Picking a bone clears the muscle selection: one structure at a time.
+      selectedMuscleId: null,
+      partFocus: null,
+      romSelection: null,
+      romHighlight: null,
+      romFocusMuscleId: null,
+    }),
   clearSelection: () =>
     set({
       selectedMeshName: null,
       selectedMuscleId: null,
+      selectedBoneId: null,
+      selectedBoneMeshes: null,
       partFocus: null,
       romSelection: null,
       romHighlight: null,
@@ -266,7 +307,16 @@ export const useAnatomyStore = create<AnatomyState>((set) => ({
   // we do NOT clear romMuscleId here — the "by muscle" ROM view intentionally
   // follows the selected muscle (see RomPanel).
   selectMuscle: (muscleId) =>
-    set({ selectedMuscleId: muscleId, partFocus: null, romSelection: null, romHighlight: null, romFocusMuscleId: null }),
+    set({
+      selectedMuscleId: muscleId,
+      // One structure selected at a time (see selectBone).
+      selectedBoneId: null,
+      selectedBoneMeshes: null,
+      partFocus: null,
+      romSelection: null,
+      romHighlight: null,
+      romFocusMuscleId: null,
+    }),
 
   /* ----- part focus ----- */
   partFocus: null,

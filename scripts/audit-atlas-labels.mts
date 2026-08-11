@@ -17,14 +17,15 @@ import { REGIONS, resolveRegionMeshes, resolveRegionFade } from '../src/data/reg
 import { musclesForRegion } from '../src/data/musclesByRegion.ts';
 import { buildMuscleResolution } from '../src/lib/muscleResolver.ts';
 import { pickLabelTargets } from '../src/lib/atlasPlate.ts';
+import { anatomyIndexPath, explorerGlbPath } from './lib/rigPath.mts';
 
 const index = JSON.parse(
-  readFileSync('C:/Users/Matthew/Documents/Fisio/public/anatomy-index.json', 'utf8'),
+  readFileSync(anatomyIndexPath(), 'utf8'),
 );
 const byMesh = new Map<string, any>();
 for (const e of index.entries) byMesh.set(e.meshName, e);
 
-const buf = readFileSync('C:/Users/Matthew/Documents/Fisio/public/modelo-opt.dec.glb');
+const buf = readFileSync(explorerGlbPath());
 const ld = new GLTFLoader();
 ld.setMeshoptDecoder(MeshoptDecoder);
 const gl = await new Promise<any>((r, j) =>

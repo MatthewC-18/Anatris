@@ -203,6 +203,7 @@ export function AnatomyModel({
   const showOriginInsertion = useAnatomyStore((s) => s.showOriginInsertion);
   const showAccessoryTissue = useAnatomyStore((s) => s.showAccessoryTissue);
   const selectedMeshName = useAnatomyStore((s) => s.selectedMeshName);
+  const selectedBoneMeshes = useAnatomyStore((s) => s.selectedBoneMeshes);
   const hoveredMeshName = useAnatomyStore((s) => s.hoveredMeshName);
   const selectMesh = useAnatomyStore((s) => s.selectMesh);
   const setHovered = useAnatomyStore((s) => s.setHovered);
@@ -585,6 +586,7 @@ export function AnatomyModel({
       meshes,
       byMesh,
       selectedMeshName,
+      selectedBoneMeshes,
       selectedMuscleId,
       selectedDepth,
       muscleIdByUuid,
@@ -611,7 +613,8 @@ export function AnatomyModel({
     // we still treat romActive as its own branch for clarity and safety.
     const romActive = romHighlight != null && romHighlight.size > 0;
     const focusing =
-      romActive || selectedMuscleId != null || selectedMeshName != null;
+      romActive || selectedMuscleId != null || selectedMeshName != null ||
+      (selectedBoneMeshes?.length ?? 0) > 0;
     // Part focus only engages if the selected muscle actually has meshes of
     // that part (otherwise it would dim the whole muscle to nothing).
     const partActive = partFocus != null && partFocusHasMeshes;
@@ -659,7 +662,10 @@ export function AnatomyModel({
 
       const isSelectedMuscle =
         selectedMuscleId != null && muscleOfMeshId === selectedMuscleId;
-      const isSelectedMesh = mesh.name === selectedMeshName;
+      // A bone is selected as a STRUCTURE: Z-Anatomy splits the two sides into
+      // meshes with different names, so the selection is a set, not a name.
+      const isSelectedMesh =
+        mesh.name === selectedMeshName || !!selectedBoneMeshes?.includes(mesh.name);
       const isHovered = mesh.name === hoveredMeshName;
 
       // Part-focus sub-roles, only meaningful for the selected muscle's meshes.
@@ -848,6 +854,7 @@ export function AnatomyModel({
     paintKey,
     byMesh,
     selectedMeshName,
+    selectedBoneMeshes,
     hoveredMeshName,
     selectedMuscleId,
     selectedDepth,

@@ -34,6 +34,7 @@ import {
   SECONDARY_LAYERS,
 } from '../lib/anatomyMeta';
 import { MuscleList } from './MuscleList';
+import { BoneList } from './BoneList';
 import { DepthPeeler } from './DepthPeeler';
 import { RomPanel } from './RomPanel';
 import { trackForRegion } from '../data/trackByRegion';
@@ -41,7 +42,7 @@ import type { AnatomyLayer, AnatomyIndex } from '../types/anatomy';
 import type { MuscleResolution } from '../lib/muscleResolver';
 
 /** The three collapsible sections of the rail. */
-type SectionId = 'muscles' | 'view' | 'rom';
+type SectionId = 'muscles' | 'bones' | 'view' | 'rom';
 
 interface SidebarProps {
   index: AnatomyIndex | null;
@@ -75,6 +76,17 @@ export function Sidebar({ index, resolution, onNavigate }: SidebarProps) {
           setOpen={setOpen}
         >
           <MuscleList resolution={resolution} />
+        </Section>
+
+        {/* Bones. The rail listed only muscles, so a clavicle -- a structure you
+            cannot reach by clicking, which is exactly what a list is for -- had
+            nowhere to be found. */}
+        <Section id="bones" title="Huesos" open={open} setOpen={setOpen}>
+          {index ? (
+            <BoneList index={index} />
+          ) : (
+            <p className="px-1 py-2 text-xs text-slate-500">Cargando el modelo…</p>
+          )}
         </Section>
 
         <Section id="view" title="Vista y capas" open={open} setOpen={setOpen}>
