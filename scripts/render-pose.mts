@@ -13,8 +13,9 @@
 //   DEG    clinical angle, or a comma list for a contact sheet (0,45,90,135,180)
 //   SIDE   R (default) | L
 //   VIEW   front (default) | side
-//   LAYERS what to draw: all (default) | bone | muscle  -- `bone` answers
-//          "do the bones cross each other?", which skin and muscle hide.
+//   LAYERS what to draw: all (default) | bone | muscle | skin. `bone` answers
+//          "do the bones cross each other?", which skin and muscle hide; `skin`
+//          answers "is the envelope torn?", since a hole shows the background.
 //   RAW    off (default) | on -- `on` skips the runtime's wrap/carry/aim, to see
 //          what the chain alone does.
 import { readFileSync } from 'node:fs';
@@ -31,7 +32,7 @@ const MOVE = process.env.MOVE ?? 'glenohumeral-abduction';
 const DEGS = (process.env.DEG ?? '90').split(',').map(Number);
 const SIDE = (process.env.SIDE ?? 'R') as Side;
 const VIEW = (process.env.VIEW ?? 'front') as View;
-const LAYERS = (process.env.LAYERS ?? 'all') as 'all' | 'bone' | 'muscle';
+const LAYERS = (process.env.LAYERS ?? 'all') as 'all' | 'bone' | 'muscle' | 'skin';
 const RAW = process.env.RAW === 'on';
 const OUT = process.env.OUT ?? 'pose.png';
 const BOX = (process.env.BOX ?? '-0.75,0.75,0.75,1.85').split(',').map(Number) as
@@ -56,32 +57,56 @@ const inDistalRegion = (c: THREE.Vector3) =>
 
 const poser = createRigPoser(scene, MOVE, SIDE, !RAW);
 
-/** Skinned world positions + normals, i.e. what the GPU would draw. */
+/**
+ * Skinned world positions + normals, i.e. what the GPU would draw.
+ *
+ * The normals are RECOMPUTED from the posed triangles rather than carried over
+ * from the rest pose. Skinning bends normals too, and the bone transform for a
+ * normal is the inverse-transpose of the per-vertex skinning matrix, which three
+ * does not expose. Reusing the rest normals shades a heavily rotated limb as if
+ * it had never moved, which reads as faceting and dark plates -- and that is
+ * indistinguishable, by eye, from skin actually coming apart. Since telling those
+ * two apart is the whole job here, it is worth the extra pass.
+ */
 function posedVertices(m: THREE.Mesh) {
   const g = m.geometry;
   const pos = g.getAttribute('position');
-  const nrm = g.getAttribute('normal');
   if (!pos) return null;
   const sk = m as THREE.SkinnedMesh;
   const skinned = !!sk.isSkinnedMesh;
   if (skinned) sk.skeleton.update();
   const positions: THREE.Vector3[] = [];
-  const normals: THREE.Vector3[] = [];
   const v = new THREE.Vector3();
-  const nrmMat = new THREE.Matrix3().getNormalMatrix(m.matrixWorld);
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i);
     if (skinned) sk.applyBoneTransform(i, v);
     m.localToWorld(v);
     positions.push(v.clone());
-    if (nrm) {
-      // Skinning bends normals too, but the bone transform for a normal needs the
-      // inverse-transpose of the skinning matrix, which three does not expose per
-      // vertex. The mesh-level normal matrix is close enough to tell a lit surface
-      // from an unlit one, which is all the shading here is for.
-      v.fromBufferAttribute(nrm, i).applyMatrix3(nrmMat).normalize();
-      normals.push(v.clone());
-    } else normals.push(new THREE.Vector3(0, 0, 1));
+  }
+
+  const normals: THREE.Vector3[] = positions.map(() => new THREE.Vector3());
+  const idx = g.getIndex();
+  if (idx) {
+    const arr = idx.array as ArrayLike<number>;
+    const ab = new THREE.Vector3();
+    const ac = new THREE.Vector3();
+    const fn = new THREE.Vector3();
+    for (let i = 0; i + 2 < arr.length; i += 3) {
+      const a = positions[arr[i]];
+      const b = positions[arr[i + 1]];
+      const c = positions[arr[i + 2]];
+      if (!a || !b || !c) continue;
+      ab.subVectors(b, a);
+      ac.subVectors(c, a);
+      fn.crossVectors(ab, ac); // area-weighted: no normalise before accumulating
+      normals[arr[i]].add(fn);
+      normals[arr[i + 1]].add(fn);
+      normals[arr[i + 2]].add(fn);
+    }
+  }
+  for (const n of normals) {
+    if (n.lengthSq() > 1e-20) n.normalize();
+    else n.set(0, 0, 1);
   }
   return { positions, normals };
 }
@@ -89,6 +114,7 @@ function posedVertices(m: THREE.Mesh) {
 const wantLayer = (layer: string) =>
   LAYERS === 'all' ? true
   : LAYERS === 'bone' ? layer === 'bone'
+  : LAYERS === 'skin' ? layer === 'skin'
   : layer === 'muscle' || layer === 'connective' || layer === 'bone';
 
 const tiles: { buffer: Uint8Array; width: number; height: number }[] = [];
@@ -108,7 +134,7 @@ for (const deg of DEGS) {
       if (!g.boundingSphere) g.computeBoundingSphere();
       const c = g.boundingSphere!.center.clone().applyMatrix4(m.matrixWorld);
       if (inDistalRegion(c) && !materialIsSkin(mat)) return null;
-      if (layer === 'skin' && LAYERS !== 'all') return null;
+      if (layer === 'skin' && LAYERS !== 'all' && LAYERS !== 'skin') return null;
       return colorForMaterialMesh(mat, m.name) ?? 0xbfae9a;
     },
     vertices: posedVertices,

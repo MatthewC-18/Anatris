@@ -22,6 +22,7 @@
 import * as THREE from 'three';
 import { getBoneControl, resolveArmatureName, type BoneControl } from '../../src/lib/boneMap.ts';
 import { bindClaviclesToShoulderGirdle } from '../../src/lib/clavicleBinding.ts';
+import { bridgeShoulderSkin } from '../../src/lib/shoulderSkinBridge.ts';
 import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../src/lib/biomech/scapulaWrap.ts';
 
 const D2R = Math.PI / 180;
@@ -94,6 +95,7 @@ export function createRigPoser(
   // Mesh repair the app does at load. Must run BEFORE the rest pose is captured,
   // or the harness measures a rig the user never sees.
   bindClaviclesToShoulderGirdle(scene);
+  bridgeShoulderSkin(scene);
   scene.updateMatrixWorld(true);
 
   const byArm = new Map<string, Map<string, THREE.Object3D>>();

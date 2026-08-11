@@ -33,10 +33,10 @@ import { createRigPoser, type Side } from './lib/rigPose.mts';
 import { rigGlbPath } from './lib/rigPath.mts';
 import { layerForMaterial } from '../src/lib/materialColors.ts';
 
-const MOVEMENT = process.argv[2] && process.argv[2] !== 'off'
+const MOVEMENT = process.argv[2] && !['off', 'left', 'allseams'].includes(process.argv[2])
   ? process.argv[2]
   : 'glenohumeral-abduction';
-const APPLY = process.argv[2] === 'off' || process.argv[3] === 'off' ? false : true;
+const APPLY = !process.argv.includes('off');
 const D2R = Math.PI / 180;
 const SIDE: Side = process.argv.includes('left') ? 'L' : 'R';
 
@@ -345,11 +345,17 @@ const nearRib = (p: THREE.Vector3) => {
 const scapRest = scapM.map((m) => posedOf(m).map(nearRib));
 const restArm = armAngle();
 const key = (v: THREE.Vector3) => `${Math.round(v.x * 400)}|${Math.round(v.y * 400)}|${Math.round(v.z * 400)}`;
+// Skin that rests against the flank at zero and MUST separate when the arm
+// leaves the body -- counting it as a seam would flag every correct pose. It
+// also hides a real failure, though: the strip of skin BETWEEN the chest and the
+// deltoid is supposed to stretch, not to open a hole. `allseams` drops the
+// exclusion so that strip can be measured.
 const ARM_SKIN = /region_of_arm|brachial|antebrachial|region_of_elbow|forearm|axilla|region_of_wrist|hand|digit|deltoid/i;
+const ALL_SEAMS = process.argv.includes('allseams');
 const seams: { a: number; b: number; ai: number; bi: number }[] = [];
 for (let i = 0; i < skinM.length; i++)
   for (let j = i + 1; j < skinM.length; j++) {
-    if (ARM_SKIN.test(skinM[i].name) || ARM_SKIN.test(skinM[j].name)) continue;
+    if (!ALL_SEAMS && (ARM_SKIN.test(skinM[i].name) || ARM_SKIN.test(skinM[j].name))) continue;
     const grid = new Map<string, number[]>();
     skinM[j].rest.forEach((v, bi) => { const k = key(v); grid.set(k, [...(grid.get(k) ?? []), bi]); });
     skinM[i].rest.forEach((v, ai) => {

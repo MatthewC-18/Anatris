@@ -38,6 +38,7 @@ import {
   type AnatomyLayer,
 } from '../../lib/materialColors';
 import { bindClaviclesToShoulderGirdle } from '../../lib/clavicleBinding';
+import { bridgeShoulderSkin } from '../../lib/shoulderSkinBridge';
 import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../lib/biomech/scapulaWrap';
 import { muscleDepthLevel, type MuscleDepthLevel } from '../../lib/muscleDepth';
 import { parseMeshName, structureKey, type ParsedSide } from '../../lib/parseMeshName';
@@ -1815,6 +1816,17 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // could not move -- the scapula rotated out from under a clavicle bolted to
       // the spine. See src/lib/clavicleBinding.ts for the measurements.
       const clavicleBind = bindClaviclesToShoulderGirdle(scene);
+      // ANTERIOR SHOULDER SKIN. The deltopectoral triangle and the infraclavicular
+      // fossa ship bound to a thoracic vertebra, so the shoulder tore open when the
+      // arm went forward. See src/lib/shoulderSkinBridge.ts.
+      const skinBridge = bridgeShoulderSkin(scene);
+      if (skinBridge.skipped.length > 0) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          '[RigModel] piel de transición sin graduar:',
+          skinBridge.skipped.map((s) => `${s.mesh} (${s.reason})`).join(', '),
+        );
+      }
       if (clavicleBind.skipped.length > 0) {
         // eslint-disable-next-line no-console
         console.warn(

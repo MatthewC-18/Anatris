@@ -143,16 +143,55 @@ Durante la reproducción no se puede dejar un músculo solo para ver qué hace.
 ### 13 · La flexión está mal
 > *"flexión mal el mov"*
 
-- **Estado:** pendiente. Lo medido hasta ahora: el brazo **sí** clava el
-  ángulo pedido (0,0° de error en todo el arco) y no se sale del plano
-  sagital, así que no es el ángulo. Dos pistas: (a) la corrección de
-  puntería que necesita la flexión es enorme (−53° a 180° antes de aplicarla,
-  frente a −9,7° en abducción), porque la rotación ascendente de la escápula
-  se gasta fuera del plano sagital; (b) a 80° hay un pico de 4,1 cm de hueso
-  asomando por encima del músculo que lo cubre. Falta decidir cuál de las dos
-  es lo que vio el fisio.
+**Parcialmente corregido.** Lo descartado, con medida:
 
-- **Dónde:** `src/lib/boneMap.ts`, `src/components/movement/RigModel.tsx`
+- **No es el ángulo.** El brazo clava el ángulo pedido con 0,0° de error en
+  todo el arco.
+- **No se sale del plano.** El brazo apenas se desvía respecto a su propio
+  hombro; lo que se mueve es el hombro entero (4,5 cm hacia dentro, 8,8 cm
+  hacia arriba a 180°), y eso es geometría correcta de una clavícula que se
+  eleva. Flexión y abducción se comportan **idénticamente** ahí.
+- **La piel no se rompe.** El sobre cutáneo está entero durante todo el arco.
+
+**Corregido — la piel de transición estaba soldada a la columna.** Entre el
+pecho y el deltoides hay una tira de piel (triángulo deltopectoral y fosa
+infraclavicular) cuya función es estirarse sobre un hombro que se mueve. Las
+dos venían cosidas al 100 % a una vértebra (`vert_T3` y `vert_T2`), el mismo
+fallo que la clavícula. Al flexionar, la piel del deltoides se iba con el
+húmero y la tira se quedaba.
+
+Corregirlo costó tres intentos, y los dos primeros enseñan por qué el
+reparto hay que **derivarlo** y no elegirlo:
+
+| Intento | Peor apertura a 180° |
+|---|---|
+| Original (tira soldada a la vértebra) | 14,84 cm |
+| Degradado medial→lateral por su anchura | 14,15 cm (abrió otra costura) |
+| Degradado hacia la escápula | 10,34 cm |
+| **Heredando la mezcla real del vecino** | **9,69 cm** |
+
+La tira hereda ahora a sus vecinos: cada vértice mira la piel que se queda en
+el tórax y la que viaja con el hombro, y mezcla según cuál tiene más cerca,
+copiando la mezcla de huesos del vecino sea cual sea (la piel del deltoides
+es 60 % escápula / 40 % húmero, no escápula pura — por eso los intentos
+anteriores no cerraban).
+
+**Lo que queda:** hay músculo asomando por delante de la piel en el hombro
+anterior entre 45° y 135°. Es un problema de músculo que sobresale del sobre,
+no de piel rota.
+
+- **Estado:** parcial. 239 pruebas en verde.
+
+### ⚠️ Aviso sobre el instrumental
+
+En medio de esto me equivoqué de diagnóstico: `render-pose` reutilizaba las
+normales de la pose de reposo, así que un miembro muy rotado se sombreaba
+como si no se hubiera movido. Eso pinta facetas y placas oscuras que **son
+indistinguibles a ojo de una piel rompiéndose**, y me llevó a dar por roto un
+sobre cutáneo que estaba entero. El renderizador recalcula ya las normales
+desde los triángulos posados. Cualquier conclusión visual anterior a ese
+arreglo hay que mirarla con desconfianza; las **medidas** no se ven afectadas,
+porque salen de posiciones, no de sombreado.
 
 ### 16 · Los huesos se atraviesan, no se mueven en conjunto
 > *"el mov de los huesos se atraviesa, no se mueve en conjunto"*
