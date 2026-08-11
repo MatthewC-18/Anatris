@@ -184,6 +184,16 @@ export function createRigPoser(
       const p = restPos.get(o); if (p) o.position.copy(p);
       const s = restScale.get(o); if (s) o.scale.copy(s);
     });
+    // --- EXAMINATION POSTURE (RigModel): held at every angle, 0 included ---
+    if (!isChain && (control as any).posture) {
+      for (const p of (control as any).posture) {
+        const pb = shoulderBones.get(p.bone);
+        if (!pb) continue;
+        pb.quaternion.copy(restQuat.get(pb)!);
+        pb.rotateOnAxis(AX[p.axis], p.sign[side] * p.deg * D2R);
+      }
+      scene.updateMatrixWorld(true);
+    }
     if (deg !== 0 && !isChain) {
       // --- a plain JOINT: one bone, one local axis, per-side sign ---
       const j = control as any;

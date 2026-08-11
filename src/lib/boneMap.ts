@@ -46,6 +46,26 @@ export interface BoneCoupling {
   follow: (primaryRad: number) => number;
 }
 
+/**
+ * A joint held in a FIXED position for the whole movement, because that is the
+ * position the movement is examined in.
+ *
+ * Unlike a coupling, this does not follow the driven angle: it is a posture, so
+ * it is held at every angle INCLUDING 0, and the model opens already in the
+ * examination position. Shoulder rotation is the case that forced it -- with the
+ * elbow straight, humeral rotation is a cylinder turning about its own axis and
+ * nothing visible happens, which is not how any physio reads that range.
+ */
+export interface ExamPosture {
+  bone: string;
+  axis: RigAxis;
+  /** Clinical degrees held, positive in the direction `sign` describes. */
+  deg: number;
+  sign: Record<Side, 1 | -1>;
+  /** Spanish, user-facing: why the model starts here rather than at anatomical zero. */
+  reason: string;
+}
+
 /** A single-bone (limb) joint movement. */
 export interface JointControl {
   kind: 'joint';
@@ -56,6 +76,8 @@ export interface JointControl {
   sign: Record<Side, 1 | -1>;
   clinicalRange: { min: number; max: number };
   couplings?: BoneCoupling[];
+  /** Joints held in the examination position for the whole arc. */
+  posture?: ExamPosture[];
   /**
    * True when the axis SIGN could not be derived from the handoff (longitudinal
    * rotations, lateral bending). The kinematics are correct; only the +/-
@@ -150,6 +172,21 @@ export type BoneControl =
 // below, decomposed by ./biomech/shoulderChain), which also drives humeral
 // external rotation and thoracic participation.
 
+/**
+ * The elbow held at 90 deg, the position shoulder rotation is examined in. Same
+ * bone/axis/sign as `elbow-flexion`, so it flexes and never hyperextends.
+ */
+const ELBOW_AT_90: ExamPosture = {
+  bone: 'forearm_flex',
+  axis: 'x',
+  deg: 90,
+  sign: { R: 1, L: -1 },
+  reason:
+    'La rotación del hombro se explora con el codo a 90° y pegado al cuerpo: el ' +
+    'antebrazo es la aguja que marca el ángulo. Con el codo estirado el húmero ' +
+    'gira sobre su propio eje y no se aprecia nada.',
+};
+
 /** Patellar glide: patella tracks the knee. patella.x = shin_flex.x * 0.5 */
 const patellarGlide: BoneCoupling = {
   bone: 'patella',
@@ -199,8 +236,12 @@ export const BONE_MAP: Record<string, BoneControl> = {
     decompose: (deg, side, mod) => {
       const p = shoulderChain(deg, side, mod);
       // External rotation sign matches glenohumeral-external-rotation below
-      // (R: +1, L: -1). shoulderChain returns it unsigned.
-      const erSign = side === 'R' ? 1 : -1;
+      // (R: -1, L: +1). shoulderChain returns it unsigned. Flipped along with
+      // those two: while the rotations were swapped, the obligatory external
+      // rotation of elevation was driving the humerus INTERNALLY, which turns the
+      // greater tuberosity INTO the acromion instead of clearing it out from
+      // under the arch -- the opposite of what this rotation exists to do.
+      const erSign = side === 'R' ? -1 : 1;
       return {
         humerus: p.glenohumeralRot,        // local-Z, already signed per side
         humeralER: p.humeralExtRot * erSign, // local-Y
@@ -286,7 +327,7 @@ export const BONE_MAP: Record<string, BoneControl> = {
       const abdSideSign = side === 'R' ? -1 : 1;
       const ghMag = p.glenohumeralRot * abdSideSign; // >=0 in flexion, <0 in extension
       const flexSign = -1; // -X on both sides
-      const erSign = side === 'R' ? 1 : -1; // matches glenohumeral-external-rotation
+      const erSign = side === 'R' ? -1 : 1; // matches glenohumeral-external-rotation
       return {
         humerus: ghMag * flexSign, // local-X (sagittal flexion / extension)
         humeralER: p.humeralExtRot * erSign, // local-Y (obligatory ER past 90 deg)
@@ -318,21 +359,46 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // Aiming closes it; the scapula still rotates, so the rhythm stays visible.
     aimPlane: 'x', // flexion is measured in the sagittal plane
   },
+  // THE ROTATIONS ARE EXAMINED WITH THE ELBOW AT 90 DEG. shoulderRom.ts already
+  // teaches exactly that ("evaluada con el codo flexionado a 90° y pegado al
+  // cuerpo") -- the rig just never did it, so the lab taught one thing in the text
+  // and showed another in 3D. With the elbow straight the humerus turns about its
+  // own long axis and NOTHING moves on screen: measured, the shaft's twist tracks
+  // the asked angle to 0.0 deg while the arm looks identical at 0 and at 40. A
+  // physio reviewing it wrote "Rot int y ext mal". The kinematics were never
+  // wrong; the position was.
+  //
+  // With the forearm held at 90 deg it becomes the pointer, exactly as it is for a
+  // goniometer, and the range reads off the screen.
+  // SIGNS WERE SWAPPED. With the elbow at 90 the direction is finally readable,
+  // and measured on the rig (forearm elbow->wrist vector, both sides) the old
+  // signs drove the hand the wrong way: "external" rotation carried it ACROSS the
+  // belly (lateral component -0.87 at 80 deg) and "internal" carried it OUT to the
+  // side (+0.92 at 70). Flipped here. The error survived this long precisely
+  // because the straight-elbow pose made it invisible.
   'glenohumeral-external-rotation': {
     kind: 'joint',
     armatureBase: 'Shoulder_Armature',
     bone: 'humerus_gh',
     axis: 'y',
-    sign: { R: 1, L: -1 },
+    sign: { R: -1, L: 1 },
     clinicalRange: { min: 0, max: 80 },
+    posture: [ELBOW_AT_90],
   },
   'glenohumeral-internal-rotation': {
     kind: 'joint',
     armatureBase: 'Shoulder_Armature',
     bone: 'humerus_gh',
     axis: 'y',
-    sign: { R: -1, L: 1 },
-    clinicalRange: { min: 0, max: 100 },
+    sign: { R: 1, L: -1 },
+    // RANGE = 70, NOT the 100 deg of the ROM table. 100 deg is the range with the
+    // hand travelling BEHIND the back, where the trunk stops limiting -- which is
+    // what shoulderRom's own overview says. In THIS position (elbow at 90, arm at
+    // the side) the forearm reaches the belly and the trunk blocks it at ~70 deg;
+    // driving to 100 sweeps the forearm straight through the abdomen. The larger
+    // true range stays taught in shoulderRom.ts.
+    clinicalRange: { min: 0, max: 70 },
+    posture: [ELBOW_AT_90],
   },
 
   // --- ELBOW (forearm_flex flexion; forearm_rot pronosupination)

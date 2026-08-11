@@ -95,17 +95,64 @@ Durante la reproducción no se puede dejar un músculo solo para ver qué hace.
 - **Dónde:** `src/components/movement/MovementView.tsx`, `MuscleBands.tsx`
 - **Estado:** pendiente
 
-### 13 · La flexión está mal
 ### 14 · Las rotaciones interna y externa están mal
-> *"flexión mal el mov"* · *"Rot int y ext mal"*
+> *"Rot int y ext mal"*
 
-Fallos de rig en tres movimientos base del hombro. Son los que más
-credibilidad quitan: un fisio detecta al instante que el brazo no se mueve
-como se mueve un hombro.
+**Dos fallos, y el segundo escondía al primero.**
 
-- **Dónde:** `src/lib/boneMap.ts`, `src/components/movement/RigModel.tsx`,
-  `src/data/shoulderRom.ts`
-- **Estado:** pendiente
+1. **Se mostraban con el codo estirado.** Con el codo recto, la rotación del
+   húmero es un cilindro girando sobre su propio eje: no se aprecia nada. La
+   medida lo confirma — la torsión seguía al ángulo pedido con 0,0° de error
+   mientras el brazo se veía **idéntico** a 0° y a 40°. Y la propia ficha de
+   `shoulderRom.ts` ya enseñaba lo contrario: *"evaluada con el codo
+   flexionado a 90° y pegado al cuerpo"*. La app decía una cosa en el texto y
+   mostraba otra en el 3D.
+2. **Los dos sentidos estaban intercambiados.** Al poner el codo a 90° se
+   hizo visible. Medido sobre el rig (vector codo→muñeca, componente lateral,
+   los dos lados): la "rotación externa" llevaba la mano **hacia dentro**
+   (−0,87 a 80°) y la "interna" **hacia fuera** (+0,92 a 70°). Exactamente al
+   revés. El fallo sobrevivió tanto tiempo justo porque la postura de codo
+   recto lo hacía invisible.
+
+**Corregido:**
+- Concepto nuevo de **posición de exploración** en `boneMap` (`ExamPosture`):
+  una articulación que se mantiene fija durante todo el arco, incluido el 0°,
+  porque es la posición en la que se lee el movimiento. Distinto de un
+  acoplamiento, que sigue al ángulo.
+- Signos invertidos en las dos rotaciones. Y con ellos el de la **rotación
+  externa obligatoria de la elevación**, que el propio comentario del código
+  decía alinear con la rotación externa: mientras estuvieron cambiadas, la
+  elevación rotaba el húmero **hacia dentro**, lo contrario de lo que esa
+  rotación existe para hacer.
+- Rango de rotación interna 100° → **70°**. Los 100° son con la mano por
+  detrás de la espalda (lo dice la propia ficha); con el codo a 90° al
+  costado, el antebrazo llega a la barriga y más allá la atraviesa.
+- El panel explica ahora por qué el modelo arranca con el codo doblado.
+
+| Medida (vector codo→muñeca, lateral) | Antes | Ahora |
+|---|---|---|
+| Rotación **externa** a 80° | −0,87 (hacia dentro) | **+0,91 (hacia fuera)** |
+| Rotación **interna** a 70° | +0,92 (hacia fuera) | **−0,77 (hacia dentro)** |
+
+- **Estado:** ✅ hecho — medido en ambos lados, 234 pruebas en verde.
+- **Nota:** el espacio subacromial empeoró en esa métrica al invertir el
+  signo de la cadena. Es un artefacto: mide el punto más cercano entre dos
+  huesos enteros, y a 180° el húmero está legítimamente pegado al acromion.
+  La interpenetración real sigue en 0,00. Conviene que lo mires en pantalla.
+
+### 13 · La flexión está mal
+> *"flexión mal el mov"*
+
+- **Estado:** pendiente. Lo medido hasta ahora: el brazo **sí** clava el
+  ángulo pedido (0,0° de error en todo el arco) y no se sale del plano
+  sagital, así que no es el ángulo. Dos pistas: (a) la corrección de
+  puntería que necesita la flexión es enorme (−53° a 180° antes de aplicarla,
+  frente a −9,7° en abducción), porque la rotación ascendente de la escápula
+  se gasta fuera del plano sagital; (b) a 80° hay un pico de 4,1 cm de hueso
+  asomando por encima del músculo que lo cubre. Falta decidir cuál de las dos
+  es lo que vio el fisio.
+
+- **Dónde:** `src/lib/boneMap.ts`, `src/components/movement/RigModel.tsx`
 
 ### 16 · Los huesos se atraviesan, no se mueven en conjunto
 > *"el mov de los huesos se atraviesa, no se mueve en conjunto"*

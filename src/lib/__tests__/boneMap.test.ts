@@ -85,6 +85,91 @@ describe('boneMap', () => {
     });
   });
 
+  // A physio reviewing the lab wrote "Rot int y ext mal". Two separate faults,
+  // and the second hid the first: the rotations were shown with the elbow
+  // STRAIGHT, where a humerus turning about its own axis looks like nothing
+  // happening -- so nobody could see that the two directions were swapped.
+  describe('shoulder rotations', () => {
+    const ER = 'glenohumeral-external-rotation';
+    const IR = 'glenohumeral-internal-rotation';
+
+    it('are examined with the elbow at 90, on both sides', () => {
+      for (const id of [ER, IR]) {
+        const ctrl = BONE_MAP[id];
+        expect(ctrl?.kind, id).toBe('joint');
+        if (ctrl?.kind !== 'joint') continue;
+        expect(ctrl.posture, `${id} needs an examination posture`).toBeDefined();
+        const elbow = ctrl.posture!.find((p) => p.bone === 'forearm_flex');
+        expect(elbow, `${id} must hold the elbow`).toBeDefined();
+        expect(elbow!.deg, `${id} elbow angle`).toBe(90);
+        // Same sign convention as elbow-flexion, or one elbow hyperextends.
+        const flexion = BONE_MAP['elbow-flexion'];
+        if (flexion?.kind === 'joint') {
+          expect(elbow!.sign.R, `${id} elbow sign R`).toBe(flexion.sign.R);
+          expect(elbow!.sign.L, `${id} elbow sign L`).toBe(flexion.sign.L);
+          expect(elbow!.axis, `${id} elbow axis`).toBe(flexion.axis);
+        }
+        expect(elbow!.reason.length, `${id} must explain the posture`).toBeGreaterThan(20);
+      }
+    });
+
+    it('turn opposite ways, and mirror between sides', () => {
+      const er = BONE_MAP[ER];
+      const ir = BONE_MAP[IR];
+      if (er?.kind !== 'joint' || ir?.kind !== 'joint') throw new Error('not joints');
+      expect(er.axis, 'both rotations share the humeral long axis').toBe(ir.axis);
+      expect(er.bone).toBe(ir.bone);
+      // Opposite directions on the same axis.
+      expect(er.sign.R).toBe(-ir.sign.R);
+      expect(er.sign.L).toBe(-ir.sign.L);
+      // Mirrored armatures: the same clinical movement is opposite in local space.
+      expect(er.sign.R).toBe(-er.sign.L);
+      expect(ir.sign.R).toBe(-ir.sign.L);
+    });
+
+    it('drive the hand OUT in external rotation and ACROSS in internal', () => {
+      // Measured on the rig with the elbow at 90 (forearm elbow->wrist vector,
+      // lateral component, both sides): external ends at +0.91, internal at -0.77.
+      // Before the fix those were -0.87 and +0.92 -- exactly swapped. The signs
+      // below are what produce the measured directions; flipping either one
+      // silently teaches the wrong movement.
+      const er = BONE_MAP[ER];
+      const ir = BONE_MAP[IR];
+      if (er?.kind !== 'joint' || ir?.kind !== 'joint') throw new Error('not joints');
+      expect(er.sign.R, 'external rotation, right arm').toBe(-1);
+      expect(ir.sign.R, 'internal rotation, right arm').toBe(1);
+    });
+
+    it('keep internal rotation inside what the trunk allows in this position', () => {
+      // 100 deg is the range with the hand travelling BEHIND the back, which
+      // shoulderRom teaches. With the elbow at 90 at the side, the forearm meets
+      // the belly at ~70 and anything more sweeps it through the abdomen.
+      const ir = BONE_MAP[IR];
+      if (ir?.kind !== 'joint') throw new Error('not a joint');
+      expect(ir.clinicalRange.max).toBeLessThanOrEqual(70);
+    });
+
+    it('make elevation rotate the humerus the SAME way as external rotation', () => {
+      // The obligatory external rotation of elevation exists to turn the greater
+      // tuberosity out from under the acromion. While the two rotations were
+      // swapped this was driving the humerus INTERNALLY, i.e. the opposite of what
+      // it is for. It must always share external rotation's sign.
+      const er = BONE_MAP[ER];
+      if (er?.kind !== 'joint') throw new Error('not a joint');
+      for (const id of ['glenohumeral-abduction', 'glenohumeral-flexion']) {
+        const ctrl = BONE_MAP[id];
+        if (ctrl?.kind !== 'chain') continue;
+        for (const side of ['R', 'L'] as const) {
+          // Past 90 deg, where the obligatory rotation has engaged.
+          const humeralER = ctrl.decompose(140, side).humeralER;
+          expect(Math.abs(humeralER), `${id} ${side} must rotate at 140`).toBeGreaterThan(0);
+          expect(Math.sign(humeralER), `${id} ${side} vs external rotation`)
+            .toBe(er.sign[side]);
+        }
+      }
+    });
+  });
+
   it('the hip and ankle joints added for Priority 1 are drivable', () => {
     for (const id of [
       'hip-flexion',

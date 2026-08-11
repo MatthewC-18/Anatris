@@ -2627,6 +2627,22 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         return f < 0 ? 0 : f > 1 ? 1 : f;
       };
 
+      // EXAMINATION POSTURE. Held at EVERY angle, 0 included, because it is not
+      // part of the movement -- it is the position the movement is read in (the
+      // elbow at 90 deg for shoulder rotation). Applied before the movement so the
+      // driven bone composes on top of a model already in position.
+      if (ctrl && ctrl.kind === 'joint' && ctrl.posture) {
+        const postureBones = byArmature.get(
+          resolveArmatureName(ctrl.armatureBase, cmd.side),
+        );
+        for (const p of ctrl.posture) {
+          const pb = postureBones?.get(p.bone);
+          if (pb) rotate(pb, p.axis, p.sign[cmd.side] * p.deg * DEG2RAD);
+          // eslint-disable-next-line no-console
+          else console.warn(`[RigModel] posture bone not found: ${p.bone}`);
+        }
+      }
+
       // Apply the clinical rotation. Skipped at the neutral 0 deg and for
       // unsupported movements -- the arm clearance below still runs.
       if (ctrl && ctrl.kind !== 'unsupported' && cmd.angleDeg !== 0) {
