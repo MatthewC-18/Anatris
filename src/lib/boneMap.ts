@@ -205,6 +205,17 @@ export const BONE_MAP: Record<string, BoneControl> = {
         humerus: p.glenohumeralRot,        // local-Z, already signed per side
         humeralER: p.humeralExtRot * erSign, // local-Y
         scapula: p.scapulaUpwardRot,        // local-X (positive both sides)
+        // STERNOCLAVICULAR joint. The clavicle is the PARENT of the scapula, so
+        // its elevation carries the blade with it and the two rotations add up on
+        // the rig exactly as they do in the body. Elevation is +X on both sides
+        // (measured: +20 deg raises the scapula 5.2 cm on each), retraction is
+        // mirrored, so the sign lives here.
+        clavicle: p.clavicleElevation,
+        clavicleRetraction: p.clavicleRetraction * (side === 'R' ? 1 : -1),
+        // NOT a rig target: the scapulothoracic TOTAL, published so the runtime's
+        // scapulothoracic wrap keeps being fed the angle its table was calibrated
+        // against. `scapula` above is only the acromioclavicular share.
+        scapulaTotal: p.scapulothoracicUpwardRot,
         // The lean must be CONTRALATERAL -- the trunk bends away from the rising
         // arm, which is what lets the arm finish vertical. shoulderChain signs it
         // for an anatomical axis; on the rig's vertebra local-Z that sign comes
@@ -218,6 +229,14 @@ export const BONE_MAP: Record<string, BoneControl> = {
       { key: 'humerus', target: { armature: 'shoulder', bones: ['humerus_gh'], axis: 'z' } },
       { key: 'humeralER', target: { armature: 'shoulder', bones: ['humerus_gh'], axis: 'y' } },
       { key: 'scapula', target: { armature: 'shoulder', bones: ['scapula'], axis: 'x' } },
+      // The clavicle is the ROOT of the shoulder chain, so it must be listed
+      // before nothing in particular -- but elevation is its primary rotation and
+      // retraction is the secondary one on the same bone, so keep that order.
+      { key: 'clavicle', target: { armature: 'shoulder', bones: ['clavicle'], axis: 'x' } },
+      {
+        key: 'clavicleRetraction',
+        target: { armature: 'shoulder', bones: ['clavicle'], axis: 'z' },
+      },
       // THORACIC PARTICIPATION (>150 deg). Kapandji's phase 3: the shoulder
       // complex is near its ceiling, so the last stretch to a true vertical is
       // finished by the raquis leaning contralaterally. Restored after being
@@ -271,13 +290,23 @@ export const BONE_MAP: Record<string, BoneControl> = {
       return {
         humerus: ghMag * flexSign, // local-X (sagittal flexion / extension)
         humeralER: p.humeralExtRot * erSign, // local-Y (obligatory ER past 90 deg)
-        scapula: p.scapulaUpwardRot, // local-X (upward rotation, + both sides)
+        scapula: p.scapulaUpwardRot, // local-X (AC share, + both sides)
+        // Same sternoclavicular split as abduction: sagittal elevation raises the
+        // girdle on its clavicle exactly as frontal elevation does.
+        clavicle: p.clavicleElevation,
+        clavicleRetraction: p.clavicleRetraction * (side === 'R' ? 1 : -1),
+        scapulaTotal: p.scapulothoracicUpwardRot, // wrap input, not a rig target
       };
     },
     targets: [
       { key: 'humerus', target: { armature: 'shoulder', bones: ['humerus_gh'], axis: 'x' } },
       { key: 'humeralER', target: { armature: 'shoulder', bones: ['humerus_gh'], axis: 'y' } },
       { key: 'scapula', target: { armature: 'shoulder', bones: ['scapula'], axis: 'x' } },
+      { key: 'clavicle', target: { armature: 'shoulder', bones: ['clavicle'], axis: 'x' } },
+      {
+        key: 'clavicleRetraction',
+        target: { armature: 'shoulder', bones: ['clavicle'], axis: 'z' },
+      },
       // No thoracic lean here: the trunk's contribution to a SAGITTAL elevation
       // is extension, not the contralateral side-bend abduction borrows. Adding
       // the frontal lean to flexion would tip the body out of plane.

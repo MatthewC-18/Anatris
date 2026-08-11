@@ -110,11 +110,44 @@ como se mueve un hombro.
 ### 16 · Los huesos se atraviesan, no se mueven en conjunto
 > *"el mov de los huesos se atraviesa, no se mueve en conjunto"*
 
-Falta el **ritmo escapulohumeral**: la escápula y la clavícula deberían
-acompañar al húmero. Hoy el húmero se mueve solo y penetra la escápula.
+**Causa encontrada — la clavícula estaba soldada a la columna.** No era el
+ritmo escapulohumeral, que sí existía: era que la clavícula no participaba.
 
-- **Dónde:** `RigModel.tsx`, `ShoulderRhythmArc.tsx`, `RhythmReadout.tsx`
-- **Estado:** pendiente
+1. La malla de las dos clavículas venía del GLB cosida al **100 % a
+   `vert_T1`** (la pasada v11 de "completado de esqueleto" ligó cada hueso
+   suelto a su hueso *más cercano*, y el más cercano a la clavícula es una
+   vértebra). Medido sobre el GLB: el extremo lateral de la clavícula
+   recorría **0,00 cm** en todo el arco de 0° a 150°.
+2. El hueso `clavicle` sí existe en el rig — es la **raíz** de la cadena
+   `clavicle → scapula → humerus_gh` — pero `boneMap` nunca lo accionaba: los
+   ~60° de rotación ascendente se los quedaba entera la escápula.
+
+Resultado: la escápula rotaba saliéndose de una clavícula atornillada al
+tórax, la articulación acromioclavicular se abría, y la cintura se
+atravesaba a sí misma en vez de moverse como una pieza.
+
+**Corregido:**
+- `src/lib/clavicleBinding.ts` — la malla se religa a su propio hueso
+  (empalmando el hueso en el esqueleto de la columna, que no lo tenía).
+- `src/lib/biomech/shoulderChain.ts` — los ~60° escapulotorácicos se reparten
+  entre la **esternoclavicular** (~28°, pronto en el arco) y la
+  **acromioclavicular** (~32°, tarde), según Inman / Ludewig / Neumann, más
+  ~20° de retracción clavicular. La suma no cambia, así que las cifras
+  citadas del panel siguen siendo las mismas.
+- `src/lib/biomech/scapulaWrap.ts` — tabla de envoltura **resuelta de nuevo**
+  contra la cadena real (`scripts/solve-scapula-wrap.mts`).
+
+| Medida (abducción, lado derecho) | Antes | Ahora |
+|---|---|---|
+| Recorrido de la clavícula a 150° | 0,00 cm | **8,36 cm** |
+| Separación AC a 120° | −0,23 cm | **−0,06 cm** |
+| Despegue de la escápula (peor del arco) | 2,4 cm | **2,2 cm** |
+| Error del brazo respecto al ángulo pedido | 0,0° | 0,0° |
+
+- **Estado:** ✅ hecho — 229 pruebas en verde, izquierdo y derecho medidos.
+- **Pendiente dentro de esta nota:** el espacio subacromial sigue cerrándose
+  a 0,06 cm entre 60° y 90°. La cabeza humeral aún roza el acromion en pleno
+  arco doloroso, porque la rotación externa obligatoria no arranca hasta 90°.
 
 ### 17 · En el movimiento quiere ver la biomecánica
 > *"en el mov quisiera ver la biomecánica"*

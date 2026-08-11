@@ -37,6 +37,8 @@ import {
   type TissueClass,
   type AnatomyLayer,
 } from '../../lib/materialColors';
+import { bindClaviclesToShoulderGirdle } from '../../lib/clavicleBinding';
+import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../lib/biomech/scapulaWrap';
 import { muscleDepthLevel, type MuscleDepthLevel } from '../../lib/muscleDepth';
 import { parseMeshName, structureKey, type ParsedSide } from '../../lib/parseMeshName';
 import { buildMuscleResolution } from '../../lib/muscleResolver';
@@ -213,49 +215,9 @@ const LATS_PAIRS: ReadonlyArray<[string, string]> = [
   ['latshum_r', 'Shoulder_Armature_L'],
 ];
 
-// ---------------------------------------------------------------------------
-// SCAPULOTHORACIC WRAP.
-//
-// The scapula does not just upwardly rotate during elevation -- it also tilts
-// posteriorly and rotates externally, and those two are what keep the blade
-// WRAPPED on a curved ribcage. The rig drives upward rotation alone, so the blade
-// swings off the thorax like a flat plate on a hinge: measured on the shipped
-// GLB, the inferior angle travels 15.7 cm and ends up 8.6 cm clear of the ribs at
-// 140 deg, standing 5 cm proud of the muscle over it. That is the bone the user
-// reported coming out of the back. No pivot fixes it -- a rigid body turning
-// about ONE axis cannot follow a curved surface, which an offline pivot search
-// confirmed (best case still 9.9 cm).
-//
-// So we drive the two companion rotations too. The values below are SOLVED, not
-// guessed: scripts/solve-scapula-tilt.mts searches the local-Y and local-Z
-// rotations that best preserve every scapular vertex's rest distance to the
-// ribcage, penalising drifting off it AND sinking into it. Result at 140 deg of
-// elevation (49.4 deg of upward rotation): worst vertex 7.9 cm -> 2.0 cm off.
-// Table is [upwardRotationDeg, localY, localZ], linearly interpolated; the
-// companions saturate, which is why this is a table and not a gain.
-const SCAPULA_WRAP: ReadonlyArray<readonly [number, number, number]> = [
-  [0, 0, 0],
-  [25, 30.6, -11.3],
-  [49.4, 44.4, -28.1],
-  [60, 45.6, -36.3],
-];
-/** Mirrored armatures: the companion axes flip on the left (see the apply site). */
-const SCAPULA_WRAP_SIGN: Record<Side, 1 | -1> = { R: 1, L: -1 };
-
-/** Companion [localY, localZ] rotations in DEGREES for a given upward rotation. */
-function scapulaWrap(upDeg: number): [number, number] {
-  const u = Math.abs(upDeg);
-  const last = SCAPULA_WRAP[SCAPULA_WRAP.length - 1];
-  if (u >= last[0]) return [last[1], last[2]];
-  for (let i = 1; i < SCAPULA_WRAP.length; i++) {
-    const [u1, y1, z1] = SCAPULA_WRAP[i];
-    if (u > u1) continue;
-    const [u0, y0, z0] = SCAPULA_WRAP[i - 1];
-    const t = u1 - u0 <= 1e-6 ? 0 : (u - u0) / (u1 - u0);
-    return [y0 + (y1 - y0) * t, z0 + (z1 - z0) * t];
-  }
-  return [0, 0];
-}
+// SCAPULOTHORACIC WRAP: the companion rotations that keep the blade on the
+// ribcage. Table + solver notes live in src/lib/biomech/scapulaWrap, shared with
+// the offline harness so the two cannot drift apart.
 
 // ---------------------------------------------------------------------------
 // LUMBOPELVIC COUNTER-BALANCE (standing hip flexion).
@@ -1848,6 +1810,19 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         console.info(`[RigModel] rebuilt ${repairedCount} mirror-mangled meshes from their twins`);
       }
 
+      // CLAVICLE RE-BIND. Both clavicles ship skinned to vert_T1, so the strut
+      // that holds the shoulder off the chest was the one bone in the girdle that
+      // could not move -- the scapula rotated out from under a clavicle bolted to
+      // the spine. See src/lib/clavicleBinding.ts for the measurements.
+      const clavicleBind = bindClaviclesToShoulderGirdle(scene);
+      if (clavicleBind.skipped.length > 0) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          '[RigModel] clavícula sin religar:',
+          clavicleBind.skipped.map((s) => `${s.mesh} (${s.reason})`).join(', '),
+        );
+      }
+
       // MEASURED OUTLIER CULL (see LIMB_OUTLIER_MARGIN). Trim away the
       // forearm/hand geometry that lands outside the limb, judged against the
       // arm's own bone AXIS and thresholded by how far its SKIN sits from it.
@@ -2720,7 +2695,12 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           // is what the goniometer and the readout report, is held.
           const scapBone = shoulderBones?.get('scapula');
           const humBone = shoulderBones?.get('humerus_gh');
-          const upRad = outputs.scapula;
+          // The wrap table is keyed on SCAPULOTHORACIC upward rotation (it runs to
+          // 60 deg). Since the girdle split its rotation between the SC and AC
+          // joints, `outputs.scapula` is only the AC share, so take the published
+          // total -- feeding the wrap the smaller number would under-wrap the
+          // blade and let it lift off the ribs again.
+          const upRad = outputs.scapulaTotal ?? outputs.scapula;
           if (scapBone && humBone && upRad) {
             scene.updateMatrixWorld(true);
             const before = scapBone.getWorldQuaternion(new THREE.Quaternion());

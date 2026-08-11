@@ -28,16 +28,17 @@ import { readFileSync } from 'node:fs';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
-import { getBoneControl, resolveArmatureName } from '../src/lib/boneMap.ts';
+import { getBoneControl } from '../src/lib/boneMap.ts';
+import { createRigPoser, type Side } from './lib/rigPose.mts';
+import { rigGlbPath } from './lib/rigPath.mts';
 import { layerForMaterial } from '../src/lib/materialColors.ts';
 
 const MOVEMENT = process.argv[2] && process.argv[2] !== 'off'
   ? process.argv[2]
   : 'glenohumeral-abduction';
 const APPLY = process.argv[2] === 'off' || process.argv[3] === 'off' ? false : true;
-const GLB = 'C:/Users/Matthew/Documents/Fisio/public/cuerpo-rig.opt.glb';
 const D2R = Math.PI / 180;
-const SIDE: 'R' | 'L' = process.argv.includes('left') ? 'L' : 'R';
+const SIDE: Side = process.argv.includes('left') ? 'L' : 'R';
 
 const ctrl = getBoneControl(MOVEMENT);
 if (!ctrl || (ctrl.kind !== 'chain' && ctrl.kind !== 'joint')) {
@@ -49,13 +50,8 @@ const IS_CHAIN = ctrl.kind === 'chain';
 /** Plane the clinical angle is read in. Abduction is frontal, flexion sagittal. */
 const PLANE: 'frontal' | 'sagittal' = MOVEMENT.includes('flexion') ? 'sagittal' : 'frontal';
 
-// Mirrors RigModel.tsx. Kept here because they live in the component, not a lib.
-const WRAP: ReadonlyArray<readonly [number, number, number]> = [
-  [0, 0, 0], [25, 30.6, -11.3], [49.4, 44.4, -28.1], [60, 45.6, -36.3],
-];
-const WRAP_SIGN = SIDE === 'R' ? 1 : -1;
-const ARM_CLEARANCE_DEG = 35;
-const ARM_CLEARANCE_FADE_DEG = 75;
+// The pose machinery (wrap / carry / aim / lats) is shared with the renderer;
+// only the MESH PREPARATION below is specific to this measurement.
 const ATTACH = /muscle(ol|el)$/i;
 const ORIGIN_SCAP = /^(teres_major|teres_minor)_muscleol$/i;
 const GRADE = /coracobrachialis|subscapularis|teres_major/i;
@@ -64,21 +60,7 @@ const GRADE_FAR_M = 0.09;
 const LATS_ROT_FOLLOW = 0.18;
 const LATS_ROT_MAX_DEG = 28;
 
-function scapulaWrap(u: number): [number, number] {
-  u = Math.abs(u);
-  const last = WRAP[WRAP.length - 1];
-  if (u >= last[0]) return [last[1], last[2]];
-  for (let i = 1; i < WRAP.length; i++) {
-    const [u1, y1, z1] = WRAP[i];
-    if (u > u1) continue;
-    const [u0, y0, z0] = WRAP[i - 1];
-    const t = (u - u0) / (u1 - u0);
-    return [y0 + (y1 - y0) * t, z0 + (z1 - z0) * t];
-  }
-  return [0, 0];
-}
-
-const buf = readFileSync(GLB);
+const buf = readFileSync(rigGlbPath());
 const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 const ld = new GLTFLoader(); ld.setMeshoptDecoder(MeshoptDecoder);
 const gl = await new Promise<any>((r, j) => ld.parse(ab, '', r, j));
@@ -98,14 +80,6 @@ for (const an of ['Shoulder_Armature_R', 'Shoulder_Armature_L', 'Spine_Armature'
   root.traverse((o) => { if (!m.has(bs(o.name))) m.set(bs(o.name), o); });
   byArm.set(an, m);
 }
-const rq = new Map<THREE.Object3D, THREE.Quaternion>();
-const rp = new Map<THREE.Object3D, THREE.Vector3>();
-const rsc = new Map<THREE.Object3D, THREE.Vector3>();
-const rw = new Map<THREE.Object3D, THREE.Matrix4>();
-scene.traverse((o) => {
-  rq.set(o, o.quaternion.clone()); rp.set(o, o.position.clone());
-  rsc.set(o, o.scale.clone()); rw.set(o, o.matrixWorld.clone());
-});
 const spineY = new Map<string, number>();
 scene.getObjectByName('Spine_Armature')?.traverse((o) => {
   if (/^vert_/.test(bs(o.name)) && !spineY.has(bs(o.name)))
@@ -271,136 +245,17 @@ if (APPLY) {
 }
 
 // ---------------------------------------------------------------------------
-// pose: boneMap's chain, then the extras RigModel wraps around it
+// pose: the shared poser, i.e. boneMap's chain plus the extras RigModel wraps
+// around it. Kept in scripts/lib/rigPose so the renderer shows what this measures.
 // ---------------------------------------------------------------------------
-const shoulderBones = byArm.get(resolveArmatureName('Shoulder_Armature', SIDE))!;
-const spineBones = byArm.get('Spine_Armature')!;
+const poser = createRigPoser(scene, MOVEMENT, SIDE, APPLY);
+const shoulderBones = poser.shoulderBones;
 const hum = shoulderBones.get('humerus_gh')!;
-const scap = shoulderBones.get('scapula')!;
 const elbow = shoulderBones.get('forearm_flex')!;
+const rw = poser.restWorld;
+const pose = (deg: number, opts?: { withClearance?: boolean; aim?: boolean }) =>
+  poser.pose(deg, opts);
 
-function carryShoulders() {
-  const anchor = spineBones.get('vert_T3');
-  const anchorRest = anchor ? rw.get(anchor) : undefined;
-  if (!anchor || !anchorRest) return;
-  const delta = new THREE.Matrix4().copy(anchor.matrixWorld)
-    .multiply(new THREE.Matrix4().copy(anchorRest).invert());
-  for (const side of ['R', 'L'] as const) {
-    const root = scene.getObjectByName(resolveArmatureName('Shoulder_Armature', side));
-    const rootRest = root ? rw.get(root) : undefined;
-    if (!root || !rootRest) continue;
-    const target = new THREE.Matrix4().copy(delta).multiply(rootRest);
-    const local = root.parent
-      ? new THREE.Matrix4().copy(root.parent.matrixWorld).invert().multiply(target)
-      : target;
-    local.decompose(root.position, root.quaternion, root.scale);
-  }
-  scene.updateMatrixWorld(true);
-}
-function driveLats() {
-  for (const [hn, an] of [['latshum_l', 'Shoulder_Armature_R'], ['latshum_r', 'Shoulder_Armature_L']] as const) {
-    const helper = spineBones.get(hn), h = byArm.get(an)?.get('humerus_gh');
-    if (!helper || !h || !helper.parent) continue;
-    const hR = rw.get(h), heR = rw.get(helper);
-    const qh = h.getWorldQuaternion(new THREE.Quaternion());
-    const qp = helper.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
-    if (hR && heR) {
-      const s = new THREE.Vector3(), t = new THREE.Vector3();
-      const qhr = new THREE.Quaternion(), qer = new THREE.Quaternion();
-      hR.decompose(t, qhr, s); heR.decompose(t, qer, s);
-      const qd = qh.clone().multiply(qhr.invert());
-      const a = 2 * Math.acos(Math.min(1, Math.abs(qd.w)));
-      const sh = a > 1e-4 ? Math.min(LATS_ROT_FOLLOW, (LATS_ROT_MAX_DEG * D2R) / a) : LATS_ROT_FOLLOW;
-      qd.slerpQuaternions(new THREE.Quaternion(), qd, sh);
-      helper.quaternion.copy(qp).multiply(qd).multiply(qer);
-    }
-    const pw = h.getWorldPosition(new THREE.Vector3());
-    helper.parent.worldToLocal(pw); helper.position.copy(pw);
-  }
-  scene.updateMatrixWorld(true);
-}
-
-/** withClearance=false omits the cosmetic forward lift, which is not part of the
- *  clinical angle and would be misread as extra elevation. */
-function pose(deg: number, { withClearance = false, aim = true } = {}) {
-  scene.traverse((o) => {
-    const q = rq.get(o); if (q) o.quaternion.copy(q);
-    const p = rp.get(o); if (p) o.position.copy(p);
-    const s = rsc.get(o); if (s) o.scale.copy(s);
-  });
-  if (deg !== 0 && !IS_CHAIN) {
-    // --- a plain JOINT: one bone, one local axis, per-side sign ---
-    const j = ctrl as any;
-    const bone = shoulderBones.get(j.bone);
-    if (bone) {
-      bone.quaternion.copy(rq.get(bone)!);
-      bone.rotateOnAxis(AX[j.axis], deg * D2R * j.sign[SIDE]);
-    }
-    scene.updateMatrixWorld(true);
-  } else if (deg !== 0) {
-    // --- boneMap's chain, applied exactly as RigModel does ---
-    const outputs = (ctrl as any).decompose(deg, SIDE);
-    const seen = new Set<THREE.Object3D>();
-    for (const { key, target } of (ctrl as any).targets) {
-      const rad = outputs[key];
-      if (rad === undefined) continue;
-      const map = target.armature === 'spine' ? spineBones : shoulderBones;
-      for (const bn of target.bones) {
-        const bone = map.get(bn);
-        if (!bone) continue;
-        if (!seen.has(bone)) { bone.quaternion.copy(rq.get(bone)!); seen.add(bone); }
-        bone.rotateOnAxis(AX[target.axis], rad);
-      }
-    }
-    scene.updateMatrixWorld(true);
-    if (APPLY) {
-      // --- scapulothoracic wrap ---
-      if (outputs.scapula) {
-        const before = scap.getWorldQuaternion(new THREE.Quaternion());
-        const [wy, wz] = scapulaWrap(outputs.scapula / D2R);
-        scap.rotateOnAxis(AX.y, WRAP_SIGN * wy * D2R);
-        scap.rotateOnAxis(AX.z, WRAP_SIGN * wz * D2R);
-        scene.updateMatrixWorld(true);
-        const after = scap.getWorldQuaternion(new THREE.Quaternion());
-        hum.quaternion.premultiply(after.invert().multiply(before));
-        scene.updateMatrixWorld(true);
-      }
-      // --- shoulder carry, when the chain leans the trunk ---
-      if (outputs.thoracic) carryShoulders();
-      // --- aim ---
-      const plane = (ctrl as any).aimPlane as 'x' | 'z' | undefined;
-      if (aim && plane) {
-        const rh = new THREE.Vector3().setFromMatrixPosition(rw.get(hum)!);
-        const re = new THREE.Vector3().setFromMatrixPosition(rw.get(elbow)!);
-        const want = re.sub(rh).normalize();
-        if (plane === 'z') {
-          const r = Math.hypot(want.x, want.y);
-          const a = Math.atan2(want.x, -want.y) + deg * D2R * (SIDE === 'R' ? 1 : -1);
-          want.set(Math.sin(a) * r, -Math.cos(a) * r, want.z).normalize();
-        } else {
-          const r = Math.hypot(want.z, want.y);
-          const a = Math.atan2(want.z, -want.y) + deg * D2R;
-          want.set(want.x, -Math.cos(a) * r, Math.sin(a) * r).normalize();
-        }
-        const ph = hum.getWorldPosition(new THREE.Vector3());
-        const pe = elbow.getWorldPosition(new THREE.Vector3());
-        const have = pe.sub(ph).normalize();
-        const fix = new THREE.Quaternion().setFromUnitVectors(have, want);
-        const pw = hum.parent
-          ? hum.parent.getWorldQuaternion(new THREE.Quaternion())
-          : new THREE.Quaternion();
-        hum.quaternion.premultiply(pw.clone().invert().multiply(fix).multiply(pw));
-        scene.updateMatrixWorld(true);
-      }
-    }
-  }
-  if (withClearance) {
-    const f = Math.max(0, Math.min(1, (ARM_CLEARANCE_FADE_DEG - deg) / ARM_CLEARANCE_FADE_DEG));
-    if (f > 0) hum.rotateOnAxis(AX.x, -ARM_CLEARANCE_DEG * f * D2R);
-  }
-  scene.updateMatrixWorld(true);
-  if (APPLY) driveLats();
-}
 const posedOf = (m: M) => {
   m.mesh.skeleton.update();
   const pos = m.mesh.geometry.getAttribute('position');

@@ -85,9 +85,61 @@ const G_HUM_ER = 0.6;          // humeral ER gain
 const G_SPINE_PER_VERT = 0.18; // per-vertebra lateral-flexion gain
 const SPINE_VERTS = ['vert_T6', 'vert_T5', 'vert_T4', 'vert_T3', 'vert_T2'] as const;
 
+// --- WHERE THE SCAPULAR UPWARD ROTATION ACTUALLY COMES FROM -----------------
+//
+// Scapular upward rotation is not one joint. The blade hangs off the clavicle,
+// and the clavicle hangs off the sternum, so the ~60 deg the scapula turns
+// against the THORAX is the sum of two joints (Inman 1944; Ludewig 2009;
+// Neumann, Kinesiology of the Musculoskeletal System):
+//
+//   - the STERNOCLAVICULAR joint elevates the clavicle ~30 deg over the arc, and
+//     does it EARLY: most of the clavicular elevation is spent by ~100 deg, after
+//     which it plateaus;
+//   - the ACROMIOCLAVICULAR joint turns the scapula on the clavicle for the
+//     remaining ~30 deg, and does it LATE.
+//
+// The model used to give the whole 60 deg to the scapula bone alone, with the
+// clavicle held still. That is what tore the girdle apart on screen, and it is
+// also why the clavicle looked dead: it had no share of the movement.
+//
+// SC_SHARE is the fraction of the scapulothoracic rotation taken at the SC joint
+// WITHIN each phase -- high early, low late, reproducing Inman's description:
+//   clavicle = 0.80*3.6 + 0.65*19.8 + 0.38*26.0 + 0.22*11.2 = ~28.1 deg
+//   acromioclavicular remainder                             = ~32.5 deg
+// which lands both joints on their textbook totals while their SUM stays exactly
+// the ~60.6 deg the phase gains were tuned for. The readout is unaffected: it
+// reports the scapulothoracic TOTAL, which has not changed.
+const SC_SHARE_P1 = 0.80; // 0-30    the girdle sets by rising on the clavicle
+const SC_SHARE_P2 = 0.65; // 30-90   SC elevation still leads
+const SC_SHARE_P3 = 0.38; // 90-140  the AC joint takes over
+const SC_SHARE_P4 = 0.22; // 140-180 SC is near its ceiling
+
+// Clavicular RETRACTION: the strut also swings backwards in the horizontal plane
+// as the arm rises, ~20 deg by full elevation (Ludewig 2009). Modelled linearly
+// on the positive arc -- the literature's retraction curve is close to linear and
+// the rig has no landmark precise enough to justify shaping it further.
+const G_CLAV_RETRACTION = 20 / 180;
+
 export interface ShoulderChainPose {
-  /** Scapular upward rotation, radians (applied on scapula local X). */
+  /**
+   * Scapular upward rotation AT THE ACROMIOCLAVICULAR JOINT, radians (applied on
+   * scapula local X). This is the blade's rotation ON THE CLAVICLE, not against
+   * the thorax: the clavicle supplies the rest, and because the scapula bone is a
+   * CHILD of the clavicle bone the two add up on the rig by themselves. For the
+   * scapulothoracic total a physio would measure, use `readout.scapulaDeg`.
+   */
   scapulaUpwardRot: number;
+  /**
+   * Scapular upward rotation against the THORAX, radians: the sum of the SC and
+   * AC shares, and the figure the textbooks quote (~60 deg at 180). Not a rig
+   * target -- the rig gets there by adding its two joints -- but the runtime's
+   * scapulothoracic wrap table is calibrated against it.
+   */
+  scapulothoracicUpwardRot: number;
+  /** Clavicular elevation at the sternoclavicular joint, radians (clavicle local X). */
+  clavicleElevation: number;
+  /** Clavicular retraction, radians, UNSIGNED (the rig signs it per side). */
+  clavicleRetraction: number;
   /** Glenohumeral abduction, radians, SIGNED for local-Z (negative = abduction on R). */
   glenohumeralRot: number;
   /** Humeral external rotation, radians (applied on forearm_rot local Y). */
@@ -149,8 +201,26 @@ export function shoulderChain(
       G_P4 * seg(T_SCAP_P3, Infinity)) *
     scapulaGainMul;
 
+  // Split that scapulothoracic rotation across the two joints that produce it.
+  // Same per-phase accumulation, so the SC share is phase-correct rather than a
+  // flat fraction of the total, and the two always sum back to `scapula`.
+  const clavicleElevation =
+    (G_P1 * SC_SHARE_P1 * seg(0, T_SCAP_P1) +
+      G_P2 * SC_SHARE_P2 * seg(T_SCAP_P1, T_SCAP_P2) +
+      G_P3 * SC_SHARE_P3 * seg(T_SCAP_P2, T_SCAP_P3) +
+      G_P4 * SC_SHARE_P4 * seg(T_SCAP_P3, Infinity)) *
+    scapulaGainMul;
+  // What is left is the acromioclavicular rotation, which is what the scapula
+  // BONE receives -- it is already riding the clavicle, so the rig adds the two.
+  const acromioclavicular = scapula - clavicleElevation;
+
+  const clavicleRetraction = Ep * G_CLAV_RETRACTION;
+
   // Glenohumeral carries the remainder of elevation. For E < 0 (adduction),
   // scapula is 0 so ghMagnitude = E (negative) -> pure glenohumeral adduction.
+  // Note this uses the scapulothoracic TOTAL, not the AC share: what the humerus
+  // does not have to supply is the whole girdle's contribution, however the
+  // girdle divides it internally.
   const ghMagnitude = E - scapula;
 
   // Sign conventions (from the empirical axis test in Blender):
@@ -195,7 +265,10 @@ export function shoulderChain(
   const ratio = scapulaDeg > 0.1 ? `${(ghDeg / scapulaDeg).toFixed(1)}:1` : '—';
 
   return {
-    scapulaUpwardRot: scapula,
+    scapulaUpwardRot: acromioclavicular,
+    scapulothoracicUpwardRot: scapula,
+    clavicleElevation,
+    clavicleRetraction,
     glenohumeralRot,
     humeralExtRot,
     thoracicLatFlexPerVert,
