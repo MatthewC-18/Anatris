@@ -20,9 +20,10 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
 import { shoulderChain } from '../src/lib/biomech/shoulderChain.ts';
+import { rigGlbPath } from './lib/rigPath.mts';
 
 const GLB =
-  process.argv[2] || 'C:/Users/Matthew/Documents/Fisio/public/cuerpo-rig.opt.glb';
+  process.argv[2] || rigGlbPath();
 const DEG2RAD = Math.PI / 180;
 // Must track the constants in RigModel.tsx.
 const LATS_ROT_FOLLOW = 0.18;

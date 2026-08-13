@@ -25,9 +25,10 @@ import * as THREE from 'three';
 import { getBoneControl, resolveArmatureName } from '../src/lib/boneMap.ts';
 import { layerForMaterial, materialIsSkin, colorForMaterial } from '../src/lib/materialColors.ts';
 import { structureKey } from '../src/lib/parseMeshName.ts';
+import { rigGlbPath } from './lib/rigPath.mts';
 
 const SIDE = ((process.argv[2] as 'R' | 'L') ?? 'R');
-const GLB = 'C:/Users/Matthew/Documents/Fisio/public/cuerpo-rig.opt.glb';
+const GLB = rigGlbPath();
 const D2R = Math.PI / 180;
 const buf = readFileSync(GLB);
 const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);

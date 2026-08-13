@@ -13,8 +13,9 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import * as THREE from 'three';
 import { resolveArmatureName } from '../src/lib/boneMap.ts';
 import { colorForMaterial, layerForMaterial } from '../src/lib/materialColors.ts';
+import { rigGlbPath } from './lib/rigPath.mts';
 
-const GLB = 'C:/Users/Matthew/Documents/Fisio/public/cuerpo-rig.opt.glb';
+const GLB = rigGlbPath();
 const SIDE: 'R' | 'L' = 'R';
 const buf = readFileSync(GLB);
 const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);

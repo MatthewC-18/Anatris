@@ -19,6 +19,7 @@ import { getBoneControl, resolveArmatureName, type Side } from '../src/lib/boneM
 import { layerForMaterial } from '../src/lib/materialColors.ts';
 import { buildMuscleResolution } from '../src/lib/muscleResolver.ts';
 import { parseMeshName } from '../src/lib/parseMeshName.ts';
+import { rigGlbPath } from './lib/rigPath.mts';
 // Full registry (every region, paid included): the runtime ones now carry only
 // the free tier. See src/data/fullContent.ts.
 import {
@@ -40,7 +41,7 @@ import type { RomMuscleRole } from '../src/types/rom.ts';
 const TEST_ID = process.argv[2] ?? 'mill';
 const SIDE: Side = 'R';
 const D2R = Math.PI / 180;
-const buf = readFileSync('C:/Users/Matthew/Documents/Fisio/public/cuerpo-rig.opt.glb');
+const buf = readFileSync(rigGlbPath());
 const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 const ld = new GLTFLoader(); ld.setMeshoptDecoder(MeshoptDecoder);
 const gl = await new Promise<any>((r, j) => ld.parse(ab, '', r, j));

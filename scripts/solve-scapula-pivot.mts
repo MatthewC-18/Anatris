@@ -20,8 +20,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
 import { layerForMaterial } from '../src/lib/materialColors.ts';
+import { rigGlbPath } from './lib/rigPath.mts';
 
-const GLB = 'C:/Users/Matthew/Documents/Fisio/public/cuerpo-rig.opt.glb';
+const GLB = rigGlbPath();
 const D2R = Math.PI / 180;
 const ANGLES = [15, 30, 45, 60].map((a) => a * D2R); // upward rotation samples
 const GH_TRAVEL_TARGET = 0.035; // m the glenohumeral joint really travels at ~60 deg

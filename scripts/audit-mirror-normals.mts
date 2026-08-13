@@ -19,8 +19,9 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import * as THREE from 'three';
 import { applyMirrorRepair } from './lib/mirrorRepair.mts';
 import { layerForMaterial } from '../src/lib/materialColors.ts';
+import { rigGlbPath } from './lib/rigPath.mts';
 
-const buf = readFileSync('C:/Users/Matthew/Documents/Fisio/public/cuerpo-rig.opt.glb');
+const buf = readFileSync(rigGlbPath());
 const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 const ld = new GLTFLoader(); ld.setMeshoptDecoder(MeshoptDecoder);
 const gl = await new Promise<any>((r, j) => ld.parse(ab, '', r, j));

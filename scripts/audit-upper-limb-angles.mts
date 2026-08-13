@@ -24,8 +24,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
 import { getBoneControl, resolveArmatureName } from '../src/lib/boneMap.ts';
+import { rigGlbPath } from './lib/rigPath.mts';
 
-const GLB = 'C:/Users/Matthew/Documents/Fisio/public/cuerpo-rig.opt.glb';
+const GLB = rigGlbPath();
 const D2R = Math.PI / 180;
 /**
  * Error we are willing to call correct. Goniometry itself carries ~5 deg of

@@ -15,9 +15,10 @@ import { readFileSync } from 'node:fs';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
+import { rigGlbPath } from './lib/rigPath.mts';
 
 const GLB =
-  process.argv[2] || 'C:/Users/Matthew/Documents/Fisio/public/cuerpo-rig.opt.glb';
+  process.argv[2] || rigGlbPath();
 const buf = readFileSync(GLB);
 const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 const loader = new GLTFLoader();

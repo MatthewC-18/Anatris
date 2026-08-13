@@ -14,9 +14,10 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
 import { layerForMaterial } from '../src/lib/materialColors.ts';
+import { rigGlbPath } from './lib/rigPath.mts';
 
 const UP = Number(process.argv[2] ?? 49.4);
-const GLB = 'C:/Users/Matthew/Documents/Fisio/public/cuerpo-rig.opt.glb';
+const GLB = rigGlbPath();
 const D2R = Math.PI / 180;
 const buf = readFileSync(GLB);
 const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);

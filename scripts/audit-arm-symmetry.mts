@@ -18,8 +18,9 @@ import * as THREE from 'three';
 import { colorForMaterialMesh, layerForMaterial } from '../src/lib/materialColors.ts';
 import { structureKey } from '../src/lib/parseMeshName.ts';
 import { applyMirrorRepair } from './lib/mirrorRepair.mts';
+import { rigGlbPath } from './lib/rigPath.mts';
 
-const buf = readFileSync('C:/Users/Matthew/Documents/Fisio/public/cuerpo-rig.opt.glb');
+const buf = readFileSync(rigGlbPath());
 const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 const ld = new GLTFLoader(); ld.setMeshoptDecoder(MeshoptDecoder);
 const gl = await new Promise<any>((r, j) => ld.parse(ab, '', r, j));
