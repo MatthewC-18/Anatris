@@ -111,6 +111,22 @@ const shoulder: RegionDef = {
     'interclavicular',
     'coracoacromial',
 
+    // --- nerves (the brachial plexus and the branches that serve the girdle) ---
+    // The plexus ships complete in the model but the region let through only the
+    // nerves whose names happen to contain "scapular", so the shoulder had a
+    // suprascapular nerve and no axillary one. The nerve LAYER is still off by
+    // default (branches leaving a cut-out region trail into mid-air); this only
+    // decides what belongs here once it is switched on.
+    'brachial_plexus',
+    'axillary_nerve',
+    'suprascapular_nerve',
+    'dorsal_scapular_nerve',
+    'long_thoracic_nerve',
+    'thoracodorsal_nerve',
+    'subscapular_nerve',
+    'pectoral_nerve',
+    'musculocutaneous_nerve',
+
     // --- muscles (the 17 functional shoulder muscles) ---
     'supraspinatus',
     'infraspinatus',
@@ -147,6 +163,10 @@ const shoulder: RegionDef = {
     'axillary_nerve',
   ],
   exclude: [
+    // MAXILLARY, not AXILLARY. The include keyword 'axillary_nerve' is a
+    // substring of 'maxillary_nerve', so the trigeminal branch in the face --
+    // and its meningeal branch -- walked into the shoulder's nerve list.
+    'maxillary',
     // Forearm / hand muscles that share "humeral head" wording but are NOT
     // shoulder structures.
     'flexor_carpi',

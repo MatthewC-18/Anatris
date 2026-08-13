@@ -20,9 +20,9 @@
 // to that key belongs to it -- which is how "Clavícula" ends up being one row
 // covering four meshes instead of two rows covering two.
 
-import type { AnatomyEntry } from '../types/anatomy';
+import type { AnatomyEntry, AnatomyLayer } from '../types/anatomy';
 
-/** One bone (or fibrocartilage) as the sidebar lists it. */
+/** One structure as the sidebar lists it. */
 export interface BoneGroup {
   /** Stable key, e.g. "clavicle". */
   id: string;
@@ -75,8 +75,52 @@ const BONE_NAMES: Array<[string, string]> = [
   ['xiphoid_process', 'Apéndice xifoides'],
 ];
 
-const NAME_ORDER = new Map(BONE_NAMES.map(([key], i) => [key, i]));
-const NAME_BY_KEY = new Map(BONE_NAMES);
+/**
+ * Spanish names for the UPPER-LIMB nerves, in the order a plexus is taught:
+ * roots, trunks, divisions, cords, then the branches that leave them.
+ *
+ * The whole brachial plexus was already in the model -- 88 meshes, roots through
+ * digital branches -- and none of it was reachable: the nerve layer is off by
+ * default (a documented choice, because branches leaving a cut-out region trail
+ * into mid-air) and the shoulder region's keywords let through only the few
+ * nerves whose names happen to contain "scapular". A physio wrote "no hay
+ * nervios" twice.
+ */
+const NERVE_NAMES: Array<[string, string]> = [
+  // --- plexus, proximal to distal ---
+  ['roots_of_brachial_plexus', 'Raíces del plexo braquial'],
+  ['superior_trunk_of_brachial_plexus', 'Tronco superior'],
+  ['middle_trunk_of_brachial_plexus', 'Tronco medio'],
+  ['inferior_trunk_of_brachial_plexus', 'Tronco inferior'],
+  ['anterior_division_of_superior_trunk_of_brachial_plexus', 'División anterior del tronco superior'],
+  ['anterior_division_of_middle_trunk_of_brachial_plexus', 'División anterior del tronco medio'],
+  ['anterior_division_of_inferior_trunk_of_brachial_plexus', 'División anterior del tronco inferior'],
+  ['posterior_division_of_superior_trunk_of_brachial_plexus', 'División posterior del tronco superior'],
+  ['posterior_division_of_middle_trunk_of_brachial_plexus', 'División posterior del tronco medio'],
+  ['posterior_division_of_inferior_trunk_of_brachial_plexus', 'División posterior del tronco inferior'],
+  ['lateral_cord_of_brachial_plexus', 'Fascículo lateral'],
+  ['medial_cord_of_brachial_plexus', 'Fascículo medial'],
+  ['posterior_cord_of_brachial_plexus', 'Fascículo posterior'],
+  // --- branches that matter at the shoulder ---
+  ['axillary_nerve', 'Nervio axilar'],
+  ['suprascapular_nerve', 'Nervio supraescapular'],
+  ['dorsal_scapular_nerve', 'Nervio dorsal de la escápula'],
+  ['long_thoracic_nerve', 'Nervio torácico largo'],
+  ['thoracodorsal_nerve', 'Nervio toracodorsal'],
+  ['superior_subscapular_nerve', 'Nervio subescapular superior'],
+  ['inferior_subscapular_nerve', 'Nervio subescapular inferior'],
+  ['lateral_pectoral_nerve', 'Nervio pectoral lateral'],
+  ['medial_pectoral_nerve', 'Nervio pectoral medial'],
+  ['musculocutaneous_nerve', 'Nervio musculocutáneo'],
+  // --- the long branches, present from the shoulder down ---
+  ['radial_nerve', 'Nervio radial'],
+  ['median_nerve', 'Nervio mediano'],
+  ['ulnar_nerve', 'Nervio cubital'],
+  ['muscular_branches_of_axillary_nerve', 'Ramos musculares del axilar'],
+  ['muscular_branches_of_radial_nerve', 'Ramos musculares del radial'],
+  ['muscular_branches_of_median_nerve', 'Ramos musculares del mediano'],
+  ['muscular_branches_of_ulnar_nerve', 'Ramos musculares del cubital'],
+];
 
 /**
  * Strip the bookkeeping tails from a mesh name: the Z-Anatomy instance suffix and
@@ -117,20 +161,30 @@ function prettify(key: string): string {
 }
 
 /**
- * Group a region's bone-layer meshes into the structures the sidebar lists.
+ * Group a region's meshes of ONE LAYER into the structures the sidebar lists.
+ *
+ * The grouping is layer-agnostic -- Z-Anatomy's naming chaos is the same for a
+ * nerve as for a bone -- so only the Spanish name table changes. `buildBoneList`
+ * and `buildNerveList` are the two callers.
  *
  * @param entries    the anatomy index entries (may contain the SAME mesh name
  *                   more than once: the two sides can share a name).
  * @param regionMesh the mesh names resolved for the active region.
+ * @param layer      which index layer to group.
+ * @param names      grouping key -> Spanish name, in display order.
  */
-export function buildBoneList(
+export function buildStructureList(
   entries: AnatomyEntry[],
   regionMesh: ReadonlySet<string>,
+  layer: AnatomyLayer,
+  names: ReadonlyArray<readonly [string, string]>,
 ): BoneGroup[] {
+  const NAME_ORDER = new Map(names.map(([key], i) => [key, i]));
+  const NAME_BY_KEY = new Map(names);
   // Two passes: the laterality rule needs to know which keys exist before it can
   // tell a side suffix from a letter that belongs to the name.
   const inRegion = entries.filter(
-    (e) => e.layer === 'bones' && regionMesh.has(e.meshName),
+    (e) => e.layer === layer && regionMesh.has(e.meshName),
   );
   const rawKeys = new Set(inRegion.map((e) => boneKey(e.meshName)));
 
@@ -171,4 +225,20 @@ export function buildBoneList(
     return a.name.localeCompare(b.name, 'es');
   });
   return out;
+}
+
+/** The region's bones, for the sidebar's "Huesos" section. */
+export function buildBoneList(
+  entries: AnatomyEntry[],
+  regionMesh: ReadonlySet<string>,
+): BoneGroup[] {
+  return buildStructureList(entries, regionMesh, 'bones', BONE_NAMES);
+}
+
+/** The region's nerves, for the sidebar's "Nervios" section. */
+export function buildNerveList(
+  entries: AnatomyEntry[],
+  regionMesh: ReadonlySet<string>,
+): BoneGroup[] {
+  return buildStructureList(entries, regionMesh, 'nerves', NERVE_NAMES);
 }

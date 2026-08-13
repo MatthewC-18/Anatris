@@ -42,7 +42,7 @@ import type { AnatomyLayer, AnatomyIndex } from '../types/anatomy';
 import type { MuscleResolution } from '../lib/muscleResolver';
 
 /** The three collapsible sections of the rail. */
-type SectionId = 'muscles' | 'bones' | 'view' | 'rom';
+type SectionId = 'muscles' | 'bones' | 'nerves' | 'view' | 'rom';
 
 interface SidebarProps {
   index: AnatomyIndex | null;
@@ -84,6 +84,17 @@ export function Sidebar({ index, resolution, onNavigate }: SidebarProps) {
         <Section id="bones" title="Huesos" open={open} setOpen={setOpen}>
           {index ? (
             <BoneList index={index} />
+          ) : (
+            <p className="px-1 py-2 text-xs text-slate-500">Cargando el modelo…</p>
+          )}
+        </Section>
+
+        {/* Nerves. The whole brachial plexus ships in the model and none of it
+            was reachable: the layer is off by default and the region's keywords
+            let through only the nerves whose names contain "scapular". */}
+        <Section id="nerves" title="Nervios" open={open} setOpen={setOpen}>
+          {index ? (
+            <BoneList index={index} kind="nerves" />
           ) : (
             <p className="px-1 py-2 text-xs text-slate-500">Cargando el modelo…</p>
           )}

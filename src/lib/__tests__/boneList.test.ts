@@ -7,7 +7,7 @@
 // under a mangled name, which is the same failure wearing a different hat.
 
 import { describe, it, expect } from 'vitest';
-import { buildBoneList, boneKey } from '../boneList';
+import { buildBoneList, buildNerveList, boneKey } from '../boneList';
 import type { AnatomyEntry } from '../../types/anatomy';
 
 const bone = (
@@ -140,5 +140,56 @@ describe('buildBoneList', () => {
       'Disco articular acromioclavicular',
       'Disco articular esternoclavicular',
     ]);
+  });
+});
+
+describe('buildNerveList', () => {
+  const nerve = (meshName: string, side: AnatomyEntry['side'] = 'center'): AnatomyEntry => ({
+    meshName,
+    canonicalName: meshName,
+    materialName: 'Nerve-3',
+    layer: 'nerves',
+    side,
+    hiddenByDefault: false,
+  });
+
+  it('names the brachial plexus in Spanish, in teaching order', () => {
+    // Roots, trunks, divisions, cords, then branches -- the order a plexus is
+    // taught, not alphabetical.
+    const entries = [
+      nerve('Axillary_nerve_instance_0', 'left'),
+      nerve('Axillary_nerve_instance_1', 'right'),
+      nerve('Superior_trunk_of_brachial_plexus_instance_0', 'left'),
+      nerve('Superior_trunk_of_brachial_plexus_instance_1', 'right'),
+      nerve('Roots_of_brachial_plexusl', 'left'),
+      nerve('Roots_of_brachial_plexusr', 'right'),
+    ];
+    const list = buildNerveList(entries, new Set(entries.map((e) => e.meshName)));
+    expect(list.map((n) => n.name)).toEqual([
+      'Raíces del plexo braquial',
+      'Tronco superior',
+      'Nervio axilar',
+    ]);
+  });
+
+  it('joins the two sides of a nerve into one row', () => {
+    const entries = [
+      nerve('Suprascapular_nervel', 'left'),
+      nerve('Suprascapular_nerver', 'right'),
+    ];
+    const list = buildNerveList(entries, new Set(entries.map((e) => e.meshName)));
+    expect(list).toHaveLength(1);
+    expect(list[0].name).toBe('Nervio supraescapular');
+    expect(list[0].bilateral).toBe(true);
+  });
+
+  it('does not pick up bones, and the bone list does not pick up nerves', () => {
+    const entries: AnatomyEntry[] = [
+      nerve('Axillary_nerve_instance_0', 'left'),
+      bone('Clavicle', 'left'),
+    ];
+    const all = new Set(entries.map((e) => e.meshName));
+    expect(buildNerveList(entries, all).map((n) => n.name)).toEqual(['Nervio axilar']);
+    expect(buildBoneList(entries, all).map((n) => n.name)).toEqual(['Clavícula']);
   });
 });

@@ -24,6 +24,7 @@ ver el fallo descrito y hace falta que lo detalle).
 | 16 · los huesos se atraviesan | ✅ hecho |
 | 20 · sensibilidad y especificidad | ✅ hecho |
 | 5 · posiciones funcionales | ✅ completado, pero ver abajo |
+| 4 y 26 · nervios | ✅ accesibles y con lista propia |
 | 13 · flexión mal | 🟡 parcial |
 | 17 · ver la biomecánica | 🟡 necesita concreción |
 | 3 · músculos por fibras | ⚠️ no reproducido |
@@ -113,14 +114,46 @@ que he podido comprobar ya hace lo que pide.
 - **Estado:** ⚠️ no reproducido
 
 ### 4 · No hay nervios
-> *"no hay nervios"*
+> *"no hay nervios"*  (se repite en el **26**)
 
-No existe capa de nervios en el visor. Es la petición más grande del lote:
-plexo braquial y nervios periféricos del hombro, al menos como capa
-seleccionable con su recorrido. Se repite en el punto **26**.
+**No había que crearlos: ya estaban, y no se podía llegar a ellos.** El modelo
+trae **661 mallas de nervio**, y el plexo braquial **completo**: raíces, los
+tres troncos, sus divisiones anteriores y posteriores, el fascículo posterior
+y todas las ramas (axilar, supraescapular, musculocutáneo, radial, mediano,
+cubital, torácico largo, toracodorsal, subescapulares, pectorales, dorsal de
+la escápula).
 
-- **Dónde:** capa nueva en el visor + datos nuevos
-- **Estado:** pendiente
+Dos cosas lo tapaban:
+
+1. **La capa "Nervios" está apagada por defecto**, y es una decisión
+   deliberada que el propio store documenta: al recortar una región, las ramas
+   que salen de ella *"quedan flotando en el aire, y se lee como roto"*. No la
+   he cambiado — es decisión de producto, no mía.
+2. **El filtro de la región de hombro los dejaba fuera.** Sus palabras clave
+   son óseas y musculares, así que solo pasaban los nervios cuyo nombre
+   contiene "scapular" por casualidad. El hombro tenía nervio *supraescapular*
+   y **no tenía nervio axilar** — precisamente el que inerva el deltoides y el
+   que se lesiona en la luxación glenohumeral, que la propia ficha del
+   deltoides menciona.
+
+**Corregido:**
+- Palabras clave de nervio en la región de hombro. Pasan de 38 mallas sueltas
+  a **24 estructuras nombradas**, en el orden en que se enseña un plexo:
+  raíces → troncos → divisiones → fascículo → ramas.
+- Sección **"Nervios"** en la barra lateral, con la misma maquinaria que la de
+  huesos (el agrupador es agnóstico de capa; solo cambia la tabla de nombres).
+- **Elegir un nervio enciende su capa.** Pedirlo por su nombre es una petición
+  inequívoca de verlo, así que no tiene sentido enfocar la cámara sobre nada.
+  Parte del "no hay nervios" era no encontrar nunca ese interruptor.
+
+Una trampa por el camino: `axillary_nerve` es subcadena de `m-axillary_nerve`,
+así que el nervio **maxilar** de la cara y su rama meníngea se colaron en la
+lista del hombro. Excluidos.
+
+- **Dónde:** `src/data/regiones.ts`, `src/lib/boneList.ts`,
+  `src/components/BoneList.tsx`, `src/components/Sidebar.tsx`
+- **Estado:** ✅ el plexo es accesible y navegable por nombre. Queda como
+  decisión tuya si la capa debe venir encendida por defecto en el hombro.
 
 ### 8 · Origen e inserción: puntos enormes, y el del pectoral está mal
 > *"Origen: puntos muy grandes, no se diferencia. Inserción se repite

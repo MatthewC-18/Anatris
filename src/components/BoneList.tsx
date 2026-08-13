@@ -14,19 +14,23 @@
 
 import { useMemo } from 'react';
 import { useAnatomyStore } from '../store/anatomyStore';
-import { buildBoneList } from '../lib/boneList';
+import { buildBoneList, buildNerveList } from '../lib/boneList';
 import { REGIONS, resolveRegionMeshes } from '../data/regiones';
 import type { AnatomyIndex } from '../types/anatomy';
 
 interface BoneListProps {
   index: AnatomyIndex;
+  /** Which layer to list. Bones by default; 'nerves' for the plexus. */
+  kind?: 'bones' | 'nerves';
 }
 
-export function BoneList({ index }: BoneListProps) {
+export function BoneList({ index, kind = 'bones' }: BoneListProps) {
   const region = useAnatomyStore((s) => s.region);
   const selectedBoneId = useAnatomyStore((s) => s.selectedBoneId);
   const selectBone = useAnatomyStore((s) => s.selectBone);
   const requestFocus = useAnatomyStore((s) => s.requestFocus);
+  const activeLayers = useAnatomyStore((s) => s.activeLayers);
+  const setLayer = useAnatomyStore((s) => s.setLayer);
 
   const bones = useMemo(() => {
     const def = region ? REGIONS[region] : null;
@@ -34,13 +38,16 @@ export function BoneList({ index }: BoneListProps) {
     // be inventory, not a study aid, so the section simply says so.
     if (!def) return [];
     const names = index.entries.map((e) => e.meshName);
-    return buildBoneList(index.entries, resolveRegionMeshes(def, names));
-  }, [region, index]);
+    const meshes = resolveRegionMeshes(def, names);
+    return kind === 'nerves'
+      ? buildNerveList(index.entries, meshes)
+      : buildBoneList(index.entries, meshes);
+  }, [region, index, kind]);
 
   if (!region) {
     return (
       <p className="px-1 py-2 text-xs leading-snug text-slate-500">
-        Elige una región para ver sus huesos.
+        Elige una región para ver sus {kind === 'nerves' ? 'nervios' : 'huesos'}.
       </p>
     );
   }
@@ -48,7 +55,7 @@ export function BoneList({ index }: BoneListProps) {
   if (bones.length === 0) {
     return (
       <p className="px-1 py-2 text-xs leading-snug text-slate-500">
-        Esta región no tiene huesos propios en el modelo.
+        Esta región no tiene {kind === 'nerves' ? 'nervios' : 'huesos'} propios en el modelo.
       </p>
     );
   }
@@ -61,6 +68,11 @@ export function BoneList({ index }: BoneListProps) {
       return;
     }
     selectBone(id, meshNames);
+    // The nerve layer is OFF by default (branches leaving a cut-out region trail
+    // into mid-air). Picking a nerve by name is an unambiguous request to see it,
+    // so switch the layer on rather than focusing the camera on nothing -- the
+    // physio's "no hay nervios" was partly never finding that toggle.
+    if (kind === 'nerves' && !activeLayers.has('nerves')) setLayer('nerves', true);
     if (meshNames.length > 0) requestFocus(meshNames);
   };
 
