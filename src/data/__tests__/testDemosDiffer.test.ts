@@ -122,3 +122,55 @@ describe('orthopedic test demos', () => {
     expect(hawkinsComps).toContain('glenohumeral-internal-rotation');
   });
 });
+
+// The panel asks the user to judge a test: how accurate is it, would a negative
+// rule the condition out, should it go in a cluster. A physio reviewing it wrote
+// "no explicas los tests ortopédicos" -- and in exam mode the prediction block
+// rendered ABOVE the text saying what the test is, so it asked for a judgement
+// first and explained afterwards.
+//
+// The panel order is fixed now (Objetivo -> Maniobra -> Positivo -> predicción).
+// What these guard is the DATA behind it: a test whose `purpose` is missing shows
+// an empty line on the closed row, and one without a `maneuver` cannot be
+// explained at all, whatever the layout does.
+describe('every test explains itself', () => {
+  // The static registry carries the FREE region only; the paid regions' tests
+  // arrive at runtime from the entitlement-checked content function, exactly as
+  // their muscles do. So this guards the shoulder, which is what shipped.
+  const all = Object.values(ORTHOPEDIC_TESTS_BY_REGION).flat();
+
+  it('covers the whole shipped shoulder set', () => {
+    expect(all.length).toBeGreaterThanOrEqual(14);
+  });
+
+  it('says in one line what it is looking for', () => {
+    // `purpose` is what the closed row shows, so it has to be a sentence rather
+    // than a label, and short enough not to be truncated into meaninglessness.
+    for (const t of all) {
+      expect(t.purpose?.trim().length, `${t.id}: purpose`).toBeGreaterThan(15);
+      expect(t.purpose.length, `${t.id}: purpose too long for the row`).toBeLessThan(200);
+    }
+  });
+
+  it('says how the maneuver is performed and what counts as positive', () => {
+    for (const t of all) {
+      expect(t.maneuver?.trim().length, `${t.id}: maneuver`).toBeGreaterThan(25);
+      expect(t.positive?.trim().length, `${t.id}: positive`).toBeGreaterThan(10);
+      expect(t.interpretation?.trim().length, `${t.id}: interpretation`).toBeGreaterThan(15);
+    }
+  });
+
+  it('names the structure it targets', () => {
+    for (const t of all) {
+      expect(t.target?.trim().length, `${t.id}: target`).toBeGreaterThan(2);
+    }
+  });
+
+  it('never repeats the name as the purpose', () => {
+    // "Test de Neer" / "Test de Neer" teaches nothing and is the failure mode
+    // this whole complaint is about.
+    for (const t of all) {
+      expect(t.purpose.trim().toLowerCase(), `${t.id}`).not.toBe(t.name.trim().toLowerCase());
+    }
+  });
+});

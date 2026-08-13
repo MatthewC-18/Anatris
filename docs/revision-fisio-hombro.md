@@ -26,6 +26,8 @@ ver el fallo descrito y hace falta que lo detalle).
 | 5 · posiciones funcionales | ✅ completado, pero ver abajo |
 | 4 y 26 · nervios | ✅ accesibles y con lista propia |
 | 21 · los tests se ven iguales | ✅ de 18 poses idénticas a 4, y esas 4 explicadas |
+| 19 · no se explican los tests | ✅ hecho |
+| 22 · "Examen" y "Guía" | ✅ hecho |
 | 13 · flexión mal | 🟡 parcial |
 | 17 · ver la biomecánica | 🟡 necesita concreción |
 | 3 · músculos por fibras | ⚠️ no reproducido |
@@ -465,15 +467,51 @@ puntos de sonda fuera del eje.
 - **Estado:** ✅ hecho — 6 pruebas nuevas que impiden añadir un test sin maniobra propia.
 
 ### 19 · No se explican los tests
-### 22 · "Examen" y "guía": no se sabe para qué son
-> *"no explicas los tests ortopédicos"* ·
+> *"no explicas los tests ortopédicos"*
+
+El dato `purpose` existe desde siempre y su comentario dice literalmente *"una
+línea: qué intenta detectar el test"*. **Solo se veía abriendo la ficha.** La
+lista mostraba nombre, estructura diana y una fila de números; para saber qué
+hace una prueba había que desplegarla.
+
+Y había algo peor. En **modo examen**, el bloque que te pide predecir la
+sensibilidad y la especificidad se pintaba **por encima** de "Objetivo" y
+"Maniobra". Es decir: te pedía juzgar la precisión de una prueba **antes** del
+texto que dice qué es y cómo se hace. Eso no es estudiar, es adivinar.
+
+**Corregido:**
+- `purpose` sale ahora en la fila cerrada, que es donde se decide si una prueba
+  interesa.
+- El bloque de predicción baja **detrás** de Objetivo → Maniobra → Positivo.
+  "Interpretación" sigue oculta hasta revelar: esa sí es la respuesta.
+
+- **Estado:** ✅ hecho
+
+### 22 · "Examen" y "Guía": no se sabe para qué son
 > *"Examen y guía no sé para qué es (tests ortopédicos)"*
 
-Son de presentación: no se explica el test antes de pedir que lo interpretes,
-y los modos "Examen" y "Guía" no dicen para qué sirven.
+Tres causas, y ninguna era el contenido:
+
+1. **Lo que hacía cada botón vivía en un `title`**, es decir, solo al pasar el
+   ratón. En una tablet no aparece nunca, y de un vistazo tampoco.
+2. **La guía se descarta para siempre** (`localStorage`). Después de cerrarla
+   una vez, "Guía" queda como un botón sin significado visible.
+3. **La guía no mencionaba el modo Examen.** Sus cinco pasos hablaban del
+   pre-test, de sensibilidad/especificidad, de Combinar y de Demostrar — del
+   botón de al lado, nada.
+
+**Corregido:**
+- Paso 6 en la guía, explicando qué es Examen y **para qué sirve**: comprobar
+  si sabrías *elegir* la prueba adecuada, no solo leerla.
+- Con el modo activo, una tira bajo la cabecera explica por qué los números
+  están ocultos y qué se espera que hagas — donde se lee, no al pasar el ratón.
+- Los `title` de ambos botones dicen ahora qué hacen, no cómo se llaman.
+- El paso de Demostrar menciona que cada prueba tiene **su propia** maniobra,
+  que es lo que la nota 21 acaba de hacer cierto.
 
 - **Dónde:** `src/components/movement/OrthopedicTestsPanel.tsx`
-- **Estado:** pendiente
+- **Estado:** ✅ hecho — 5 pruebas nuevas que impiden que una prueba se quede
+  sin explicación en los datos.
 
 ### 20 · Especificidad y sensibilidad no se entienden
 > *"no está muy entendible lo de especificidad y sensibilidad"*

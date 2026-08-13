@@ -528,7 +528,13 @@ function HelpCard({ onDismiss }: { onDismiss: () => void }) {
         </HelpStep>
         <HelpStep n={5}>
           <span className="text-accent">Demostrar</span> reproduce la maniobra sobre el
-          modelo 3D y resalta la estructura evaluada.
+          modelo 3D y resalta la estructura evaluada. Cada prueba tiene la suya: la
+          posición, la rotación y la resistencia que la definen.
+        </HelpStep>
+        <HelpStep n={6}>
+          <span className="text-slate-100">Examen</span> oculta los números y te pide
+          predecir si cada prueba es sensible o específica antes de enseñártelos. Sirve
+          para comprobar si sabrías <em>elegir</em> la prueba adecuada, no solo leerla.
         </HelpStep>
       </ol>
     </div>
@@ -610,6 +616,15 @@ function TestRow({
             >
               {hideMetrics ? '?' : u.word}
             </span>
+          </span>
+
+          {/* WHAT THE TEST IS FOR, on the closed row. The list used to show a
+              name, a structure and a pile of numbers, so you had to open a card
+              to find out what the maneuver even looks for -- and in exam mode you
+              were asked to judge it without that. `purpose` is one line and
+              exists for exactly this. */}
+          <span className="mt-1 block truncate text-[11px] text-slate-400">
+            {test.purpose}
           </span>
 
           <span className="mt-1 flex items-center gap-2 truncate text-[11px] text-slate-500">
@@ -694,6 +709,18 @@ function TestRow({
             <p className="font-mono text-[11px] text-slate-600">Métricas ocultas</p>
           )}
 
+          {test.aka && test.aka.length > 0 && (
+            <p className="text-[11px] text-slate-500">También: {test.aka.join(', ')}</p>
+          )}
+          <Detail label="Objetivo">{test.purpose}</Detail>
+          <Detail label="Maniobra">{test.maneuver}</Detail>
+          <Detail label="Positivo">{test.positive}</Detail>
+
+          {/* The prediction comes AFTER the test has been explained. It used to
+              render above these three, so exam mode asked you to predict a test's
+              accuracy profile before the text saying what the test is and how it
+              is performed -- which is guessing, not studying. `Interpretación`
+              stays hidden below: that one IS the answer. */}
           {examMode && (
             <ExamBlock
               test={test}
@@ -702,13 +729,6 @@ function TestRow({
               onReveal={onReveal}
             />
           )}
-
-          {test.aka && test.aka.length > 0 && (
-            <p className="text-[11px] text-slate-500">También: {test.aka.join(', ')}</p>
-          )}
-          <Detail label="Objetivo">{test.purpose}</Detail>
-          <Detail label="Maniobra">{test.maneuver}</Detail>
-          <Detail label="Positivo">{test.positive}</Detail>
 
           {/* RESISTED TESTS. The manual resistance lives here, in the maneuver
               that actually calls for it, rather than as a switch on the free
@@ -1040,12 +1060,34 @@ export function OrthopedicTestsPanel({
               ? 'Modo examen: predice el perfil y revela'
               : `${tests.length} pruebas, ${demoCount} con maniobra en 3D`}
           </p>
+          {/* A mode that changes what the panel shows has to say so where it can
+              be READ. Both buttons carried their explanation in a `title`, which
+              never appears on a touch screen and never appears at a glance --
+              "Examen y guía no sé para qué es". */}
+          {examMode && (
+            <p className="mt-1.5 border-l-2 border-sky-400/60 pl-2 text-[11px] leading-snug text-sky-100/80">
+              Los números están ocultos a propósito. Lee qué hace cada prueba, predice
+              si es <span className="text-sky-200">sensible</span> (un negativo descarta)
+              o <span className="text-sky-200">específica</span> (un positivo confirma),
+              y compáralo con la cifra real.
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <HeaderToggle active={examMode} onClick={toggleExam} label="Examen" title="Oculta los números: predice el perfil de cada test y revélalo">
+          <HeaderToggle
+            active={examMode}
+            onClick={toggleExam}
+            label="Examen"
+            title="Modo examen: oculta las cifras y te pide predecir el perfil de cada prueba antes de verlas"
+          >
             <ExamIcon />
           </HeaderToggle>
-          <HeaderToggle active={showHelp} onClick={() => setShowHelp((s) => !s)} label="Guía" title="Cómo se usa este panel">
+          <HeaderToggle
+            active={showHelp}
+            onClick={() => setShowHelp((s) => !s)}
+            label="Guía"
+            title="Cómo se usa este panel: pre-test, sensibilidad y especificidad, combinar pruebas, demostrar la maniobra"
+          >
             <InfoIcon />
           </HeaderToggle>
           {!bare && (
