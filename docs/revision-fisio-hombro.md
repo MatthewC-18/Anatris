@@ -30,6 +30,11 @@ ver el fallo descrito y hace falta que lo detalle).
 | 22 · "Examen" y "Guía" | ✅ hecho |
 | 23 · miotomas y "Comparar" | ✅ hecho |
 | 24 · lámina diminuta | ✅ hecho |
+| 9 · disección en Explorar | ✅ hecho |
+| 15 · modo paciente | ✅ hecho |
+| 18 · patologías en 3D | ✅ hecho |
+| 1 · lento | ✅ carga repetida; primera carga medida |
+| 7 · borroso al zoom | ✅ hecho, por confirmar en pantalla |
 | 13 · flexión mal | 🟡 parcial |
 | 17 · ver la biomecánica | 🟡 necesita concreción |
 | 3 · músculos por fibras | ⚠️ no reproducido |
@@ -633,11 +638,19 @@ que has venido. El comportamiento por defecto no cambia.
 ### 9 · En "Explorar" no se puede diseccionar capa por capa
 > *"En explorar no se puede diseccionar, no se ve capa por capa"*
 
-La disección existe en el Laboratorio (`DepthPeeler`, `LayerControls`), pero
-no en Explorar, que es donde el fisio la buscó.
+**Sí se puede, y con ocho paradas.** `DepthPeeler` está en Explorar y pela el
+cuerpo piel → órganos → vasos → nervios → músculos → ligamentos → esqueleto,
+con su etiqueta en cada nivel.
 
-- **Dónde:** `src/components/AnatomyModel.tsx`, `DepthPeeler.tsx`
-- **Estado:** pendiente
+El problema era que **la palabra "disección" no aparecía en ninguna parte de la
+pantalla**: el control se titulaba "Profundidad", vivía dentro de una sección
+llamada "Vista y capas" plegada por defecto, y "disección" existía solo en un
+`aria-label`. Quien la busca no la encuentra y concluye que no está.
+
+**Corregido:** la sección pasa a llamarse **"Capas y disección"**, el control
+**"Disección por capas"**, y lleva una línea que dice qué hace arrastrarlo.
+
+- **Estado:** ✅ hecho
 
 ### 10 · No se entienden los porcentajes
 > *"no entiendo los porcentajes"*
@@ -650,14 +663,33 @@ movimiento, probabilidad post-test, o progreso) y explicarlos donde salen.
 ### 15 · No se entiende el modo paciente
 > *"no entiendo el modo paciente"*
 
-- **Dónde:** `MovementControls.tsx`, `RigViewer.tsx`
-- **Estado:** pendiente
+No hay un "modo paciente": hay un botón **"Exportar"** que genera una ficha
+PNG. Y ahí estaba el problema — la fila decía solo "Exportar", y al abrirla
+saltaba directa a un campo de nota y un botón de descarga. Qué produce la
+función había que **deducirlo del texto de ejemplo del campo**.
+
+**Corregido:** la fila se llama ahora **"Ficha para el paciente"**, y antes del
+campo de nota una línea dice qué sale: foto de la postura actual, movimiento y
+rango, músculos que trabajan y tu nota, en lenguaje llano, para imprimir o
+mandar — y que se genera en el propio equipo sin que salga nada a internet.
+
+- **Estado:** ✅ hecho
 
 ### 18 · No se entienden las patologías en el modelo 3D
 > *"no entiendo las patologías en el modelo 3D"*
 
-- **Dónde:** `src/data/pathologies.ts`, `RigOverlays.tsx`, `SelectionPanel.tsx`
-- **Estado:** pendiente
+La fila de patologías se titula "Estado clínico" y es un juego de fichas
+(Normal · cuadros). **En el punto de elegir no se dice qué le hace al modelo.**
+La explicación existe —el panel del ritmo saca una banda ámbar con el cuadro,
+por qué duele, la estructura clave y su fuente— pero **solo después** de
+haberla activado, que es tarde para entender qué estás activando.
+
+**Corregido:** una línea bajo "Estado clínico" dice qué cambia al elegir un
+cuadro: el modelo se mueve **con ese patrón alterado** (cambia el ritmo entre
+húmero y escápula, se limita el rango) y las estructuras implicadas se marcan
+en la escena.
+
+- **Estado:** ✅ hecho
 
 ---
 
@@ -666,16 +698,59 @@ movimiento, probabilidad post-test, o progreso) y explicarlos donde salen.
 ### 1 · Lento
 > *"lento"*
 
-- **Estado:** pendiente (medir primero: carga del `.glb`, no suponer)
+Medido antes de tocar nada, y el reparto no deja lugar a dudas:
+
+| Recurso | Tamaño |
+|---|---|
+| `modelo-opt.dec.glb` (Explorar) | **27,3 MB** |
+| `cuerpo-rig.opt.glb` (laboratorio) | **18,2 MB** |
+| `anatomy-index.json` | 1,3 MB |
+| Bundle JS más grande | 0,95 MB |
+
+Los modelos son **45 MB**, cuarenta veces el mayor trozo de código. Y estaban
+cacheados **un solo día, con `must-revalidate`**: pasado ese día, cada visita
+volvía a pagarlos enteros.
+
+**Corregido:** `stale-while-revalidate` de una semana. El visitante que vuelve
+recibe el modelo **al instante desde caché** mientras se revalida por detrás,
+así que después de la primera carga nadie vuelve a esperar por él, y un modelo
+reexportado sigue llegando a todos en su siguiente visita. No uso `immutable`
+a propósito: los nombres no llevan hash de contenido y dejaría un modelo
+corregido atrapado en cachés durante un año. Los archivos de `/assets` sí lo
+llevan, así que esos se cachean para siempre.
+
+⚠️ **Esto no acelera la primera carga**: 45 MB son 45 MB. Bajar de ahí es
+decimar más los modelos (ya van a 0,3 y 0,4) y es una decisión con coste
+visual — dímelo y lo mido.
+
+- **Dónde:** `vercel.json`
+- **Estado:** ✅ la carga repetida, hecha. La primera carga, medida y
+  documentada, pendiente de tu decisión.
 
 ### 7 · Borroso al alejar o acercar
 > *"Borroso se aleja o acerca"*
 
-Se tocó algo parecido en `0550966` (la reproducción bajaba la resolución en
-móvil). Esta nota es posterior y habla del **zoom**, no de la reproducción.
+**Es deliberado, y estaba demasiado agresivo.** Los dos visores llaman a
+`regress()` en **cada** cambio de cámara, lo que baja la resolución mientras te
+mueves y la restaura al parar. Un zoom —un gesto cuyo propósito entero es mirar
+de cerca— pasa por tanto toda su duración en resolución reducida, más los
+200 ms de rebote de r3f.
 
-- **Dónde:** `src/components/Viewer3D.tsx`, `CanvasLoader.tsx`
-- **Estado:** pendiente
+El propio código ya había llegado a esta conclusión una vez: los móviles están
+**exentos** de esta mitad porque *"a 0,5 el modelo se rompía visiblemente en
+cada pellizco"*, y el comentario dice que quitar el raycast es gratis y bajar
+la resolución no.
+
+**Corregido:** el suelo sube de `0,5` a `0,75` y el rebote baja de 200 ms a
+120 ms, en los dos visores. El coste de esta escena son miles de mallas con su
+propio material clonado — está limitada por *draw calls*, no por relleno — así
+que reducir píxeles apenas movía los fotogramas mientras se veía perfectamente.
+
+⚠️ Es un cambio de configuración que **no he podido comprobar en pantalla**
+desde aquí. Que lo mire él.
+
+- **Dónde:** `src/components/Viewer3D.tsx`, `src/components/movement/RigViewer.tsx`
+- **Estado:** ✅ hecho, pendiente de que lo confirme en pantalla
 
 ### 12 · A 240° se corta el texto
 > *"en 240° se corta el texto"*

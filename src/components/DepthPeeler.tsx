@@ -29,14 +29,23 @@ export function DepthPeeler() {
 
   return (
     <div>
+      {/* SAY THE WORD. The control was headed "Profundidad" and lived inside a
+          section called "Vista y capas"; "disección" appeared only in an
+          aria-label. A physio looking for it found the word nowhere on screen and
+          concluded the feature did not exist -- "En explorar no se puede
+          diseccionar, no se ve capa por capa". It has been there all along, with
+          eight stops from skin to skeleton. */}
       <div className="mb-2 flex items-center justify-between">
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
-          Profundidad
+          Disección por capas
         </p>
         <span className="font-mono text-[11px] text-accent">
           {level}/{PEEL_MAX}
         </span>
       </div>
+      <p className="mb-2 text-[11px] leading-snug text-slate-500">
+        Arrastra para retirar el cuerpo capa a capa, de la piel al esqueleto.
+      </p>
 
       <div className="rounded-xl bg-slate-900/60 p-3">
         <input

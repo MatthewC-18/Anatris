@@ -589,7 +589,22 @@ export function Viewer3D({
         // Floor for the adaptive quality drop while the camera is moving (see
         // AdaptiveDpr in SceneContents). 0.5 halves the pixel count during a
         // drag, which is where the frame budget actually goes.
-        performance={{ min: 0.5 }}
+        // FLOOR FOR THE INTERACTION DROP, and the DEBOUNCE that ends it.
+        //
+        // A physio reviewing the lab wrote "Borroso se aleja o acerca": the scene
+        // regresses on EVERY camera change, so a zoom -- a gesture whose whole
+        // point is to look closer -- spends its entire duration at reduced
+        // resolution, plus r3f's 200 ms debounce afterwards.
+        //
+        // 0.5 was too deep a cut for what it buys. This scene's cost is thousands
+        // of individual meshes each with its own cloned material, which is
+        // draw-call bound, not fill bound -- so halving the pixels barely moves
+        // the frame rate while being plainly visible. The comment above says as
+        // much: dropping the raycast is free, dropping the resolution is not, and
+        // the phones were already exempted from this half for the same reason.
+        // 0.75 keeps a real saving for the genuinely heavy drags; the shorter
+        // debounce brings the sharp frame back as soon as the gesture stops.
+        performance={{ min: 0.75, debounce: 120 }}
         // Premium studio color pipeline (same as the movement lab): ACES filmic
         // tone mapping gives the muscle reds and ivory bone a richer, more
         // cinematic roll-off than the flat Neutral curve, and pairs with the

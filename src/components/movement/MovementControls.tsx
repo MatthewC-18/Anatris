@@ -846,12 +846,24 @@ export function MovementControls({
                   className="flex shrink-0 items-center gap-2 py-1.5 text-slate-400 transition-colors hover:text-slate-200"
                 >
                   <DownloadIcon size={13} />
-                  <span className="text-xs font-medium">Exportar</span>
+                  <span className="text-xs font-medium">Ficha para el paciente</span>
                 </button>
               </div>
 
               {exportOpen && (
                 <div className="pb-1">
+                  {/* WHAT THIS PRODUCES, before you produce it. The row said only
+                      "Exportar" and the panel jumped straight to a note field and
+                      a download button, so what the feature was for had to be
+                      inferred from a placeholder -- "no entiendo el modo
+                      paciente". */}
+                  <p className="mt-1.5 border-l-2 border-slate-700 pl-2 text-[11px] leading-snug text-slate-400">
+                    Genera una <span className="text-slate-200">ficha en PNG para el
+                    paciente</span>: una foto de la postura actual del modelo, el
+                    movimiento y su rango, los músculos que trabajan y tu nota, en
+                    lenguaje llano. Para imprimir o mandar. Se crea en tu equipo y no
+                    sale nada a internet.
+                  </p>
                   <textarea
                     id="patient-note"
                     value={note}
@@ -888,6 +900,17 @@ export function MovementControls({
                   {supportsPathology && (
                     <div className="mt-2">
                       <span className="kicker">Estado clínico</span>
+                      {/* WHAT PICKING ONE DOES, at the point of picking. The row
+                          was a set of chips with no statement of consequence, and
+                          the explanation only appeared in the readout AFTER a
+                          pathology was already active -- "no entiendo las
+                          patologías en el modelo 3D". */}
+                      <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                        Elige un cuadro y el modelo <span className="text-slate-300">se
+                        mueve con ese patrón alterado</span>: cambia el ritmo entre
+                        húmero y escápula, se limita el rango, y las estructuras
+                        implicadas se marcan en la escena.
+                      </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         <button
                           type="button"

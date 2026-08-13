@@ -335,7 +335,22 @@ export function RigViewer({ refitKey }: { refitKey?: string | number } = {}) {
         // Floor for the adaptive quality drop while the CAMERA moves (nothing
         // else regresses -- see the note above NavigationRig). Same on phones:
         // a lower floor here made a drag on mobile blocky for no real gain.
-        performance={{ min: 0.5 }}
+        // FLOOR FOR THE INTERACTION DROP, and the DEBOUNCE that ends it.
+        //
+        // A physio reviewing the lab wrote "Borroso se aleja o acerca": the scene
+        // regresses on EVERY camera change, so a zoom -- a gesture whose whole
+        // point is to look closer -- spends its entire duration at reduced
+        // resolution, plus r3f's 200 ms debounce afterwards.
+        //
+        // 0.5 was too deep a cut for what it buys. This scene's cost is thousands
+        // of individual meshes each with its own cloned material, which is
+        // draw-call bound, not fill bound -- so halving the pixels barely moves
+        // the frame rate while being plainly visible. The comment above says as
+        // much: dropping the raycast is free, dropping the resolution is not, and
+        // the phones were already exempted from this half for the same reason.
+        // 0.75 keeps a real saving for the genuinely heavy drags; the shorter
+        // debounce brings the sharp frame back as soon as the gesture stops.
+        performance={{ min: 0.75, debounce: 120 }}
         gl={{
           // MSAA is a fill-rate tax, and fill rate is exactly what a phone does
           // not have spare while skinning 1300+ meshes per frame.

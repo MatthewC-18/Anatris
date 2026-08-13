@@ -100,7 +100,7 @@ export function Sidebar({ index, resolution, onNavigate }: SidebarProps) {
           )}
         </Section>
 
-        <Section id="view" title="Vista y capas" open={open} setOpen={setOpen}>
+        <Section id="view" title="Capas y disección" open={open} setOpen={setOpen}>
           <DepthPeeler />
           <div className="my-4 h-px bg-slate-800/60" />
           <LayerControls index={index} />
