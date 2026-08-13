@@ -327,22 +327,33 @@ const scapM = all.filter((m) => /^Scapula\d*/i.test(m.name) && m.layer === 'bone
 const ribM = boneM.filter((m) => /rib|sternum|vertebra|costal/i.test(m.name));
 const CELL = 0.02;
 pose(0);
-const ribHash = new Map<string, THREE.Vector3[]>();
-for (const m of ribM)
-  for (const p of posedOf(m)) {
-    const k = `${Math.floor(p.x / CELL)}|${Math.floor(p.y / CELL)}|${Math.floor(p.z / CELL)}`;
-    ribHash.set(k, [...(ribHash.get(k) ?? []), p]);
-  }
-const nearRib = (p: THREE.Vector3) => {
+// The rib cloud is rebuilt AT EVERY POSE, not once at rest. It used to be a
+// single rest snapshot, which was fine while the thorax barely moved -- but the
+// trunk lean at the top of the arc now runs down the whole raquis, so the
+// ribcage itself travels several centimetres. Measured against a stale rest
+// cloud, a scapula riding the ribs perfectly reads as 10 cm of "lift-off". What
+// this column is supposed to say is whether the blade comes OFF THE THORAX, so
+// it has to ask the thorax where it currently is.
+const ribHashOf = (pts: (m: M) => THREE.Vector3[]) => {
+  const h = new Map<string, THREE.Vector3[]>();
+  for (const m of ribM)
+    for (const p of pts(m)) {
+      const k = `${Math.floor(p.x / CELL)}|${Math.floor(p.y / CELL)}|${Math.floor(p.z / CELL)}`;
+      h.set(k, [...(h.get(k) ?? []), p]);
+    }
+  return h;
+};
+const nearRibIn = (h: Map<string, THREE.Vector3[]>, p: THREE.Vector3) => {
   let best = Infinity;
   for (let r = 1; r <= 6 && best === Infinity; r++) {
     const cx = Math.floor(p.x / CELL), cy = Math.floor(p.y / CELL), cz = Math.floor(p.z / CELL);
     for (let i = -r; i <= r; i++) for (let j = -r; j <= r; j++) for (let k = -r; k <= r; k++)
-      for (const q of ribHash.get(`${cx + i}|${cy + j}|${cz + k}`) ?? []) best = Math.min(best, p.distanceTo(q));
+      for (const q of h.get(`${cx + i}|${cy + j}|${cz + k}`) ?? []) best = Math.min(best, p.distanceTo(q));
   }
   return best;
 };
-const scapRest = scapM.map((m) => posedOf(m).map(nearRib));
+const restRibHash = ribHashOf(posedOf);
+const scapRest = scapM.map((m) => posedOf(m).map((p) => nearRibIn(restRibHash, p)));
 const restArm = armAngle();
 const key = (v: THREE.Vector3) => `${Math.round(v.x * 400)}|${Math.round(v.y * 400)}|${Math.round(v.z * 400)}`;
 // Skin that rests against the flank at zero and MUST separate when the arm
@@ -388,9 +399,11 @@ for (const deg of angles) {
   // is how far the shaft wandered, which should be ~0.
   let drift = 0;
   if (IS_CHAIN) {
+    const ribNow = ribHashOf((m) => P.get(m.name) ?? []);
     scapM.forEach((m, mi) => {
       const pv = P.get(m.name)!;
-      for (let i = 0; i < pv.length; i++) drift = Math.max(drift, nearRib(pv[i]) - scapRest[mi][i]);
+      for (let i = 0; i < pv.length; i++)
+        drift = Math.max(drift, nearRibIn(ribNow, pv[i]) - scapRest[mi][i]);
     });
   }
   let exposed = 0, exposedName = '';

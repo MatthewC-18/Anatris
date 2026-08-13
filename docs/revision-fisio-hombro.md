@@ -36,7 +36,7 @@ ver el fallo descrito y hace falta que lo detalle).
 | 1 · lento | ✅ carga repetida; primera carga medida |
 | 7 · borroso al zoom | ✅ hecho, por confirmar en pantalla |
 | 13 · flexión mal | 🟡 parcial |
-| 17 · ver la biomecánica | 🟡 necesita concreción |
+| 17 · ver la biomecánica | ✅ concretado y corregido: el raquis entero |
 | 3 · músculos por fibras | ⚠️ no reproducido |
 
 Lo verificado en esta tanda: **264 pruebas** en verde, build correcto,
@@ -282,10 +282,51 @@ articulaciones que la producen — cuántos grados pone la **esternoclavicular**
 girando sobre ella). Antes eso no se podía enseñar porque el modelo no lo
 hacía.
 
-- **Estado:** parcial — ⚠️ **hace falta que lo concrete.** "Ver la
-  biomecánica" admite varias lecturas (¿los brazos de palanca? ¿las fuerzas?
-  ¿la guía narrada de "Aprender" dentro del laboratorio?) y no quiero adivinar
-  y construir la equivocada.
+**Ya está concretado.** El fisio dijo qué echaba en falta: *"no se mueve en
+bloque, todo debe moverse, porque solo se mueve la parte de arriba de la
+columna y no todo"*, y lo apoyó con la secuencia de la Université Lyon sobre
+el **ritmo húmero-escápulo-raquídeo**, que nombra los dos bloques que
+intervienen en el desplazamiento del tronco: *"el raquis lumbar (RL)"* y *"el
+raquis torácico (RT)"*.
+
+**Tenía razón, y se medía.** La inclinación contralateral del tronco al final
+del arco estaba puesta sobre **cinco vértebras dorsales altas** (T6..T2) y
+sobre nada más. `scripts/measure-trunk-lean.mts` (nuevo) posa el rig y mide,
+vértebra a vértebra, cuánto gira cada nivel y cuánto se desplaza su cuerpo:
+
+> **Antes, a 180°:** 5 de 21 niveles se movían. De L5 a T7 —once vértebras—
+> el desplazamiento era **0,00 cm**: una tabla rígida con una bisagra en T6,
+> que es exactamente lo que él vio.
+
+**Corregido:** la inclinación se reparte ahora por **todo el raquis**, doce
+dorsales (T12..T1) y cinco lumbares (L5..L1). Y no a partes iguales: la
+capacidad de inclinación lateral es de ~30° en toda la dorsal (12 niveles,
+~2,5° cada uno) frente a ~25° en la lumbar (5 niveles, ~5°), así que **un
+nivel lumbar dobla a uno dorsal**. Repartir un ángulo plano por vértebra
+sería el mismo error en versión sutil: doblaría la dorsal media, que es
+rígida, tanto como la lumbar.
+
+El **total no cambia** (~27° a 180°): esos grados se reparten *dentro* del
+ángulo goniométrico, no se suman encima, así que redistribuirlos no mueve la
+lectura de húmero / escápula / tronco.
+
+> **Después, a 180°:** 17 de 21 niveles participan y el desplazamiento sube en
+> rampa continua desde el sacro —L1 1,29 cm, T8 5,24 cm, T1 11,58 cm, C1
+> 16,23 cm— con 26,2° de inclinación total. La columna describe una curva, no
+> un codo.
+
+- **Dónde:** `src/lib/biomech/shoulderChain.ts`
+  (`G_SPINE_THORACIC_PER_VERT` / `G_SPINE_LUMBAR_PER_VERT`,
+  `THORACIC_LEAN_VERTS` / `LUMBAR_LEAN_VERTS`), `src/lib/boneMap.ts`
+  (los objetivos `thoracic` y `lumbar` de la cadena).
+- **De paso:** `scripts/sweep-shoulder-arc.mts` medía la separación de la
+  escápula contra una **nube de costillas en reposo**, tomada una sola vez.
+  Servía mientras el tórax casi no se movía; con el tronco inclinándose de
+  verdad, una escápula perfectamente apoyada marcaba **10,5 cm de despegue**
+  que no existía. Ahora la nube se reconstruye en cada pose, y la columna dice
+  lo que promete: la escápula se queda en 2,4 cm a 180°, igual que antes.
+- **Estado:** ✅ hecho — 300 pruebas en verde, build correcto, `audit-data`
+  con 0 errores y 0 avisos.
 
 ### 14 · Las rotaciones interna y externa están mal
 > *"Rot int y ext mal"*
@@ -433,8 +474,11 @@ atravesaba a sí misma en vez de moverse como una pieza.
 Existe `BiomechanicsGuide` / `BiomechanicsSchematic`, pero no se muestra
 mientras se reproduce el movimiento.
 
-- **Dónde:** `src/components/BiomechanicsGuide.tsx`, `MovementView.tsx`
-- **Estado:** pendiente
+- **Dónde:** `src/components/BiomechanicsGuide.tsx`, `MovementView.tsx`,
+  `src/lib/biomech/shoulderChain.ts`, `src/lib/boneMap.ts`
+- **Estado:** ✅ hecho — el desglose SC/AC en el panel del ritmo y, sobre
+  todo, el reparto de la inclinación del tronco por todo el raquis. Ver la
+  ficha completa en el bloque de arriba.
 
 ---
 
@@ -802,5 +846,5 @@ bloques de relevancia clínica de las fichas de músculo (no solo los tests).
    funcionando.
 2. **Punto 12 (240°):** ¿es el giro de la cámara o un valor de un movimiento?
    No hay ningún 240 en los datos de hombro.
-3. **Punto 17 (biomecánica):** ¿qué esperaba ver? ¿Brazos de palanca, fuerzas,
-   o la guía narrada de "Aprender" dentro del laboratorio?
+3. ~~**Punto 17 (biomecánica):** ¿qué esperaba ver?~~ **Contestado:** que el
+   tronco no se moviera en bloque. Corregido y medido — ver la nota 17.

@@ -28,8 +28,9 @@
 // ~2:1 that is GH-dominant early (setting phase) and scapula-dominant late.
 //
 // Humeral external rotation engages after 90 deg (rolls the greater tuberosity
-// clear of the acromion). Thoracic spine (T6..T2) laterally flexes CONTRALATERALLY
-// after 150 deg (computed but not placed on the rig -- see boneMap targets).
+// clear of the acromion). The RAQUIS -- thoracic T12..T1 and lumbar L5..L1 --
+// laterally flexes CONTRALATERALLY after 150 deg, weighted per region so the
+// trunk bends along its whole length instead of hinging at one level.
 //
 // VERIFICATION STATUS: the phase boundaries (30/120 deg) and whole-arc totals
 // (~120 deg GH / ~60 deg scapular) are now grounded in the biomechanics
@@ -82,8 +83,45 @@ const G_P3 = 0.52;  // 90-140  PEAK scapular contribution (external rot obligate
 const G_P4 = 0.28;  // 140-180 scapula still leads but the rate eases
 
 const G_HUM_ER = 0.6;          // humeral ER gain
-const G_SPINE_PER_VERT = 0.18; // per-vertebra lateral-flexion gain
-const SPINE_VERTS = ['vert_T6', 'vert_T5', 'vert_T4', 'vert_T3', 'vert_T2'] as const;
+
+// --- THE TRUNK LEAN IS THE WHOLE RAQUIS, NOT ITS TOP FIVE VERTEBRAE ---------
+//
+// The lean used to be spread over five upper thoracic vertebrae (T6..T2) and
+// nothing else. On screen that reads as a rigid trunk with a hinge in it: the
+// shoulders and head tip over while the ribcage below T6, the lumbar spine and
+// the pelvis stay bolted upright. A physio reviewing the module said exactly
+// that -- the trunk moves "en bloque", only its top segment participating.
+//
+// The Universite Lyon anatomie3d sequence on the humero-escapulo-raquideo
+// rhythm is explicit about which segments intervene in the trunk's
+// displacement: "el raquis lumbar (RL)" AND "el raquis torACico (RT)". So the
+// lean is distributed over BOTH blocks -- twelve thoracic vertebrae (T12..T1)
+// and five lumbar (L5..L1) -- with each level taking a share of the total.
+//
+// The share is not flat per vertebra, because the two regions are not equally
+// mobile in the frontal plane. Lateral flexion capacity is roughly 30 deg
+// across the whole thoracic spine (12 levels, ~2.5 deg each) against ~25 deg
+// across the lumbar (5 levels, ~5 deg each), so a lumbar level bends about
+// TWICE as much as a thoracic one (White & Panjabi, Clinical Biomechanics of
+// the Spine; Neumann, Kinesiology). Weighting by that ratio gives
+//   12 x 1 + 5 x 2 = 22 "thoracic-equivalent" units
+// and the TOTAL trunk contribution is held at the same ~27 deg the model was
+// tuned to at 180 deg (it is partitioned out of the elevation arc below, so
+// changing it would move the readout):
+//   thoracic ~ 27/22       = 1.23 deg per level  -> 14.7 deg over T12..T1
+//   lumbar   ~ 2 x 27/22   = 2.45 deg per level  -> 12.3 deg over L5..L1
+// i.e. each region spends about half its available lateral flexion, which is
+// what an accessory trunk lean at the end of an elevation should cost.
+//
+// Gains are per RADIAN of elevation past T_SPINE (30 deg of arc = 0.5236 rad):
+//   G = perLevelDeg * DEG / 0.5236
+const G_SPINE_THORACIC_PER_VERT = 0.0409; // ~1.23 deg per thoracic level at 180
+const G_SPINE_LUMBAR_PER_VERT = 0.0818;   // ~2.45 deg per lumbar level at 180
+const THORACIC_LEAN_VERTS = [
+  'vert_T12', 'vert_T11', 'vert_T10', 'vert_T9', 'vert_T8', 'vert_T7',
+  'vert_T6', 'vert_T5', 'vert_T4', 'vert_T3', 'vert_T2', 'vert_T1',
+] as const;
+const LUMBAR_LEAN_VERTS = ['vert_L5', 'vert_L4', 'vert_L3', 'vert_L2', 'vert_L1'] as const;
 
 // --- WHERE THE SCAPULAR UPWARD ROTATION ACTUALLY COMES FROM -----------------
 //
@@ -146,8 +184,17 @@ export interface ShoulderChainPose {
   humeralExtRot: number;
   /** Thoracic lateral flexion per vertebra, radians (signed; applied on local Z). */
   thoracicLatFlexPerVert: number;
-  /** Vertebrae that receive the lateral flexion, head-ward order. */
+  /**
+   * Lumbar lateral flexion per vertebra, radians (signed; local Z). Separate from
+   * the thoracic share because a lumbar level bends about twice as much as a
+   * thoracic one — a single per-vertebra number spread over both blocks is what
+   * made the trunk look like it moved in one piece.
+   */
+  lumbarLatFlexPerVert: number;
+  /** Thoracic vertebrae that receive the lateral flexion, head-ward order. */
   thoracicVerts: readonly string[];
+  /** Lumbar vertebrae that receive the lateral flexion, head-ward order. */
+  lumbarVerts: readonly string[];
   /**
    * Convenience: the segmental split in degrees, for UI readouts (the
    * humero-escapulo-raquideo rhythm, cumulative at the current angle).
@@ -231,8 +278,12 @@ export function shoulderChain(
   const humeralExtRot = Math.max(Ep - T_HUM_ER, 0) * G_HUM_ER;
 
   // Contralateral lateral flexion: R arm -> spine leans LEFT, and vice versa.
+  // Distributed over the WHOLE raquis (see the gain block above): every thoracic
+  // and lumbar level takes a share, so the trunk bends instead of hinging at T6.
   const spineSign = side === 'R' ? -1 : 1;
-  const thoracicLatFlexPerVert = Math.max(Ep - T_SPINE, 0) * G_SPINE_PER_VERT * spineSign;
+  const spineDrive = Math.max(Ep - T_SPINE, 0) * spineSign;
+  const thoracicLatFlexPerVert = spineDrive * G_SPINE_THORACIC_PER_VERT;
+  const lumbarLatFlexPerVert = spineDrive * G_SPINE_LUMBAR_PER_VERT;
 
   // Raw joint split from the scapulohumeral rhythm. These two DRIVE THE RIG
   // (scapulaUpwardRot / glenohumeralRot above) and are NOT touched — for E > 0
@@ -242,9 +293,14 @@ export function shoulderChain(
 
   // Trunk (raquis) contribution to the FUNCTIONAL elevation. Kapandji's phase 3
   // (150-180 deg): the shoulder joint complex is near its ceiling, so the last
-  // stretch to a true vertical is completed by the spine — contralateral thoracic
-  // lateral flexion for a single arm. Ramps from 0 at 150 deg to ~27 deg at 180.
-  const trunkDeg = (Math.abs(thoracicLatFlexPerVert) * SPINE_VERTS.length) / DEG;
+  // stretch to a true vertical is completed by the spine — contralateral lateral
+  // flexion of the trunk for a single arm. Ramps from 0 at 150 deg to ~27 deg at
+  // 180, summed over BOTH blocks: whichever way the per-level shares are tuned,
+  // what the readout reports is the whole raquis's contribution.
+  const trunkDeg =
+    (Math.abs(thoracicLatFlexPerVert) * THORACIC_LEAN_VERTS.length +
+      Math.abs(lumbarLatFlexPerVert) * LUMBAR_LEAN_VERTS.length) /
+    DEG;
 
   // PARTITION, don't add on top. The slider angle is a FUNCTIONAL arm-vs-vertical
   // elevation, which already INCLUDES the trunk lean — so the measured degrees are
@@ -272,7 +328,9 @@ export function shoulderChain(
     glenohumeralRot,
     humeralExtRot,
     thoracicLatFlexPerVert,
-    thoracicVerts: SPINE_VERTS,
+    lumbarLatFlexPerVert,
+    thoracicVerts: THORACIC_LEAN_VERTS,
+    lumbarVerts: LUMBAR_LEAN_VERTS,
     readout: { ghDeg, scapulaDeg, trunkDeg, ratio },
   };
 }

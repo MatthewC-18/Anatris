@@ -220,11 +220,16 @@ const CERVICAL_BONES = [
 ];
 
 // Vertebrae that carry the contralateral trunk lean at the top of shoulder
-// elevation. Must match SPINE_VERTS in ./biomech/shoulderChain, which sizes the
-// per-vertebra angle by this same count.
-const SHOULDER_THORACIC_LEAN = [
-  'vert_T6', 'vert_T5', 'vert_T4', 'vert_T3', 'vert_T2',
-] as const;
+// elevation. The lean used to sit on five upper thoracic levels only, which made
+// the trunk tip over as one rigid piece hinged at T6 -- the physio's "solo se
+// mueve la parte de arriba de la columna". It now runs down the WHOLE raquis,
+// thoracic and lumbar, exactly as shoulderChain's THORACIC_LEAN_VERTS /
+// LUMBAR_LEAN_VERTS list them; the per-level ANGLES differ between the blocks
+// (a lumbar level bends about twice as much), which is why they are two targets
+// and not one. Keep both lists in step with that file, which sizes each region's
+// per-vertebra angle by its own count.
+const SHOULDER_THORACIC_LEAN = THORACIC_BONES;
+const SHOULDER_LUMBAR_LEAN = LUMBAR_BONES;
 
 // ---------------------------------------------------------------------------
 // THE MAP: clinical movementId (from *Rom.ts) -> bone control.
@@ -276,6 +281,7 @@ export const BONE_MAP: Record<string, BoneControl> = {
         // deg at 160). Flipped here, at the point where the value meets the rig,
         // so the clinical model keeps its own convention.
         thoracic: -p.thoracicLatFlexPerVert,
+        lumbar: -p.lumbarLatFlexPerVert,
       };
     },
     targets: [
@@ -307,6 +313,14 @@ export const BONE_MAP: Record<string, BoneControl> = {
       {
         key: 'thoracic',
         target: { armature: 'spine', bones: [...SHOULDER_THORACIC_LEAN], axis: 'z' },
+      },
+      // The lumbar half of the same lean. Listed separately because it carries a
+      // BIGGER per-level angle than the thoracic one, not because it is a
+      // different movement: the raquis bends as one curve, and leaving the lumbar
+      // levels out is what made the trunk look like a board on a hinge.
+      {
+        key: 'lumbar',
+        target: { armature: 'spine', bones: [...SHOULDER_LUMBAR_LEAN], axis: 'z' },
       },
     ],
     aimPlane: 'z', // abduction is measured in the frontal plane
