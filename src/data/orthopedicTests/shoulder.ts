@@ -44,7 +44,7 @@ const tests: OrthopedicTest[] = [
       'Sensibilidad moderada (72%) y especificidad baja (60%): aislado no descarta ni confirma. Su valor está en el clúster con Hawkins y arco doloroso.',
     pearl:
       'Comparte falsos positivos con patología acromioclavicular y labral; interprétalo dentro de un clúster.',
-    demo: { movementId: 'glenohumeral-flexion', angleDeg: 160, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna del hombro.' },
+    demo: { components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 60 }], movementId: 'glenohumeral-flexion', angleDeg: 160, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna del hombro.' },
     cite: [{ ref: 'hegedus-2012', verified: true, locator: 'Neer 72/60' }],
   },
   {
@@ -70,7 +70,7 @@ const tests: OrthopedicTest[] = [
     utility: 'weak',
     interpretation:
       'El más sensible del grupo (79%), aunque insuficiente para descartar por sí solo, y con especificidad baja (59%). Úsalo dentro del clúster de pinzamiento, no aislado.',
-    demo: { movementId: 'glenohumeral-flexion', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna forzada a 90°.' },
+    demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-internal-rotation', angleDeg: 70 }], movementId: 'glenohumeral-flexion', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna forzada a 90°.' },
     cite: [
       {
         ref: 'hegedus-2012',
@@ -97,7 +97,7 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Sensibilidad y especificidad equilibradas: aporta tanto al cribado como a la confirmación. Dolor en ~170-180° orienta más a la articulación acromioclavicular.',
-    demo: { movementId: 'glenohumeral-abduction', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'El dolor aparece en el arco medio (~60-120°).' },
+    demo: { movementId: 'glenohumeral-abduction', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'El dolor aparece en el arco medio (~60-120°). Comparte posición con el brazo caído: lo que cambia no es dónde está el brazo, sino que aquí el paciente sube activamente.' },
     cite: [{ ref: 'park-2005', verified: true, locator: 'arco doloroso 74/81' }],
   },
 
@@ -121,7 +121,7 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Rendimiento moderado. Distingue el criterio de positividad: la debilidad orienta a rotura, el dolor a tendinopatía/pinzamiento.',
-    demo: { movementId: 'glenohumeral-abduction', angleDeg: 90, highlightMuscleId: 'supraspinatus', resisted: true, note: 'Añade plano escapular (~30° anterior) y rotación interna. El explorador resiste hacia abajo.' },
+    demo: { components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 70 }, { movementId: 'elbow-pronation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, highlightMuscleId: 'supraspinatus', resisted: true, note: 'Añade plano escapular (~30° anterior) y rotación interna. El explorador resiste hacia abajo.' },
     cite: [{ ref: 'hegedus-2012', verified: true, locator: 'lata vacía 69/62' }],
   },
   {
@@ -143,7 +143,7 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Muy específico: un positivo confirma con fuerza una rotura de espesor completo (SpPin). Un negativo NO la descarta por su baja sensibilidad.',
-    demo: { movementId: 'glenohumeral-abduction', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'El paciente desciende el brazo desde 90° de abducción.' },
+    demo: { movementId: 'glenohumeral-abduction', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'El paciente desciende el brazo desde 90° de abducción. Misma posición que el arco doloroso: lo que se valora aquí es el control del descenso, no el ángulo.' },
     cite: [{ ref: 'park-2005', verified: true, locator: 'brazo caído, esp 87.5%' }],
   },
 
@@ -167,7 +167,7 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Muy específico y, en roturas de espesor completo, muy sensible: un lag positivo confirma el déficit de rotadores externos. Su sensibilidad baja en roturas parciales.',
-    demo: { movementId: 'glenohumeral-external-rotation', angleDeg: 60, highlightMuscleId: 'infraspinatus' },
+    demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }], movementId: 'glenohumeral-external-rotation', angleDeg: 60, highlightMuscleId: 'infraspinatus' },
     cite: [{ ref: 'hertel-1996', verified: true, locator: 'ERLS espesor completo 97/93' }],
   },
 
@@ -193,7 +193,7 @@ const tests: OrthopedicTest[] = [
       'Especificidad muy alta: un positivo confirma disfunción del subescapular. Requiere rango de rotación interna suficiente para ejecutarse.',
     pearl:
       'Si el paciente no alcanza la posición lumbar (hombro rígido/doloroso), usa el belly-press como alternativa.',
-    demo: { movementId: 'glenohumeral-internal-rotation', angleDeg: 90, highlightMuscleId: 'subscapularis', note: 'La mano parte del dorso lumbar y se despega de la espalda.' },
+    demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }], movementId: 'glenohumeral-internal-rotation', angleDeg: 90, highlightMuscleId: 'subscapularis', note: 'La mano parte del dorso lumbar y se despega de la espalda.' },
     cite: [
       {
         ref: 'gerber-1991',
@@ -226,7 +226,7 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Muy específico: un positivo confirma déficit del subescapular. Poco sensible aislado.',
-    demo: { movementId: 'glenohumeral-internal-rotation', angleDeg: 45, highlightMuscleId: 'subscapularis', note: 'La palma presiona el abdomen con el codo por delante del cuerpo.' },
+    demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }], movementId: 'glenohumeral-internal-rotation', angleDeg: 45, highlightMuscleId: 'subscapularis', note: 'La palma presiona el abdomen con el codo por delante del cuerpo.' },
     cite: [
       {
         ref: 'hegedus-2012',
@@ -260,7 +260,7 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Con la aprensión como criterio es muy específico: un positivo confirma inestabilidad anterior. Si el criterio es "dolor", pierde especificidad.',
-    demo: { movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Se añade rotación externa progresiva a 90° de abducción (posición de aprensión).' },
+    demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-external-rotation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Posición de aprensión: 90° de abducción con rotación externa. Recolocación y sorpresa se hacen en ESTA MISMA posición; lo que cambia entre las tres es la mano del explorador, no el brazo del paciente.' },
     cite: [{ ref: 'lo-2004', verified: true, locator: 'aprensión 72/96' }],
   },
   {
@@ -282,7 +282,7 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Confirmatorio de la aprensión: si el alivio es el criterio, es específico de inestabilidad anterior.',
-    demo: { movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Desde la posición de aprensión (90° abd + RE), se aplica fuerza posterior sobre la cabeza humeral.' },
+    demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-external-rotation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Misma posición que la aprensión. Lo único que cambia es que el explorador empuja la cabeza humeral hacia atrás — por eso el brazo se ve igual.' },
     cite: [
       {
         ref: 'lo-2004',
@@ -314,7 +314,7 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Especificidad muy alta: un positivo confirma inestabilidad anterior. Suele completar la tríada aprensión → recolocación → sorpresa.',
-    demo: { movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Se retira bruscamente la fuerza posterior en 90° abd + rotación externa.' },
+    demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-external-rotation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Misma posición que la aprensión y la recolocación. Lo que cambia es que se retira bruscamente la fuerza posterior; el brazo no se mueve.' },
     cite: [{ ref: 'lo-2004', verified: true, locator: 'sorpresa 64/99' }],
   },
 
@@ -339,7 +339,7 @@ const tests: OrthopedicTest[] = [
     utility: 'weak',
     interpretation:
       'Aislado tiene baja precisión: interprétalo dentro de un clúster de tests labrales, no como prueba única.',
-    demo: { movementId: 'glenohumeral-flexion', angleDeg: 90, resisted: true, note: 'Con 10-15° de aducción; el explorador resiste la flexión (pulgar abajo, luego palma arriba).' },
+    demo: { components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 60 }, { movementId: 'elbow-pronation', angleDeg: 80 }], movementId: 'glenohumeral-flexion', angleDeg: 90, resisted: true, note: 'Con 10-15° de aducción; el explorador resiste la flexión (pulgar abajo, luego palma arriba).' },
     cite: [{ ref: 'hegedus-2012', verified: true, locator: 'O’Brien 59/57' }],
   },
   {
@@ -361,7 +361,7 @@ const tests: OrthopedicTest[] = [
     utility: 'weak',
     interpretation:
       'Precisión baja aislado: ni un positivo ni un negativo cambian mucho la probabilidad. Aporta más como parte de un clúster bicipital/labral.',
-    demo: { movementId: 'glenohumeral-flexion', angleDeg: 90, resisted: true, note: 'Codo extendido y antebrazo supinado; el explorador resiste la flexión del hombro.' },
+    demo: { components: [{ movementId: 'elbow-supination', angleDeg: 80 }], movementId: 'glenohumeral-flexion', angleDeg: 90, resisted: true, note: 'Codo extendido y antebrazo supinado; el explorador resiste la flexión del hombro.' },
     cite: [{ ref: 'hegedus-2012', verified: true, locator: 'Speed 65/61' }],
   },
 

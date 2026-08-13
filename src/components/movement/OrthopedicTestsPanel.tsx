@@ -936,6 +936,9 @@ export function OrthopedicTestsPanel({
         // Resisted tests (Jobe, Speed, O'Brien...) show the therapist's hand
         // resisting the movement -- the two-person interaction they really are.
         resistance: d.resisted === true,
+        // The joints that make this maneuver itself, held while the base
+        // movement sweeps.
+        components: d.components,
         // Fixed for the whole demo, so the readout can describe the maneuver
         // instead of recomputing (and flickering) its analysis every frame.
         demo: demoInfo,

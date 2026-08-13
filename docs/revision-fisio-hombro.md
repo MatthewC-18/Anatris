@@ -25,6 +25,7 @@ ver el fallo descrito y hace falta que lo detalle).
 | 20 · sensibilidad y especificidad | ✅ hecho |
 | 5 · posiciones funcionales | ✅ completado, pero ver abajo |
 | 4 y 26 · nervios | ✅ accesibles y con lista propia |
+| 21 · los tests se ven iguales | ✅ de 18 poses idénticas a 4, y esas 4 explicadas |
 | 13 · flexión mal | 🟡 parcial |
 | 17 · ver la biomecánica | 🟡 necesita concreción |
 | 3 · músculos por fibras | ⚠️ no reproducido |
@@ -408,19 +409,70 @@ mientras se reproduce el movimiento.
 
 ## 3. Tests ortopédicos
 
+### 21 · Los tests no están bien hechos — «todos se ven iguales»
+> *"test no están bien hechos"*, y en persona: *"todos hacen lo mismo, no veo
+> la diferencia"*
+
+**Tenía razón, y era medible.** La demo de cada test llevaba **un solo
+movimiento base y un ángulo**. Todo lo que distingue una maniobra —la
+rotación interna forzada de Hawkins, la externa de la aprensión, el pulgar
+abajo de Jobe— vivía únicamente en el **texto de la nota**, nunca en el
+modelo.
+
+`scripts/measure-test-poses.mts` (nuevo) posa el rig en cada test y compara
+las posiciones par a par. Antes:
+
+> ⚠️ **18 pares por debajo de 4 cm.** Y no "parecidos": **0,0 cm**.
+> `arco doloroso`, `lata vacía`, `brazo caído`, `aprensión`, `recolocación` y
+> `sorpresa` eran **la misma pose exacta**. `Hawkins`, `O'Brien` y `Speed`,
+> otra.
+
+**Corregido:** la demo lleva ahora los **componentes** de la maniobra —
+articulaciones sostenidas mientras el movimiento base recorre su arco—
+expresadas como movimientos clínicos, no como huesos y ejes, para reutilizar
+los signos por lado que `boneMap` ya resolvió. Cada componente sale del texto
+`maneuver` **del propio test**:
+
+| Test | Base | Lo que lo hace ser él |
+|---|---|---|
+| Neer | flexión 160° | + rotación interna 60° |
+| Hawkins | flexión 90° | + codo 90° + rotación interna 70° |
+| Lata vacía (Jobe) | abducción 90° | + rot. interna 70° + pronación 80° (pulgar abajo) |
+| Aprensión | abducción 90° | + codo 90° + rotación externa 80° |
+| O'Brien | flexión 90° | + rot. interna 60° + pronación 80° |
+| Speed | flexión 90° | + supinación 80° |
+| Lift-off / belly-press | rot. interna 90° / 45° | + codo 90° |
+
+**De 18 pares idénticos a 4** — y los 4 que quedan **son clínicamente
+correctos**, así que no los he falseado, los he explicado:
+
+- **Arco doloroso y brazo caído** son los dos 90° de abducción. Lo que cambia
+  no es dónde está el brazo, sino que uno sube activamente y el otro controla
+  el descenso.
+- **Aprensión, recolocación y sorpresa** son **tres pasos en una misma
+  posición**; lo único que cambia es la mano del explorador.
+
+Las notas de esos cinco tests lo dicen ahora explícitamente, así que "se ven
+iguales" pasa de ser un fallo a ser un hecho que se enseña.
+
+Un fallo mío por el camino: mi primera métrica medía orígenes de hueso, que
+están **sobre** el eje de la pronosupinación, así que daba por iguales un
+antebrazo con el pulgar abajo y otro con la palma arriba. Corregida con
+puntos de sonda fuera del eje.
+
+- **Dónde:** `src/types/orthopedicTest.ts`, `src/data/orthopedicTests/shoulder.ts`,
+  `src/components/movement/RigModel.tsx`, `scripts/measure-test-poses.mts`
+- **Estado:** ✅ hecho — 6 pruebas nuevas que impiden añadir un test sin maniobra propia.
+
 ### 19 · No se explican los tests
-### 21 · Los tests no están bien hechos
 ### 22 · "Examen" y "guía": no se sabe para qué son
-> *"no explicas los tests ortopédicos"* · *"test no están bien hechos"* ·
+> *"no explicas los tests ortopédicos"* ·
 > *"Examen y guía no sé para qué es (tests ortopédicos)"*
 
-El punto 21 es el grave: la **ejecución** del test (posición, maniobra, qué
-se considera positivo) no está bien descrita. El 19 y el 22 son de
-presentación: no se explica el test antes de pedir que lo interpretes, y los
-modos "Examen" y "Guía" no dicen para qué sirven.
+Son de presentación: no se explica el test antes de pedir que lo interpretes,
+y los modos "Examen" y "Guía" no dicen para qué sirven.
 
-- **Dónde:** `src/data/orthopedicTests/shoulder.ts`,
-  `src/components/movement/OrthopedicTestsPanel.tsx`
+- **Dónde:** `src/components/movement/OrthopedicTestsPanel.tsx`
 - **Estado:** pendiente
 
 ### 20 · Especificidad y sensibilidad no se entienden

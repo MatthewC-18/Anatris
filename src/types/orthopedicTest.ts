@@ -52,6 +52,28 @@ export interface DiagnosticMetrics {
  * button). `note` documents the part of the maneuver the single-axis rig cannot
  * reproduce (e.g. an added rotation), shown next to the button.
  */
+/**
+ * One extra joint HELD while the demo plays, on top of the base movement.
+ *
+ * Without these, a maneuver is only its base movement, and most shoulder tests
+ * share one: six of the fourteen were "abduct to 90" and three were "flex to
+ * 90". On screen they were the same pose, and everything that actually
+ * distinguishes them -- Hawkins' forced internal rotation, the apprehension
+ * position's external rotation, Jobe's thumb-down -- lived in the note TEXT
+ * only. The physio reviewing the lab put it plainly: "todos hacen lo mismo, no
+ * veo la diferencia".
+ *
+ * Expressed as a movementId rather than a bone + axis so the clinical
+ * vocabulary stays the vocabulary, and so the per-side sign and axis mapping
+ * boneMap already solved is reused rather than restated.
+ */
+export interface TestDemoComponent {
+  /** A drivable movementId, held at a fixed angle for the whole demo. */
+  movementId: string;
+  /** Clinical angle to hold (deg). */
+  angleDeg: number;
+}
+
 export interface TestDemo {
   /** movementId the rig already knows how to drive. */
   movementId: string;
@@ -70,6 +92,12 @@ export interface TestDemo {
    * the abdomen/lumbar, nor passive tests where the examiner just moves the limb).
    */
   resisted?: boolean;
+  /**
+   * The joints that make this maneuver ITSELF, held while the base movement
+   * sweeps. Neer and Hawkins are both flexion; what separates them is that
+   * Hawkins forces internal rotation with the elbow at 90.
+   */
+  components?: TestDemoComponent[];
   /** What the rig approximation leaves out (shown as a caveat). */
   note?: string;
 }

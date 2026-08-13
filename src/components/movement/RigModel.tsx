@@ -1124,6 +1124,14 @@ export interface RigCommand {
    * a second and could not be read. This is fixed for the whole demo.
    */
   demo?: RigDemoInfo | null;
+  /**
+   * Extra joints HELD at a fixed angle while the base movement sweeps: the
+   * components that make an orthopedic-test maneuver itself rather than just its
+   * base movement. See TestDemoComponent -- six shoulder tests used to be the
+   * same "abduct to 90" pose because everything distinguishing them lived only
+   * in prose.
+   */
+  components?: { movementId: string; angleDeg: number }[];
 }
 
 /** Stable description of the maneuver a demo is showing (see RigCommand.demo). */
@@ -2639,6 +2647,33 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         return f < 0 ? 0 : f > 1 ? 1 : f;
       };
 
+      // MANEUVER COMPONENTS. Held at a fixed angle while the base movement
+      // sweeps, and applied AFTER it so they compose on top: a component often
+      // shares a bone with the base movement (Hawkins is flexion on humerus_gh
+      // local X plus internal rotation on its local Y), so it must add to the
+      // pose rather than reset it.
+      const applyComponents = () => {
+        if (!cmd.components?.length) return;
+        for (const comp of cmd.components) {
+          const cc = getBoneControl(comp.movementId);
+          if (!cc || cc.kind !== 'joint') {
+            // eslint-disable-next-line no-console
+            console.warn(`[RigModel] componente no accionable: ${comp.movementId}`);
+            continue;
+          }
+          const cBones = byArmature.get(resolveArmatureName(cc.armatureBase, cmd.side));
+          const cBone = cBones?.get(cc.bone);
+          if (!cBone) continue;
+          if (!touchedRef.current.has(cBone)) {
+            const rq = restQuat.get(cBone);
+            if (rq) cBone.quaternion.copy(rq);
+            else cBone.quaternion.identity();
+            touchedRef.current.add(cBone);
+          }
+          cBone.rotateOnAxis(AXIS_VEC[cc.axis], cc.sign[cmd.side] * comp.angleDeg * DEG2RAD);
+        }
+      };
+
       // EXAMINATION POSTURE. Held at EVERY angle, 0 included, because it is not
       // part of the movement -- it is the position the movement is read in (the
       // elbow at 90 deg for shoulder rotation). Applied before the movement so the
@@ -2851,6 +2886,11 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         scene.updateMatrixWorld(true);
         carryShouldersWithSpine();
       }
+
+      // The maneuver's own components, on top of whatever the base movement did
+      // and before the cosmetic clearance, so a demo reads as the maneuver
+      // rather than as its base movement.
+      applyComponents();
 
       if (isArmMovement) clearActiveArm(cmd.side, armClearanceFactor());
 
