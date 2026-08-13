@@ -59,6 +59,13 @@ export interface MyotomeDemo {
   angleDeg: number;
   side?: 'R' | 'L';
   highlightMuscleId?: string;
+  /**
+   * Extra joints HELD while the base movement sweeps, so a myotome with more than
+   * one key movement can show them together. C5 is shoulder abduction AND elbow
+   * flexion; showing only the abduction is why a physio wrote "C5 no hay flexión
+   * de codo". Same mechanism as the orthopedic tests' TestDemoComponent.
+   */
+  components?: { movementId: string; angleDeg: number }[];
   /** What the rig approximation leaves out (shown as a caveat). */
   note?: string;
 }

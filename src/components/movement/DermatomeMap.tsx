@@ -105,6 +105,13 @@ export function DermatomeMap({
 }) {
   const plate = useMemo(() => buildPlateGeometry(figure), [figure]);
   const [hovered, setHovered] = useState<string | null>(null);
+  // ENLARGED PLATE. The two views sit side by side in a narrow rail, so each
+  // figure gets half of it and the forearm bands end up a few pixels wide -- "muy
+  // pequeño espacio de dermatomas y miotomas". Raising the cap was tried before
+  // and pushes the root list off a laptop screen, so instead the plate can be
+  // opened: one column, full width, and the panel scrolls. The compact default is
+  // unchanged.
+  const [enlarged, setEnlarged] = useState(false);
   // Unique per instance: the panel mounts on desktop and inside the mobile sheet,
   // and two SVGs sharing a clipPath id would clip to whichever mounted last.
   const uid = useId().replace(/:/g, '');
@@ -127,7 +134,26 @@ export function DermatomeMap({
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="mb-1.5 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setEnlarged((v) => !v)}
+          aria-pressed={enlarged}
+          title={
+            enlarged
+              ? 'Volver a las dos vistas lado a lado'
+              : 'Ver la lámina a lo ancho del panel, una vista debajo de la otra'
+          }
+          className={`rounded border px-2 py-0.5 text-[10px] font-medium transition-colors ${
+            enlarged
+              ? 'border-accent/50 bg-accent/10 text-accent'
+              : 'border-slate-700 text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          {enlarged ? 'Reducir' : 'Ampliar'}
+        </button>
+      </div>
+      <div className={enlarged ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-2 gap-2.5'}>
         {VIEWS.map((view) => (
           <figure key={view} className="m-0">
             <svg
@@ -140,7 +166,10 @@ export function DermatomeMap({
               // forearm bands too thin to read -- the expanded root row is where the
               // scrolling actually came from, and once that was cut the height could
               // come back here, where it buys legibility.
-              style={{ maxHeight: 'min(38vh, 19rem)' }}
+              // Enlarged, the figure gets the whole rail and a much taller cap;
+              // the panel scrolls, which is the trade the compact default exists
+              // to avoid but the right one when the plate is what you came for.
+              style={{ maxHeight: enlarged ? 'min(72vh, 34rem)' : 'min(38vh, 19rem)' }}
               // NOT role="img" when the territories are selectable: role="img"
               // makes an element's whole subtree presentational, which would hide
               // every one of the root buttons below from assistive tech.

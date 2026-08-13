@@ -28,6 +28,8 @@ ver el fallo descrito y hace falta que lo detalle).
 | 21 · los tests se ven iguales | ✅ de 18 poses idénticas a 4, y esas 4 explicadas |
 | 19 · no se explican los tests | ✅ hecho |
 | 22 · "Examen" y "Guía" | ✅ hecho |
+| 23 · miotomas y "Comparar" | ✅ hecho |
+| 24 · lámina diminuta | ✅ hecho |
 | 13 · flexión mal | 🟡 parcial |
 | 17 · ver la biomecánica | 🟡 necesita concreción |
 | 3 · músculos por fibras | ⚠️ no reproducido |
@@ -211,11 +213,33 @@ lo que rompería un músculo que nadie vuelva a mirar.
 - **Estado:** ✅ hecho — 259 pruebas en verde.
 
 ### 25 · No están todos los dermatomas ni todos los miotomas
-### 26 · No hay nervios
-> *"no están todos los dermas y mios"* · *"no hay nervios"*
+> *"no están todos los dermas y mios"*
 
-- **Dónde:** `src/data/neuro/cervical.ts`, `src/data/neuro/plate.ts`
-- **Estado:** pendiente (26 es el mismo trabajo que el punto 4)
+Lo que hay hoy, y por qué:
+
+| Conjunto | Raíces | Falta |
+|---|---|---|
+| Miembro superior | C5 · C6 · C7 · C8 · T1 | **C4** |
+| Miembro inferior | L2 · L3 · L4 · L5 · S1 | L1, S2 y abajo |
+
+El recorte **no es un descuido**: es el cribado motor de ASIA, que empieza en
+C5 (ASIA no asigna músculo clave a C4) y del que tanto `plate.ts` como
+`skinRegions.ts` dejan constancia por escrito — el cabo cervical y el triángulo
+clavicular *"pertenecen a raíces que este cribado no cubre"* y quedan **sin
+pintar a propósito**.
+
+Dicho eso, para un módulo de **hombro** la ausencia de **C4 sí pesa**: su punto
+clave ASIA es la **articulación acromioclavicular**, y el dolor referido al
+cabo del hombro es pan de cada día. Añadirla bien son tres piezas (dato,
+territorio en la lámina y región de piel del 3D); añadir solo la primera
+crearía una raíz que se lista y no se pinta, que es una inconsistencia nueva.
+
+- **Estado:** ⚠️ **decisión pendiente, no trabajo pendiente.** Dime si quieres
+  C4 en el módulo de hombro y la añado entera. Lo que **no** voy a hacer es
+  meterla a medias.
+
+### 26 · No hay nervios
+Mismo trabajo que el punto **4** — ✅ hecho.
 
 ---
 
@@ -539,28 +563,68 @@ falla, y era justo la que no se decía.
 
 ## 4. Dermatomas y miotomas
 
-### 23 · "Comparar": no se sabe para qué es, y los miotomas no se demuestran
+### 23 · "Comparar" y los miotomas que no se demostraban
 > *"Comparar no sé para qué es (dermatomas y miotomas). C5 no hay flexión de
 > codo. C6 no hace extensión de muñeca. C7 no hay extensión de codo"*
 
-Los **datos de texto son correctos** (`cervical.ts` lista flexión de codo en
-C5, extensión de muñeca en C6, extensión de codo en C7). Lo que falla es la
-**demostración en el modelo**: C5 solo enseña abducción, y C6 y C7 llevan una
-nota de "no se puede reproducir". El fisio espera ver el movimiento del
-miotoma, no leerlo.
+**Las tres líneas del miotoma eran ciertas, y ninguna era un error de datos.**
+El texto listaba los movimientos correctos; lo que fallaba era la demo.
 
-- **Dónde:** `src/data/neuro/cervical.ts` (bloques `demo`),
-  `src/components/movement/NeuroPanel.tsx`
-- **Estado:** pendiente
+| Raíz | Qué pasaba | Ahora |
+|---|---|---|
+| **C5** | El miotoma es deltoides **y** bíceps, y la demo solo abducía | Sostiene el codo a 90° durante el arco: los dos músculos clave a la vez |
+| **C6** | Demo de flexión de codo, con una nota diciendo que la extensión de muñeca *"no se puede reproducir aquí"* | **La muñeca sí estaba en el rig, solo que nunca se había mapeado.** Ahora la demo es extensión de muñeca, su movimiento clave |
+| **C7** | `elbow-extension` a 120° **y se detenía ahí** — un codo doblado bajo la etiqueta "extensión de codo" | Arranca flexionado y **termina recto**: la extensión es el recorrido hacia 0° |
+
+Medido después de corregir, en el punto donde la demo se detiene:
+
+> C5 → codo a **100°** junto a la abducción · C6 → muñeca **62°** fuera del
+> eje · C7 → codo a **13°** (recto)
+
+Lo de C7 era un fallo estructural, no un ángulo mal puesto: en el codo y en la
+rodilla, 0° **es** la articulación extendida, así que la extensión es el
+regreso hacia 0. El propio `boneMap` ya lo decía por escrito ("started from the
+flexed end") pero la animación no lo hacía. Ahora esos movimientos llevan
+`arcFrom: 'max'` y la reproducción va del extremo flexionado hacia 0, con la
+pausa larga **al final** del movimiento que se nombra.
+
+**Y la muñeca es nueva.** `hand_flex` estaba en el rig desde el principio sin
+mapear. Los ejes se midieron sobre el GLB, y el sentido se resolvió con la
+anatomía del **propio modelo**, no a ojo: las estructuras palmares (retináculo
+flexor, tenar, hipotenar) están a z=+1,8 cm en el sistema local de la mano y
+las dorsales a 0, así que la palma mira al +Z local; girar +40° en X lleva los
+dedos 5 cm hacia el dorso, que es la extensión. Sale igual en ambos lados.
+
+**"Comparar no sé para qué es":** mismo patrón que la nota 22 — la explicación
+vivía en un `title`, invisible al tacto. Y el tooltip decía lo que el botón
+*hacía* sin decir **por qué querrías hacerlo**. Ahora, con el modo activo, una
+línea explica que los dermatomas **se solapan**, que por eso un déficit
+sensitivo casi nunca cae en un solo nivel, y que el territorio propio de cada
+raíz es el que orienta.
+
+- **Dónde:** `src/lib/boneMap.ts`, `src/data/neuro/cervical.ts`,
+  `src/types/neuro.ts`, `src/components/movement/NeuroPanel.tsx`
+- **Estado:** ✅ hecho — 9 pruebas nuevas del miotoma.
 
 ### 24 · El espacio de dermatomas y miotomas es diminuto
 > *"muy pequeño espacio de dermatomas y miotomas"*
 
-Se trabajó en `da6f04e` ("la lámina deja de ser diminuta"), pero la revisión
-es posterior: sigue quedándose corto.
+La causa es de reparto, no de tamaño: las **dos vistas van lado a lado** en un
+carril estrecho, así que cada figura se queda con media anchura y las bandas
+del antebrazo salen de unos pocos píxeles. Subir el tope de alto ya se intentó
+antes (`da6f04e`) y el propio comentario del código explica el límite: a su
+altura natural la lámina empuja la lista de raíces fuera de una pantalla de
+portátil.
 
-- **Dónde:** `DermatomeMap.tsx`, `NeuroPanel.tsx`
-- **Estado:** pendiente (revisar si `da6f04e` ya lo cubre en parte)
+**Corregido sin romper ese equilibrio:** botón **"Ampliar"**. La lámina pasa a
+**una sola columna a lo ancho del panel** y el tope de alto sube de
+`min(38vh, 19rem)` a `min(72vh, 34rem)`. Cada figura gana el doble de anchura
+y bastante más de alto; a cambio el panel hace scroll, que es justo la
+concesión que el modo compacto evita — y la correcta cuando la lámina es a lo
+que has venido. El comportamiento por defecto no cambia.
+
+- **Dónde:** `src/components/movement/DermatomeMap.tsx`
+- **Estado:** ✅ hecho
 
 ---
 

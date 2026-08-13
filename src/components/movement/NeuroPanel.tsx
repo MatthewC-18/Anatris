@@ -66,6 +66,7 @@ import type { NerveRoot } from '../../types/neuro';
 import { DermatomeMap } from './DermatomeMap';
 import { NeuroScreenReadout } from './NeuroScreenReadout';
 import { rigChannel } from './RigModel';
+import { getBoneControl } from '../../lib/boneMap';
 import { demoChannel, useActiveDemo } from './demoChannel';
 import { EVENTS, track, trackChange } from '../../lib/analytics';
 import {
@@ -427,6 +428,12 @@ export function NeuroPanel({
     if (!root || !d) return;
     const side = d.side ?? 'R';
     const target = d.angleDeg;
+    // Movements that share one arc with their opposite (elbow/knee extension)
+    // START bent and straighten: 0 deg IS the extended joint. Sweeping 0 -> target
+    // and holding there showed a joint bent to the target under the label
+    // "extensión de codo" -- the opposite of the movement named.
+    const ctrl = getBoneControl(d.movementId);
+    const fromMax = ctrl?.kind === 'joint' && ctrl.arcFrom === 'max';
     const highlight = d.highlightMuscleId
       ? [{ muscleId: d.highlightMuscleId, role: 'prime-mover' as const, level: 1 }]
       : [];
@@ -443,6 +450,8 @@ export function NeuroPanel({
         movementId: d.movementId,
         side,
         angleDeg: deg,
+        // The joints that complete this myotome (C5 is abduction AND elbow flexion).
+        components: d.components,
         highlight,
         showMarkers: false,
         ghostSkin: true,
@@ -474,8 +483,10 @@ export function NeuroPanel({
     const HOLD_AT_TARGET_MS = 2800;
     const HOLD_AT_REST_MS = 800;
     let last = 0;
-    let dir: 1 | -1 = 1;
-    let angle = 0;
+    // A shared-arc movement opens BENT and straightens toward 0; everything else
+    // opens at rest and travels out to its target.
+    let dir: 1 | -1 = fromMax ? -1 : 1;
+    let angle = fromMax ? target : 0;
     let holdUntil = 0;
     const step = (ts: number) => {
       if (!last) last = ts;
@@ -488,11 +499,14 @@ export function NeuroPanel({
         if (angle >= target) {
           angle = target;
           dir = -1;
-          holdUntil = ts + HOLD_AT_TARGET_MS;
+          // For a shared-arc movement the target end is the STARTING position, so
+          // it is the brief pause; the long hold belongs at 0, where the movement
+          // being named actually ends.
+          holdUntil = ts + (fromMax ? HOLD_AT_REST_MS : HOLD_AT_TARGET_MS);
         } else if (angle <= 0) {
           angle = 0;
           dir = 1;
-          holdUntil = ts + HOLD_AT_REST_MS;
+          holdUntil = ts + (fromMax ? HOLD_AT_TARGET_MS : HOLD_AT_REST_MS);
         }
       }
       push(angle);
@@ -596,7 +610,7 @@ export function NeuroPanel({
               setPicked((cur) => (compare ? cur.slice(0, 1) : cur));
             }}
             aria-pressed={compare}
-            title="Sostener dos raíces vecinas a la vez para ver el solapamiento"
+            title="Comparar dos raíces vecinas a la vez: los dermatomas se solapan, así que ver el borde común es lo que dice qué es propio de cada nivel"
             className={`shrink-0 rounded border px-2 py-1 text-[11px] font-medium transition-colors ${
               compare
                 ? 'border-accent/50 bg-accent/10 text-accent'
@@ -606,6 +620,18 @@ export function NeuroPanel({
             Comparar
           </button>
         </div>
+        {/* WHAT COMPARING IS FOR. The button carried its explanation in a
+            `title`, which never shows on a touch screen and never shows at a
+            glance -- "Comparar no sé para qué es". And the tooltip said what the
+            button DID without saying why anyone would want it. */}
+        {compare && (
+          <p className="mb-2 border-l-2 border-accent/50 pl-2 text-[11px] leading-snug text-slate-400">
+            Elige <span className="text-slate-200">dos raíces vecinas</span>: los
+            dermatomas se solapan, así que un déficit sensitivo casi nunca cae en un
+            solo nivel. Ver las dos juntas muestra el territorio compartido y el que
+            es propio de cada una — que es el que orienta el diagnóstico.
+          </p>
+        )}
         <DermatomeMap
           figure={set.figure}
           activeRoots={picked}

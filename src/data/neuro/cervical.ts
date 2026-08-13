@@ -44,6 +44,10 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
         angleDeg: 100,
         side: 'R',
         highlightMuscleId: 'deltoid',
+        // "C5 no hay flexión de codo": the myotome is deltoid AND biceps, and the
+        // demo only ever abducted. The elbow now holds its flexion through the
+        // arc, so both key muscles of the root are on screen at once.
+        components: [{ movementId: 'elbow-flexion', angleDeg: 90 }],
       },
       mimic: {
         nerve: 'Nervio axilar',
@@ -72,10 +76,16 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
           'Percute la apófisis estiloides del radio con el antebrazo relajado; respuesta: flexión de codo y ligera supinación.',
       },
       demo: {
-        movementId: 'elbow-flexion',
-        angleDeg: 120,
+        // The KEY movement of this root, and the one it is tested by. It used to
+        // carry a note saying the rig could not reproduce it; the wrist bone was
+        // in the rig all along, it had simply never been mapped.
+        movementId: 'wrist-extension',
+        angleDeg: 60,
         side: 'R',
-        note: 'El modelo muestra la flexión de codo (C5-C6); la extensión de muñeca no se puede reproducir aquí.',
+        // Elbow at 90 so the hand is in view and the wrist reads as a wrist,
+        // rather than a hand turning at the end of a hanging arm.
+        components: [{ movementId: 'elbow-flexion', angleDeg: 90 }],
+        note: 'C6 comparte con C5 la flexión de codo; lo que se explora aquí es la extensión de muñeca, que es su movimiento clave.',
       },
       mimic: {
         nerve: 'Nervio mediano en el carpo (túnel carpiano)',
@@ -107,7 +117,7 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
         movementId: 'elbow-extension',
         angleDeg: 120,
         side: 'R',
-        note: 'El modelo recorre el arco de flexión y extensión del codo (tríceps); la flexión de muñeca no se puede reproducir aquí.',
+        note: 'El modelo parte del codo flexionado y lo estira: la extensión es el recorrido hacia 0°, no una posición doblada. La flexión de muñeca, secundaria en C7, no se muestra aquí.',
       },
       mimic: {
         nerve: 'Nervio radial',

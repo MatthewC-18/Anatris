@@ -79,6 +79,18 @@ export interface JointControl {
   /** Joints held in the examination position for the whole arc. */
   posture?: ExamPosture[];
   /**
+   * The gesture STARTS at `clinicalRange.max` and travels toward 0, instead of
+   * the usual 0 -> max.
+   *
+   * Needed by the movements that share one physical arc with their opposite: at
+   * the elbow and the knee, 0 deg is the fully EXTENDED joint and the maximum is
+   * full flexion, so "extension" is the return toward 0. A demo that swept 0 ->
+   * 120 and held there showed a joint bent to 120 under the label "extensión de
+   * codo" -- the opposite of the movement named. A physio reviewing the myotomes
+   * wrote exactly that: "C7 no hay extensión de codo".
+   */
+  arcFrom?: 'max';
+  /**
    * True when the axis SIGN could not be derived from the handoff (longitudinal
    * rotations, lateral bending). The kinematics are correct; only the +/-
    * direction may need a one-time visual flip during calibration.
@@ -422,6 +434,8 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // opposite way past 0, which would drive an inhuman backward hyperextension.
     sign: { R: 1, L: -1 },
     clinicalRange: { min: 0, max: 145 },
+    // Starts bent and straightens: that IS the movement being named.
+    arcFrom: 'max',
   },
   'elbow-pronation': {
     kind: 'joint',
@@ -438,6 +452,35 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'y',
     sign: { R: -1, L: 1 },
     clinicalRange: { min: 0, max: 90 },
+  },
+
+  // --- WRIST (hand_flex, the child of forearm_rot, so it follows pronosupination)
+  // The bone was in the rig from the start and never mapped, which is why the C6
+  // myotome -- wrist extension, the ASIA key movement for that root -- could only
+  // be described in prose and never shown.
+  //
+  // AXES MEASURED on the shipped GLB, not assumed. Local X is the sagittal hinge
+  // and local Z the radial/ulnar one. The direction was resolved from the model's
+  // OWN anatomy rather than guessed: the palmar structures (flexor retinaculum,
+  // thenar, hypothenar) sit at hand-local z = +1.8 cm and the dorsal ones at 0,
+  // so the palm faces local +Z; rotating +40 deg on X carries the fingertips 5 cm
+  // toward the dorsum, which is extension. Unsigned between sides -- unlike the
+  // deviations, the sagittal hinge comes out the same way on both hands.
+  'wrist-extension': {
+    kind: 'joint',
+    armatureBase: 'Shoulder_Armature',
+    bone: 'hand_flex',
+    axis: 'x',
+    sign: { R: 1, L: 1 },
+    clinicalRange: { min: 0, max: 70 },
+  },
+  'wrist-flexion': {
+    kind: 'joint',
+    armatureBase: 'Shoulder_Armature',
+    bone: 'hand_flex',
+    axis: 'x',
+    sign: { R: -1, L: -1 },
+    clinicalRange: { min: 0, max: 80 },
   },
 
   // --- KNEE (shin_flex flexion; patella couples)
@@ -478,6 +521,8 @@ export const BONE_MAP: Record<string, BoneControl> = {
     sign: { R: -1, L: 1 },
     clinicalRange: { min: 0, max: 105 },
     couplings: [patellarGlide],
+    // Starts bent and straightens, like elbow extension.
+    arcFrom: 'max',
   },
   // Tibial rotation: twist the shin bone about its LONG axis (shin_flex local Y
   // is the tibial long axis, verified from the rig; local X is the knee-flexion
