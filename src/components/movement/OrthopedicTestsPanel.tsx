@@ -307,13 +307,36 @@ function LevelChoice({
 }
 
 /** Per-axis reveal feedback: your guess vs. the real bucket + the number. */
+/**
+ * What a sensitivity / specificity figure MEANS for the patient in front of you.
+ *
+ * The panel showed the two numbers and the SpPin / SnNout mnemonics and assumed
+ * the rest. A physio reviewing it wrote "no está muy entendible lo de
+ * especificidad y sensibilidad" -- fair: a percentage with a Latin mnemonic next
+ * to it explains nothing about what the test just told you. These sentences use
+ * THIS test's own figure and count the people it gets wrong, which is the half
+ * that decides whether you can act on the result.
+ */
+export function metricMeaning(axis: 'sens' | 'espec', value: number | undefined): string | null {
+  if (value == null || !isFinite(value)) return null;
+  const hit = Math.round(value);
+  const miss = 100 - hit;
+  return axis === 'sens'
+    ? `De cada 100 personas que SÍ tienen la lesión, da positivo en ${hit}. ` +
+      `A ${miss} se le escapan.`
+    : `De cada 100 personas que NO la tienen, da negativo en ${hit}. ` +
+      `${miss} dan un falso positivo.`;
+}
+
 function AxisResult({
   label,
+  axis,
   guess,
   actual,
   value,
 }: {
   label: string;
+  axis: 'sens' | 'espec';
   guess: Level | null;
   actual: Level | undefined;
   value: number | undefined;
@@ -327,17 +350,23 @@ function AxisResult({
     );
   }
   const ok = guess === actual;
+  const meaning = metricMeaning(axis, value);
   return (
-    <div className="flex items-center justify-between text-[11px]">
-      <span className="text-slate-400">{label}</span>
-      <span className="flex items-center gap-1.5">
-        <span className={ok ? 'text-emerald-300' : 'text-amber-300'}>
-          {ok ? <CheckIcon size={12} /> : <CloseIcon size={12} />}
+    <div>
+      <div className="flex items-center justify-between text-[11px]">
+        <span className="text-slate-400">{label}</span>
+        <span className="flex items-center gap-1.5">
+          <span className={ok ? 'text-emerald-300' : 'text-amber-300'}>
+            {ok ? <CheckIcon size={12} /> : <CloseIcon size={12} />}
+          </span>
+          <span className="font-mono tabular-nums text-slate-200">
+            {value}% ({actual})
+          </span>
         </span>
-        <span className="font-mono tabular-nums text-slate-200">
-          {value}% ({actual})
-        </span>
-      </span>
+      </div>
+      {meaning && (
+        <p className="mt-0.5 text-[10px] leading-snug text-slate-500">{meaning}</p>
+      )}
     </div>
   );
 }
@@ -378,12 +407,14 @@ function ExamBlock({
         <div className="mt-1.5 space-y-1">
           <AxisResult
             label="Sensibilidad"
+            axis="sens"
             guess={prediction.sens}
             actual={sensActual}
             value={test.metrics.sensitivity}
           />
           <AxisResult
             label="Especificidad"
+            axis="espec"
             guess={prediction.espec}
             actual={especActual}
             value={test.metrics.specificity}

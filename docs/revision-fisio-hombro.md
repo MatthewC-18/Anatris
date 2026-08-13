@@ -19,11 +19,18 @@ ver el fallo descrito y hace falta que lo detalle).
 |---|---|
 | 2 · clavícula no se encuentra | ✅ hecho |
 | 8 · origen e inserción | ✅ hecho |
-| 16 · los huesos se atraviesan | ✅ hecho |
-| 14 · rotaciones mal | ✅ hecho |
 | 11 · aislar músculos | ✅ hecho |
+| 14 · rotaciones mal | ✅ hecho |
+| 16 · los huesos se atraviesan | ✅ hecho |
+| 20 · sensibilidad y especificidad | ✅ hecho |
+| 5 · posiciones funcionales | ✅ completado, pero ver abajo |
 | 13 · flexión mal | 🟡 parcial |
-| 17 · ver la biomecánica | 🟡 parcial, necesita concreción |
+| 17 · ver la biomecánica | 🟡 necesita concreción |
+| 3 · músculos por fibras | ⚠️ no reproducido |
+
+Lo verificado en esta tanda: **264 pruebas** en verde, build correcto,
+`npm run audit-data` con **0 errores y 0 avisos**, y las medidas del rig
+(clavícula, separación AC, penetración) reconfirmadas en ambos lados.
 
 | Bloque | Puntos | Peso |
 |---|---|---|
@@ -83,13 +90,27 @@ resalta la unión.
 ### 3 · Los músculos deberían agruparse, no ir por fibras
 > *"3 músculos no por fibras sino en conjunto (deltoides ant, medio, post)"*
 
-Hoy el deltoides se presenta separado por porciones. El fisio quiere el
-músculo **como una unidad**, con las porciones dentro de su ficha, no como
-tres entradas sueltas. Afecta también al pectoral mayor y al trapecio.
+⚠️ **No he conseguido reproducirlo.** El deltoides ya está modelado como **un
+solo músculo** con sus tres porciones dentro, y lo he comprobado en todos los
+sitios donde aparece:
 
-- **Dónde:** `src/data/shoulderMuscles.ts`, `src/types/muscle.ts` (ya
-  contempla `clavicular / acromial / scapular-spinal parts`), `MuscleList.tsx`
-- **Estado:** pendiente
+| Dónde | Qué muestra |
+|---|---|
+| `muscles/shoulder.ts` | **un** registro `deltoid`, con las 3 partes en `meshBases` |
+| Lista lateral (`MuscleList`) | una fila, "Deltoides" |
+| Clic en Explorar | `resolveMuscleId` mapea las 3 partes a `deltoid` → panel "Deltoides" |
+| Clic en el laboratorio | la disección actúa sobre `muscle.meshBases`, las 3 juntas |
+| Etiquetas de Explorar | "Deltoides" una vez (`scripts/audit-atlas-labels.mts`) |
+| Fases de ROM | `muscleId: 'deltoid'` con nota de porción |
+
+Las porciones sí se nombran **dentro** de la ficha ("Porción clavicular
+(anterior): flexión…"), que es justo lo que pide la nota.
+
+**Hace falta que diga dónde lo vio.** Si es una pantalla que no he mirado, se
+corrige rápido; pero no quiero reestructurar un modelo de datos que en todo lo
+que he podido comprobar ya hace lo que pide.
+
+- **Estado:** ⚠️ no reproducido
 
 ### 4 · No hay nervios
 > *"no hay nervios"*
@@ -372,11 +393,24 @@ modos "Examen" y "Guía" no dicen para qué sirven.
 ### 20 · Especificidad y sensibilidad no se entienden
 > *"no está muy entendible lo de especificidad y sensibilidad"*
 
-Se muestran las cifras y la etiqueta (`rule-out`, `weak`…) sin explicar qué
-significan para la decisión clínica.
+El panel enseñaba el número, la etiqueta (`Confirma` / `Descarta` / …) y el
+mnemotécnico (*SpPin*, *SnNout*) — y daba por sabido el resto. Un porcentaje
+con un mnemotécnico latino al lado no explica qué acaba de decirte la prueba.
 
-- **Dónde:** `OrthopedicTestsPanel.tsx`
-- **Estado:** pendiente
+**Corregido:** debajo de cada cifra va ahora una frase en claro, construida
+con el número **de ese test**, que cuenta a **quién falla**:
+
+> Sensibilidad 79 % → *"De cada 100 personas que SÍ tienen la lesión, da
+> positivo en 79. A 21 se le escapan."*
+>
+> Especificidad 59 % → *"De cada 100 personas que NO la tienen, da negativo en
+> 59. 41 dan un falso positivo."*
+
+La mitad que decide si puedes actuar sobre un resultado es la que el test
+falla, y era justo la que no se decía.
+
+- **Dónde:** `src/components/movement/OrthopedicTestsPanel.tsx`
+- **Estado:** ✅ hecho — 5 pruebas propias.
 
 ---
 
@@ -473,7 +507,19 @@ margen se recortan.
 ### 5 · Faltan las posiciones funcionales
 > *"Posiciones funcionales ✗"*
 
-- **Estado:** pendiente
+La sección **"Posiciones funcionales"** (acortado / estirado, con su fuente)
+existe y se pinta en el panel de detalle. Lo que había era un **hueco**: 16 de
+los 18 músculos del hombro la tenían, y faltaba en `subclavius` y `omohyoid`
+— en los que la sección desaparecía entera sin decir por qué.
+
+**Completados los dos**, con el mismo estándar de citación que el resto
+(`pageVerified: false`, como todas las fichas del archivo).
+
+Un matiz que puede ser lo que vio: la sección se pinta **plegada** por
+defecto, al contrario que "Origen" e "Inserción", que llevan `defaultOpen`.
+
+- **Estado:** ✅ los 18 músculos la tienen ya. Si su ✗ era por lo plegado, se
+  cambia en una línea — que lo confirme.
 
 ### 6 · Relevancia clínica: verificar fuentes
 > *"Relevancia clínica → verificar fuentes"*

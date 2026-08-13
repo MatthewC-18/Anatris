@@ -1692,6 +1692,17 @@ const subclavius: MuscleContent = {
       cite: [{ ref: 'dufour', pageVerified: false }],
     },
   ],
+
+  functionalPositions: {
+    shortened: {
+      text: 'Cintura escapular descendida y llevada adelante: la clavícula se acerca a la primera costilla, que es la dirección en la que este músculo trabaja.',
+      cite: [{ ref: 'dufour', pageVerified: false }],
+    },
+    lengthened: {
+      text: 'Cintura escapular elevada y retraída, con el hombro llevado atrás y arriba, que separa la clavícula de la primera costilla. Por su tamaño y profundidad no admite un estiramiento selectivo palpable.',
+      cite: [{ ref: 'dufour', pageVerified: false }],
+    },
+  },
 };
 
 const omohyoid: MuscleContent = {
@@ -1756,6 +1767,17 @@ const omohyoid: MuscleContent = {
       cite: [{ ref: 'dufour', pageVerified: false }],
     },
   ],
+
+  functionalPositions: {
+    shortened: {
+      text: 'Hioides descendido y cintura escapular elevada: los dos extremos del músculo se acercan.',
+      cite: [{ ref: 'dufour', pageVerified: false }],
+    },
+    lengthened: {
+      text: 'Cintura escapular descendida con el cuello en extensión y el hioides elevado (deglución, boca abierta). Es un infrahioideo, así que su posición de estiramiento se busca en el cuello y no en el hombro.',
+      cite: [{ ref: 'dufour', pageVerified: false }],
+    },
+  },
 };
 
 /* ===========================================================================
