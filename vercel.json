@@ -7,7 +7,7 @@
   "headers": [
     {
       "//": "The two models are 27.3 MB and 18.2 MB. They were cached for a single day WITH must-revalidate, so a returning visitor paid for them again on any visit past that day -- which is a large part of 'lento'. stale-while-revalidate serves the cached copy INSTANTLY and refreshes it in the background, so after the first load nobody waits for the model again, and a re-exported model still reaches everyone on their next visit. The filenames are not content-hashed, so `immutable` is deliberately NOT used: it would strand a corrected model in caches for a year.",
-      "source": "/(.*)\\.glb",
+      "source": "/(.*)\\.glb(\\.gz)?",
       "headers": [
         {
           "key": "Cache-Control",

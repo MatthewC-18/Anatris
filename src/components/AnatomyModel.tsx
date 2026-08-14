@@ -50,7 +50,7 @@
 //   part focus stacks on top of the isolate effect rather than replacing it.
 
 import { useEffect, useMemo, useRef } from 'react';
-import { useGLTF } from '@react-three/drei';
+import { preloadGLTF, useCompressedGLTF } from '../lib/compressedGLTF';
 import { ThreeEvent, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { AnatomyEntry } from '../types/anatomy';
@@ -73,7 +73,7 @@ import type { RomMuscleRole } from '../types/rom';
 // 3388 mesh names are preserved so anatomy-index selection is unchanged. Regenerate
 // with `node scripts/decimate-glb.mjs public/modelo-opt.glb public/modelo-opt.dec.glb 0.3`.
 const MODEL_URL = '/modelo-opt.dec.glb';
-useGLTF.preload(MODEL_URL);
+preloadGLTF(MODEL_URL);
 
 // Highlight color: bright amber/orange. Chosen because the muscle atlas color
 // is red — a cyan emissive mixes with red into a muddy grey, while amber stays
@@ -196,7 +196,7 @@ export function AnatomyModel({
   onVisibleChange,
   resolution,
 }: AnatomyModelProps) {
-  const { scene } = useGLTF(MODEL_URL) as unknown as { scene: THREE.Group };
+  const { scene } = useCompressedGLTF(MODEL_URL);
 
   const activeLayers = useAnatomyStore((s) => s.activeLayers);
   const sideFilter = useAnatomyStore((s) => s.sideFilter);

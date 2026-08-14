@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 
 // The ONLY .glb models the app fetches at runtime. Every other .glb in public/
 // is a backup/source (cuerpo-rig.glb, *.bak.glb, modelo-blender*, brazo-rig, ...)
@@ -44,7 +45,20 @@ function copyRuntimePublicAssets(): Plugin {
         if (!fs.statSync(src).isFile()) continue;
         const keep = RUNTIME_GLBS.has(name) || SHIP_EXTS.has(path.extname(name).toLowerCase());
         if (!keep) continue;
-        fs.copyFileSync(src, path.join(outDir, name));
+        const dest = path.join(outDir, name);
+        fs.copyFileSync(src, dest);
+        // A PRE-COMPRESSED copy of each model, inflated in the browser by
+        // src/lib/compressedGLTF.ts. meshopt is meant to be paired with transport
+        // compression -- and neither model's ~5 MB JSON chunk is touched by it --
+        // so this is 43% off the download for no visual cost at all:
+        //   modelo-opt.dec.glb  27.3 -> 15.5 MB
+        //   cuerpo-rig.opt.glb  18.2 -> 10.7 MB
+        // We ship it ourselves rather than hoping the CDN compresses, because
+        // `model/gltf-binary` is not a type CDNs reliably compress and the repo
+        // cannot see what the CDN decided. The plain .glb stays next to it as the
+        // fallback the loader uses when the .gz is absent (e.g. `vite dev`).
+        if (!RUNTIME_GLBS.has(name)) continue;
+        fs.writeFileSync(`${dest}.gz`, zlib.gzipSync(fs.readFileSync(src), { level: 9 }));
       }
     },
   };
@@ -95,8 +109,12 @@ export default defineConfig({
         runtimeCaching: [
           {
             // The 3D models + anatomy index: cache on first use, serve offline after.
+            // `.glb.gz` is the pre-compressed copy the loader prefers (see
+            // src/lib/compressedGLTF.ts); without it here the offline cache would
+            // hold the fallback nobody fetches.
             urlPattern: ({ url }) =>
               url.pathname.endsWith('.glb') ||
+              url.pathname.endsWith('.glb.gz') ||
               url.pathname.endsWith('anatomy-index.json'),
             handler: 'CacheFirst',
             options: {

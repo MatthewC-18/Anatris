@@ -18,7 +18,7 @@
 // ASCII-only source; no `any`.
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useGLTF } from '@react-three/drei';
+import { useCompressedGLTF } from '../../lib/compressedGLTF';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
@@ -1221,7 +1221,7 @@ export const rigChannel = (() => {
 // Component.
 // ---------------------------------------------------------------------------
 export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Element {
-  const { scene } = useGLTF(RIG_URL) as unknown as { scene: THREE.Group };
+  const { scene } = useCompressedGLTF(RIG_URL);
 
   // Forearm twist bones, built during mesh preparation and driven in apply().
   // Kept in a ref because they are created after the rest-pose memo below has
