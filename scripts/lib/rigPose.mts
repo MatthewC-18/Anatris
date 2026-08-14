@@ -24,6 +24,7 @@ import { getBoneControl, resolveArmatureName, type BoneControl } from '../../src
 import { bindClaviclesToShoulderGirdle } from '../../src/lib/clavicleBinding.ts';
 import { bridgeShoulderSkin } from '../../src/lib/shoulderSkinBridge.ts';
 import { gradeShoulderMuscleBinding } from '../../src/lib/shoulderMuscleBinding.ts';
+import { relaxSkinSeams } from '../../src/lib/skinSeamRelax.ts';
 import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../src/lib/biomech/scapulaWrap.ts';
 
 const D2R = Math.PI / 180;
@@ -98,6 +99,7 @@ export function createRigPoser(
   bindClaviclesToShoulderGirdle(scene);
   bridgeShoulderSkin(scene);
   gradeShoulderMuscleBinding(scene);
+  relaxSkinSeams(scene);
   scene.updateMatrixWorld(true);
 
   const byArm = new Map<string, Map<string, THREE.Object3D>>();

@@ -35,7 +35,7 @@ ver el fallo descrito y hace falta que lo detalle).
 | 18 · patologías en 3D | ✅ hecho |
 | 1 · lento | ✅ carga repetida; primera carga medida |
 | 7 · borroso al zoom | ✅ hecho, por confirmar en pantalla |
-| 13 · flexión mal | 🟡 el músculo ya no asoma; queda la piel de la axila |
+| 13 · flexión mal | ✅ músculo, costura y axila; queda un pliegue axilar |
 | 17 · ver la biomecánica | ✅ concretado y corregido: el raquis entero |
 | 3 · músculos por fibras | ⚠️ no reproducido |
 
@@ -470,25 +470,79 @@ su origen viajase con la inserción.
   `RigModel` y desde el banco de medidas, como los otros dos arreglos de pesos.
 - **Estado:** ✅ hecho — 306 pruebas en verde.
 
-**Lo que sigue abierto, ya localizado y medido.** Dos cosas, ninguna de músculo:
+**La costura deltopectoral y la axila: eran el mismo fallo.**
 
-1. **La costura deltopectoral todavía se abre.** El par
-   `Deltoid_region_3 / Deltopectoral_triangle_1` pasa de 0,05 cm en reposo a
-   2,69 cm a 45° y **9,69 cm a 180°** (`measure-shoulder-skin.mts`). El puente
-   de la nota 13 lo bajó de 14,84 a 9,69, pero los dos parches se **solapan**
-   en el borde en vez de tocarse, así que hay vértices coincidentes en mitad de
-   la tira, donde ésta todavía es sobre todo torácica. Cerrarlo pide una regla
-   de degradado distinta de la actual.
-2. **La axila no tiene piel que se estire.** Desde ~45° se ve dentro del hueco:
-   dorsal ancho, serrato anterior e intercostales externos (identificado por
-   píxel sobre el render). El mosaico de piel está cerrado en reposo —de 13 948
-   vértices de borde, sólo 76 en todo el cuerpo no tienen parche vecino— así
-   que no es un agujero del modelo: es piel que no acompaña al brazo cuando
-   éste se separa del tronco. Los parches implicados están atados a vértebras
-   (`Posterior_axillary_line` → `vert_T9` 100 %, `Lateral_region_of_thorax` →
-   `vert_T9` 100 %) sobre tejido que sí viaja con el hombro (húmero 62 % /
-   escápula 38 %). Es la misma clase de fallo que la tira deltopectoral, en
-   otros parches.
+Quedaban dos cosas, y resultaron ser una. La piel se publica como un **mosaico**
+de ~250 regiones con nombre, cada una una malla aparte y cada una cosida a **un
+solo hueso** por la pasada de "completar el esqueleto":
+
+```
+Deltoid_region_1            scapula 100 %
+Lateral_region_of_thorax_1  vert_T9 100 %
+Posterior_region_of_neck_1  vert_C1 100 %
+Posterior_axillary_line     vert_T9 100 %
+```
+
+Las teselas **se tocan**: de 13 948 vértices de borde en todo el cuerpo, sólo 76
+no tienen parche vecino, así que el sobre está cerrado en reposo. Pero dos
+teselas que **comparten un vértice y siguen huesos distintos** tiran de ese
+vértice en dos direcciones en cuanto algo se mueve, y el sobre se abre por las
+juntas. Eso es un solo defecto con dos caras:
+
+- **La costura deltopectoral.** El vértice de `Deltoid_region_3` en x 0,160 y
+  1,357 es el mismo que uno de `Deltopectoral_triangle_1`; a 180° de flexión las
+  dos copias acababan **9,69 cm** separadas. El puente anterior no podía
+  cerrarlo, y ahora se ve por qué: **ese mismo vértice lo comparte también**
+  `Lateral_region_of_thorax_1`, que va 100 % en una vértebra. A una regla que
+  mezcla "hacia el vecino de hombro más cercano" se le estaba pidiendo estar en
+  el tórax y en el brazo a la vez, y se quedaba a medias (vert_T3 65 % / escápula
+  21 % / húmero 14 %), rompiendo por los dos lados.
+- **La axila.** Su piel es `Lateral_region_of_thorax` y `Posterior_axillary_line`,
+  las dos atornilladas a `vert_T9`, sobre músculo que viaja con el brazo (húmero
+  62 % / escápula 38 %).
+
+**Corregido dejando de tratarlas como superficies separadas** (`skinSeamRelax.ts`):
+
+1. **Soldar.** Los vértices que coinciden en reposo pasan a ser **un nodo con un
+   solo vector de pesos**, la media de lo que tenían sus miembros. Dos copias de
+   un vértice con pesos idénticos caen en el mismo sitio en cualquier postura,
+   así que una costura soldada **no puede abrirse** — no "se abre menos": no
+   puede.
+2. **Relajar.** Una soldadura cuyos miembros discrepaban deja un pliegue, así que
+   los pesos se suavizan (Laplaciano) unos anillos alrededor de cada soldadura
+   conflictiva, repartiendo el compromiso por un palmo de piel en vez de por una
+   arista.
+
+Todo lo que está lejos de una costura conflictiva se queda **exactamente como
+venía**, así que la pasada no puede mover piel que ya estaba bien: 2 578
+soldaduras, de ellas **676 conflictivas**, 162 mallas tocadas.
+
+| Medida | Antes | Después |
+|---|---|---|
+| costura deltopectoral a 180° | 9,69 cm | **0,05 cm** (la de reposo) |
+| costura deltopectoral a 45° | 2,69 cm | **0,05 cm** |
+| peor costura de piel del hombro, todo el arco | hasta 3,4 cm | **0,2 cm** |
+| peor costura a 180°, dónde | hombro | **en la cara** (nariz/órbita) |
+| la axila a 90° | se veía dorsal ancho, serrato, intercostales | **cerrada** |
+
+Que la peor costura del barrido pase a estar en la **cara** es la señal de que en
+el hombro ya no queda ninguna abierta.
+
+**El precio, dicho claro.** La piel del pliegue axilar anterior ahora acompaña
+en parte al brazo, que es lo que hace de verdad, y al hacerlo se despega del
+pectoral mayor: a 90° de flexión el haz clavicular queda **2,18 cm por fuera**
+de la piel, donde antes quedaba ~1,0 cm. Se ha cambiado un desgarro grande y
+evidente —una ventana al tórax, un tajo de 9,7 cm— por un artefacto menor y
+localizado. Es una mejora neta, pero no está terminado.
+
+**Y un fallo mío de la tanda anterior, corregido aquí.** Al medir el coste de
+carga de las cuatro pasadas de pesos salió que la del músculo tardaba **22,3
+segundos**: su búsqueda de "hueso más cercano" recorría capas de una rejilla de
+1 cm hasta 30 capas —27 000 celdas— por cada vértice lejano a uno de los dos
+huesos. Como al degradado sólo le importa la **razón** entre las dos distancias,
+la superficie de cada hueso se reduce ahora a 600 puntos y la distancia se
+satura a 15 cm. Las cuatro pasadas juntas: **22,6 s → 0,65 s**, con las mismas
+medidas (la diagonal del coracobraquial sigue en 14,1 cm a 135°).
 
 ### ⚠️ Aviso sobre el instrumental
 

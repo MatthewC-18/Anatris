@@ -40,6 +40,7 @@ import {
 import { bindClaviclesToShoulderGirdle } from '../../lib/clavicleBinding';
 import { bridgeShoulderSkin } from '../../lib/shoulderSkinBridge';
 import { gradeShoulderMuscleBinding } from '../../lib/shoulderMuscleBinding';
+import { relaxSkinSeams } from '../../lib/skinSeamRelax';
 import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../lib/biomech/scapulaWrap';
 import { muscleDepthLevel, type MuscleDepthLevel } from '../../lib/muscleDepth';
 import { parseMeshName, structureKey, type ParsedSide } from '../../lib/parseMeshName';
@@ -1835,6 +1836,13 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // scapula -- so their origins travelled with the arm and pushed out through
       // the skin at the front of the shoulder. See src/lib/shoulderMuscleBinding.ts.
       const muscleGrade = gradeShoulderMuscleBinding(scene);
+      // SKIN SEAMS. The skin ships as ~250 separate region meshes, each welded to
+      // ONE bone, so two tiles that share a vertex and follow different bones tore
+      // the envelope apart along their border -- the deltopectoral seam (9.69 cm
+      // at 180 deg) and the axilla, which showed its walls the moment the arm left
+      // the trunk. Runs LAST of the three weight passes, so it relaxes the result
+      // of the other two. See src/lib/skinSeamRelax.ts.
+      relaxSkinSeams(scene);
       if (muscleGrade.skipped.length > 0) {
         // eslint-disable-next-line no-console
         console.warn(

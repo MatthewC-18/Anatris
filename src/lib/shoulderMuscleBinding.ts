@@ -78,10 +78,35 @@ const HUMERUS_MESH = /^humerus/i;
 const SCAPULA_BONE = 'scapula';
 const HUMERUS_BONE = 'humerus_gh';
 
-/** Spatial-hash cell for the nearest-bone-surface lookups. */
-const CELL_M = 0.01;
-/** How far a bone cloud is searched before a vertex is called "not near it". */
-const MAX_SEARCH_M = 0.30;
+/**
+ * How many points each bone surface is reduced to before the distance queries.
+ *
+ * A bone mesh carries thousands of vertices, and a blend that only asks "am I
+ * nearer the blade or the shaft" does not need them: 600 points spread over a
+ * scapula sit about 5 mm apart, which is finer than the gradient this feeds. At
+ * that size a plain brute-force scan beats any spatial index, and -- unlike the
+ * shell search this replaced -- its cost does not depend on how FAR the vertex
+ * is from the bone, which is what made the first version quadratic in practice.
+ */
+const CLOUD_POINTS = 600;
+/**
+ * How far a bone cloud is searched before a vertex is called FAR from it, in
+ * which case the distance is clamped to this value rather than measured.
+ *
+ * The clamp is not an approximation of the answer, it is the answer: what the
+ * gradient needs is the RATIO of the two distances, and the ratio only matters
+ * while both bones are in reach. The long head of triceps runs 25 cm past the
+ * scapula, so its distal end clamps at 15 cm from the blade while sitting 1 cm
+ * from the humerus, which reads as ~94% humeral -- correct, and reached without
+ * measuring the 25 cm.
+ *
+ * It also has to be a clamp rather than an unbounded search because this runs at
+ * page load. An unbounded shell search over a 1 cm grid walked up to 30 shells --
+ * 27 000 cells -- for every vertex that was far from one of the two bones, and
+ * cost 22 SECONDS on the shipped model. Bounded, the whole pass is under a
+ * second.
+ */
+const MAX_SEARCH_M = 0.15;
 
 export interface MuscleBindResult {
   /** Muscles that were re-graded, with the spread of the resulting weights. */
@@ -89,49 +114,58 @@ export interface MuscleBindResult {
   skipped: { mesh: string; reason: string }[];
 }
 
-/** A spatial hash over rest-pose points, for nearest-point queries. */
-class PointGrid {
-  private cells = new Map<string, THREE.Vector3[]>();
+/**
+ * A bone surface reduced to a flat array of points, for nearest-point queries.
+ *
+ * Points are collected first and thinned to CLOUD_POINTS on the first query, by
+ * uniform stride over the collected order -- which is mesh order, i.e. spread
+ * over the whole surface rather than clustered in one corner of it.
+ */
+class BoneCloud {
+  private raw: number[] = [];
+  private xyz: Float32Array | null = null;
   size = 0;
 
   add(p: THREE.Vector3): void {
-    const k =
-      `${Math.floor(p.x / CELL_M)}|${Math.floor(p.y / CELL_M)}|${Math.floor(p.z / CELL_M)}`;
-    const bucket = this.cells.get(k);
-    if (bucket) bucket.push(p);
-    else this.cells.set(k, [p]);
+    this.raw.push(p.x, p.y, p.z);
     this.size++;
   }
 
-  /** Distance to the nearest point, or Infinity. Searches shell by shell. */
+  private thin(): void {
+    const n = this.size;
+    const take = Math.min(n, CLOUD_POINTS);
+    const out = new Float32Array(take * 3);
+    for (let i = 0; i < take; i++) {
+      const src = Math.floor((i * n) / take) * 3;
+      out[i * 3] = this.raw[src];
+      out[i * 3 + 1] = this.raw[src + 1];
+      out[i * 3 + 2] = this.raw[src + 2];
+    }
+    this.xyz = out;
+  }
+
+  /**
+   * Distance to the nearest point, clamped at MAX_SEARCH_M (see the note there).
+   * Returns Infinity only when the cloud is empty.
+   */
   nearest(p: THREE.Vector3): number {
     if (!this.size) return Infinity;
-    const cx = Math.floor(p.x / CELL_M);
-    const cy = Math.floor(p.y / CELL_M);
-    const cz = Math.floor(p.z / CELL_M);
+    if (!this.xyz) this.thin();
+    const a = this.xyz!;
     let bestSq = Infinity;
-    const maxR = Math.ceil(MAX_SEARCH_M / CELL_M);
-    for (let r = 0; r <= maxR; r++) {
-      // Once a hit is closer than this shell's inner radius, no later shell wins.
-      if (bestSq <= ((r - 1) * CELL_M) ** 2) break;
-      for (let i = -r; i <= r; i++)
-        for (let j = -r; j <= r; j++)
-          for (let k = -r; k <= r; k++) {
-            if (r > 0 && Math.max(Math.abs(i), Math.abs(j), Math.abs(k)) !== r) continue;
-            const bucket = this.cells.get(`${cx + i}|${cy + j}|${cz + k}`);
-            if (!bucket) continue;
-            for (const q of bucket) {
-              const d = p.distanceToSquared(q);
-              if (d < bestSq) bestSq = d;
-            }
-          }
+    for (let i = 0; i < a.length; i += 3) {
+      const dx = p.x - a[i];
+      const dy = p.y - a[i + 1];
+      const dz = p.z - a[i + 2];
+      const d = dx * dx + dy * dy + dz * dz;
+      if (d < bestSq) bestSq = d;
     }
-    return Math.sqrt(bestSq);
+    return Math.min(Math.sqrt(bestSq), MAX_SEARCH_M);
   }
 }
 
 /** Every world-space vertex of a mesh at REST (no skinning applied). */
-function restPoints(mesh: THREE.Mesh, into: PointGrid): void {
+function restPoints(mesh: THREE.Mesh, into: BoneCloud): void {
   const pos = mesh.geometry.getAttribute('position');
   if (!pos) return;
   const v = new THREE.Vector3();
@@ -174,11 +208,11 @@ export function gradeShoulderMuscleBinding(scene: THREE.Object3D): MuscleBindRes
 
   // Bone-surface clouds, per side. Built from the BONE meshes at rest, which is
   // what "this vertex lies against the scapula" has to mean.
-  const scapulaGrid = new Map<'R' | 'L', PointGrid>();
-  const humerusGrid = new Map<'R' | 'L', PointGrid>();
+  const scapulaGrid = new Map<'R' | 'L', BoneCloud>();
+  const humerusGrid = new Map<'R' | 'L', BoneCloud>();
   for (const side of ['R', 'L'] as const) {
-    scapulaGrid.set(side, new PointGrid());
-    humerusGrid.set(side, new PointGrid());
+    scapulaGrid.set(side, new BoneCloud());
+    humerusGrid.set(side, new BoneCloud());
   }
   const targets: THREE.SkinnedMesh[] = [];
   scene.traverse((o) => {
