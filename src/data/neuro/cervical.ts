@@ -1,6 +1,6 @@
 // src/data/neuro/cervical.ts
 //
-// UPPER-LIMB nerve roots (C5-T1): dermatome key point, key myotome and reflex,
+// UPPER-LIMB nerve roots (C4-T1): dermatome key point, key myotome and reflex,
 // with a rig demo of the myotome where the model can reproduce it. Values follow
 // the ASIA/ISNCSCI key points and Magee; verified:false until checked against
 // the primary source (dermatome maps vary by author).
@@ -19,9 +19,40 @@ const CITE = [
 export const CERVICAL_NEURO: NeuroSegmentSet = {
   id: 'cervical',
   title: 'Raíces del miembro superior',
-  subtitle: 'Dermatoma, miotoma y reflejo por raíz (C5 a T1)',
+  subtitle: 'Dermatoma, miotoma y reflejo por raíz (C4 a T1)',
   figure: 'upper-limb',
   roots: [
+    {
+      // C4 is not a limb root -- it is the CAPE over the shoulder -- and ASIA
+      // assigns it no key muscle, which is why the motor screen starts at C5 and
+      // why this root was missing. For a SHOULDER module that absence shows: the
+      // ASIA sensory key point for C4 is the acromioclavicular joint itself, and
+      // pain referred to the cape is an everyday finding. It is here as a sensory
+      // root, with the motor gap stated rather than papered over.
+      id: 'C4',
+      label: 'C4',
+      dermatome: {
+        area: 'Casquete del hombro: fosa supraclavicular y cabo del hombro, desde la base del cuello hasta la articulación acromioclavicular.',
+        keyPoint: 'Articulación acromioclavicular (punto clave ASIA).',
+        keyPointShort: 'Articulación acromioclavicular',
+      },
+      myotome: {
+        action: 'Sin músculo clave en el cribado motor ASIA.',
+        muscles:
+          'C4 contribuye al diafragma (C3-C5) y a la elevación del hombro, pero ASIA no le asigna músculo clave: el cribado motor del miembro superior empieza en C5.',
+      },
+      // No reflex: C4 has no deep tendon reflex of its own.
+      demoNote:
+        'No hay demostración motora porque C4 no tiene músculo clave en el cribado ASIA. Su valor aquí es sensitivo: el casquete del hombro y el punto clave sobre la articulación acromioclavicular.',
+      mimic: {
+        nerve: 'Nervio supraclavicular (plexo cervical)',
+        discriminator:
+          'Los supraclaviculares son las ramas sensitivas de C3-C4 que llevan este territorio, así que el mapa cutáneo coincide; lo que separa la raíz es que C4 puede acompañarse de dolor cervical, y una lesión troncular no.',
+      },
+      pearl:
+        'Dolor en el cabo del hombro sin déficit motor ni reflejo alterado: piensa en C4, y también en dolor referido diafragmático (C3-C5), que comparte exactamente este territorio.',
+      cite: CITE,
+    },
     {
       id: 'C5',
       label: 'C5',

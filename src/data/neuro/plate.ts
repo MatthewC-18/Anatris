@@ -32,10 +32,16 @@
 // -----------------------------------------------------------------------------
 // WHAT IS DELIBERATELY LEFT BLANK
 // -----------------------------------------------------------------------------
-// The posterior proximal thigh belongs to S2 and S3, and the upper shoulder cap
-// to C4 -- roots this screen does not cover. They stay UNPAINTED and each view
-// carries a note saying so. Painting them with a neighbouring root's colour to
-// avoid a gap would be inventing anatomy to make a picture tidy.
+// The posterior proximal thigh belongs to S2 and S3 -- roots this screen does not
+// cover. It stays UNPAINTED and the view carries a note saying so. Painting it
+// with a neighbouring root's colour to avoid a gap would be inventing anatomy to
+// make a picture tidy.
+//
+// The upper shoulder cap USED to be blank for the same reason. It is C4's, and C4
+// was missing because ASIA's MOTOR screen starts at C5 -- but that is an argument
+// about myotomes, and this plate is a dermatome map. For a shoulder module the cap
+// is not a corner case: the ASIA sensory key point for C4 is the acromioclavicular
+// joint. C4 is painted now, and carries the motor gap in its own text instead.
 //
 // Dermatome boundaries vary between authors (Keegan vs. ASIA); these follow the
 // ASIA/ISNCSCI key points, and the panel labels the whole plate as orientativo.
@@ -160,8 +166,12 @@ export interface PlateBand {
  * thumb / middle / little finger the ASIA key points name.
  */
 const UPPER_ANTERIOR: PlateBand[] = [
-  { root: 'C5', limb: 'arm', rect: { t: [0, 0.41], c: [0.05, 1], skew: 0.035 } },
-  { root: 'T1', limb: 'arm', rect: { t: [0, 0.41], c: [-1, 0.05], skew: 0.035 } },
+  // C4 is the CAPE, not the limb: the top of the arm shape is where it overlaps
+  // the torso, which is exactly the shoulder cap this root covers. C5 starts
+  // below it, with a hair of overlap so the two do not leave a bare ring.
+  { root: 'C4', limb: 'arm', rect: { t: [0, 0.12], c: [-1, 1] } },
+  { root: 'C5', limb: 'arm', rect: { t: [0.1, 0.41], c: [0.05, 1], skew: 0.035 } },
+  { root: 'T1', limb: 'arm', rect: { t: [0.1, 0.41], c: [-1, 0.05], skew: 0.035 } },
   { root: 'C6', limb: 'arm', rect: { t: [0.39, 0.78], c: [0.16, 1], skew: 0.03 } },
   { root: 'C7', limb: 'arm', rect: { t: [0.39, 0.78], c: [-0.2, 0.16], skew: 0.03 } },
   { root: 'C8', limb: 'arm', rect: { t: [0.39, 0.78], c: [-1, -0.2], skew: 0.03 } },
@@ -172,8 +182,9 @@ const UPPER_ANTERIOR: PlateBand[] = [
 
 /** UPPER LIMB, POSTERIOR. C7 owns the posterior forearm midline into the dorsum. */
 const UPPER_POSTERIOR: PlateBand[] = [
-  { root: 'C5', limb: 'arm', rect: { t: [0, 0.41], c: [0.08, 1], skew: 0.035 } },
-  { root: 'T1', limb: 'arm', rect: { t: [0, 0.41], c: [-1, 0.08], skew: 0.035 } },
+  { root: 'C4', limb: 'arm', rect: { t: [0, 0.12], c: [-1, 1] } },
+  { root: 'C5', limb: 'arm', rect: { t: [0.1, 0.41], c: [0.08, 1], skew: 0.035 } },
+  { root: 'T1', limb: 'arm', rect: { t: [0.1, 0.41], c: [-1, 0.08], skew: 0.035 } },
   { root: 'C6', limb: 'arm', rect: { t: [0.39, 0.78], c: [0.22, 1], skew: 0.03 } },
   { root: 'C7', limb: 'arm', rect: { t: [0.39, 0.78], c: [-0.22, 0.22], skew: 0.03 } },
   { root: 'C8', limb: 'arm', rect: { t: [0.39, 0.78], c: [-1, -0.22], skew: 0.03 } },
@@ -233,6 +244,7 @@ export interface PlatePin {
 }
 
 const UPPER_PINS: PlatePin[] = [
+  { root: 'C4', limb: 'arm', view: 'anterior', t: 0.04, c: 0.1 }, // acromioclavicular joint
   { root: 'C5', limb: 'arm', view: 'anterior', t: 0.4, c: 0.5 }, // antecubital, lateral
   { root: 'C6', limb: 'arm', view: 'anterior', t: 0.9, c: 0.78 }, // thumb
   { root: 'C7', limb: 'arm', view: 'anterior', t: 0.97, c: 0.05 }, // middle finger
@@ -283,12 +295,13 @@ export const PLATES: Record<PlateFigure, PlateSpec> = {
   'upper-limb': {
     viewBox: '-4 -3 108 191',
     drawLimbs: ['arm', 'leg'],
-    order: ['C5', 'C6', 'C7', 'C8', 'T1'],
+    order: ['C4', 'C5', 'C6', 'C7', 'C8', 'T1'],
     bands: { anterior: UPPER_ANTERIOR, posterior: UPPER_POSTERIOR },
     pins: UPPER_PINS,
     notes: {
       anterior: null,
-      posterior: 'El casquete del hombro corresponde a C4, fuera de este tamizaje.',
+      posterior:
+        'C4 es sensitivo aquí: el cribado motor ASIA no le asigna músculo clave y empieza en C5.',
     },
   },
   'lower-limb': {
@@ -315,10 +328,17 @@ export const PLATES: Record<PlateFigure, PlateSpec> = {
  * simply indistinguishable from muscle. A dermatome that reads as a muscle is worse
  * than no dermatome.
  *
- * So the ramp runs green -> teal -> blue -> violet -> magenta: five hues about 45
- * degrees apart, none of them anywhere near the red-orange-amber sector the body
- * already occupies. Only ONE root is ever painted on the model at a time, so what
- * each pigment has to survive is the warm tissue behind it, not the other four.
+ * So the ramp runs yellow-green -> green -> teal -> blue -> violet -> magenta: six
+ * hues roughly 40 degrees apart, none of them anywhere near the red-orange-amber
+ * sector the body already occupies. Only ONE root is ever painted on the model at
+ * a time, so what each pigment has to survive is the warm tissue behind it, not
+ * the other five.
+ *
+ * The yellow-green was added at the PROXIMAL end when C4 joined the upper limb.
+ * It goes first because the ramp descends the limb and C4's cape is above C5's
+ * deltoid; it is yellow-green rather than another warm tone because the pigments
+ * wrap modulo their count, so a sixth root without a sixth colour would have come
+ * out the same green as the first.
  *
  * Two colours stay out of the ramp on purpose. The lab's cyan accent means
  * INTERACTIVE STATE and is never allowed to carry data -- a dermatome painted cyan
@@ -330,6 +350,7 @@ export const PLATES: Record<PlateFigure, PlateSpec> = {
  * plate before reading a single label.
  */
 export const SEGMENT_PIGMENTS = [
+  '#8fb34d', // yellow-green
   '#5bb06d', // green
   '#2c9aa4', // teal
   '#4f79dd', // blue

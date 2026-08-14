@@ -42,6 +42,23 @@ describe('cervical myotome demos', () => {
     }
   });
 
+  it('carries C4, and is honest that it has no key muscle', () => {
+    // The physio's note was "no estan todos los dermas y mios". C4 was missing
+    // because the ASIA MOTOR screen starts at C5 -- it assigns C4 no key muscle --
+    // but that is an argument about myotomes, and C4 has a sensory key point that
+    // matters in a shoulder module: the acromioclavicular joint. It is here as a
+    // SENSORY root, and the motor gap is stated rather than filled with a demo
+    // that would be inventing a myotome.
+    const c4 = byId('C4');
+    expect(c4, 'C4 must exist').toBeDefined();
+    expect(c4.dermatome.keyPoint).toMatch(/acromioclavicular/i);
+    expect(c4.demo, 'C4 must not fake a motor demo').toBeUndefined();
+    expect(c4.demoNote ?? '').toMatch(/ASIA/);
+    expect(c4.reflex, 'C4 has no deep tendon reflex of its own').toBeUndefined();
+    // And it must come FIRST: the roots are read as a descent down the limb.
+    expect(roots[0].id).toBe('C4');
+  });
+
   it('C5 shows the elbow flexing, not only the shoulder abducting', () => {
     // The myotome is "abducción del hombro y flexión de codo" -- both key muscles
     // of the root. Abduction alone is half a myotome.

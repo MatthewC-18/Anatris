@@ -294,6 +294,7 @@ describe('how confidently a territory can be drawn', () => {
     expect(confidenceOf('Medial malleolus', 'lower-limb', 'L4')).toEqual(['sure']);
     expect(confidenceOf('Heel region', 'lower-limb', 'S1')).toEqual(['sure']);
     expect(confidenceOf('Dorsum of foot', 'lower-limb', 'L5')).toEqual(['sure']);
+    expect(confidenceOf('Greater supraclavicular fossa', 'upper-limb', 'C4')).toEqual(['sure']);
     expect(confidenceOf('Radial foveola', 'upper-limb', 'C6')).toEqual(['sure']);
     expect(confidenceOf('Lateral border of forearm', 'upper-limb', 'C6')).toEqual(['sure']);
     expect(confidenceOf('Medial border of forearm', 'upper-limb', 'C8')).toEqual(['sure']);
@@ -311,6 +312,11 @@ describe('how confidently a territory can be drawn', () => {
     // antecubital fossa and it was being drawn as a wash; C6's territory runs
     // "hasta el pulgar" and its hand came out bare.
     const keyPoint: [PlateFigure, string, string][] = [
+      // C4's ASIA key point is the acromioclavicular joint. The rig has no
+      // acromial patch, so the cape is carried by the supraclavicular fossae and
+      // the greater one -- the lateral of the two, the one the joint sits at the
+      // end of -- is the landmark that has to stay solid.
+      ['upper-limb', 'C4', 'Greater supraclavicular fossa'],
       ['upper-limb', 'C5', 'Cubital fossa'],
       ['upper-limb', 'C6', 'Radial foveola'],
       ['upper-limb', 'C7', 'Dorsum of hand'],

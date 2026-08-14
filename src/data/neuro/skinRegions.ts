@@ -50,9 +50,14 @@
 // -----------------------------------------------------------------------------
 // WHAT IS LEFT UNPAINTED, ON PURPOSE
 // -----------------------------------------------------------------------------
-// The inguinal region (L1), the posterior thigh, gluteal region and fold (S2-S3),
-// the popliteal fossa and posterior knee (S2) and the shoulder cap's deltopectoral
-// triangle (C4) all belong to roots this screen does not cover.
+// The inguinal region (L1), the posterior thigh, gluteal region and fold (S2-S3)
+// and the popliteal fossa and posterior knee (S2) belong to roots this screen does
+// not cover.
+//
+// The shoulder cap used to be on that list, as C4's. It is painted now: C4 has no
+// key muscle in the ASIA motor screen, which is why it was absent, but it does
+// have a sensory key point -- the acromioclavicular joint -- and in a shoulder
+// module that is not a corner case.
 //
 // Those are the only gaps left. The first pass also skipped the WRIST and left a
 // strip of the anterior forearm and the medial half of the antecubital region
@@ -166,6 +171,15 @@ function candidates(normalised: string): string[] {
  * lateral thirds for the broad anterior and posterior shells.
  */
 const UPPER: Record<string, SkinRule[]> = {
+  // The CAPE. The rig has no acromial patch of its own, so C4 gets the two
+  // supraclavicular fossae -- the territory the supraclavicular nerves (C3-C4)
+  // actually carry, and the skin the ASIA key point sits at the lateral end of.
+  // The deltoid region below it stays C5's: the boundary between them is the
+  // clavicle, and both sides of it are modelled.
+  C4: [
+    { region: 'Greater supraclavicular fossa', landmark: true },
+    { region: 'Lesser supraclavicular fossa' },
+  ],
   C5: [
     { region: 'Deltoid region' },
     { region: 'Lateral bicipital groove' },

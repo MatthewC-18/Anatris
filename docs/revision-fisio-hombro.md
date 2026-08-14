@@ -33,15 +33,17 @@ ver el fallo descrito y hace falta que lo detalle).
 | 9 · disección en Explorar | ✅ hecho |
 | 15 · modo paciente | ✅ hecho |
 | 18 · patologías en 3D | ✅ hecho |
-| 1 · lento | ✅ carga repetida; primera carga medida |
+| 1 · lento | ✅ portada 1,9 MB / 0,43 s; el modelo, 43 % menos |
 | 7 · borroso al zoom | ✅ hecho, por confirmar en pantalla |
 | 13 · flexión mal | ✅ músculo, costura y axila; queda un pliegue axilar |
 | 17 · ver la biomecánica | ✅ concretado y corregido: el raquis entero |
+| 25 · faltan dermatomas y miotomas | ✅ C4 añadida entera (dato + lámina + piel) |
 | 3 · músculos por fibras | ⚠️ no reproducido |
 
-Lo verificado en esta tanda: **264 pruebas** en verde, build correcto,
-`npm run audit-data` con **0 errores y 0 avisos**, y las medidas del rig
-(clavícula, separación AC, penetración) reconfirmadas en ambos lados.
+Lo verificado en esta tanda: **324 pruebas** en verde, build correcto,
+`npm run audit-data` con **0 errores y 0 avisos**, las medidas del rig
+(clavícula, separación AC, penetración) reconfirmadas en ambos lados, y la
+primera carga medida en un Chromium real contra el `dist/` que se publica.
 
 | Bloque | Puntos | Peso |
 |---|---|---|
@@ -235,13 +237,44 @@ pintar a propósito**.
 
 Dicho eso, para un módulo de **hombro** la ausencia de **C4 sí pesa**: su punto
 clave ASIA es la **articulación acromioclavicular**, y el dolor referido al
-cabo del hombro es pan de cada día. Añadirla bien son tres piezas (dato,
-territorio en la lámina y región de piel del 3D); añadir solo la primera
-crearía una raíz que se lista y no se pinta, que es una inconsistencia nueva.
+cabo del hombro es pan de cada día.
 
-- **Estado:** ⚠️ **decisión pendiente, no trabajo pendiente.** Dime si quieres
-  C4 en el módulo de hombro y la añado entera. Lo que **no** voy a hacer es
-  meterla a medias.
+**Añadida, y añadida entera.** El motivo de que faltara era bueno pero estaba
+mal aplicado: ASIA no le asigna músculo clave a C4, cierto — pero eso es un
+argumento sobre **miotomas**, y el mapa es de **dermatomas**. C4 tiene punto
+clave sensitivo, y en un módulo de hombro no es un caso raro. Son las tres
+piezas, porque una raíz que se lista y no se pinta es peor que una raíz
+honestamente ausente:
+
+| Pieza | Qué recibe C4 | Dónde |
+|---|---|---|
+| **Dato** | Casquete del hombro; punto clave en la articulación acromioclavicular | `neuro/cervical.ts` |
+| **Lámina 2D** | El casquete, en las dos vistas, con su chincheta y su propio pigmento | `neuro/plate.ts` |
+| **Piel 3D** | Fosas supraclaviculares mayor (marca) y menor | `neuro/skinRegions.ts` |
+
+Detalles que no son cosméticos:
+
+- **El hueco motor se dice, no se rellena.** C4 no lleva demostración: lleva una
+  nota explicando que ASIA no le asigna músculo clave. Inventarle un miotoma para
+  que la ficha quedara simétrica habría sido exactamente lo contrario de lo que
+  pedía el fisio.
+- **C4 no lleva reflejo**, porque no tiene uno propio.
+- **Pigmento nuevo.** La rampa tenía cinco colores y se indexa en módulo, así que
+  una sexta raíz sin sexto color habría salido del mismo verde que la primera.
+  Se añade un verde-amarillo al extremo proximal, siguiendo la regla que ya
+  estaba escrita: frío, lejos del sector rojo-naranja-ámbar que ocupa el tejido.
+- **C5 se corre hacia abajo** en la lámina para dejarle el casquete, con un pelo
+  de solape para que no quede un anillo desnudo entre las dos.
+- Las dos notas que decían *"fuera de este tamizaje"* se han reescrito: ahora
+  dicen lo que de verdad pasa, que el cribado **motor** empieza en C5.
+
+- **Estado:** ✅ hecho. Guardado por pruebas en las tres piezas: que C4 no finge
+  demostración motora, que se pinta en las dos vistas de la lámina, que no invade
+  el brazo, que tiene color propio, y que su punto clave cae sólido sobre la
+  fosa supraclavicular mayor en el cuerpo 3D.
+
+**Sigue fuera**, y por el mismo motivo de siempre: L1, S2 y abajo. Son raíces de
+tronco y miembro inferior distal que este cribado no cubre, y la lámina lo dice.
 
 ### 26 · No hay nervios
 Mismo trabajo que el punto **4** — ✅ hecho.
@@ -892,13 +925,71 @@ a propósito: los nombres no llevan hash de contenido y dejaría un modelo
 corregido atrapado en cachés durante un año. Los archivos de `/assets` sí lo
 llevan, así que esos se cachean para siempre.
 
-⚠️ **Esto no acelera la primera carga**: 45 MB son 45 MB. Bajar de ahí es
-decimar más los modelos (ya van a 0,3 y 0,4) y es una decisión con coste
-visual — dímelo y lo mido.
+### La primera carga: medida en un navegador de verdad
 
-- **Dónde:** `vercel.json`
-- **Estado:** ✅ la carga repetida, hecha. La primera carga, medida y
-  documentada, pendiente de tu decisión.
+Lo de arriba estaba estimado **desde el tamaño de los ficheros en disco**, que no
+es la misma pregunta. `scripts/measure-first-load.mts` (nuevo) sirve el `dist/`
+real por HTTP y lanza un Chromium contra él, así que la respuesta sale del
+registro de red y no de un `ls`. Y la premisa era falsa:
+
+| Momento | Lo que baja de verdad |
+|---|---|
+| Aterrizar en la portada | **1,9 MB**, primer pintado a **0,43 s** |
+| Entrar al explorador 3D | + el modelo del atlas |
+| Entrar al laboratorio | + el rig, **sólo si entras** |
+
+**Los 45 MB nunca fueron la primera carga.** Los dos modelos son perezosos: no se
+piden hasta que se abre una vista 3D, se pide **uno solo** —el de la vista en la
+que estés— y el aviso de uso educativo va delante de todo, así que ni siquiera
+compiten con el primer pintado. Después de la primera vez los sirve el service
+worker desde caché durante 60 días, sin red.
+
+**La decisión: no decimar más.** El modelo del atlas ya va decimado un 56 % y
+codificado con meshopt, y bajar de ahí se ve. No hace falta, porque el 43 % de lo
+que viaja por el cable **no es geometría**:
+
+| Modelo | Como iba | Comprimido |
+|---|---|---|
+| `modelo-opt.dec.glb` | 27,3 MB | **15,5 MB** (56 %) |
+| `cuerpo-rig.opt.glb` | 18,2 MB | **10,7 MB** (59 %) |
+
+meshopt está **diseñado** para ir acompañado de compresión de transporte —
+reordena los vértices para que un compresor genérico remate el trabajo — y el
+*chunk* JSON de cada modelo (5,8 y 5,0 MB) no lo toca en absoluto. Así que los
+bytes están ahí, gratis y sin coste visual ninguno.
+
+El problema es que comprimir el transporte lo decide el CDN, no nosotros, y
+`model/gltf-binary` no es un tipo que los CDN compriman de forma fiable. En vez
+de depender de un comportamiento que desde el repositorio no puedo ni ver, **la
+compilación escribe un `<nombre>.glb.gz` junto a cada modelo** y el navegador lo
+descomprime con su propio `DecompressionStream`. Si el `.gz` no está —en
+`vite dev`, o en un despliegue anterior a esto— la carga cae sola al `.glb` de
+siempre.
+
+**Medido en el navegador**, entrando a `/hombro/explorar`:
+
+| | Antes | Después |
+|---|---|---|
+| entrar al explorador | 30,5 MB | **18,6 MB** |
+| el modelo | 27,31 MB | **15,48 MB** |
+| primer pintado de la portada | 0,43 s | **0,43 s** (sin cambio) |
+
+Y que lo que se descomprime son **los mismos bytes** no es una impresión: el
+SHA-256 del `.gz` inflado es idéntico al del `.glb`, en los tres modelos. La
+caída al `.glb` también está comprobada borrando los `.gz` y volviendo a medir:
+30,5 MB y la aplicación monta igual.
+
+- **Dónde:** `vercel.json`, `vite.config.ts`, `src/lib/compressedGLTF.ts`,
+  `scripts/measure-first-load.mts`
+- **Estado:** ✅ hecho — decisión tomada: la calidad visual se queda donde está y
+  el 43 % sale del transporte.
+
+⚠️ **Un hallazgo de paso, no un defecto comprobado.** En este entorno el primer
+pintado tardaba 12,9 s, y resultó ser el proxy de la caja colgando la llamada a
+Supabase: haciéndola fallar al instante, el pintado baja a 0,19 s. No es un fallo
+de la aplicación. Pero sí enseña que **el primer pintado espera a una llamada de
+terceros**: si Supabase va lento para alguien, ve la página en blanco mientras
+tanto. No lo he tocado — queda apuntado.
 
 ### 7 · Borroso al alejar o acercar
 > *"Borroso se aleja o acerca"*
