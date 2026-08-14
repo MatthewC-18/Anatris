@@ -35,7 +35,7 @@ ver el fallo descrito y hace falta que lo detalle).
 | 18 · patologías en 3D | ✅ hecho |
 | 1 · lento | ✅ carga repetida; primera carga medida |
 | 7 · borroso al zoom | ✅ hecho, por confirmar en pantalla |
-| 13 · flexión mal | 🟡 parcial |
+| 13 · flexión mal | 🟡 el músculo ya no asoma; queda la piel de la axila |
 | 17 · ver la biomecánica | ✅ concretado y corregido: el raquis entero |
 | 3 · músculos por fibras | ⚠️ no reproducido |
 
@@ -409,11 +409,86 @@ copiando la mezcla de huesos del vecino sea cual sea (la piel del deltoides
 es 60 % escápula / 40 % húmero, no escápula pura — por eso los intentos
 anteriores no cerraban).
 
-**Lo que queda:** hay músculo asomando por delante de la piel en el hombro
-anterior entre 45° y 135°. Es un problema de músculo que sobresale del sobre,
-no de piel rota.
+**El músculo que asomaba: los pesos estaban planos.**
 
-- **Estado:** parcial. 239 pruebas en verde.
+Quedaba pendiente el músculo que se veía por delante de la piel entre 45° y
+135°. `scripts/measure-muscle-spill.mts` (nuevo) lo mide: para cada vértice de
+músculo que queda justo debajo de la piel, ajusta un parche local con los ocho
+vértices de piel más cercanos y proyecta la diferencia sobre su normal. Positivo
+= el músculo está por fuera.
+
+> A 90° de flexión, seis músculos acababan ~1 cm **por fuera** de la piel
+> habiendo estado ~2,7 cm por dentro en reposo: redondo mayor, subescapular,
+> coracobraquial, supraespinoso, porción corta del bíceps y porción larga del
+> tríceps. Los seis son **las paredes de la axila**.
+
+La causa estaba en los pesos. Todos ellos **cruzan la articulación** —nacen en
+la escápula y se insertan en el húmero— pero venían con **una sola mezcla plana
+aplicada a la malla entera**:
+
+| Músculo | Cómo venía | Dónde nace de verdad |
+|---|---|---|
+| Redondo menor | húmero 100 % | borde lateral de la **escápula** |
+| Porción corta del bíceps | húmero 100 % | apófisis **coracoides** |
+| Redondo mayor | húmero 50 % / escápula 50 % | ángulo inferior de la escápula |
+| Coracobraquial | húmero 61 % / escápula 39 % | coracoides |
+| Subescapular | escápula 65 % / húmero 35 % | fosa subescapular |
+| Supraespinoso | escápula 67 % / húmero 33 % | fosa supraespinosa |
+
+Una mezcla plana significa que **todos los vértices se mueven igual**, así que
+el origen viaja con la inserción. El redondo menor, atado entero al húmero,
+arrastraba su origen escapular hacia delante con el brazo. Medido, la diagonal
+del coracobraquial pasaba de 14,9 cm en reposo a **18,9 cm a 135°** cuando el
+músculo, siendo un flexor, tendría que **acortarse** en flexión.
+
+**Corregido igual que la clavícula y las tiras de piel: derivando los pesos en
+vez de elegirlos.** Cada vértice pregunta contra qué hueso está apoyado —la
+escápula o el húmero— y se ata a ese, de modo que el origen se queda en su fosa,
+el tendón viaja con el húmero y el vientre interpola. No hay nada ajustado a
+mano por músculo: la misma regla le da al manguito un cuerpo escapular con
+tendón humeral y al bíceps corto un anclaje coracoideo con vientre largo,
+porque es donde la geometría los pone. **53 mallas** regraduadas, 0 saltadas.
+
+| Medida | Antes | Después |
+|---|---|---|
+| redondo mayor a 90°, vértices fuera de la piel | 13 | **3** |
+| redondo mayor a 90°, cuánto sobresale | 1,11 cm | **0,87 cm** |
+| coracobraquial a 90°, cuánto sobresale | 1,07 cm | **0,95 cm** |
+| peor exceso del arco, a 60° | 4,42 cm | **3,42 cm** |
+| peor exceso del arco, a 90° | 3,78 cm | **3,55 cm** |
+| peor exceso del arco, a 160° | 5,42 cm | **4,98 cm** |
+| diagonal del coracobraquial a 135° | 18,9 cm | **14,1 cm** |
+| diagonal del bíceps corto a 135° | 28,8 cm | **26,7 cm** |
+| recorrido del redondo menor a 135° | se iba con el brazo | **se queda en la escápula** |
+
+El redondo mayor sigue estirándose (14,7 → 22,3 cm de diagonal a 135°), y eso
+**no es un fallo**: nace en el ángulo inferior de la escápula y se inserta en el
+húmero, así que en flexión se alarga de verdad. Lo que ha dejado de pasar es que
+su origen viajase con la inserción.
+
+- **Dónde:** `src/lib/shoulderMuscleBinding.ts` (nuevo), llamado desde
+  `RigModel` y desde el banco de medidas, como los otros dos arreglos de pesos.
+- **Estado:** ✅ hecho — 306 pruebas en verde.
+
+**Lo que sigue abierto, ya localizado y medido.** Dos cosas, ninguna de músculo:
+
+1. **La costura deltopectoral todavía se abre.** El par
+   `Deltoid_region_3 / Deltopectoral_triangle_1` pasa de 0,05 cm en reposo a
+   2,69 cm a 45° y **9,69 cm a 180°** (`measure-shoulder-skin.mts`). El puente
+   de la nota 13 lo bajó de 14,84 a 9,69, pero los dos parches se **solapan**
+   en el borde en vez de tocarse, así que hay vértices coincidentes en mitad de
+   la tira, donde ésta todavía es sobre todo torácica. Cerrarlo pide una regla
+   de degradado distinta de la actual.
+2. **La axila no tiene piel que se estire.** Desde ~45° se ve dentro del hueco:
+   dorsal ancho, serrato anterior e intercostales externos (identificado por
+   píxel sobre el render). El mosaico de piel está cerrado en reposo —de 13 948
+   vértices de borde, sólo 76 en todo el cuerpo no tienen parche vecino— así
+   que no es un agujero del modelo: es piel que no acompaña al brazo cuando
+   éste se separa del tronco. Los parches implicados están atados a vértebras
+   (`Posterior_axillary_line` → `vert_T9` 100 %, `Lateral_region_of_thorax` →
+   `vert_T9` 100 %) sobre tejido que sí viaja con el hombro (húmero 62 % /
+   escápula 38 %). Es la misma clase de fallo que la tira deltopectoral, en
+   otros parches.
 
 ### ⚠️ Aviso sobre el instrumental
 

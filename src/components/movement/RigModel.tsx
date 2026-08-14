@@ -39,6 +39,7 @@ import {
 } from '../../lib/materialColors';
 import { bindClaviclesToShoulderGirdle } from '../../lib/clavicleBinding';
 import { bridgeShoulderSkin } from '../../lib/shoulderSkinBridge';
+import { gradeShoulderMuscleBinding } from '../../lib/shoulderMuscleBinding';
 import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../lib/biomech/scapulaWrap';
 import { muscleDepthLevel, type MuscleDepthLevel } from '../../lib/muscleDepth';
 import { parseMeshName, structureKey, type ParsedSide } from '../../lib/parseMeshName';
@@ -1828,6 +1829,19 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // fossa ship bound to a thoracic vertebra, so the shoulder tore open when the
       // arm went forward. See src/lib/shoulderSkinBridge.ts.
       const skinBridge = bridgeShoulderSkin(scene);
+      // SCAPULOHUMERAL MUSCLE WEIGHTS. Every muscle that crosses the shoulder
+      // ships with ONE flat mix over the whole mesh -- teres minor and the short
+      // head of biceps entirely on the humerus, though both originate on the
+      // scapula -- so their origins travelled with the arm and pushed out through
+      // the skin at the front of the shoulder. See src/lib/shoulderMuscleBinding.ts.
+      const muscleGrade = gradeShoulderMuscleBinding(scene);
+      if (muscleGrade.skipped.length > 0) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          '[RigModel] músculo escapulohumeral sin graduar:',
+          muscleGrade.skipped.map((s) => `${s.mesh} (${s.reason})`).join(', '),
+        );
+      }
       if (skinBridge.skipped.length > 0) {
         // eslint-disable-next-line no-console
         console.warn(
