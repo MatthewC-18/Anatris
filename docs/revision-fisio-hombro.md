@@ -35,12 +35,12 @@ ver el fallo descrito y hace falta que lo detalle).
 | 18 · patologías en 3D | ✅ hecho |
 | 1 · lento | ✅ portada 1,9 MB / 0,43 s; el modelo, 43 % menos |
 | 7 · borroso al zoom | ✅ hecho, por confirmar en pantalla |
-| 13 · flexión mal | ✅ músculo, costura y axila; queda un pliegue axilar |
+| 13 · flexión mal | ✅ músculo, costura, axila y pliegue; el pectoral ya se mueve |
 | 17 · ver la biomecánica | ✅ concretado y corregido: el raquis entero |
 | 25 · faltan dermatomas y miotomas | ✅ C4 añadida entera (dato + lámina + piel) |
 | 3 · músculos por fibras | ⚠️ no reproducido |
 
-Lo verificado en esta tanda: **324 pruebas** en verde, build correcto,
+Lo verificado en esta tanda: **326 pruebas** en verde, build correcto,
 `npm run audit-data` con **0 errores y 0 avisos**, las medidas del rig
 (clavícula, separación AC, penetración) reconfirmadas en ambos lados, y la
 primera carga medida en un Chromium real contra el `dist/` que se publica.
@@ -561,12 +561,58 @@ soldaduras, de ellas **676 conflictivas**, 162 mallas tocadas.
 Que la peor costura del barrido pase a estar en la **cara** es la señal de que en
 el hombro ya no queda ninguna abierta.
 
-**El precio, dicho claro.** La piel del pliegue axilar anterior ahora acompaña
-en parte al brazo, que es lo que hace de verdad, y al hacerlo se despega del
-pectoral mayor: a 90° de flexión el haz clavicular queda **2,18 cm por fuera**
-de la piel, donde antes quedaba ~1,0 cm. Se ha cambiado un desgarro grande y
-evidente —una ventana al tórax, un tajo de 9,7 cm— por un artefacto menor y
-localizado. Es una mejora neta, pero no está terminado.
+**El precio, y qué había detrás.** Al soldar, la piel del pliegue axilar anterior
+pasó a acompañar en parte al brazo —que es lo que hace de verdad— y al hacerlo se
+despegó del pectoral mayor: a 90° de flexión el haz clavicular quedaba **2,18 cm
+por fuera** de la piel, donde antes quedaba ~1,0.
+
+Persiguiéndolo aparecieron dos cosas, y la segunda es la buena.
+
+**Primero, el valor de la soldadura era arbitrario.** Una soldadura conflictiva se
+quedaba con la **media** de sus miembros. Eso aguanta la costura —cualquier valor
+único la aguanta— pero no dice nada sobre dónde debe acabar la piel, y ser
+arbitrario cuesta: la media le daba a la piel del pecho un tirón del ~50 % hacia
+el húmero. La respuesta no arbitraria es la que usa el cuerpo: **la piel sigue al
+tejido sobre el que se apoya**. Ahora una soldadura conflictiva toma la mezcla del
+músculo o la fascia que tiene debajo (641 de 676 lo encuentran), y la media queda
+sólo de reserva para donde no hay tejido blando a mano.
+
+**Y segundo: el pectoral mayor no se movía.** Ni un milímetro. Medido, la diagonal
+de su haz clavicular es **19,8 cm a 0° de flexión y 19,8 cm a 135°** — las tres
+porciones van cosidas al 100 % a una sola vértebra. Un **motor primario de la
+flexión** que se queda quieto mientras el brazo sube por encima de la cabeza es la
+misma clase de fallo que la clavícula soldada a `vert_T1`, y el módulo del músculo
+lo había aparcado por escrito como *"otro par de huesos, otro problema"*.
+
+Lo era, y era peor. Ahora se gradúa de la pared torácica a su inserción, con dos
+diferencias respecto al manguito:
+
+- **El origen conserva la vértebra que ya tenía**, tomada por peso y no por
+  nombre: en este rig no hay hueso "tórax" —el pecho lo mueve el raquis— así que
+  sólo cambia el extremo de la inserción.
+- **No es la regla de la razón entre dos distancias.** Esa vale para un músculo
+  que va *entre* dos huesos, como el manguito. El pectoral es un abanico de varios
+  palmos que converge en un tendón de unos 5 cm, y la malla del húmero recorre el
+  brazo entero, así que por razón de distancias el húmero salía "cerca" de medio
+  pecho: las fibras bajas se iban con el brazo y **empeoraban** el problema
+  (2,34 cm a 90°). Lo que sigue al brazo es el tendón y las fibras que convergen
+  en él, así que la parte humeral es una caída alrededor del hueso, no un reparto.
+
+| A 90° de flexión, cuánto sobresale | Antes | Después |
+|---|---|---|
+| pectoral mayor, haz clavicular | 2,18 cm | **1,26 cm** |
+| pectoral mayor, haz esternocostal | 1,81 cm | **1,19 cm** |
+| coracobraquial | 1,18 cm | **0,92 cm** |
+| peor exceso del arco, a 90° | 3,99 cm | **3,77 cm** |
+| peor exceso del arco, a 120° | 4,43 cm | **3,64 cm** |
+| la costura deltopectoral | 0,05 cm | **0,05 cm** (intacta) |
+
+Y el pectoral **se mueve**: su diagonal deja de ser una constante y se acorta con
+la flexión, que es lo que hace un flexor.
+
+Lo que queda es ruido de fondo del modelo de origen: triángulos sueltos de músculo
+asomando unos milímetros, que ya están en la postura de reposo. El desgarro
+grande, la ventana al tórax y el pliegue despegado, no.
 
 **Y un fallo mío de la tanda anterior, corregido aquí.** Al medir el coste de
 carga de las cuatro pasadas de pesos salió que la del músculo tardaba **22,3

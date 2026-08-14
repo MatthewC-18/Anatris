@@ -52,7 +52,7 @@
 // measurement harness share ONE implementation and cannot drift apart.
 
 import * as THREE from 'three';
-import { materialIsSkin } from './materialColors';
+import { layerForMaterial, materialIsSkin } from './materialColors';
 
 /** Strip the `_12` disambiguator three.js appends to duplicate node names. */
 const baseName = (n: string): string => n.replace(/_\d+$/, '');
@@ -69,6 +69,12 @@ const MIDLINE_M = 0.02;
 const WELD_M = 0.0025;
 /** Weight difference (L1/2, i.e. 0..1) above which a weld counts as disagreeing. */
 const DISAGREE = 0.10;
+/**
+ * How far under a weld we look for the tissue it should follow. Skin sits on
+ * fascia a few millimetres thick; 3 cm is generous enough to survive the source
+ * model's gaps without reaching a muscle that belongs to somewhere else.
+ */
+const UNDER_M = 0.03;
 /** Graph rings around a disagreeing weld that get smoothed. */
 const RELAX_RINGS = 6;
 /** Smoothing iterations, and how much of each step comes from the neighbours. */
@@ -84,10 +90,44 @@ export interface SeamRelaxResult {
   welds: number;
   /** The worst disagreement seen, 0..1, for reporting. */
   worst: number;
+  /** Disagreeing welds that took their weights from the tissue underneath. */
+  fromTissue: number;
   skipped: { mesh: string; reason: string }[];
 }
 
 type Weights = Map<string, number>;
+
+/** Spatial hash over weighted rest-pose points, for "what is underneath" queries. */
+class PointGrid {
+  private cells = new Map<string, { p: THREE.Vector3; w: Weights }[]>();
+  private static CELL = 0.02;
+
+  add(pt: { p: THREE.Vector3; w: Weights }): void {
+    const C = PointGrid.CELL;
+    const k =
+      `${Math.floor(pt.p.x / C)}|${Math.floor(pt.p.y / C)}|${Math.floor(pt.p.z / C)}`;
+    const b = this.cells.get(k);
+    if (b) b.push(pt);
+    else this.cells.set(k, [pt]);
+  }
+
+  /** Weights of the nearest point within `maxR`, or null. */
+  nearest(p: THREE.Vector3, maxR: number): Weights | null {
+    const C = PointGrid.CELL;
+    const cx = Math.floor(p.x / C), cy = Math.floor(p.y / C), cz = Math.floor(p.z / C);
+    const R = Math.ceil(maxR / C);
+    let best: Weights | null = null;
+    let bestSq = maxR * maxR;
+    for (let i = -R; i <= R; i++)
+      for (let j = -R; j <= R; j++)
+        for (let k = -R; k <= R; k++)
+          for (const q of this.cells.get(`${cx + i}|${cy + j}|${cz + k}`) ?? []) {
+            const d = p.distanceToSquared(q.p);
+            if (d < bestSq) { bestSq = d; best = q.w; }
+          }
+    return best;
+  }
+}
 
 /** Normalise in place; returns false if there was nothing to normalise. */
 function normalise(w: Weights): boolean {
@@ -112,6 +152,7 @@ export function relaxSkinSeams(scene: THREE.Object3D): SeamRelaxResult {
     disagreeing: 0,
     welds: 0,
     worst: 0,
+    fromTissue: 0,
     skipped: [],
   };
 
@@ -215,9 +256,56 @@ export function relaxSkinSeams(scene: THREE.Object3D): SeamRelaxResult {
     return out;
   };
 
-  // Node weight = mean of its members'. Note where the members DISAGREED: those
-  // are the seams that were being pulled apart, and the only places this pass is
-  // allowed to change anything beyond the weld itself.
+  // WHAT A DISAGREEING WELD SHOULD SETTLE ON.
+  //
+  // The obvious answer is the mean of its members, and the first version used it.
+  // It holds the seam -- any single value does -- but it is arbitrary about WHERE
+  // the skin ends up, and being arbitrary has a cost: at the anterior axillary
+  // fold the mean handed chest skin a ~50% pull toward the humerus, the pectoralis
+  // major underneath stayed on the ribs, and the muscle came out through the skin
+  // (2.18 cm at 90 deg of flexion, where it had been ~1.0).
+  //
+  // The non-arbitrary answer is the one the body uses: SKIN FOLLOWS THE TISSUE IT
+  // LIES ON. So a disagreeing weld takes the bone mix of the nearest muscle or
+  // fascia beneath it, and the mean is only the fallback for the places where
+  // there is no soft tissue within reach (over the clavicle, say). Coincident
+  // vertices are one node and so share one nearest neighbour, which means the
+  // seam guarantee is untouched -- the two copies still get identical weights.
+  const softGrid = new PointGrid();
+  scene.traverse((o) => {
+    const m = o as THREE.SkinnedMesh;
+    if (!m.isMesh || !m.isSkinnedMesh || !m.skeleton) return;
+    const first = Array.isArray(m.material) ? m.material[0] : m.material;
+    const mat = (first as THREE.Material | undefined)?.name ?? '';
+    if (materialIsSkin(mat)) return;
+    const layer = layerForMaterial(mat);
+    if (layer !== 'muscle' && layer !== 'connective') return;
+    const geom = m.geometry;
+    if (!geom.boundingSphere) geom.computeBoundingSphere();
+    const c = geom.boundingSphere!.center.clone().applyMatrix4(m.matrixWorld);
+    if (c.y < Y_LO - 0.25 || c.y > Y_HI + 0.25) return;
+    const pos = geom.getAttribute('position');
+    const si = geom.getAttribute('skinIndex');
+    const sw = geom.getAttribute('skinWeight');
+    if (!pos || !si || !sw) return;
+    const v = new THREE.Vector3();
+    // Every fourth vertex: this only has to say WHICH muscle is underneath, and a
+    // muscle is thousands of vertices of the same answer.
+    for (let i = 0; i < pos.count; i += 4) {
+      v.fromBufferAttribute(pos, i);
+      m.localToWorld(v);
+      if (v.y < Y_LO || v.y > Y_HI || Math.abs(v.x) < MIDLINE_M) continue;
+      const w: Weights = new Map();
+      for (let k = 0; k < 4; k++) {
+        const x = sw.getComponent(i, k);
+        if (x <= 0) continue;
+        const n = baseName(m.skeleton.bones[si.getComponent(i, k)]?.name ?? '');
+        if (n) w.set(n, (w.get(n) ?? 0) + x);
+      }
+      if (normalise(w)) softGrid.add({ p: v.clone(), w });
+    }
+  });
+
   const nodeW: Weights[] = [];
   const seedRelax: number[] = [];
   for (let n = 0; n < nodePos.length; n++) {
@@ -236,6 +324,11 @@ export function relaxSkinSeams(scene: THREE.Object3D): SeamRelaxResult {
       if (worst > DISAGREE) {
         result.disagreeing++;
         seedRelax.push(n);
+        const under = softGrid.nearest(nodePos[n], UNDER_M);
+        if (under) {
+          nodeW[n] = new Map(under);
+          result.fromTissue++;
+        }
       }
       if (worst > result.worst) result.worst = worst;
     }

@@ -32,7 +32,12 @@
 //     MOVEMENT opens up.
 //
 // Run: npx tsx --tsconfig tsconfig.scripts.json scripts/measure-muscle-spill.mts \
-//        [movementId] [left] [angles...]
+//        [movementId] [left] [angles...] [--only=<regex>]
+//
+// `--only` narrows the muscles measured, which is what makes this usable as an
+// ITERATION tool rather than a report: the full sweep is 847 muscles at 8 angles
+// and takes minutes, while one region at one angle takes seconds. The skin side
+// is never narrowed -- a muscle is judged against whatever skin is over it.
 import { readFileSync } from 'node:fs';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
@@ -47,6 +52,10 @@ const SIDE: Side = args.includes('left') ? 'L' : 'R';
 const ANGLES = (() => {
   const n = args.map(Number).filter((x) => !Number.isNaN(x) && x >= 0);
   return n.length ? n : [0, 45, 60, 90, 120, 135, 160, 180];
+})();
+const ONLY = (() => {
+  const a = args.find((x) => x.startsWith('--only='));
+  return a ? new RegExp(a.slice(7), 'i') : null;
 })();
 
 /** Shoulder band. Below 1.1 is chest/abdomen, above 1.55 is neck. */
@@ -88,7 +97,9 @@ scene.traverse((o) => {
   all.push({ mesh: m, name: m.name, layer });
 });
 const skinM = all.filter((m) => m.layer === 'skin');
-const softM = all.filter((m) => m.layer === 'muscle' || m.layer === 'connective');
+const softM = all
+  .filter((m) => m.layer === 'muscle' || m.layer === 'connective')
+  .filter((m) => !ONLY || ONLY.test(m.name));
 const boneM = all.filter((m) => m.layer === 'bone');
 console.log(
   `movement: ${MOVEMENT}  side ${SIDE}   ${skinM.length} skin meshes, ${softM.length} muscle/connective`,

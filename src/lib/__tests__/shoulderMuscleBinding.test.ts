@@ -114,6 +114,54 @@ function buildScene() {
   return { scene, teres, deltoid };
 }
 
+/**
+ * A chest scene, for the THORACOHUMERAL pass: a pectoralis skinned 100% to one
+ * vertebra (which is how every head of it actually ships), a chest-wall bone at
+ * its origin and a humerus at its insertion.
+ */
+function buildChestScene() {
+  const scene = new THREE.Group();
+
+  const vert = new THREE.Bone();
+  vert.name = 'vert_T4';
+  const spineRoot = new THREE.Group();
+  spineRoot.name = 'Spine_Armature';
+  spineRoot.add(vert);
+
+  const clavicle = new THREE.Bone();
+  clavicle.name = 'clavicle';
+  const scapula = new THREE.Bone();
+  scapula.name = 'scapula';
+  const humerus = new THREE.Bone();
+  humerus.name = 'humerus_gh';
+  clavicle.add(scapula);
+  scapula.add(humerus);
+  const shoulderRoot = new THREE.Group();
+  shoulderRoot.name = 'Shoulder_Armature_R';
+  shoulderRoot.add(clavicle);
+
+  scene.add(spineRoot, shoulderRoot);
+  scene.updateMatrixWorld(true);
+
+  // The pectoralis is skinned to the SPINE skeleton, which has no humerus in it.
+  const spineSkeleton = new THREE.Skeleton([vert]);
+
+  const sternum = makeBoneMesh('Sternum', 0.0, 0.06, 31);
+  const humBone = makeBoneMesh('Humerus', 0.2, 0.3, 51);
+  const pec = makeMesh(
+    'Clavicular_head_of_pectoralis_major_muscle',
+    0.02,
+    0.24,
+    12,
+    spineSkeleton,
+    [{ boneIndex: 0, w: 1 }],
+  );
+
+  scene.add(sternum, humBone, pec);
+  scene.updateMatrixWorld(true);
+  return { scene, skeleton: spineSkeleton, thoraxBone: 'vert_T4' };
+}
+
 /** Bone name -> weight for one vertex of a mesh. */
 function weightsAt(mesh: THREE.SkinnedMesh, i: number): Record<string, number> {
   const si = mesh.geometry.getAttribute('skinIndex');
@@ -198,5 +246,47 @@ describe('gradeShoulderMuscleBinding', () => {
     const result = gradeShoulderMuscleBinding(scene);
     expect(result.graded).toEqual([]);
     expect(result.skipped.map((s) => s.reason)).toEqual(['sin huesos de referencia en R']);
+  });
+
+  it('grades the pectoralis from the chest wall to its insertion', () => {
+    // The pass above deferred the thorax-to-humerus muscles as "a separate
+    // problem". Measured, that problem was worse: every head of the pectoralis
+    // major ships 100% on ONE vertebra, so its bounding diagonal is 19.8 cm at 0
+    // deg of flexion and 19.8 cm at 135 -- a prime mover of flexion that does not
+    // move at all.
+    const { scene, skeleton, thoraxBone } = buildChestScene();
+    const result = gradeShoulderMuscleBinding(scene);
+    const pec = scene.getObjectByName(
+      'Clavicular_head_of_pectoralis_major_muscle',
+    ) as THREE.SkinnedMesh;
+    expect(result.graded.map((g) => g.mesh)).toContain(
+      'Clavicular_head_of_pectoralis_major_muscle',
+    );
+    // The humerus is not in the SPINE skeleton the pectoralis is skinned to, so
+    // it has to be spliced in.
+    expect(skeleton.bones.map((b) => b.name)).toContain('humerus_gh');
+    const count = pec.geometry.getAttribute('position').count;
+    // Origin end stays on the vertebra it shipped with; insertion end follows the
+    // arm.
+    expect(weightsAt(pec, 0)[thoraxBone] ?? 0).toBeGreaterThan(0.9);
+    expect(weightsAt(pec, count - 1).humerus_gh ?? 0).toBeGreaterThan(0.5);
+  });
+
+  it('does not drag the far fibres of a fan-shaped muscle with the arm', () => {
+    // NOT the ratio rule the glenohumeral pass uses. The pectoralis is a fan
+    // several hand-widths across converging into a ~5 cm tendon, and the humerus
+    // mesh runs the whole length of the arm, so a ratio made the LOWER fibres
+    // swing with it and pushed them out through the chest skin -- 2.34 cm at 90
+    // deg, worse than the defect being fixed.
+    const { scene, thoraxBone } = buildChestScene();
+    gradeShoulderMuscleBinding(scene);
+    const pec = scene.getObjectByName(
+      'Clavicular_head_of_pectoralis_major_muscle',
+    ) as THREE.SkinnedMesh;
+    // The medial half of the fan is nowhere near the humerus and must be untouched.
+    for (const i of [0, 1, 2]) {
+      const w = weightsAt(pec, i);
+      expect(w[thoraxBone] ?? 0, `vertex ${i} must stay on the chest`).toBeCloseTo(1, 3);
+    }
   });
 });

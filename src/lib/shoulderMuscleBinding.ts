@@ -236,7 +236,8 @@ export function gradeShoulderMuscleBinding(scene: THREE.Object3D): MuscleBindRes
       targets.push(m);
     }
   });
-  if (!targets.length) return result;
+  // No early return on an empty `targets`: the thoracohumeral pass at the bottom
+  // is independent of this one and must still run.
 
   for (const mesh of targets) {
     const geom = mesh.geometry;
@@ -309,5 +310,163 @@ export function gradeShoulderMuscleBinding(scene: THREE.Object3D): MuscleBindRes
     });
   }
 
+  gradeThoracohumeral(scene, bonesBySide, humerusGrid, result);
   return result;
+}
+
+/**
+ * Muscles that cross the shoulder from the THORAX, not from the scapula.
+ *
+ * The pass above deferred these on the grounds that they were "a different pair
+ * of bones and a separate problem". They are, and the separate problem turned out
+ * to be worse: measured on the shipped GLB, every head of the pectoralis major is
+ * skinned 100% to a single vertebra, so its bounding diagonal is 19.8 cm at 0 deg
+ * of flexion and 19.8 cm at 135 -- the muscle does not move AT ALL. A prime mover
+ * of shoulder flexion that stands still while the arm goes over the head is the
+ * same class of defect as the clavicle welded to vert_T1.
+ *
+ * Latissimus dorsi is NOT here: the rig already carries `latshum_l/r` helper bones
+ * for exactly this, driven from RigModel, and its diagonal does grow across the
+ * arc (43.3 -> 46.1 cm). Pectoralis minor is not here either -- it inserts on the
+ * CORACOID, so its distal anchor is the scapula, not the humerus, and it barely
+ * moves against the thorax anyway.
+ */
+const THORACOHUMERAL =
+  /^(clavicular_head_of_pectoralis_major|sternocostal_head_of_pectoralis_major|\(abdominal_part_of_pectoralis_major)/i;
+
+/** Bone meshes standing for the muscle's PROXIMAL anchor: the chest wall. */
+const THORAX_MESH = /^(rib|sternum|costal_cartilage|clavicle)/i;
+
+/**
+ * How far from the humerus a thoracohumeral fibre still follows it. The
+ * pectoralis major inserts as a flat tendon about 5 cm tall; this is that tendon
+ * plus the fibres converging into it, and everything beyond stays on the chest.
+ */
+const INSERTION_REACH_M = 0.06;
+
+/**
+ * Grade the thoracohumeral muscles from their chest-wall origin to their humeral
+ * insertion.
+ *
+ * The proximal target is whatever vertebra the mesh ALREADY rides, taken by total
+ * weight rather than by name: there is no "thorax" bone in this rig -- the chest
+ * is driven through the spine -- so the origin keeps exactly the bone it has and
+ * only the insertion end changes. That also means a re-export that binds the
+ * pectoralis to a different vertebra still works.
+ */
+function gradeThoracohumeral(
+  scene: THREE.Object3D,
+  bonesBySide: Map<'R' | 'L', Map<string, THREE.Object3D>>,
+  humerusGrid: Map<'R' | 'L', BoneCloud>,
+  result: MuscleBindResult,
+): void {
+  const thoraxGrid = new Map<'R' | 'L', BoneCloud>([
+    ['R', new BoneCloud()],
+    ['L', new BoneCloud()],
+  ]);
+  const targets: THREE.SkinnedMesh[] = [];
+  scene.traverse((o) => {
+    const m = o as THREE.SkinnedMesh;
+    if (!m.isMesh || !m.geometry?.getAttribute('position')) return;
+    const geom = m.geometry;
+    if (!geom.boundingSphere) geom.computeBoundingSphere();
+    const c = geom.boundingSphere!.center.clone().applyMatrix4(m.matrixWorld);
+    const n = baseName(m.name);
+    const layer = layerOf(m);
+    if (layer === 'bone' && THORAX_MESH.test(n)) {
+      // The chest wall is one surface for both sides; a right-side pectoralis
+      // originates on the sternum at the midline, so both clouds take all of it.
+      for (const side of ['R', 'L'] as const) restPoints(m, thoraxGrid.get(side)!);
+      return;
+    }
+    if (Math.abs(c.x) < 1e-4) return;
+    if ((layer === 'muscle' || layer === 'connective') && m.isSkinnedMesh && THORACOHUMERAL.test(n))
+      targets.push(m);
+  });
+
+  for (const mesh of targets) {
+    const geom = mesh.geometry;
+    const si = geom.getAttribute('skinIndex');
+    const sw = geom.getAttribute('skinWeight');
+    const pos = geom.getAttribute('position');
+    const skeleton = mesh.skeleton;
+    if (!skeleton || !si || !sw || !pos) {
+      result.skipped.push({ mesh: mesh.name, reason: 'sin esqueleto o sin pesos' });
+      continue;
+    }
+    const centre = geom.boundingSphere!.center.clone().applyMatrix4(mesh.matrixWorld);
+    const side: 'R' | 'L' = centre.x > 0 ? 'R' : 'L';
+    const thorax = thoraxGrid.get(side)!;
+    const hum = humerusGrid.get(side)!;
+    const humBone = bonesBySide.get(side)?.get(HUMERUS_BONE);
+    if (!thorax.size || !hum.size || !humBone) {
+      result.skipped.push({ mesh: mesh.name, reason: `sin huesos de referencia en ${side}` });
+      continue;
+    }
+
+    // The vertebra the mesh already rides, kept as the origin's anchor.
+    const acc = new Map<number, number>();
+    for (let i = 0; i < si.count; i++)
+      for (let k = 0; k < 4; k++) {
+        const w = sw.getComponent(i, k);
+        if (w > 0) {
+          const b = si.getComponent(i, k);
+          acc.set(b, (acc.get(b) ?? 0) + w);
+        }
+      }
+    let iThorax = -1;
+    let bestW = 0;
+    for (const [b, w] of acc) if (w > bestW) { bestW = w; iThorax = b; }
+    if (iThorax < 0) {
+      result.skipped.push({ mesh: mesh.name, reason: 'sin hueso dominante' });
+      continue;
+    }
+
+    let iHum = skeleton.bones.indexOf(humBone as THREE.Bone);
+    if (iHum < 0) {
+      // The pectoralis is skinned to the SPINE skeleton, which has no humerus in
+      // it. Appending keeps every stored skinIndex valid, and the inverse comes
+      // from the bone's CURRENT world matrix so the rest pose does not jump.
+      skeleton.bones.push(humBone as THREE.Bone);
+      skeleton.boneInverses.push(new THREE.Matrix4().copy(humBone.matrixWorld).invert());
+      skeleton.init();
+      iHum = skeleton.bones.length - 1;
+    }
+
+    let minT = 1;
+    let maxT = 0;
+    const v = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i);
+      mesh.localToWorld(v);
+      const dH = hum.nearest(v);
+      if (!Number.isFinite(dH)) continue;
+      // NOT the ratio rule the pass above uses. That rule suits a muscle lying
+      // BETWEEN two bones -- the rotator cuff, hugging blade and head -- and the
+      // pectoralis is not that shape: it is a fan several hand-widths across that
+      // converges into a tendon about 5 cm tall on the intertubercular groove.
+      // Graded by ratio, the humerus (whose mesh runs the whole length of the arm)
+      // came out "close" to a great deal of chest, so the lower fibres swung with
+      // the arm and pushed out through the chest skin -- 2.34 cm at 90 deg, worse
+      // than the problem being fixed. What follows the arm is the TENDON and the
+      // fibres converging into it, so the humeral share is a falloff around the
+      // bone rather than a share of the distance between two.
+      let t = 1 - dH / INSERTION_REACH_M;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      t = t * t * (3 - 2 * t); // smoothstep: no crease where the gradient starts
+      const wT = 1 - t;
+      if (wT < minT) minT = wT;
+      if (wT > maxT) maxT = wT;
+      si.setXYZW(i, iThorax, iHum, 0, 0);
+      sw.setXYZW(i, wT, t, 0, 0);
+    }
+    si.needsUpdate = true;
+    sw.needsUpdate = true;
+    result.graded.push({
+      mesh: mesh.name,
+      armature: `Shoulder_Armature_${side}`,
+      minScapula: minT,
+      maxScapula: maxT,
+    });
+  }
 }
