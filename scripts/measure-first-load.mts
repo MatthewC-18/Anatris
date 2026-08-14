@@ -117,6 +117,15 @@ page.on('console', (m) => {
 page.on('pageerror', (e) => console.log(`  [page error] ${String(e).slice(0, 140)}`));
 
 const ROUTE = (process.argv.find((a) => a.startsWith('--route=')) ?? '--route=/').slice(8);
+// Mark the onboarding tour as seen before the app boots. It renders over the
+// canvas and dims it, so any screenshot taken with it up shows nothing.
+await page.addInitScript(() => {
+  try {
+    window.localStorage.setItem('anatris.tour.done', '3');
+  } catch {
+    /* private mode: the tour will just show */
+  }
+});
 await page.goto(`http://localhost:${PORT}${ROUTE}`, { waitUntil: 'load', timeout: 120000 });
 // The big model is fetched by the 3D view, well after `load`. Wait for the
 // network to go quiet rather than for a lifecycle event.
@@ -179,9 +188,11 @@ for (const [t, b] of [...byType.entries()].sort((a, c) => c[1] - a[1]))
 // both the correctness check and the number worth knowing.
 const overlayGone = Date.now();
 const lifted = await page
-  .waitForFunction(() => !/Cargando modelo anat/i.test(document.body.innerText), null, {
-    timeout: 60000,
-  })
+  .waitForFunction(
+    () => !/Cargando (modelo anat|el laboratorio|rig)/i.test(document.body.innerText),
+    null,
+    { timeout: 120000 },
+  )
   .then(() => Date.now() - overlayGone)
   .catch(() => null);
 console.log(
@@ -204,6 +215,12 @@ console.log(
     `, loading overlay ${state.overlay ? `STILL SHOWING at ${state.pct}%` : 'gone'}` +
     `, error boundary ${state.broke ? 'TRIPPED' : 'clear'}`,
 );
+
+// The onboarding tour sits over the canvas and dims it, so a screenshot with it
+// up shows nothing useful.
+const skip = page.getByRole('button', { name: /^(Saltar|Cerrar|Entendido)$/i });
+if (await skip.count()) await skip.first().click({ timeout: 5000 }).catch(() => {});
+await page.waitForTimeout(6000);
 
 if (process.env.SHOT) {
   await page.screenshot({ path: process.env.SHOT, fullPage: false, timeout: 60000 }).catch(() => {});
