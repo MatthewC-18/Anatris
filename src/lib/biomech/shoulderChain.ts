@@ -84,6 +84,32 @@ const G_P4 = 0.28;  // 140-180 scapula still leads but the rate eases
 
 const G_HUM_ER = 0.6;          // humeral ER gain
 
+// --- ADDUCTION IS NEVER PURELY FRONTAL --------------------------------------
+//
+// From the reference position (arm at the side), adduction in the frontal plane
+// is MECHANICALLY IMPOSSIBLE: the limb is already against the trunk, and the
+// trunk is what stops it. Kapandji states it plainly and gives the way out --
+// adduction only exists combined with a FLEXION of 30 to 45 deg, which carries
+// the limb in front of the body, or with a slight extension, which carries it
+// behind. The cross-body version, the one the abduction arc runs into below 0,
+// is the flexion one.
+//
+// The model had no such combination, so the negative end of the arc was a pure
+// frontal sweep and the humerus rotated straight INTO the thorax: at -30 deg the
+// forearm and the hand ended up inside the abdomen, visible through the skin.
+//
+// The gain spends the band's TOP at the end of the arc:
+//   30 deg of cross-body adduction * 1.5 = 45 deg of flexion.
+//
+// It is the top and not the middle because the rig crosses the body with the
+// ELBOW STRAIGHT, so the limb is one long lever that has to clear a convex
+// abdomen along its whole length -- the hand is not the tight part, the middle
+// of the forearm is. Measured over the band (scripts/measure-arm-clearance.mts,
+// deepest penetration at -30 deg): 36 deg still buried 3.8 cm of forearm, 42 deg
+// 1.5 cm, 45 deg 0.3 cm. Going past 45 would clear it completely and leave
+// Kapandji's range to do it.
+const G_CROSS_BODY_FLEX = 1.5;
+
 // --- THE TRUNK LEAN IS THE WHOLE RAQUIS, NOT ITS TOP FIVE VERTEBRAE ---------
 //
 // The lean used to be spread over five upper thoracic vertebrae (T6..T2) and
@@ -182,6 +208,18 @@ export interface ShoulderChainPose {
   glenohumeralRot: number;
   /** Humeral external rotation, radians (applied on forearm_rot local Y). */
   humeralExtRot: number;
+  /**
+   * Obligatory FLEXION that accompanies cross-body adduction, radians, unsigned
+   * and 0 for any elevation at or above neutral (see G_CROSS_BODY_FLEX). Only the
+   * frontal arc uses it: on the sagittal arc the negative branch is extension,
+   * which already clears the trunk on its own.
+   *
+   * NOT a per-bone rig target. The runtime aims the humeral shaft in the plane
+   * the clinical angle is read in and keeps the out-of-plane component at its
+   * rest value, so a flexion placed on the bone would be aimed straight back out
+   * again; this is the angle the aim itself swings the shaft forward by.
+   */
+  crossBodyFlex: number;
   /** Thoracic lateral flexion per vertebra, radians (signed; applied on local Z). */
   thoracicLatFlexPerVert: number;
   /**
@@ -277,6 +315,11 @@ export function shoulderChain(
 
   const humeralExtRot = Math.max(Ep - T_HUM_ER, 0) * G_HUM_ER;
 
+  // Cross-body adduction carries the limb in FRONT of the trunk (see the gain
+  // block). Ramps with how far below neutral the arc has gone, and is exactly 0
+  // at and above neutral, so nothing on the positive arc changes.
+  const crossBodyFlex = Math.max(-E, 0) * G_CROSS_BODY_FLEX;
+
   // Contralateral lateral flexion: R arm -> spine leans LEFT, and vice versa.
   // Distributed over the WHOLE raquis (see the gain block above): every thoracic
   // and lumbar level takes a share, so the trunk bends instead of hinging at T6.
@@ -327,6 +370,7 @@ export function shoulderChain(
     clavicleRetraction,
     glenohumeralRot,
     humeralExtRot,
+    crossBodyFlex,
     thoracicLatFlexPerVert,
     lumbarLatFlexPerVert,
     thoracicVerts: THORACIC_LEAN_VERTS,

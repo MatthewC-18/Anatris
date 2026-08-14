@@ -251,6 +251,14 @@ export function createRigPoser(
             const r = Math.hypot(want.x, want.y);
             const a = Math.atan2(want.x, -want.y) + deg * D2R * (side === 'R' ? 1 : -1);
             want.set(Math.sin(a) * r, -Math.cos(a) * r, want.z).normalize();
+            // Cross-body adduction is carried in FRONT of the trunk; same swing
+            // the app's aim applies, so the harness poses the arm the user sees.
+            const cross = outputs.crossBodyFlex;
+            if (cross) {
+              const rz = Math.hypot(want.z, want.y);
+              const az = Math.atan2(want.z, -want.y) + cross;
+              want.set(want.x, -Math.cos(az) * rz, Math.sin(az) * rz).normalize();
+            }
           } else {
             const r = Math.hypot(want.z, want.y);
             const a = Math.atan2(want.z, -want.y) + deg * D2R;

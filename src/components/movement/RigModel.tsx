@@ -2867,6 +2867,21 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
                 const r = Math.hypot(want.x, want.y);
                 const a = Math.atan2(want.x, -want.y) + cmd.angleDeg * DEG2RAD * inPlaneSign;
                 want.set(Math.sin(a) * r, -Math.cos(a) * r, want.z).normalize();
+                // CROSS-BODY ADDUCTION GOES IN FRONT OF THE TRUNK, NOT THROUGH IT.
+                // Below neutral this arc adducts, and adduction does not exist in
+                // the pure frontal plane -- the trunk is in the way. The clinical
+                // model says how much flexion the body borrows to make room (see
+                // shoulderChain's crossBodyFlex); the swing has to happen HERE
+                // because the aim above keeps the shaft's anteroposterior
+                // component at its REST value, which is exactly what pinned the
+                // limb inside the abdomen. Same sagittal swing the flexion arc
+                // uses below, applied on top of the frontal placement.
+                const cross = outputs.crossBodyFlex;
+                if (cross) {
+                  const rz = Math.hypot(want.z, want.y);
+                  const az = Math.atan2(want.z, -want.y) + cross;
+                  want.set(want.x, -Math.cos(az) * rz, Math.sin(az) * rz).normalize();
+                }
               } else {
                 const r = Math.hypot(want.z, want.y);
                 const a = Math.atan2(want.z, -want.y) + cmd.angleDeg * DEG2RAD;

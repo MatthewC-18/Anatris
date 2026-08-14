@@ -274,6 +274,14 @@ export const BONE_MAP: Record<string, BoneControl> = {
         // scapulothoracic wrap keeps being fed the angle its table was calibrated
         // against. `scapula` above is only the acromioclavicular share.
         scapulaTotal: p.scapulothoracicUpwardRot,
+        // ALSO NOT a rig target. Below neutral this arc is cross-body adduction,
+        // which the body can only perform combined with flexion -- otherwise the
+        // limb is driven into the thorax. It is published rather than placed on
+        // the humerus because the aim (aimPlane 'z') rebuilds the shaft direction
+        // from the REST pose and preserves its out-of-plane component, so a
+        // flexion written to the bone here would be undone a few lines later. The
+        // aim reads this and swings the shaft forward itself.
+        crossBodyFlex: p.crossBodyFlex,
         // The lean must be CONTRALATERAL -- the trunk bends away from the rising
         // arm, which is what lets the arm finish vertical. shoulderChain signs it
         // for an anatomical axis; on the rig's vertebra local-Z that sign comes
