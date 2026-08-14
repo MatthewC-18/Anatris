@@ -1036,8 +1036,18 @@ function inDistalRegion(c: THREE.Vector3): boolean {
 // columns |x| > 0.16; the forearm/wrist/elbow connective spans y 0.82..1.35
 // (the wrist ligaments begin at y ~= 0.86, just above the hand cap).
 // ---------------------------------------------------------------------------
+/**
+ * Half-width of the trunk at arm height: beyond this the mesh is in one of the
+ * lateral arm columns, inside it belongs to the body. Any rule keyed to a HEIGHT
+ * along the arm needs this too, because with the arms down the forearm hangs
+ * beside the lumbar spine — the elbow and the abdominal wall are the same
+ * height, so a y-only test reads the trunk as forearm (see anchorOriginToHumerus
+ * at its call site).
+ */
+const ARM_COLUMN_X = 0.16;
+
 function inArmBand(c: THREE.Vector3): boolean {
-  return Math.abs(c.x) > 0.16 && c.y > 0.82 && c.y < 1.4;
+  return Math.abs(c.x) > ARM_COLUMN_X && c.y > 0.82 && c.y < 1.4;
 }
 
 // ---------------------------------------------------------------------------
@@ -2247,8 +2257,23 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         // connective: the piece that flew was the brachioradialis TENDON sheet,
         // which no muscle rule ever touched. Bone is left alone -- the radius and
         // ulna do not cross the joint.
+        //
+        // THE LATERAL TEST IS NOT OPTIONAL. Every other rule here is also keyed
+        // to a dominant BONE, which keeps it inside the arm on its own; this one
+        // is keyed to nothing but the height band, and with the arms hanging the
+        // elbow (y ~1.10) and the wrist (y ~0.86) bracket the LUMBAR SPINE and
+        // the abdominal wall. So the quadratus lumborum, the multifidus, the
+        // erector group, both obliques, the transversus and the rectus all
+        // qualified, and every vertex of theirs above the elbow line was rebound
+        // to humerus_gh / forearm_flex -- bones that exist in the spine skeleton
+        // too. Harmless until the spine re-skin started PRESERVING non-vertebra
+        // weight (for the latissimus' humeral helper), after which those trunk
+        // vertices survived and rode the arm: at 150 deg of abduction the whole
+        // abdominal wall was dragged ~0.7 m and smeared across the chest as a
+        // sheet, while the lumbar muscles it was attached to stayed on the spine.
         if (
           (layer === 'muscle' || layer === 'connective') &&
+          Math.abs(center.x) > ARM_COLUMN_X &&
           center.y < ELBOW_Y &&
           center.y > WRIST_Y
         ) {
