@@ -532,12 +532,23 @@ function SceneContents({
   );
 }
 
-/** Reads drei's load progress and forwards it to the HTML overlay loader. */
-function ProgressReporter({ onProgress }: { onProgress: (p: number) => void }) {
-  const { progress } = useProgress();
+/**
+ * Rendered INSIDE the Suspense boundary, so mounting at all means the model has
+ * resolved. That is the readiness signal the overlay is dismissed on.
+ *
+ * It used to forward drei's `useProgress` instead, and the overlay was dismissed
+ * when that reached 100. Two things are wrong with that, and RigViewer had
+ * already found both: progress never reaches 100 on a cached reload, and it only
+ * reaches 100 at all if whatever loads the model reports to three's
+ * DefaultLoadingManager. When the atlas moved to the pre-compressed loader
+ * (src/lib/compressedGLTF.ts) it stopped doing so for one release, and the app
+ * sat behind "Cargando modelo anatómico · 0%" with the model rendering
+ * underneath. Mounting is the fact; progress is a nicety.
+ */
+function ModelReady({ onReady }: { onReady: () => void }) {
   useEffect(() => {
-    onProgress(progress);
-  }, [progress, onProgress]);
+    onReady();
+  }, [onReady]);
   return null;
 }
 
@@ -548,8 +559,12 @@ export function Viewer3D({
   resolution,
   movement,
 }: Viewer3DProps) {
-  const [progress, setProgress] = useState(0);
+  // The bar's percentage comes straight from drei's store, read OUT HERE rather
+  // than inside the Suspense boundary: a reporter that only mounts once the model
+  // has resolved can never show anything but 0 while it loads.
+  const { progress } = useProgress();
   const [ready, setReady] = useState(false);
+  const handleReady = useCallback(() => setReady(true), []);
   const compact = useIsCompact();
 
   // ATLAS PLATE. The names are DOM, so they are rendered out here, beside the
@@ -569,12 +584,13 @@ export function Viewer3D({
     });
   }, [showAtlasLabels, region, resolution, byMesh, visibleMeshes]);
 
+  // A safety timeout dismisses the overlay regardless, so it can never get stuck
+  // over a live model however the loading below behaves. Same belt-and-braces
+  // RigViewer carries.
   useEffect(() => {
-    if (progress >= 100) {
-      const t = setTimeout(() => setReady(true), 250);
-      return () => clearTimeout(t);
-    }
-  }, [progress]);
+    const t = setTimeout(() => setReady(true), 20000);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
     <div className="relative h-full w-full viewer-bg">
@@ -623,7 +639,7 @@ export function Viewer3D({
         onPointerMissed={() => useAnatomyStore.getState().clearSelection()}
       >
         <Suspense fallback={null}>
-          <ProgressReporter onProgress={setProgress} />
+          <ModelReady onReady={handleReady} />
           <SceneContents
             byMesh={byMesh}
             regionMeshes={regionMeshes}

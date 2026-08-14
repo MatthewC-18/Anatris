@@ -302,16 +302,10 @@ function RigLoaderOverlay({ progress }: { progress: number }) {
   );
 }
 
-function ProgressReporter({ onProgress }: { onProgress: (p: number) => void }) {
-  const { progress } = useProgress();
-  useEffect(() => {
-    onProgress(progress);
-  }, [progress, onProgress]);
-  return null;
-}
-
 export function RigViewer({ refitKey }: { refitKey?: string | number } = {}) {
-  const [progress, setProgress] = useState(0);
+  // Read OUT HERE, not inside the Suspense boundary: a reporter that only mounts
+  // once the rig has resolved can never show anything but 0 while it loads.
+  const { progress } = useProgress();
   const [ready, setReady] = useState(false);
   const compact = useIsCompact();
 
@@ -377,7 +371,6 @@ export function RigViewer({ refitKey }: { refitKey?: string | number } = {}) {
         <ambientLight intensity={0.12} />
 
         <Suspense fallback={null}>
-          <ProgressReporter onProgress={setProgress} />
           <RigModel onReady={() => setReady(true)} />
           <RigOverlays />
           <ShoulderRhythmArc />

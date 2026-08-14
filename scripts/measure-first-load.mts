@@ -173,17 +173,35 @@ for (const [t, b] of [...byType.entries()].sort((a, c) => c[1] - a[1]))
 // Suspense fallback is gone and no error boundary took its place. That the
 // inflated bytes are the right bytes is proved separately and exactly, by
 // comparing the hash of the inflated `.gz` against the plain `.glb`.
+// ...and WAIT for it. Parsing 2.8M triangles is not instant, so checking the DOM
+// the moment the download finishes measures the parse, not the bug. This waits up
+// to a minute for the overlay to lift and reports how long it took -- which is
+// both the correctness check and the number worth knowing.
+const overlayGone = Date.now();
+const lifted = await page
+  .waitForFunction(() => !/Cargando modelo anat/i.test(document.body.innerText), null, {
+    timeout: 60000,
+  })
+  .then(() => Date.now() - overlayGone)
+  .catch(() => null);
+console.log(
+  lifted === null
+    ? '\noverlay: NEVER LIFTED (60 s) -- the model is loaded but the veil is stuck'
+    : `\noverlay: lifted ${(lifted / 1000).toFixed(1)} s after the download`,
+);
+
 const state = await page.evaluate(() => {
   const text = document.body.innerText;
   return {
     canvas: !!document.querySelector('canvas'),
-    stillLoading: /cargando/i.test(text),
+    overlay: /Cargando modelo anat/i.test(text),
+    pct: (text.match(/·\s*(\d+)%/) ?? [])[1] ?? null,
     broke: /algo ha ido mal|ha ocurrido un error/i.test(text),
   };
 });
 console.log(
   `\nmounted: canvas ${state.canvas ? 'present' : 'MISSING'}` +
-    `, loading fallback ${state.stillLoading ? 'STILL SHOWING' : 'gone'}` +
+    `, loading overlay ${state.overlay ? `STILL SHOWING at ${state.pct}%` : 'gone'}` +
     `, error boundary ${state.broke ? 'TRIPPED' : 'clear'}`,
 );
 

@@ -59,13 +59,50 @@ function canInflate(): boolean {
   return typeof DecompressionStream !== 'undefined';
 }
 
+/**
+ * Read a response body to the end, reporting bytes to three's loading manager.
+ *
+ * This is not decoration. Both viewers gate their "ready" state on drei's
+ * `useProgress()`, which listens to `THREE.DefaultLoadingManager` -- and a plain
+ * `fetch` tells the manager nothing. The first version of this module used one,
+ * so `progress` stayed at 0 for ever, the overlay never lifted, and the app sat
+ * behind "Cargando modelo anatómico · 0%" with the model loaded and rendering
+ * underneath it. Whatever loads a model here has to report to the manager.
+ */
+async function drain(res: Response, url: string, expected: number): Promise<ArrayBuffer> {
+  const manager = THREE.DefaultLoadingManager;
+  const total = Number(res.headers.get('content-length') ?? 0) || expected;
+  if (!res.body || !total) return await res.arrayBuffer();
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let loaded = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loaded += value.byteLength;
+    manager.onProgress?.(url, loaded, total);
+  }
+  const out = new Uint8Array(loaded);
+  let at = 0;
+  for (const c of chunks) {
+    out.set(c, at);
+    at += c.byteLength;
+  }
+  return out.buffer;
+}
+
 async function fetchModelBytes(url: string): Promise<ArrayBuffer> {
   if (canInflate()) {
     try {
       const res = await fetch(gzUrl(url));
       // A 404 here is the expected case in dev, not a failure.
       if (res.ok && res.body) {
-        const stream = res.body.pipeThrough(new DecompressionStream('gzip'));
+        // Progress is counted on the COMPRESSED download, which is the part that
+        // takes the time; inflation is local and fast, so it happens in one go
+        // once the bytes are in.
+        const gz = await drain(res, url, 16 * 1024 * 1024);
+        const stream = new Response(gz).body!.pipeThrough(new DecompressionStream('gzip'));
         return await new Response(stream).arrayBuffer();
       }
     } catch {
@@ -75,10 +112,19 @@ async function fetchModelBytes(url: string): Promise<ArrayBuffer> {
   }
   const res = await fetch(url);
   if (!res.ok) throw new Error(`No se pudo cargar el modelo ${url} (HTTP ${res.status})`);
-  return await res.arrayBuffer();
+  return await drain(res, url, 0);
 }
 
+
 function load(url: string): Promise<void> {
+  const manager = THREE.DefaultLoadingManager;
+  // itemStart/itemEnd are what make `useProgress()` see this load at all, and
+  // itemEnd is what finally reports 1 of 1 -- i.e. 100% -- which is the signal
+  // both viewers use to lift their loading overlay. It goes AFTER the parse, not
+  // after the download, so "100%" means the model is ready rather than
+  // downloaded: parsing 2.8M triangles is not instant and the bar should not sit
+  // full while it happens.
+  manager.itemStart(url);
   const promise = (async () => {
     const buf = await fetchModelBytes(url);
     const loader = new GLTFLoader();
@@ -88,9 +134,14 @@ function load(url: string): Promise<void> {
     loader.setMeshoptDecoder(MeshoptDecoder);
     const gltf = await loader.parseAsync(buf, '');
     cache.set(url, { state: 'done', value: { scene: gltf.scene as THREE.Group } });
-  })().catch((error: unknown) => {
-    cache.set(url, { state: 'error', error });
-  });
+  })()
+    .catch((error: unknown) => {
+      cache.set(url, { state: 'error', error });
+      manager.itemError(url);
+    })
+    .finally(() => {
+      manager.itemEnd(url);
+    });
   cache.set(url, { state: 'pending', promise });
   return promise;
 }
