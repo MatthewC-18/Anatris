@@ -72,14 +72,24 @@ describe('shoulder girdle', () => {
       }
     });
 
-    it('leaves the girdle alone below neutral (adduction / extension)', () => {
-      // The negative arc is a pure glenohumeral sweep: nothing elevates.
+    it('does not ELEVATE the girdle below neutral (adduction / extension)', () => {
+      // Nothing rises on the negative arc: no clavicular elevation, no upward
+      // rotation of the blade.
       for (const deg of [-10, -30, -60]) {
         const p = shoulderChain(deg, 'R');
         expect(p.clavicleElevation, `${deg} deg`).toBe(0);
         expect(p.scapulaUpwardRot, `${deg} deg`).toBe(0);
-        expect(p.clavicleRetraction, `${deg} deg`).toBe(0);
       }
+    });
+
+    it('PROTRACTS on the horizontal plane below neutral, and retracts above it', () => {
+      // The girdle is not idle down there, it just goes the other way: crossing
+      // the body is a protraction (see CLAV_PROTRACTION_MAX), which is why the
+      // position tests protraction in the clinic. Same axis, opposite sign, so
+      // one number carries both.
+      expect(shoulderChain(0, 'R').clavicleRetraction).toBe(0);
+      expect(shoulderChain(-30, 'R').clavicleRetraction).toBeLessThan(0);
+      expect(shoulderChain(90, 'R').clavicleRetraction).toBeGreaterThan(0);
     });
 
     it('keeps the readout reporting the scapulothoracic total, not the AC share', () => {

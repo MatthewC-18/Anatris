@@ -41,9 +41,25 @@ describe('cross-body adduction borrows the flexion that makes it possible', () =
     for (let i = 1; i < seq.length; i++) {
       expect(seq[i], 'more adduction must mean more flexion').toBeGreaterThan(seq[i - 1]);
     }
-    // Small at the start: a few degrees below neutral the limb has barely left
-    // the side of the body and does not need to be swung out of the way.
-    expect(deg(seq[0])).toBeLessThan(10);
+  });
+
+  it('LEADS the adduction instead of tracking it', () => {
+    // Proportional was the first shape and it made the MIDDLE of the arc the
+    // worst place on it: the trunk is in the way from the first degree of
+    // crossing, so the room has to be made early. Half way down the arc the
+    // flexion must already be well past half its final value.
+    const half = shoulderChain(-15).crossBodyFlex;
+    const full = shoulderChain(-30).crossBodyFlex;
+    expect(half / full).toBeGreaterThan(0.6);
+  });
+
+  it('brings the girdle with it: the clavicle PROTRACTS', () => {
+    // The borrowed flexion rotates the limb about the shoulder, which buys the
+    // hand far more clearance than the elbow half way along the lever. The
+    // protraction translates the whole limb forward, elbow included.
+    expect(shoulderChain(-30).clavicleRetraction).toBeLessThan(0);
+    expect(shoulderChain(-15).clavicleRetraction).toBeLessThan(0);
+    expect(shoulderChain(0).clavicleRetraction).toBe(0);
   });
 
   it('is the same on both sides -- the trunk is in the way either way', () => {

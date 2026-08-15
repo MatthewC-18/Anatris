@@ -22,6 +22,7 @@
 import * as THREE from 'three';
 import { getBoneControl, resolveArmatureName, type BoneControl } from '../../src/lib/boneMap.ts';
 import { bindClaviclesToShoulderGirdle } from '../../src/lib/clavicleBinding.ts';
+import { repairFaceWinding } from '../../src/lib/faceWinding.ts';
 import { bridgeShoulderSkin } from '../../src/lib/shoulderSkinBridge.ts';
 import { gradeShoulderMuscleBinding } from '../../src/lib/shoulderMuscleBinding.ts';
 import { relaxSkinSeams } from '../../src/lib/skinSeamRelax.ts';
@@ -96,6 +97,7 @@ export function createRigPoser(
   scene.updateMatrixWorld(true);
   // Mesh repair the app does at load. Must run BEFORE the rest pose is captured,
   // or the harness measures a rig the user never sees.
+  repairFaceWinding(scene);
   bindClaviclesToShoulderGirdle(scene);
   bridgeShoulderSkin(scene);
   gradeShoulderMuscleBinding(scene);

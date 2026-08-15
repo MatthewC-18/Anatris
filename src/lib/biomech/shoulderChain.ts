@@ -99,7 +99,15 @@ const G_HUM_ER = 0.6;          // humeral ER gain
 // forearm and the hand ended up inside the abdomen, visible through the skin.
 //
 // The gain spends the band's TOP at the end of the arc:
-//   30 deg of cross-body adduction * 1.5 = 45 deg of flexion.
+//   30 deg of cross-body adduction -> 45 deg of flexion.
+//
+// AND IT LEADS THE ADDUCTION RATHER THAN TRACKING IT. Proportional was the first
+// try and it left the middle of the arc as the worst place on it (elbow 6.1 cm
+// inside the trunk at -15 deg, against 3.8 at the end): the trunk is in the way
+// from the FIRST degree of crossing, so the room has to be made up front, while
+// once the limb is out in front there is nothing left to buy. A quarter-sine
+// ramp says exactly that -- steep at the start, flat at the end -- and it is
+// still 0 at neutral and 45 deg at the end of the arc.
 //
 // It is the top and not the middle because the rig crosses the body with the
 // ELBOW STRAIGHT, so the limb is one long lever that has to clear a convex
@@ -108,7 +116,20 @@ const G_HUM_ER = 0.6;          // humeral ER gain
 // deepest penetration at -30 deg): 36 deg still buried 3.8 cm of forearm, 42 deg
 // 1.5 cm, 45 deg 0.3 cm. Going past 45 would clear it completely and leave
 // Kapandji's range to do it.
-const G_CROSS_BODY_FLEX = 1.5;
+/** The adduction end of the frontal arc (shoulderRom: -30 to 180). */
+const CROSS_BODY_END = 30 * DEG;
+/** Flexion borrowed at that end. Kapandji's band is 30-45 deg. */
+const CROSS_BODY_FLEX_MAX = 45 * DEG;
+
+/**
+ * How far the limb has been carried across the body, 0 at neutral and 1 at the
+ * end of the arc, front-loaded (see above). Shared by the flexion and the
+ * protraction so the two always describe the same instant of the movement.
+ */
+function crossBodyRamp(E: number): number {
+  const t = Math.min(Math.max(-E, 0) / CROSS_BODY_END, 1);
+  return Math.sin(t * (Math.PI / 2));
+}
 
 // --- THE TRUNK LEAN IS THE WHOLE RAQUIS, NOT ITS TOP FIVE VERTEBRAE ---------
 //
@@ -184,6 +205,25 @@ const SC_SHARE_P4 = 0.22; // 140-180 SC is near its ceiling
 // the rig has no landmark precise enough to justify shaping it further.
 const G_CLAV_RETRACTION = 20 / 180;
 
+// ...and the girdle goes the OTHER way when the arm crosses the body. Cross-body
+// adduction is not a humeral movement with a still shoulder: the scapula
+// PROTRACTS around the ribcage, which is precisely why the position is used to
+// test protraction in the first place. Modelled on the same clavicular axis as
+// the retraction above, with the sign reversed.
+//
+// It matters for the geometry and not only for the honesty of the model. The
+// borrowed flexion (G_CROSS_BODY_FLEX) is a ROTATION about the shoulder, so it
+// buys the hand a lot of clearance and the elbow -- half way along the lever --
+// much less, while the part of the trunk the elbow has to clear (the lower
+// ribcage) is the deepest part there is. Protraction TRANSLATES the whole limb
+// forward instead, elbow included. Measured deepest penetration of the elbow at
+// -15 deg, where it is worst: 6.1 cm without it.
+//
+// 12 deg at the end of the arc carries the acromion ~3 cm forward, which is the
+// order of the protraction a shoulder shows on a cross-body reach. Rides the
+// same front-loaded ramp as the flexion.
+const CLAV_PROTRACTION_MAX = 12 * DEG;
+
 export interface ShoulderChainPose {
   /**
    * Scapular upward rotation AT THE ACROMIOCLAVICULAR JOINT, radians (applied on
@@ -202,7 +242,12 @@ export interface ShoulderChainPose {
   scapulothoracicUpwardRot: number;
   /** Clavicular elevation at the sternoclavicular joint, radians (clavicle local X). */
   clavicleElevation: number;
-  /** Clavicular retraction, radians, UNSIGNED (the rig signs it per side). */
+  /**
+   * Clavicular retraction, radians, on the horizontal plane of the SC joint; the
+   * rig applies the per-side sign. POSITIVE is retraction, which is what the arc
+   * above neutral produces; NEGATIVE is protraction, which is what cross-body
+   * adduction produces below it. One axis, so one number.
+   */
   clavicleRetraction: number;
   /** Glenohumeral abduction, radians, SIGNED for local-Z (negative = abduction on R). */
   glenohumeralRot: number;
@@ -299,7 +344,10 @@ export function shoulderChain(
   // BONE receives -- it is already riding the clavicle, so the rig adds the two.
   const acromioclavicular = scapula - clavicleElevation;
 
-  const clavicleRetraction = Ep * G_CLAV_RETRACTION;
+  // One axis, two directions: retraction as the arm rises, protraction as it
+  // crosses the body. Only one of the two terms is ever non-zero.
+  const clavicleRetraction =
+    Ep * G_CLAV_RETRACTION - crossBodyRamp(E) * CLAV_PROTRACTION_MAX;
 
   // Glenohumeral carries the remainder of elevation. For E < 0 (adduction),
   // scapula is 0 so ghMagnitude = E (negative) -> pure glenohumeral adduction.
@@ -318,7 +366,7 @@ export function shoulderChain(
   // Cross-body adduction carries the limb in FRONT of the trunk (see the gain
   // block). Ramps with how far below neutral the arc has gone, and is exactly 0
   // at and above neutral, so nothing on the positive arc changes.
-  const crossBodyFlex = Math.max(-E, 0) * G_CROSS_BODY_FLEX;
+  const crossBodyFlex = crossBodyRamp(E) * CROSS_BODY_FLEX_MAX;
 
   // Contralateral lateral flexion: R arm -> spine leans LEFT, and vice versa.
   // Distributed over the WHOLE raquis (see the gain block above): every thoracic

@@ -106,7 +106,12 @@ scene.traverse((o) => {
   for (let i = 0; i < pos.count; i++) {
     _v.fromBufferAttribute(pos, i);
     m.localToWorld(_v);
-    if (_v.x * signX > TRUNK_X && _v.y < ELBOW_Y && _v.y > 0.6) idx.push(i);
+    // The elbow joint itself sits right on ELBOW_Y, so the cut carries a little
+    // above it. It must NOT reach up the arm: near the shoulder the limb is part
+    // of the body's own silhouette, and "behind the front of the chest" is where
+    // an arm root belongs -- measured from there, a perfectly placed arm reads as
+    // 11 cm inside.
+    if (_v.x * signX > TRUNK_X && _v.y < ELBOW_Y + 0.03 && _v.y > 0.6) idx.push(i);
   }
   if (idx.length > 0) limb.push({ mesh: m, idx });
 });
@@ -114,7 +119,9 @@ const limbVerts = limb.reduce((a, l) => a + l.idx.length, 0);
 console.log(
   `${MOVE} ${SIDE}: trunk surface ${front.size} cells, forearm/hand ${limbVerts} vertices\n`,
 );
-console.log('  deg   deepest inside   vertices inside   hand centre z vs trunk front');
+console.log(
+  '  deg   deepest inside   vertices inside   limb centre z vs trunk front   deepest at',
+);
 for (const deg of DEGS) {
   poser.pose(deg);
   let deepest = 0;
@@ -122,6 +129,8 @@ for (const deg of DEGS) {
   let handZ = 0;
   let handN = 0;
   let handFront = 0;
+  let where = '';
+  let whereY = 0;
   for (const { mesh, idx } of limb) {
     const pos = mesh.geometry.getAttribute('position');
     for (const i of idx) {
@@ -141,7 +150,11 @@ for (const deg of DEGS) {
       const depth = z - _v.z;
       if (depth > 0) {
         inside++;
-        if (depth > deepest) deepest = depth;
+        if (depth > deepest) {
+          deepest = depth;
+          where = mesh.name;
+          whereY = _v.y;
+        }
       }
     }
   }
@@ -149,6 +162,7 @@ for (const deg of DEGS) {
   console.log(
     `${String(deg).padStart(5)}   ${(deepest * 100).toFixed(1).padStart(9)} cm   ` +
       `${String(inside).padStart(9)} / ${handN}   ` +
-      `${handN > 0 ? `${(gap * 100).toFixed(1)} cm` : 'no overlap'}`,
+      `${(handN > 0 ? `${(gap * 100).toFixed(1)} cm` : 'no overlap').padStart(20)}   ` +
+      `${where ? `${where.slice(0, 34)} @ y=${whereY.toFixed(2)}` : '-'}`,
   );
 }

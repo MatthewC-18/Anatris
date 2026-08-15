@@ -38,6 +38,7 @@ import {
   type AnatomyLayer,
 } from '../../lib/materialColors';
 import { bindClaviclesToShoulderGirdle } from '../../lib/clavicleBinding';
+import { repairFaceWinding } from '../../lib/faceWinding';
 import { bridgeShoulderSkin } from '../../lib/shoulderSkinBridge';
 import { gradeShoulderMuscleBinding } from '../../lib/shoulderMuscleBinding';
 import { relaxSkinSeams } from '../../lib/skinSeamRelax';
@@ -1829,6 +1830,22 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         // the count should stay at 4 unless a re-export changes what is mangled.
         // eslint-disable-next-line no-console
         console.info(`[RigModel] rebuilt ${repairedCount} mirror-mangled meshes from their twins`);
+      }
+
+      // FACE WINDING. Z-Anatomy mirrors one half of the body, and a mirror
+      // reverses winding, so on that half every camera-facing fragment is a BACK
+      // face -- three negates the shading normal there, and the surface ends up
+      // lit from the inside. It is why one hand and one foot rendered dark brown
+      // beside their light-skinned twins, with the same material instance. Runs
+      // after the rebuild above so those meshes are judged in their final state.
+      // See src/lib/faceWinding.ts.
+      const winding = repairFaceWinding(scene);
+      if (winding.flipped > 0) {
+        // eslint-disable-next-line no-console
+        console.info(
+          `[RigModel] reversed the winding of ${winding.flipped} mirrored meshes ` +
+            `(${winding.left} were already consistent)`,
+        );
       }
 
       // CLAVICLE RE-BIND. Both clavicles ship skinned to vert_T1, so the strut
