@@ -2764,7 +2764,9 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           if (bone) {
             const rad = ctrl.sign[cmd.side] * cmd.angleDeg * DEG2RAD;
             rotate(bone, ctrl.axis, rad);
-            // Replicated drivers (scapula, patella) -- same armature subtree.
+            // Replicated drivers on the same armature subtree: the patella
+            // riding the knee, and the femoral flexion that carries an adducting
+            // leg in FRONT of the stance leg instead of into it.
             if (ctrl.couplings) {
               for (const cp of ctrl.couplings) {
                 const cb = bones?.get(cp.bone);

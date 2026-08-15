@@ -5,12 +5,18 @@
 // seen from the front an arm correctly carried in front of the belly and an arm
 // buried inside it draw the same silhouette. This measures the difference.
 //
-// METHOD. The trunk's FRONT SURFACE is sampled from the REST pose -- clean,
-// because at rest the arms hang outside the torso column -- as a grid over
-// (x, y) holding the frontmost skin z in each cell. The arm is then posed and
-// every forearm/hand vertex that lands over the trunk is compared against that
-// surface: z behind it means inside the body. The rest pose is a fair reference
-// here because this arc places no lean on the spine below 150 deg.
+// METHOD. The trunk is sampled from the REST pose -- clean, because at rest the
+// arms hang outside the torso column -- as a grid over (x, y) holding the
+// frontmost AND backmost skin z in each cell. The limb is then posed and every
+// forearm/hand vertex that lands over the trunk is tested against that slab: a
+// vertex BETWEEN the two surfaces is inside the body. The rest pose is a fair
+// reference here because these arcs place no lean on the spine below 150 deg.
+//
+// Both surfaces, not just the front, because "behind the front of the chest" is
+// not the same question as "inside the body": internal rotation of the shoulder
+// is performed with the forearm passing BEHIND the trunk (the hand to the back),
+// and a front-only test would score that correct movement as 20 cm of
+// penetration.
 //
 // Run: MOVE=glenohumeral-abduction DEG=-30,-20,-10,0 SIDE=R \
 //      npx tsx --tsconfig tsconfig.scripts.json scripts/measure-arm-clearance.mts
@@ -64,6 +70,7 @@ const poser = createRigPoser(scene, MOVE, SIDE, true);
 // --- the trunk's front surface, sampled once from the rest pose --------------
 const key = (x: number, y: number) => `${Math.round(x / CELL)}|${Math.round(y / CELL)}`;
 const front = new Map<string, number>();
+const back = new Map<string, number>();
 const _v = new THREE.Vector3();
 scene.traverse((o) => {
   const m = o as THREE.Mesh;
@@ -75,8 +82,10 @@ scene.traverse((o) => {
     m.localToWorld(_v);
     if (Math.abs(_v.x) > TRUNK_X || _v.y < TRUNK_Y_LO || _v.y > TRUNK_Y_HI) continue;
     const k = key(_v.x, _v.y);
-    const z = front.get(k);
-    if (z === undefined || _v.z > z) front.set(k, _v.z);
+    const f = front.get(k);
+    if (f === undefined || _v.z > f) front.set(k, _v.z);
+    const b = back.get(k);
+    if (b === undefined || _v.z < b) back.set(k, _v.z);
   }
 });
 
@@ -142,12 +151,17 @@ for (const deg of DEGS) {
         _v.y < OVER_TRUNK_Y_LO ||
         _v.y > OVER_TRUNK_Y_HI
       ) continue;
-      const z = front.get(key(_v.x, _v.y));
-      if (z === undefined) continue;
+      const k = key(_v.x, _v.y);
+      const z = front.get(k);
+      const zb = back.get(k);
+      if (z === undefined || zb === undefined) continue;
       handZ += _v.z;
       handFront += z;
       handN++;
-      const depth = z - _v.z;
+      // Inside the body means between the two skins. How far in is the smaller of
+      // the two distances to a surface, so a vertex just under the front counts
+      // as shallow and one at mid-depth counts as deep, whichever way it entered.
+      const depth = _v.z > zb && _v.z < z ? Math.min(z - _v.z, _v.z - zb) : 0;
       if (depth > 0) {
         inside++;
         if (depth > deepest) {

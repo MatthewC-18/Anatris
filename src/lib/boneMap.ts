@@ -207,6 +207,37 @@ const patellarGlide: BoneCoupling = {
 };
 
 // ---------------------------------------------------------------------------
+// HIP ADDUCTION HAS THE OTHER LEG IN THE WAY.
+//
+// Adduction from the reference position runs into the same wall at the hip as it
+// does at the shoulder: in the pure frontal plane the limb is stopped by the
+// body -- here by the contralateral limb, which in the clinic is moved aside, or
+// the movement is examined with the limb passing IN FRONT of it. A rig that just
+// keeps rotating drives one thigh into the other: measured with
+// scripts/measure-limb-collision.mts, 8.2 cm of thigh inside the stance thigh at
+// 15 deg, on a 20 deg arc.
+//
+// So the femur takes a flexion that carries the limb across the FRONT, ramped
+// exactly as the shoulder's is (see shoulderChain's crossBodyRamp and the reason
+// it leads rather than tracks: the stance leg is in the way from the first
+// degree, and once the limb is in front there is nothing left to buy).
+//
+// The sign comes for free. hip-flexion and hip-adduction carry the SAME per-side
+// sign map ({R:1, L:-1}), so a coupling proportional to the signed adduction is
+// already a forward flexion on both sides.
+const HIP_CROSS_OVER_END = (20 * Math.PI) / 180;
+const HIP_CROSS_OVER_FLEX_MAX = (25 * Math.PI) / 180;
+
+const hipCrossOverFlexion: BoneCoupling = {
+  bone: 'femur_base',
+  axis: 'x',
+  follow: (primaryRad) => {
+    const t = Math.min(Math.abs(primaryRad) / HIP_CROSS_OVER_END, 1);
+    return Math.sign(primaryRad) * Math.sin(t * (Math.PI / 2)) * HIP_CROSS_OVER_FLEX_MAX;
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Vertebra blocks (base -> apex), verified against the Spine_Armature joints.
 // ---------------------------------------------------------------------------
 
@@ -627,11 +658,14 @@ export const BONE_MAP: Record<string, BoneControl> = {
     bone: 'femur_base',
     axis: 'z',
     // Toward / across the midline: opposite of (the calibrated) abduction.
-    // Capped at 20 deg because the rig keeps BOTH legs present with the knee
-    // straight, so any adduction drives the moving leg into the stance leg;
-    // 20 deg reads as a real cross-over without deep mesh interpenetration.
     sign: { R: 1, L: -1 },
+    // Capped at 20 deg because the rig keeps BOTH legs present with the knee
+    // straight. The cap was believed to be enough to keep the limbs apart --
+    // "20 deg reads as a real cross-over without deep mesh interpenetration" --
+    // and it is not: measured with scripts/measure-limb-collision.mts, the moving
+    // thigh went 8.2 cm INTO the stance thigh at 15 deg.
     clinicalRange: { min: 0, max: 20 },
+    couplings: [hipCrossOverFlexion],
   },
   'hip-internal-rotation': {
     kind: 'joint',

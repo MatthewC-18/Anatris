@@ -83,6 +83,37 @@ describe('cross-body adduction borrows the flexion that makes it possible', () =
     }
   });
 
+  it('the HIP has the same problem, and the same answer', () => {
+    // The other leg is what stops frontal adduction there. Measured with
+    // scripts/measure-limb-collision.mts before the coupling: 8.2 cm of moving
+    // thigh inside the stance thigh at 15 deg of a 20 deg arc; 0.0 cm after.
+    const hip = getBoneControl('hip-adduction');
+    expect(hip?.kind).toBe('joint');
+    if (hip?.kind !== 'joint') return;
+    const cross = hip.couplings?.find((c) => c.bone === 'femur_base' && c.axis === 'x');
+    expect(cross, 'the femur must take a cross-over flexion').toBeDefined();
+    if (!cross) return;
+
+    const D = Math.PI / 180;
+    expect(cross.follow(0), 'nothing at neutral').toBe(0);
+    // Ramps, leads, and tops out inside a sane flexion for a cross-over step.
+    const half = Math.abs(cross.follow(10 * D * hip.sign.R));
+    const full = Math.abs(cross.follow(20 * D * hip.sign.R));
+    expect(full / D).toBeGreaterThan(15);
+    expect(full / D).toBeLessThanOrEqual(30);
+    expect(half / full).toBeGreaterThan(0.6);
+    // FORWARD on both sides. hip-flexion and hip-adduction share a sign map, so
+    // a coupling proportional to the signed adduction is already a flexion.
+    expect(Math.sign(cross.follow(20 * D * hip.sign.R))).toBe(hip.sign.R);
+    expect(Math.sign(cross.follow(20 * D * hip.sign.L))).toBe(hip.sign.L);
+    const flexion = getBoneControl('hip-flexion');
+    if (flexion?.kind === 'joint') {
+      expect(flexion.bone, 'same bone').toBe('femur_base');
+      expect(flexion.axis, 'same axis').toBe('x');
+      expect(flexion.sign).toEqual(hip.sign);
+    }
+  });
+
   it('is NOT placed on a bone: the aim owns it', () => {
     // aimPlane rebuilds the humeral shaft from the REST pose and keeps its
     // out-of-plane component, so a flexion written to humerus_gh here would be

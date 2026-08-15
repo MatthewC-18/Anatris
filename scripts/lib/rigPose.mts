@@ -105,7 +105,16 @@ export function createRigPoser(
   scene.updateMatrixWorld(true);
 
   const byArm = new Map<string, Map<string, THREE.Object3D>>();
-  for (const an of ['Shoulder_Armature_R', 'Shoulder_Armature_L', 'Spine_Armature']) {
+  // Same five the app caches (RigModel's ARMATURE_NAMES). The legs were missing
+  // here, so every hip / knee / ankle movement posed to a rig with no bones found
+  // and the harness reported a body that never moved.
+  for (const an of [
+    'Shoulder_Armature_R',
+    'Shoulder_Armature_L',
+    'Leg_Armature_R',
+    'Leg_Armature_L',
+    'Spine_Armature',
+  ]) {
     const root = scene.getObjectByName(an);
     if (!root) continue;
     const m = new Map<string, THREE.Object3D>();
@@ -126,6 +135,13 @@ export function createRigPoser(
 
   const shoulderBones = byArm.get(resolveArmatureName('Shoulder_Armature', side))!;
   const spineBones = byArm.get('Spine_Armature')!;
+  // A plain JOINT names the armature it lives on: the hip, the knee and the ankle
+  // are on Leg_Armature_*. Looking every joint up in the SHOULDER armature is
+  // what made every leg movement pose a body that did not move.
+  const jointBones =
+    !isChain && (control as any).armatureBase
+      ? byArm.get(resolveArmatureName((control as any).armatureBase, side)) ?? shoulderBones
+      : shoulderBones;
   const hum = shoulderBones.get('humerus_gh')!;
   const scap = shoulderBones.get('scapula')!;
   const elbow = shoulderBones.get('forearm_flex')!;
@@ -195,7 +211,7 @@ export function createRigPoser(
     // --- EXAMINATION POSTURE (RigModel): held at every angle, 0 included ---
     if (!isChain && (control as any).posture) {
       for (const p of (control as any).posture) {
-        const pb = shoulderBones.get(p.bone);
+        const pb = jointBones.get(p.bone);
         if (!pb) continue;
         pb.quaternion.copy(restQuat.get(pb)!);
         pb.rotateOnAxis(AX[p.axis], p.sign[side] * p.deg * D2R);
@@ -205,10 +221,20 @@ export function createRigPoser(
     if (deg !== 0 && !isChain) {
       // --- a plain JOINT: one bone, one local axis, per-side sign ---
       const j = control as any;
-      const bone = shoulderBones.get(j.bone);
+      const bone = jointBones.get(j.bone);
       if (bone) {
+        const rad = deg * D2R * j.sign[side];
+        // Couplings (the patella riding the knee, the hip's cross-over flexion).
+        // RigModel applies them; the harness did not, so every coupled movement
+        // was measured with half of itself missing.
         bone.quaternion.copy(restQuat.get(bone)!);
-        bone.rotateOnAxis(AX[j.axis], deg * D2R * j.sign[side]);
+        bone.rotateOnAxis(AX[j.axis], rad);
+        for (const cp of (j.couplings ?? []) as any[]) {
+          const cb = jointBones.get(cp.bone);
+          if (!cb) continue;
+          cb.quaternion.copy(restQuat.get(cb)!);
+          cb.rotateOnAxis(AX[cp.axis], cp.follow(rad));
+        }
       }
       scene.updateMatrixWorld(true);
     } else if (deg !== 0) {
