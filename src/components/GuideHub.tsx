@@ -14,16 +14,7 @@
 
 import { useAnatomyStore } from '../store/anatomyStore';
 import { shortcutLabel, type AppMode } from './TopBar';
-
-const REGION_LABELS: Record<string, string> = {
-  fundamentos: 'Fundamentos',
-  shoulder: 'Hombro',
-  elbow: 'Codo',
-  cervical: 'Cervical',
-  thoracic: 'Torácica',
-  lumbar: 'Lumbar',
-  knee: 'Rodilla',
-};
+import { MODE_NAV, modeLabel, regionLabel, routeForRegion } from '../lib/navigation';
 
 interface ModeInfo {
   id: AppMode;
@@ -36,23 +27,21 @@ interface ModeInfo {
   icon: React.ReactNode;
 }
 
-const MODES: ModeInfo[] = [
-  {
-    id: 'explore',
-    label: 'Explorar',
-    tagline: 'El modelo 3D',
+/** Per-mode copy and icon, keyed by mode id. Order comes from MODE_NAV. */
+const MODE_DETAIL: Record<
+  AppMode,
+  { desc: string; actions: string[]; icon: React.ReactNode }
+> = {
+  explore: {
     desc: 'Haz clic en cualquier estructura para ver su ficha clínica.',
     actions: [
       'Clic en un músculo/hueso → ficha en el panel derecho (Detalle): origen, inserción, inervación, acciones.',
       'Panel izquierdo: lista de estructuras de la región para navegarlas por nombre.',
-      'Barra flotante del visor: girar, capas y encuadre del modelo.',
+      'Barra flotante del visor: girar, capas y encuadre del modelo. Teclas 1 a 6 para las seis vistas.',
     ],
     icon: <IconExplore />,
   },
-  {
-    id: 'learn',
-    label: 'Aprender',
-    tagline: 'Track de 7 fases',
+  learn: {
     desc: 'Recorrido clínico guiado, fase por fase, de cada región.',
     actions: [
       'Sigue las 7 fases: Anatomía → Biomecánica → Palpación → Tests → Patología → Tratamiento → Caso clínico.',
@@ -61,21 +50,7 @@ const MODES: ModeInfo[] = [
     ],
     icon: <IconLearn />,
   },
-  {
-    id: 'study',
-    label: 'Estudiar',
-    tagline: 'Repaso activo',
-    desc: 'Quizzes y flashcards automáticos para memorizar.',
-    actions: [
-      'Genera preguntas y tarjetas a partir del contenido de la región.',
-      'Ideal para preparar exámenes: repite hasta afianzar.',
-    ],
-    icon: <IconStudy />,
-  },
-  {
-    id: 'movement',
-    label: 'Movimiento',
-    tagline: 'Laboratorio animado',
+  movement: {
     desc: 'Anima el rango, los músculos y los tests ortopédicos.',
     actions: [
       'Elige un movimiento y pulsa reproducir: los músculos se activan en tiempo real.',
@@ -84,11 +59,30 @@ const MODES: ModeInfo[] = [
     ],
     icon: <IconMovement />,
   },
-];
+  study: {
+    desc: 'Quizzes y flashcards automáticos para memorizar.',
+    actions: [
+      'Genera preguntas y tarjetas a partir del contenido de la región.',
+      'Ideal para preparar exámenes: repite hasta afianzar.',
+    ],
+    icon: <IconStudy />,
+  },
+};
+
+// Built from the shared map so the guide lists the modes in the same order the
+// header and the trail do, and can never fall out of sync with them.
+const MODES: ModeInfo[] = MODE_NAV.map((m) => ({
+  id: m.id,
+  label: m.label,
+  tagline: m.tagline,
+  ...MODE_DETAIL[m.id],
+}));
 
 interface GuideHubProps {
   mode: AppMode;
   regionId: string;
+  /** Conceptual module (Fundamentos): its route has two steps, not four. */
+  isConcept: boolean;
   /** Jump to a mode and close the guide. */
   onGo: (m: AppMode) => void;
   /** Reopen the step-by-step onboarding tour. */
@@ -97,8 +91,8 @@ interface GuideHubProps {
   onOpenPricing: () => void;
   /** Open the region's "Evidencia" page (all sources + PubMed links). */
   onOpenEvidence: () => void;
-  /** Open the credits / legal overlays (they moved out of the header bar). */
-  onOpenOverlay?: (overlay: 'about' | 'legal') => void;
+  /** Open the credits / legal / shortcut overlays (not in the header bar). */
+  onOpenOverlay?: (overlay: 'about' | 'legal' | 'shortcuts') => void;
   /** Close the guide. */
   onClose: () => void;
 }
@@ -106,6 +100,7 @@ interface GuideHubProps {
 export function GuideHub({
   mode,
   regionId,
+  isConcept,
   onGo,
   onReopenTour,
   onOpenPricing,
@@ -114,8 +109,9 @@ export function GuideHub({
   onClose,
 }: GuideHubProps) {
   const setPaletteOpen = useAnatomyStore((s) => s.setPaletteOpen);
-  const regionLabel = REGION_LABELS[regionId] ?? regionId;
+  const label = regionLabel(regionId);
   const active = MODES.find((m) => m.id === mode) ?? MODES[0];
+  const route = routeForRegion(isConcept);
 
   const openSearch = () => {
     onClose();
@@ -128,7 +124,7 @@ export function GuideHub({
       <div className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-slate-800/70 bg-slate-900/40 px-3.5 py-2.5">
         <span className="text-[11px] uppercase tracking-wide text-slate-500">Estás en</span>
         <span className="rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">
-          {regionLabel}
+          {label}
         </span>
         <span className="text-slate-600">·</span>
         <span className="flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/50 px-2 py-0.5 text-xs font-semibold text-slate-200">
@@ -138,9 +134,41 @@ export function GuideHub({
         <span className="ml-auto text-[11px] text-slate-500">{active.tagline}</span>
       </div>
 
-      {/* Los 4 modos */}
+      {/* EL CAMINO. The same route the ContextBar draws as a line, written out
+          here in full: the guide is where a lost user goes, and "do these four
+          things in this order" is the answer they came for. */}
       <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-        Los 4 modos · toca uno para ir
+        El camino recomendado en {label}
+      </h3>
+      <ol className="mb-5 flex flex-wrap items-center gap-1">
+        {route.map((m, i) => (
+          <li key={m} className="flex items-center gap-1">
+            {i > 0 && (
+              <span aria-hidden="true" className="text-slate-700">
+                →
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => onGo(m)}
+              aria-current={m === mode ? 'step' : undefined}
+              className={[
+                'flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors',
+                m === mode
+                  ? 'border-accent/50 bg-accent/10 text-accent'
+                  : 'border-slate-800/70 text-slate-400 hover:border-slate-700 hover:text-slate-200',
+              ].join(' ')}
+            >
+              <span className="tnum font-mono text-[10px] text-slate-600">{i + 1}</span>
+              {modeLabel(m)}
+            </button>
+          </li>
+        ))}
+      </ol>
+
+      {/* Los modos, en detalle */}
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        Qué hace cada modo · toca uno para ir
       </h3>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {MODES.map((m) => {
@@ -205,16 +233,29 @@ export function GuideHub({
       </h3>
       <ul className="space-y-1.5">
         <GuideTip>
+          <b className="text-slate-200">Saber dónde estás</b>: la tira bajo la barra superior
+          muestra el rastro (región / modo / estructura) y el paso en el que vas. Cada parte
+          del rastro te devuelve a ese nivel.
+        </GuideTip>
+        <GuideTip>
           <b className="text-slate-200">Cambiar de región</b>: barra superior (Fundamentos, Hombro,
-          Codo, Columna ▾, Rodilla). El candado marca el contenido Premium.
+          Codo, Columna ▾, Cadera, Rodilla, Tobillo). El candado marca el contenido Premium.
+          Con el teclado, <span className="kbd">⇧</span> + <span className="kbd">←</span>{' '}
+          <span className="kbd">→</span>.
         </GuideTip>
         <GuideTip>
           <b className="text-slate-200">Cambiar de modo</b>: los cuatro botones de arriba a la
-          derecha (Explorar / Aprender / Estudiar / Movimiento).
+          derecha, o <span className="kbd">⇧</span> + <span className="kbd">1</span>…
+          <span className="kbd">4</span>.
         </GuideTip>
         <GuideTip>
-          <b className="text-slate-200">Buscar cualquier estructura</b>: el botón «Buscar» o el
-          atajo <span className="kbd">{shortcutLabel()}</span>.
+          <b className="text-slate-200">Buscar cualquier cosa</b>: el botón «Buscar» o el
+          atajo <span className="kbd">{shortcutLabel()}</span>. Busca regiones y modos, no
+          solo estructuras.
+        </GuideTip>
+        <GuideTip>
+          <b className="text-slate-200">Seguir avanzando</b>: el botón «Siguiente» del rastro, o
+          la tecla <span className="kbd">N</span>.
         </GuideTip>
       </ul>
 
@@ -228,6 +269,19 @@ export function GuideHub({
           <IconSearch />
           Buscar ({shortcutLabel()})
         </button>
+        {onOpenOverlay && (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onOpenOverlay('shortcuts');
+            }}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:border-accent/40 hover:text-accent"
+          >
+            <span className="kbd">?</span>
+            Atajos de teclado
+          </button>
+        )}
         <button
           type="button"
           onClick={onReopenTour}

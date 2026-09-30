@@ -28,9 +28,22 @@ import { isRegionPremium } from '../auth/entitlements';
 import { LockGlyph } from './account/PremiumGate';
 import { AccountMenu } from './account/AccountMenu';
 import { BrandMark } from './BrandMark';
+import {
+  MODE_NAV,
+  REGION_NAV,
+  SPINE_REGIONS,
+  SPINE_REGION_IDS,
+} from '../lib/navigation';
 
 export type AppMode = 'explore' | 'learn' | 'study' | 'movement';
-export type Overlay = 'none' | 'about' | 'legal' | 'pricing' | 'guide' | 'evidence';
+export type Overlay =
+  | 'none'
+  | 'about'
+  | 'legal'
+  | 'pricing'
+  | 'guide'
+  | 'evidence'
+  | 'shortcuts';
 
 /** localStorage flag: hide the "new" dot on the Guía button once it's opened. */
 const GUIDE_SEEN_KEY = 'anatris.guideSeen';
@@ -69,6 +82,8 @@ export function shortcutLabel(): string {
 interface TopBarProps {
   mode: AppMode;
   setMode: (m: AppMode) => void;
+  /** Which overlay is open. Only used to retire the guide's "new" dot. */
+  overlay: Overlay;
   setOverlay: (o: Overlay) => void;
   /** Open the sign-in / sign-up modal. */
   onOpenAuth: () => void;
@@ -77,50 +92,49 @@ interface TopBarProps {
 // The spine is three first-class regions (peers of shoulder/elbow in the store)
 // grouped under one "Columna" nav entry, because that is how the student thinks
 // of it. The button opens a submenu that sets the store region to one of these.
-const SPINE_SUBREGIONS: { label: string; region: string }[] = [
-  { label: 'Cervical', region: 'cervical' },
-  { label: 'Torácica', region: 'thoracic' },
-  { label: 'Lumbar', region: 'lumbar' },
-];
-const SPINE_REGION_IDS = SPINE_SUBREGIONS.map((s) => s.region);
+const SPINE_SUBREGIONS = SPINE_REGIONS.map((r) => ({
+  label: r.label,
+  region: r.id,
+}));
 
-// Module nav entries. `region` is the store region id when wired; `enabled:false`
-// modules are on the roadmap but have no data yet. `spine:true` marks the entry
-// that opens the sub-region submenu instead of selecting a region directly.
-const MODULES: {
-  label: string;
-  region: string | null;
-  enabled: boolean;
-  spine?: boolean;
-}[] = [
-  { label: 'Fundamentos', region: 'fundamentos', enabled: true },
-  { label: 'Hombro', region: 'shoulder', enabled: true },
-  { label: 'Codo', region: 'elbow', enabled: true },
-  { label: 'Columna', region: null, enabled: true, spine: true },
-  { label: 'Cadera', region: 'hip', enabled: true },
-  { label: 'Rodilla', region: 'knee', enabled: true },
-  { label: 'Tobillo', region: 'ankle', enabled: true },
-];
+// Module nav entries for the wide-monitor inline nav: REGION_NAV with the spine
+// run collapsed into one "Columna" entry that opens a submenu.
+//
+// Derived rather than re-listed. This table used to be written out by hand next
+// to three other hand-written copies of the same nine regions, and they drifted
+// (the guide's copy was missing the hip and the ankle). The order, the labels and
+// the membership now all come from lib/navigation.
+const MODULES: { label: string; region: string | null; spine?: boolean }[] = (() => {
+  const out: { label: string; region: string | null; spine?: boolean }[] = [];
+  let spineDone = false;
+  for (const r of REGION_NAV) {
+    if (r.spine) {
+      if (!spineDone) {
+        out.push({ label: 'Columna', region: null, spine: true });
+        spineDone = true;
+      }
+      continue;
+    }
+    out.push({ label: r.label, region: r.id });
+  }
+  return out;
+})();
 
-// Flattened region list for the compact dropdown (spine expanded into its three
-// sub-regions), derived from MODULES + SPINE_SUBREGIONS so it stays in sync.
-const MOBILE_REGIONS: { label: string; region: string }[] = MODULES.flatMap((m) =>
-  m.spine
-    ? SPINE_SUBREGIONS.map((s) => ({ label: s.label, region: s.region }))
-    : m.region
-      ? [{ label: m.label, region: m.region }]
-      : [],
-);
+// Flat region list for the compact dropdown (spine expanded into its three
+// sub-regions).
+const MOBILE_REGIONS: { label: string; region: string }[] = REGION_NAV.map((r) => ({
+  label: r.label,
+  region: r.id,
+}));
 
-// The four app modes.
-const MODE_ITEMS: { id: AppMode; label: string }[] = [
-  { id: 'explore', label: 'Explorar' },
-  { id: 'learn', label: 'Aprender' },
-  { id: 'study', label: 'Estudiar' },
-  { id: 'movement', label: 'Movimiento' },
-];
+// The four app modes, in ROUTE order (see lib/navigation): the segmented control
+// and the ContextBar's progress line must read as the same sequence.
+const MODE_ITEMS: { id: AppMode; label: string }[] = MODE_NAV.map((m) => ({
+  id: m.id,
+  label: m.label,
+}));
 
-export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
+export function TopBar({ mode, setMode, overlay, setOverlay, onOpenAuth }: TopBarProps) {
   const setPaletteOpen = useAnatomyStore((s) => s.setPaletteOpen);
   const region = useAnatomyStore((s) => s.region);
   const setRegion = useAnatomyStore((s) => s.setRegion);
@@ -129,12 +143,17 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
   const entitlement = useEntitlement();
 
   // "New" dot on the Guía button until the user opens it once.
+  //
+  // Watching the OVERLAY rather than this button's own click: the guide is now
+  // reachable from the keyboard (G) and from the command palette too, and a dot
+  // that says "you have not seen this yet" on a panel the user just read is
+  // worse than no dot at all.
   const [guideSeen, setGuideSeen] = useState<boolean>(() => readGuideSeen());
-  const openGuide = () => {
+  useEffect(() => {
+    if (overlay !== 'guide' || guideSeen) return;
     setGuideSeen(true);
     writeGuideSeen();
-    setOverlay('guide');
-  };
+  }, [overlay, guideSeen]);
 
   /** A module shows a lock when it's premium and the user can't open it yet. */
   const showLock = (regionId: string) =>
@@ -172,7 +191,16 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
   };
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800/60 bg-ink-950/90 px-3 sm:gap-3 sm:px-4">
+    // GAPS TIGHTEN AT `lg`, and that is a fix, not a taste call. The mode
+    // segmented control appears at exactly 1024px, and with it the bar's
+    // intrinsic width became 1099px: on a 1024-1099px viewport the header
+    // overflowed and clipped its LAST child, the account menu -- so "Iniciar
+    // sesión" was cut in half on the narrowest laptop that shows the modes.
+    // Nothing in the bar can shrink (every control is `shrink-0`, correctly, or
+    // its label would compress into nonsense), so the width has to come from the
+    // gaps and from the search button's shortcut chip, which is hidden below
+    // `xl` for the same reason. Measured after: 1024px fits with room to spare.
+    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800/60 bg-ink-950/90 px-3 sm:gap-3 sm:px-4 lg:gap-2 xl:gap-3">
       {/* Wordmark (mark only on phones to save header width). */}
       <div className="flex shrink-0 items-center gap-2">
         <BrandMark className="h-5 w-5 text-slate-200" title="Anatris" />
@@ -255,28 +283,22 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
             );
           }
 
-          // Regular module entry (single region or disabled roadmap item).
-          const isActive = m.enabled && m.region === activeRegion;
+          // Regular module entry.
+          const isActive = m.region === activeRegion;
           return (
             <button
               key={m.label}
               type="button"
-              disabled={!m.enabled}
-              title={m.enabled ? undefined : 'Próximamente'}
               aria-current={isActive ? 'true' : undefined}
               onClick={() => {
-                if (!m.enabled || m.region == null) return;
-                if (m.region === activeRegion) return;
-                setRegion(m.region);
-                clearSelection();
+                if (m.region == null) return;
+                selectRegion(m.region);
               }}
               className={[
                 'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-slate-800/60 text-slate-100'
-                  : m.enabled
-                    ? 'text-slate-500 hover:text-slate-300'
-                    : 'cursor-not-allowed text-slate-700',
+                  : 'text-slate-500 hover:text-slate-300',
               ].join(' ')}
             >
               {m.label}
@@ -301,14 +323,17 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
           <path d="M21 21l-4.3-4.3" strokeLinecap="round" />
         </svg>
         <span className="hidden min-[1860px]:inline">Buscar estructura</span>
-        <span className="kbd ml-1">{shortcutLabel()}</span>
+        {/* Hidden between lg and xl to buy back the width the mode switcher
+            takes; the shortcut is still published in the atajos sheet. */}
+        <span className="kbd ml-1 lg:hidden xl:inline-flex">{shortcutLabel()}</span>
       </button>
 
       {/* Guía: always-visible "where is everything?" hub (all breakpoints). */}
       <button
         type="button"
-        onClick={openGuide}
+        onClick={() => setOverlay('guide')}
         aria-label="Guía de la aplicación"
+        title="Guía rápida  ·  tecla G  ·  atajos con ?"
         className="relative flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-800/80 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:border-accent/40 hover:text-accent"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

@@ -90,6 +90,14 @@ import { OnboardingTour, readTourDone } from './components/OnboardingTour';
 import { LegalScreen } from './components/LegalScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GuideHub } from './components/GuideHub';
+import { ContextBar } from './components/ContextBar';
+// On-demand overlay, so it follows EvidenceScreen out of the entry chunk: a
+// cheat sheet nobody has asked for yet should not be part of the first paint.
+const ShortcutsSheet = lazy(() =>
+  import('./components/ShortcutsSheet').then((m) => ({ default: m.ShortcutsSheet })),
+);
+import { useAppShortcuts } from './hooks/useAppShortcuts';
+import { adjacentRegion, nextStep, routeForRegion } from './lib/navigation';
 import RouteNotice from './components/RouteNotice';
 const EvidenceScreen = lazy(() =>
   import('./components/EvidenceScreen').then((m) => ({ default: m.EvidenceScreen })),
@@ -204,6 +212,14 @@ export default function App() {
   const region = useAnatomyStore((s) => s.region);
   const setRegion = useAnatomyStore((s) => s.setRegion);
   const regionId = region ?? 'shoulder';
+
+  // Selection + palette state, read here because the wayfinding layer (the
+  // trail, the shortcuts, Escape) has to reason about all of it in one place.
+  const selectedMeshName = useAnatomyStore((s) => s.selectedMeshName);
+  const clearSelection = useAnatomyStore((s) => s.clearSelection);
+  const requestFocus = useAnatomyStore((s) => s.requestFocus);
+  const paletteOpen = useAnatomyStore((s) => s.paletteOpen);
+  const setPaletteOpen = useAnatomyStore((s) => s.setPaletteOpen);
 
   // Conceptual modules (Fundamentos) are not anatomical regions: they have no
   // muscle list, no ROM, no 7 phases. They are taught as reading + diagrams +
@@ -328,6 +344,75 @@ export default function App() {
     track(EVENTS.enterApp);
   }
 
+  /* -------------------------------------------------------------------------
+   * NAVIGATION — one function every wayfinding surface goes through.
+   * -------------------------------------------------------------------------
+   * The trail, the "Siguiente" button, the command palette and the keyboard
+   * shortcuts all move the user to a (region, mode) pair, and all of them have
+   * to do the same four things: switch region, drop a selection that belongs to
+   * the region being left, switch mode, and put away whatever was covering the
+   * screen. Written once here rather than four times at the call sites, where
+   * one of the four is always the one that gets forgotten.
+   * ---------------------------------------------------------------------- */
+  const goTo = (nextRegion: string, nextMode: AppMode): void => {
+    if (nextRegion !== regionId) {
+      setRegion(nextRegion);
+      clearSelection();
+    }
+    setMode(nextMode);
+    setOverlay('none');
+    setDrawer('none');
+  };
+
+  // "Evidencia" is a premium capability, so the lab's link to it routes through
+  // the paywall instead of opening the overlay when the plan doesn't cover it.
+  const openEvidence = () => {
+    const allowed = entitlement.canUseFeature('evidence');
+    if (allowed) track(EVENTS.evidenceOpened, { region: regionId });
+    setOverlay(allowed ? 'evidence' : 'pricing');
+  };
+
+  // The TopBar's overlay setter, wrapped so the guide reports itself. Going
+  // through one setter beats sprinkling `track` across every button that can
+  // open it (TopBar, GuideHub, the tour).
+  const openOverlay = (next: Overlay) => {
+    if (next === 'guide') track(EVENTS.guideOpened, { region: regionId, mode });
+    setOverlay(next);
+  };
+
+  /* -------------------------------------------------------------------------
+   * KEYBOARD
+   * -------------------------------------------------------------------------
+   * Declared here, above the landing / disclaimer early-returns, because hooks
+   * cannot be conditional -- `enabled` is what actually switches it off. It is
+   * off until the user is inside the product (past the landing and the legal
+   * gate, with the first-run tour finished) and while any modal owns the
+   * keyboard, so nothing ever competes for a key press.
+   * ---------------------------------------------------------------------- */
+  useAppShortcuts(
+    {
+      onMode: (m) => goTo(regionId, m),
+      onRegionStep: (steps) => goTo(adjacentRegion(regionId, steps), mode),
+      onNextStep: () => {
+        const step = nextStep(regionId, mode, concept);
+        if (step) goTo(step.region, step.mode);
+      },
+      onSearch: () => setPaletteOpen(true),
+      onGuide: () => openOverlay('guide'),
+      onShortcuts: () => setOverlay('shortcuts'),
+      // Peel one layer at a time, outermost first. Anything that is its own
+      // modal (the palette, the tour) handles its own Escape and is excluded by
+      // `enabled` below, so this never fights them for the key.
+      onEscape: () => {
+        if (overlay !== 'none') setOverlay('none');
+        else if (drawer !== 'none') setDrawer('none');
+        else if (selectedMeshName) clearSelection();
+      },
+    },
+    routeForRegion(concept),
+    entered && accepted && tourDone && !paletteOpen && !authOpen,
+  );
+
   // ORDER: LANDING FIRST, THEN THE LEGAL GATE.
   //
   // This used to be the other way round, and it cost the product its first
@@ -356,22 +441,6 @@ export default function App() {
     return <DisclaimerGate onAccept={acceptDisclaimer} />;
   }
 
-  // "Evidencia" is a premium capability, so the lab's link to it routes through
-  // the paywall instead of opening the overlay when the plan doesn't cover it.
-  const openEvidence = () => {
-    const allowed = entitlement.canUseFeature('evidence');
-    if (allowed) track(EVENTS.evidenceOpened, { region: regionId });
-    setOverlay(allowed ? 'evidence' : 'pricing');
-  };
-
-  // The TopBar's overlay setter, wrapped so the guide reports itself. Going
-  // through one setter beats sprinkling `track` across every button that can
-  // open it (TopBar, GuideHub, the tour).
-  const openOverlay = (next: Overlay) => {
-    if (next === 'guide') track(EVENTS.guideOpened, { region: regionId, mode });
-    setOverlay(next);
-  };
-
   return (
     <UpgradeProvider onOpenPricing={() => setOverlay('pricing')}>
     {/* `theme-ink` pins the product to the instrument theme, so the surfaces
@@ -381,12 +450,31 @@ export default function App() {
       <TopBar
         mode={mode}
         setMode={setMode}
+        overlay={overlay}
         setOverlay={openOverlay}
         onOpenAuth={() => setAuthOpen(true)}
       />
 
+      {/* THE TRAIL: where you are, how far along the module's route, and the
+          one button that takes the next step. See ContextBar for why this is
+          worth a second fixed strip. */}
+      <ContextBar
+        regionId={regionId}
+        mode={mode}
+        isConcept={concept}
+        byMesh={byMesh}
+        onGo={goTo}
+        onShowSelection={() => {
+          // "Show me what I picked" means different things on the two layouts:
+          // on a phone the detail lives in a drawer that is closed, on desktop
+          // the panel is already open and what is missing is the camera.
+          if (compact) setDrawer('selection');
+          else if (selectedMeshName) requestFocus([selectedMeshName]);
+        }}
+      />
+
       {/* Persistent educational disclaimer. */}
-      <div className="shrink-0 px-3 py-1 sm:px-4">
+      <div className="shrink-0 px-3 pb-1 sm:px-4">
         <MedicalDisclaimerBanner />
       </div>
 
@@ -609,7 +697,15 @@ export default function App() {
         </DrawerShell>
       )}
 
-            <CommandPalette index={index} />
+      {/* One box for structures, regions, modes and actions alike. */}
+      <CommandPalette
+        index={index}
+        regionId={regionId}
+        mode={mode}
+        onGoMode={(m) => goTo(regionId, m)}
+        onGoRegion={(r) => goTo(r, mode)}
+        onOpenOverlay={openOverlay}
+      />
 
       {!tourDone && (
         <OnboardingTour onDone={() => setTourDone(true)} />
@@ -653,15 +749,20 @@ export default function App() {
           setDrawer('none');
         }}
       />
+      {overlay === 'shortcuts' && (
+        <OverlayShell title="Atajos de teclado" onClose={() => setOverlay('none')}>
+          <Suspense fallback={<PanelLoading />}>
+            <ShortcutsSheet />
+          </Suspense>
+        </OverlayShell>
+      )}
       {overlay === 'guide' && (
         <OverlayShell title="Guía rápida" onClose={() => setOverlay('none')}>
           <GuideHub
             mode={mode}
             regionId={regionId}
-            onGo={(m) => {
-              setMode(m);
-              setOverlay('none');
-            }}
+            isConcept={concept}
+            onGo={(m) => goTo(regionId, m)}
             onReopenTour={() => {
               setOverlay('none');
               setTourDone(false);
