@@ -24,6 +24,7 @@ import { RigOverlays } from './RigOverlays';
 import { ShoulderRhythmArc } from './ShoulderRhythmArc';
 import { NeuroSkinLayer } from './NeuroSkinLayer';
 import { useIsCompact } from '../../hooks/useIsCompact';
+import { FRAME_MIN_SIDE, FRAME_PAD_RATIO, regionFrameBones } from '../../lib/labFraming';
 
 // The rig is 1300+ skinned meshes; skinning is vertex-heavy and each mesh is a
 // draw call. Cap DPR low so mid-range physio laptops stay smooth -- geometry,
@@ -48,16 +49,26 @@ const RIG_DPR_COMPACT: [number, number] = [1, 1];
  * re-frame. The visible result was the arm sliding out of the left edge partway
  * through an abduction sweep, which is exactly the frame a user is studying.
  */
-function AutoFit({ refitKey }: { refitKey?: string | number }) {
+function AutoFit({
+  refitKey,
+  region,
+}: {
+  refitKey?: string | number;
+  /** Active region. Decides WHAT gets framed (see lib/labFraming.ts). */
+  region?: string | null;
+}) {
   const { scene } = useThree();
   const controls = useThree((s) => s.controls) as CameraControls | null;
   const framed = useRef(false);
-  const lastKey = useRef(refitKey);
+  const lastKey = useRef<string | number | undefined>(undefined);
 
-  // A changed key means the viewport changed shape, not that a new model
-  // arrived: allow the one-shot guard to fire again.
-  if (lastKey.current !== refitKey) {
-    lastKey.current = refitKey;
+  // A changed key means the viewport changed shape OR the studied region
+  // changed: either way the current framing is wrong, so let the one-shot guard
+  // fire again. Region is part of the key because picking a joint is exactly
+  // when the user expects the camera to go to it.
+  const fitKey = `${refitKey ?? ''}|${region ?? ''}`;
+  if (lastKey.current !== fitKey) {
+    lastKey.current = fitKey;
     framed.current = false;
   }
 
@@ -69,17 +80,56 @@ function AutoFit({ refitKey }: { refitKey?: string | number }) {
       raf2 = requestAnimationFrame(() => {
         scene.updateWorldMatrix(true, true);
         const box = new THREE.Box3();
-        const tmp = new THREE.Box3();
-        // Frame ONLY the skinned body. The rig GLB also carries far-away
-        // Z-Anatomy text/label panels ("VENOUS SYSTEM", ...) that are plain
-        // meshes; including them blows up the bounding box and shrinks the body
-        // to a dot off to the side. The body is the SkinnedMesh set.
-        scene.traverse((o) => {
-          const m = o as THREE.SkinnedMesh;
-          if (!m.isSkinnedMesh || !m.visible) return;
-          tmp.setFromObject(m);
-          if (isFinite(tmp.min.x) && !tmp.isEmpty()) box.union(tmp);
-        });
+
+        // REGION FIRST. The lab used to frame the whole body for every region,
+        // so choosing "Hombro" opened on a 1,75 m figure with the joint under
+        // study a few percent of the canvas. Framing the region's bones puts
+        // the joint where the user is looking; the bone list already includes
+        // the segments the movement carries (the hand for elevation, the shin
+        // for hip flexion), so the limb cannot swing out of frame mid-arc.
+        const wanted = regionFrameBones(region);
+        if (wanted) {
+          const names = new Set(wanted);
+          const p = new THREE.Vector3();
+          scene.traverse((o) => {
+            if (!(o as THREE.Bone).isBone) return;
+            // Z-Anatomy duplicates carry a numeric tail ("scapula_1").
+            if (!names.has(o.name.replace(/_\d+$/, ''))) return;
+            o.getWorldPosition(p);
+            if (isFinite(p.x)) box.expandByPoint(p);
+          });
+          // Bones are points on the AXIS of a limb; skin, muscle bellies and
+          // the scapular blade all live outside them. One proportional margin
+          // covers that without a per-region magic number.
+          if (!box.isEmpty()) {
+            const size = box.getSize(new THREE.Vector3());
+            const pad = Math.max(size.x, size.y, size.z) * FRAME_PAD_RATIO;
+            box.expandByScalar(pad);
+            // A spine region's bones are all on the midline, so its box is a
+            // PLANE (0.00 m wide). Fitting a camera to a plane flies it into
+            // the model. Grow any thin axis to a sensible trunk depth.
+            const grown = box.getSize(new THREE.Vector3());
+            const gx = Math.max(0, (FRAME_MIN_SIDE - grown.x) / 2);
+            const gy = Math.max(0, (FRAME_MIN_SIDE - grown.y) / 2);
+            const gz = Math.max(0, (FRAME_MIN_SIDE - grown.z) / 2);
+            box.min.set(box.min.x - gx, box.min.y - gy, box.min.z - gz);
+            box.max.set(box.max.x + gx, box.max.y + gy, box.max.z + gz);
+          }
+        }
+
+        // Fall back to the whole body: an unknown region, or a rig whose bones
+        // this build does not carry. Frame ONLY the skinned body -- the rig GLB
+        // also holds far-away Z-Anatomy text panels ("VENOUS SYSTEM", ...) that
+        // would blow the box up and shrink the body to a dot off to the side.
+        if (box.isEmpty()) {
+          const tmp = new THREE.Box3();
+          scene.traverse((o) => {
+            const m = o as THREE.SkinnedMesh;
+            if (!m.isSkinnedMesh || !m.visible) return;
+            tmp.setFromObject(m);
+            if (isFinite(tmp.min.x) && !tmp.isEmpty()) box.union(tmp);
+          });
+        }
         if (box.isEmpty() || !isFinite(box.min.x)) return;
         framed.current = true;
         void controls.fitToBox(box, true, {
@@ -94,7 +144,7 @@ function AutoFit({ refitKey }: { refitKey?: string | number }) {
       cancelAnimationFrame(raf1);
       if (raf2) cancelAnimationFrame(raf2);
     };
-  }, [controls, scene, refitKey]);
+  }, [controls, scene, fitKey]);
 
   return null;
 }
@@ -302,7 +352,10 @@ function RigLoaderOverlay({ progress }: { progress: number }) {
   );
 }
 
-export function RigViewer({ refitKey }: { refitKey?: string | number } = {}) {
+export function RigViewer({
+  refitKey,
+  region,
+}: { refitKey?: string | number; region?: string | null } = {}) {
   // Read OUT HERE, not inside the Suspense boundary: a reporter that only mounts
   // once the rig has resolved can never show anything but 0 while it loads.
   const { progress } = useProgress();
@@ -377,7 +430,7 @@ export function RigViewer({ refitKey }: { refitKey?: string | number } = {}) {
           {/* Paints the selected root's dermatome on the body's own skin. Idle
               until the neuro panel publishes a selection. */}
           <NeuroSkinLayer />
-          <AutoFit refitKey={refitKey} />
+          <AutoFit refitKey={refitKey} region={region} />
           <DoubleClickFocus />
         </Suspense>
 

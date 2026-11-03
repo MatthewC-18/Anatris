@@ -199,6 +199,32 @@ const ELBOW_AT_90: ExamPosture = {
     'gira sobre su propio eje y no se aprecia nada.',
 };
 
+/**
+ * The knee held at 90 deg, which is where hip and tibial rotation are examined.
+ *
+ * Same reason as ELBOW_AT_90, one joint down. A longitudinal rotation of the
+ * femur with the knee straight is a cylinder turning about its own axis: the
+ * limb's silhouette does not change and the model looks frozen. Measured on the
+ * rig: hip internal rotation 0 -> 40 deg with the knee extended moves the ankle
+ * marker less than a centimetre on screen.
+ *
+ * Bend the knee and the SHIN becomes the pointer, exactly as the forearm does
+ * for the shoulder -- which is also how the range is actually measured, seated
+ * or prone with the knee at 90.
+ *
+ * Sign mirrors knee-flexion (R: -1, L: +1), verified from the same rig axis.
+ */
+const KNEE_AT_90: ExamPosture = {
+  bone: 'shin_flex',
+  axis: 'x',
+  deg: 90,
+  sign: { R: -1, L: 1 },
+  reason:
+    'La rotación de la cadera se explora con la rodilla a 90°: la pierna es la ' +
+    'aguja que marca el ángulo. Con la rodilla estirada el fémur gira sobre su ' +
+    'propio eje y no se aprecia nada.',
+};
+
 /** Patellar glide: patella tracks the knee. patella.x = shin_flex.x * 0.5 */
 const patellarGlide: BoneCoupling = {
   bone: 'patella',
@@ -490,6 +516,16 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // Starts bent and straightens: that IS the movement being named.
     arcFrom: 'max',
   },
+  // Pronosupination is examined with the ELBOW AT 90 and held against the
+  // trunk, and it has to be shown that way: with the arm hanging straight the
+  // forearm rolls inside its own silhouette and nothing reads (rendered
+  // 0/45/85 deg front-on: the three frames are indistinguishable). Bent, the
+  // hand becomes the pointer -- thumb up at neutral, palm down in pronation --
+  // which is exactly how the range is measured. Same fix as the shoulder's
+  // rotations, one joint down.
+  //
+  // The posture drives forearm_flex while the movement drives forearm_rot, so
+  // the two never contend for an axis.
   'elbow-pronation': {
     kind: 'joint',
     armatureBase: 'Shoulder_Armature',
@@ -497,6 +533,7 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'y',
     sign: { R: 1, L: -1 },
     clinicalRange: { min: 0, max: 85 },
+    posture: [ELBOW_AT_90],
   },
   'elbow-supination': {
     kind: 'joint',
@@ -505,6 +542,7 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'y',
     sign: { R: -1, L: 1 },
     clinicalRange: { min: 0, max: 90 },
+    posture: [ELBOW_AT_90],
   },
 
   // --- WRIST (hand_flex, the child of forearm_rot, so it follows pronosupination)
@@ -592,6 +630,12 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'y',
     sign: { R: 1, L: -1 },
     clinicalRange: { min: 0, max: 30 },
+    // Examined at 90 deg of flexion, and it has to be SHOWN there: with the
+    // knee straight the tibia rolls inside the leg's own silhouette and the
+    // model looks frozen (rendered 0/15/30 deg side by side: indistinguishable).
+    // Bent, the foot swings and the range reads. The comment above this pair
+    // already said the clinic measures it at 90; now the model does too.
+    posture: [KNEE_AT_90],
   },
   'knee-external-rotation': {
     kind: 'joint',
@@ -600,6 +644,7 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'y',
     sign: { R: -1, L: 1 },
     clinicalRange: { min: 0, max: 40 },
+    posture: [KNEE_AT_90],
   },
 
   // --- HIP (femur_base is the coxofemoral driver, the ROOT of Leg_Armature and
@@ -675,7 +720,7 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // Longitudinal roll; mirrors the knee's tibial rotation sign convention.
     sign: { R: 1, L: -1 },
     clinicalRange: { min: 0, max: 40 },
-    needsVisualCheck: true,
+    posture: [KNEE_AT_90],
   },
   'hip-external-rotation': {
     kind: 'joint',
@@ -684,7 +729,7 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'y',
     sign: { R: -1, L: 1 },
     clinicalRange: { min: 0, max: 45 },
-    needsVisualCheck: true,
+    posture: [KNEE_AT_90],
   },
 
   // --- ANKLE (foot_flex is the talocrural driver, CHILD of shin_flex, so it

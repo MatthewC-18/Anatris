@@ -51,11 +51,25 @@ interface LandingScreenProps {
   onOpenAuth: () => void;
 }
 
-/** Concrete figures. Each is countable inside the app, so each can be checked. */
+/**
+ * Concrete figures. Each is countable inside the app, so each can be checked --
+ * which is the point of printing them on a page that sells rigour.
+ *
+ * COUNT THEM, do not round them. "110+" was here, and a rounded number is the
+ * one thing you cannot defend when the whole pitch is that every figure is
+ * verifiable: a reader who counts 113 learns that the numbers here are
+ * approximate, and then wonders which of the clinical ones are too.
+ *
+ * Hardcoded on purpose: the landing ships in the ENTRY chunk, so importing the
+ * registries to count at runtime would drag the paid clinical library back into
+ * the public bundle (see lib/premiumContent.ts). Recount by hand when a region
+ * gains content:
+ *   grep -c '^  {' src/data/muscles/*.ts
+ */
 const STATS: { value: string; label: string }[] = [
   { value: '6', label: 'Regiones anatómicas' },
-  { value: '110+', label: 'Músculos con ficha clínica' },
-  { value: '7', label: 'Fases de estudio por región' },
+  { value: '113', label: 'Músculos con ficha clínica' },
+  { value: '79', label: 'Tests ortopédicos con su fuente' },
 ];
 
 /** The app's real pedagogical track, shown as the method. */
@@ -152,10 +166,11 @@ export function LandingScreen({ onEnter, onOpenAuth }: LandingScreenProps) {
       <section className="mx-auto max-w-5xl px-6 pb-14 pt-16 sm:pt-20">
         <div className="grid items-start gap-12 lg:grid-cols-[1fr_400px]">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-fg3">
-              Anatomía clínica y biomecánica
-            </p>
-            <h1 className="mt-4 max-w-xl font-serif text-[2.6rem] font-normal leading-[1.1] tracking-[-0.015em] text-fg sm:text-[3.1rem]">
+            {/* No kicker here. A micro monospaced all-caps line above the
+                headline is the single most recognisable "generated landing"
+                tell, and it was carrying no information the headline did not
+                already say. */}
+            <h1 className="max-w-xl font-serif text-[2.6rem] font-normal leading-[1.1] tracking-[-0.015em] text-fg sm:text-[3.1rem]">
               Atlas tridimensional de anatomía y movimiento para fisioterapia
             </h1>
             <p className="mt-6 max-w-xl text-[1.0625rem] leading-relaxed text-fg2">

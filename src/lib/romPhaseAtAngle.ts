@@ -6,7 +6,7 @@
 // teaching payload the movement lab shows beside the moving 3D model.
 
 import type { RomMovement, RomPhase } from '../types/rom';
-import { MUSCLES_BY_REGION } from '../data/musclesByRegion';
+import { musclesForRomLookup } from '../data/musclesByRegion';
 
 export interface PhaseAtAngle {
   phase: RomPhase;
@@ -85,10 +85,21 @@ export function phaseAtAngleIn(
 
 /** Resolve a muscle id (e.g. "serratus-anterior") to its Spanish display name. */
 export function muscleNameById(region: string, muscleId: string): string {
-  const list = MUSCLES_BY_REGION[region];
-  const hit = list?.find((m) => m.id === muscleId);
+  // Go through the ACCESSOR, not the raw registry. Since the paid content moved
+  // behind the entitlement check, `MUSCLES_BY_REGION` holds the free tier only,
+  // so a direct lookup missed in all seven paid regions and fell through to the
+  // humaniser below -- which prints the id. The lab was showing a subscriber
+  // "Popliteus", "Semimembranosus" and "Biceps Femoris" instead of the Spanish
+  // names sitting in the data it had already downloaded.
+  //
+  // `musclesForRomLookup` (not `musclesForRegion`) because a spine movement
+  // legitimately recruits muscles authored in a neighbouring sub-region: a
+  // thoracic rotation names the abdominal wall, which lives in the lumbar list.
+  const hit = musclesForRomLookup(region).find((m) => m.id === muscleId);
   if (hit) return hit.name;
-  // Fallback: humanize the id so the UI never shows a raw slug.
+  // Last resort: humanize the id so the UI never shows a raw slug. Reaching
+  // here now means the id really is absent from the data, not that the content
+  // simply had not loaded.
   return muscleId
     .split('-')
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))

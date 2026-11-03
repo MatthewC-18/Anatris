@@ -183,7 +183,7 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
           {/* `refitKey` re-frames the model whenever the sheet resizes the
               canvas; without it the body keeps the framing it had when the
               sheet was a different height and the limb swings out of view. */}
-          <RigViewer refitKey={detent} />
+          <RigViewer refitKey={detent} region={region} />
           {patientGate.unlocked ? (
             <button
               type="button"
@@ -224,7 +224,7 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
 
   return (
     <div className="relative h-full w-full">
-      <RigViewer />
+      <RigViewer region={region} />
 
       {/* PATIENT-MODE toggle. In the clinician view it's a discreet pill top-center;
           in patient mode it becomes the "Salir" button top-right (the right stack is
