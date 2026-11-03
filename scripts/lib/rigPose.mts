@@ -20,7 +20,12 @@
 // the sweep measures.
 
 import * as THREE from 'three';
-import { getBoneControl, resolveArmatureName, type BoneControl } from '../../src/lib/boneMap.ts';
+import {
+  distributeSpineAngle,
+  getBoneControl,
+  resolveArmatureName,
+  type BoneControl,
+} from '../../src/lib/boneMap.ts';
 import { bindClaviclesToShoulderGirdle } from '../../src/lib/clavicleBinding.ts';
 import { repairFaceWinding } from '../../src/lib/faceWinding.ts';
 import { bridgeShoulderSkin } from '../../src/lib/shoulderSkinBridge.ts';
@@ -89,10 +94,18 @@ export function createRigPoser(
   apply = true,
 ): RigPoser {
   const control = getBoneControl(movementId);
-  if (!control || (control.kind !== 'chain' && control.kind !== 'joint')) {
+  if (
+    !control ||
+    (control.kind !== 'chain' && control.kind !== 'joint' && control.kind !== 'spine')
+  ) {
     throw new Error(`${movementId} no es accionable (es ${control?.kind ?? 'nada'})`);
   }
   const isChain = control.kind === 'chain';
+  // The twelve cervical / thoracic / lumbar movements are `kind: 'spine'`, and
+  // the harness used to refuse them outright. That meant a third of the app's
+  // movements could never be posed, rendered or measured outside the browser --
+  // not that they were wrong, but that nobody had ever checked.
+  const isSpine = control.kind === 'spine';
 
   scene.updateMatrixWorld(true);
   // Mesh repair the app does at load. Must run BEFORE the rest pose is captured,
@@ -218,7 +231,24 @@ export function createRigPoser(
       }
       scene.updateMatrixWorld(true);
     }
-    if (deg !== 0 && !isChain) {
+    if (deg !== 0 && isSpine) {
+      // --- a SPINE movement: one regional angle spread over a vertebra block,
+      // exactly as RigModel does it. Motion accumulates up the chain, so each
+      // level takes its share and the bend is distributed rather than hinging
+      // at one joint.
+      const sc = control as any;
+      const perLevelDeg = distributeSpineAngle(sc, deg);
+      sc.bones.forEach((bn: string, i: number) => {
+        const bone = spineBones.get(bn);
+        if (!bone) return;
+        bone.quaternion.copy(restQuat.get(bone)!);
+        bone.rotateOnAxis(AX[sc.axis], perLevelDeg[i] * D2R);
+      });
+      scene.updateMatrixWorld(true);
+      // A spine bend has to carry the arms with the upper thorax, or the neck
+      // skin and the deltoid tear apart (same reason RigModel calls this).
+      if (apply) carryShoulders();
+    } else if (deg !== 0 && !isChain) {
       // --- a plain JOINT: one bone, one local axis, per-side sign ---
       const j = control as any;
       const bone = jointBones.get(j.bone);

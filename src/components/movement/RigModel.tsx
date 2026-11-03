@@ -2694,6 +2694,19 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         !!ctrl &&
         (ctrl.kind === 'chain' ||
           (ctrl.kind === 'joint' && ctrl.armatureBase === 'Shoulder_Armature'));
+      // THE ARMS ARE ALSO IN THE WAY OF THE LEG. With the arms hanging at the
+      // sides, hip abduction at 45 deg drives the thigh straight THROUGH the
+      // forearm and the hand -- the same collision the clearance already solves
+      // for the arm against the trunk, one limb further out. Measured in the
+      // frontal render: at 45 deg the thigh and the hand overlap.
+      //
+      // Both arms, not just the driven side: abduction collides with the arm on
+      // its own side, adduction crosses the midline and collides with the other
+      // one. Clearing both is symmetric, reads as someone standing with the arms
+      // slightly forward, and cannot be mistaken for a clinical angle -- which a
+      // one-sided lift could.
+      const isLegMovement =
+        !!ctrl && ctrl.kind === 'joint' && ctrl.armatureBase === 'Leg_Armature';
       // Elevation movements (abduction chain, shoulder flexion) lift the arm clear
       // on their own as the angle grows, so fade the forward clearance out above
       // ARM_CLEARANCE_FADE_DEG. Rotations and elbow movements keep the arm at the
@@ -2974,6 +2987,10 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       applyComponents();
 
       if (isArmMovement) clearActiveArm(cmd.side, armClearanceFactor());
+      else if (isLegMovement) {
+        clearActiveArm('R', 1);
+        clearActiveArm('L', 1);
+      }
 
       // LATS INSERTION FOLLOWS THE ARM. The latissimus belly is skinned to the
       // spine only (vert_T12), so its humeral insertion cannot follow the arm --

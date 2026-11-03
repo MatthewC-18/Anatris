@@ -102,16 +102,28 @@ describe('cross-body adduction borrows the flexion that makes it possible', () =
     expect(full / D).toBeGreaterThan(15);
     expect(full / D).toBeLessThanOrEqual(30);
     expect(half / full).toBeGreaterThan(0.6);
-    // FORWARD on both sides. hip-flexion and hip-adduction share a sign map, so
-    // a coupling proportional to the signed adduction is already a flexion.
-    expect(Math.sign(cross.follow(20 * D * hip.sign.R))).toBe(hip.sign.R);
-    expect(Math.sign(cross.follow(20 * D * hip.sign.L))).toBe(hip.sign.L);
+    // FORWARD on both sides, which is what makes the cross-over possible.
+    //
+    // This used to be asserted as "adduction and flexion share a sign map", and
+    // that was a coincidence, not an invariant: when hip-flexion's sign was
+    // corrected (it was inverted, driving the knee 40,9 cm backwards at 90 deg)
+    // the coincidence broke and the coupling started folding the limb BEHIND
+    // the stance leg. So assert the thing we actually need -- the coupling
+    // flexes the femur the same way hip-flexion does -- on the same bone and
+    // axis, whatever each sign map happens to be.
     const flexion = getBoneControl('hip-flexion');
-    if (flexion?.kind === 'joint') {
-      expect(flexion.bone, 'same bone').toBe('femur_base');
-      expect(flexion.axis, 'same axis').toBe('x');
-      expect(flexion.sign).toEqual(hip.sign);
-    }
+    expect(flexion?.kind).toBe('joint');
+    if (flexion?.kind !== 'joint') return;
+    expect(flexion.bone, 'same bone').toBe('femur_base');
+    expect(flexion.axis, 'same axis').toBe('x');
+    expect(
+      Math.sign(cross.follow(20 * D * hip.sign.R)),
+      'the right limb must fold FORWARD',
+    ).toBe(flexion.sign.R);
+    expect(
+      Math.sign(cross.follow(20 * D * hip.sign.L)),
+      'the left limb must fold FORWARD',
+    ).toBe(flexion.sign.L);
   });
 
   it('is NOT placed on a bone: the aim owns it', () => {

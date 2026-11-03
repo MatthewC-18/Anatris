@@ -248,18 +248,32 @@ const patellarGlide: BoneCoupling = {
 // it leads rather than tracks: the stance leg is in the way from the first
 // degree, and once the limb is in front there is nothing left to buy).
 //
-// The sign comes for free. hip-flexion and hip-adduction carry the SAME per-side
-// sign map ({R:1, L:-1}), so a coupling proportional to the signed adduction is
-// already a forward flexion on both sides.
+// THE SIGN IS NOT FREE, AND USED TO BE ASSUMED. The old note here said
+// hip-flexion and hip-adduction carried the same sign map, so a coupling
+// proportional to the signed adduction was already a forward flexion. That
+// stopped being true when hip-flexion's sign was corrected (it was inverted:
+// 40,9 cm of knee travelling POSTERIORLY at 90 deg -- see the entry). Adduction
+// keeps its own, visually calibrated sign, so the two maps are now opposites
+// and the coupling has to carry the flexion sign ITSELF.
+//
+// `HIP_FLEXION_SIGN` is the single place that says which way the femur folds
+// forward. Read it from the control so the two can never drift apart again.
 const HIP_CROSS_OVER_END = (20 * Math.PI) / 180;
 const HIP_CROSS_OVER_FLEX_MAX = (25 * Math.PI) / 180;
+/** Local-X sign that flexes the RIGHT femur forward. Mirrors on the left. */
+const HIP_FLEXION_SIGN_R = -1;
 
 const hipCrossOverFlexion: BoneCoupling = {
   bone: 'femur_base',
   axis: 'x',
   follow: (primaryRad) => {
     const t = Math.min(Math.abs(primaryRad) / HIP_CROSS_OVER_END, 1);
-    return Math.sign(primaryRad) * Math.sin(t * (Math.PI / 2)) * HIP_CROSS_OVER_FLEX_MAX;
+    if (primaryRad === 0) return 0; // exactly 0, never -0
+    const magnitude = Math.sin(t * (Math.PI / 2)) * HIP_CROSS_OVER_FLEX_MAX;
+    // `primaryRad` is the signed ADDUCTION. Its sign tells us WHICH leg (R
+    // positive, L negative); multiplying by the flexion convention turns that
+    // into a FORWARD fold on both sides, which is the point of the coupling.
+    return Math.sign(primaryRad) * magnitude * HIP_FLEXION_SIGN_R;
   },
 };
 
@@ -662,9 +676,21 @@ export const BONE_MAP: Record<string, BoneControl> = {
     armatureBase: 'Leg_Armature',
     bone: 'femur_base',
     axis: 'x',
-    // Flexion swings the distal femur ANTERIORLY -> opposite local sign to knee
-    // flexion (which folds the shin posteriorly on the same axis).
-    sign: { R: 1, L: -1 },
+    // Flexion swings the distal femur ANTERIORLY.
+    //
+    // SIGN FLIPPED 2026-11-03, measured not guessed. The entry carried
+    // needsVisualCheck and the first guess was wrong: at 90 deg the knee
+    // travelled 40,9 cm POSTERIORLY, i.e. the leg swung backwards under the
+    // label "flexión de cadera". Anterior is +z on this rig, confirmed on three
+    // independent pairs of landmarks (nasal bone +0,087 vs occipital -0,017;
+    // sternum +0,092 vs sacrum -0,041; big toe +0,122 vs calcaneus -0,035).
+    // See scripts/audit-movement-direction.mts, which now guards both hip
+    // movements so this cannot silently come back.
+    //
+    // It survived this long because a side render does not settle it: the two
+    // legs overlap in that projection and it is easy to read the standing limb
+    // as the moving one.
+    sign: { R: -1, L: 1 },
     // RANGE = 90, NOT the 120 clinical maximum: the rig raises the WHOLE leg with
     // the knee STRAIGHT (no knee-flexion coupling), so this is a straight-leg
     // raise, limited to ~90 deg by the hamstrings before the pelvis tilts. 120
@@ -672,7 +698,6 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // reads as an inhuman over-kick. The true 120 deg (knee-flexed) is taught in
     // hipRom.ts's overview.
     clinicalRange: { min: 0, max: 90 },
-    needsVisualCheck: true,
   },
   'hip-extension': {
     kind: 'joint',
@@ -681,10 +706,10 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'x',
     // A REAL movement past neutral (unlike the knee, where extension only
     // returns toward 0): the thigh travels posteriorly, so the sign is the
-    // opposite of hip flexion.
-    sign: { R: -1, L: 1 },
+    // opposite of hip flexion. Flipped with it (see the note there): measured
+    // at 20 deg the knee was travelling 14,3 cm ANTERIORLY, which is flexion.
+    sign: { R: 1, L: -1 },
     clinicalRange: { min: 0, max: 20 },
-    needsVisualCheck: true,
   },
   'hip-abduction': {
     kind: 'joint',
@@ -743,7 +768,10 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'x',
     sign: { R: 1, L: -1 },
     clinicalRange: { min: 0, max: 20 },
-    needsVisualCheck: true,
+    // Sign CONFIRMED 2026-11-03 by measurement, not by eye: at 20 deg the tip
+    // of the big toe rises 6,1 cm. A side render cannot settle this -- the two
+    // feet overlap in that projection -- which is why the flag outlived its
+    // usefulness here. See scripts/audit-movement-direction.mts.
   },
   'ankle-plantarflexion': {
     kind: 'joint',
@@ -752,7 +780,7 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'x',
     sign: { R: -1, L: 1 },
     clinicalRange: { min: 0, max: 50 },
-    needsVisualCheck: true,
+    // Confirmed with dorsiflexion: at 50 deg the toe tip drops 10,6 cm.
   },
   'ankle-inversion': {
     kind: 'joint',

@@ -128,18 +128,76 @@ normal.
 
 ---
 
-## 5. Lo que queda abierto
+## 5. La cadera iba al revés
 
-### 5.1 Los movimientos de columna no se han visto nunca
+**El hallazgo más serio de la sesión, y el que más cerca estuvo de no
+encontrarse.**
 
-`createRigPoser` solo acepta `kind: 'chain'` y `kind: 'joint'`. Los doce
-movimientos de cervical, torácica y lumbar son `kind: 'spine'`, así que **el
-banco de pruebas no puede posarlos** y nadie los ha mirado fuera de la app.
+`hip-flexion` y `hip-extension` llevaban `needsVisualCheck: true` desde que se
+construyeron: el comentario decía que la cinemática era correcta y que solo
+faltaba calibrar el signo "una vez en el laboratorio". Nunca se calibró, y el
+signo estaba invertido en los dos.
 
-No es que estén mal: es que no hay constancia de que estén bien. Extender el
-poser a `spine` es el siguiente paso obvio, y barato.
+Medido: a 90° de "flexión de cadera" la rótula viajaba **40,9 cm hacia atrás**.
+La pierna se iba hacia atrás bajo la etiqueta de flexión.
 
-### 5.2 Flexión de cadera y la rodilla
+Y casi lo doy por bueno. Mirando el renderizado lateral llegué a escribir que
+"el arco es correcto, el muslo se va hacia delante". **No lo era.** En vista
+lateral las dos piernas se superponen y es facilísimo leer la de apoyo como la
+que se mueve. La única forma de zanjarlo fue medir contra tres pares de
+referencias anatómicas independientes, que coinciden:
+
+| Par | Anterior | Posterior |
+|---|---|---|
+| Hueso nasal / occipital | +0,087 | −0,017 |
+| Esternón / sacro | +0,092 | −0,041 |
+| Dedo gordo / calcáneo | +0,122 | −0,035 |
+
+Anterior es **+z**. Con eso, flexión daba −40,9 y extensión +14,3: las dos al
+revés. Corregidas, ahora dan +42,2 y −14,2.
+
+`scripts/audit-movement-direction.mts` (nuevo) comprueba seis movimientos contra
+lo que dice su nombre, **deduciendo "delante" de la anatomía en vez de
+suponerlo**. Suponerlo fue precisamente lo que dio un falso positivo en la
+primera pasada.
+
+De paso quedó confirmado el signo del tobillo sagital, que arrastraba el mismo
+aviso: dorsiflexión sube la punta 6,1 cm, plantiflexión la baja 10,6 cm. Las dos
+bien. Inversión y eversión siguen sin comprobar.
+
+---
+
+## 6. La columna ya se puede ver
+
+`createRigPoser` solo aceptaba `kind: 'chain'` y `kind: 'joint'`, así que los
+**doce** movimientos de cervical, torácica y lumbar —un tercio del total— no se
+podían posar, renderizar ni medir fuera del navegador.
+
+Ya se puede: el banco distribuye el ángulo regional por el bloque de vértebras
+igual que `RigModel`, y arrastra los hombros con el tórax (sin eso, la piel del
+cuello y el deltoides se separan).
+
+Mirados los doce por primera vez:
+
+- **Flexión cervical** (0/22/45°): el mentón se acerca al pecho, progresivo.
+- **Rotación cervical** (0/40/80°): la cabeza gira y el tronco se queda. 80° es
+  un máximo realista.
+- **Flexión lumbar** (0/30/60°): el tronco se inclina y la curva se reparte por
+  las vértebras, no bisagra en un punto.
+- **Rotación torácica** (0/18/35°): los hombros giran sobre una pelvis quieta.
+- **Inclinación lateral torácica** (0/15/30°): el tronco se inclina y la cintura
+  escapular lo acompaña.
+
+Ninguno se ve roto. **Una nota de producto, no un fallo:** la rotación lumbar
+son 13° en total, así que arrastrar el control casi no mueve nada. Es correcto
+—el dato ya avisa de que el raquis lumbar rota poco— pero un usuario lo leerá
+como que está estropeado. Merece un aviso en pantalla, no exagerar el ángulo.
+
+---
+
+## 7. Lo que queda abierto
+
+### 7.1 Flexión de cadera y la rodilla
 
 La flexión de cadera se dibuja con la **rodilla extendida** en todo el arco. El
 rango del dato (0–90°) es el correcto para esa posición —es la elevación de
@@ -147,29 +205,41 @@ pierna recta—, así que no hay error. Pero conviene decidirlo a propósito: la
 goniometría estándar mide 120° con la rodilla flexionada y 90° con ella
 extendida, y hoy el modelo enseña la segunda sin decirlo.
 
-### 5.3 La pierna que atraviesa la mano
+### 7.2 La pierna que atravesaba la mano — arreglado
 
-En abducción de cadera a 45° el muslo pasa **a través del antebrazo y la mano**,
-que cuelgan al costado. El hombro ya tiene una solución para esta misma clase de
-problema (`ARM_CLEARANCE_DEG`, una separación cosmética que no es parte del
-ángulo clínico). La cadera no la tiene.
+En abducción de cadera a 45° el muslo pasaba **a través del antebrazo y la
+mano**. El hombro ya tenía la solución (`ARM_CLEARANCE_DEG`, una separación
+cosmética que no forma parte del ángulo clínico); ahora los movimientos de
+pierna la aplican también, **a los dos brazos**: la abducción choca con el brazo
+de su lado y la aducción cruza la línea media y choca con el otro. Simétrico, se
+lee como alguien de pie con los brazos ligeramente adelantados, y no se puede
+confundir con un ángulo clínico, que es lo que sí podría pasar con un solo
+brazo.
 
-### 5.4 Signo del tobillo, pendiente de confirmar
+### 7.3 Inversión y eversión del tobillo
 
-`ankle-dorsiflexion` y `ankle-plantarflexion` siguen con
-`needsVisualCheck: true`, y esta sesión **no ha conseguido confirmarlo**: en
-vista lateral los dos pies se superponen (ver §4) y no se puede decir cuál se
-está moviendo ni hacia dónde.
-
-La forma de resolverlo es mirar **un solo pie**: una vista lateral con el lado
-izquierdo oculto, o medir el signo en vez de verlo (la punta del pie debe subir
-en dorsiflexión y bajar en plantiflexión, respecto al maléolo). Hasta entonces,
-**no tocar el signo**: cambiarlo a ojo sobre una imagen ambigua es cómo se
-introduce el fallo que se quería arreglar.
+Siguen con `needsVisualCheck: true`. El componente subastragalino no tiene un
+hito distal tan limpio como la punta del pie, así que no entra en el audit de
+direcciones tal cual está. Se resuelve añadiendo un hito en el borde lateral
+del pie y midiendo su altura.
 
 ---
 
-## 6. Estado
+## 8. Estado
 
 341 pruebas en verde, `tsc -b` limpio, `npm run audit-data` con 0 errores y
 0 avisos. Nada del hombro se ha tocado.
+
+Herramientas nuevas, todas ejecutables:
+
+| Comando | Para qué |
+|---|---|
+| `scripts/audit-movement-direction.mts` | ¿Va el movimiento donde dice su nombre? Deduce "delante" de la anatomía |
+| `scripts/measure-region-frame.mts` | Caja que necesita cada región para que su arco quepa |
+| `scripts/audit-foot-binding.mts` | Qué mallas siguen al hueso y cuáles se quedan |
+
+Y un aviso que conviene no perder: **`Box3.setFromObject` no sirve para medir
+una malla con esqueleto.** La matriz del objeto no cambia cuando se mueven sus
+huesos, así que informa de cero desplazamiento para todo el cuerpo. Se mide con
+`applyBoneTransform`, como hacen los audits del repo. Ese error me hizo
+"encontrar" que 192 mallas del pie estaban sueltas, y no lo estaban.
