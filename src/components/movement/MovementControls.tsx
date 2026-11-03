@@ -488,6 +488,14 @@ export function MovementControls({
   const fillPct = span > 0 ? ((sliderVal - effMin) / span) * 100 : 0;
   // Where 0° sits on a signed arc, so the neutral position is legible on the track.
   const neutralPct = span > 0 && effMin < 0 && effMax > 0 ? ((0 - effMin) / span) * 100 : null;
+  // Some arcs are so short that dragging the slider from end to end barely
+  // moves the model, and the honest reading of the screen is "this is broken".
+  // Lumbar rotation is the case that prompted this: 5 deg in total, because the
+  // lumbar facets are sagittal and block it. The fix is NOT to exaggerate the
+  // angle, which would teach the wrong number, but to say out loud that the
+  // stillness IS the finding. Derived from the arc, so a future short movement
+  // gets the note without anyone remembering to add it.
+  const tinyArc = span > 0 && span <= 10;
 
   // What the folded settings row reports, so nothing active is ever hidden.
   const settingsSummary =
@@ -769,7 +777,18 @@ export function MovementControls({
                 )}
               </div>
 
-              <div className={`flex items-center gap-1.5 ${neutralPct != null ? 'mt-3.5' : 'mt-2'}`}>
+              {tinyArc && (
+                <p className={`text-[11px] leading-snug text-slate-400 ${neutralPct != null ? 'mt-3.5' : 'mt-2'}`}>
+                  Arco real de {Math.round(span)}°. Que el modelo apenas se mueva no es un fallo
+                  del visor: este movimiento casi no existe en el cuerpo.
+                </p>
+              )}
+
+              <div
+                className={`flex items-center gap-1.5 ${
+                  tinyArc ? 'mt-2' : neutralPct != null ? 'mt-3.5' : 'mt-2'
+                }`}
+              >
                 <IconButton onClick={togglePlay} label={playLabel} variant="primary">
                   {playing ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
                 </IconButton>

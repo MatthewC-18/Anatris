@@ -36,8 +36,9 @@
 // (~120 deg GH / ~60 deg scapular) are now grounded in the biomechanics
 // literature cited above, not free invention. What remains unconfirmed is the
 // page-level locator in the project's physical Kapandji/Oatis copies (the app's
-// pageVerified:false discipline) and the one-time axis-SIGN visual check
-// (needsVisualCheck in boneMap). Keep the flag false until both are closed.
+// pageVerified:false discipline). The axis-SIGN check that used to be pending
+// here is closed: `npm run audit-direction` measures every driven direction
+// against the rest pose. Keep the flag false until the page locators land.
 
 export const SHOULDER_CHAIN_VERIFIED = false;
 

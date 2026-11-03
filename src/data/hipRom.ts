@@ -31,8 +31,10 @@
 //   - The deep six (piriformis, obturators, gemelli, quadratus femoris) plus the
 //     gluteus maximus are the external rotators; internal rotation is weaker and
 //     driven by the anterior gluteus medius/minimus and the TFL.
-//   - Rig SIGNS are calibrated visually in the lab (boneMap needsVisualCheck):
-//     the KINEMATICS here are correct; the +/- direction is confirmed once.
+//   - Rig SIGNS are measured, not eyeballed, and the sagittal pair was WRONG:
+//     flexion drove the knee 40,9 cm BACKWARDS until 2026-11-03. Two limbs
+//     overlap in a lateral render, so the eye reads the stance leg as the
+//     moving one. `npm run audit-direction` settles it against the rest pose.
 
 import type { RomMovement, RomMovementIndex } from '../types/rom';
 
@@ -44,13 +46,13 @@ const flexion: RomMovement = {
   name: 'Flexión',
   joint: 'Coxofemoral',
   plane: 'Sagital',
-  totalRangeDeg: { min: 0, max: 90 },
+  totalRangeDeg: { min: 0, max: 120 },
   rangeCite: [
     { ref: 'kapandji', pageVerified: false },
     { ref: 'neumann', pageVerified: false },
   ],
   overview:
-    'Acercamiento del muslo al tronco en el plano sagital. En el laboratorio el rig eleva la pierna con la RODILLA RECTA (elevación de pierna estirada), por lo que se muestra hasta ~90 grados, donde los isquiotibiales biarticulares frenan el arco (insuficiencia pasiva). La flexión activa real llega a ~120 grados solo con la rodilla flexionada, que relaja el recto femoral y los isquiotibiales. El iliopsoas es el motor principal; el recto femoral y el tensor de la fascia lata asisten al inicio.',
+    'Acercamiento del muslo al tronco en el plano sagital. El arco recorre las DOS condiciones de la goniometría, en el mismo orden en que las encuentra el cuerpo: hasta 90 grados con la rodilla recta (elevación de pierna estirada), donde los isquiotibiales biarticulares frenan el movimiento por insuficiencia pasiva, y de 90 a 120 con la rodilla flexionada, que los relaja y deja continuar. El iliopsoas es el motor principal; el recto femoral y el tensor de la fascia lata asisten al inicio.',
   region: 'hip',
   rig: { axis: [1, 0, 0] },
   phases: [
@@ -84,10 +86,28 @@ const flexion: RomMovement = {
       ],
       flag: {
         label: 'Rodilla extendida',
-        detail: 'Con la rodilla en extensión, la flexión se frena hacia 90° (insuficiencia pasiva de isquiotibiales).',
+        detail: 'Con la rodilla en extensión, la flexión se frena hacia 90° (insuficiencia pasiva de isquiotibiales). Es la elevación de pierna estirada.',
         tone: 'pearl',
       },
       cite: [{ ref: 'neumann', pageVerified: false }],
+    },
+    {
+      startDeg: 90,
+      endDeg: 120,
+      label: 'Rodilla flexionada',
+      description:
+        'Pasados los 90° el arco solo continúa si la rodilla se flexiona: al acercar la inserción distal de los isquiotibiales a su origen isquiático, el músculo recupera longitud y deja de frenar. El iliopsoas sigue siendo el motor y trabaja ahora en una longitud corta, con menos ventaja mecánica. El tope final es el contacto del muslo con el tronco, no el músculo.',
+      muscles: [
+        { muscleId: 'psoas-major', role: 'prime-mover', note: 'Motor del tramo final, en posición acortada.' },
+        { muscleId: 'iliacus', role: 'prime-mover' },
+        { muscleId: 'sartorius', role: 'assistant' },
+      ],
+      flag: {
+        label: 'Rodilla flexionada',
+        detail: 'Los 120° de la goniometría estándar se miden así. Con la rodilla recta el mismo sujeto da ~90°: no es una cadera distinta, es otra prueba.',
+        tone: 'pearl',
+      },
+      cite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'neumann', pageVerified: false }],
     },
   ],
   activations: [

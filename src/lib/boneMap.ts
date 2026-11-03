@@ -278,6 +278,50 @@ const hipCrossOverFlexion: BoneCoupling = {
 };
 
 // ---------------------------------------------------------------------------
+// HIP FLEXION PAST 90 DEG NEEDS THE KNEE.
+//
+// The hip flexes to ~120 deg actively, but NOT with a straight leg: the
+// biarticular hamstrings run out of length around 90 deg (passive
+// insufficiency) and the pelvis starts to tilt instead. Bend the knee and the
+// hamstrings slacken, so the arc continues to ~120. That is the whole
+// explanation in hipPhases.ts, and the arc used to stop at 90 deg rather than
+// contradict it -- which quietly taught the straight-leg number as if it were
+// the hip's range, and left the 120 deg the data cites unreachable.
+//
+// So the arc now runs the full 120 and the KNEE folds to make the last third
+// possible, exactly where the text says it has to. Below 90 deg nothing
+// happens, so the straight-leg raise is untouched.
+const HIP_DEEP_FLEX_START = (90 * Math.PI) / 180;
+const HIP_DEEP_FLEX_END = (120 * Math.PI) / 180;
+/** Knee flexion held at the end of the arc. Well inside the 105 deg mesh limit. */
+const HIP_DEEP_FLEX_KNEE_MAX = (60 * Math.PI) / 180;
+/** Local-X sign that folds the RIGHT knee. Same convention as the femur. */
+const KNEE_FLEXION_SIGN_R = -1;
+
+/** 0 below 90 deg of hip flexion, ramping to a 60 deg knee at 120. */
+function hipDeepFlexionKnee(primaryRad: number): number {
+  const a = Math.abs(primaryRad);
+  if (a <= HIP_DEEP_FLEX_START) return 0;
+  const t = Math.min((a - HIP_DEEP_FLEX_START) / (HIP_DEEP_FLEX_END - HIP_DEEP_FLEX_START), 1);
+  // Starts gently so the knee does not snap the instant the slider passes 90.
+  const magnitude = Math.sin((t * Math.PI) / 2) * HIP_DEEP_FLEX_KNEE_MAX;
+  return Math.sign(primaryRad) * magnitude * KNEE_FLEXION_SIGN_R * HIP_FLEXION_SIGN_R;
+}
+
+const hipDeepFlexionKneeCoupling: BoneCoupling = {
+  bone: 'shin_flex',
+  axis: 'x',
+  follow: hipDeepFlexionKnee,
+};
+
+/** The patella has to track that knee too, or it stays behind in the thigh. */
+const hipDeepFlexionPatella: BoneCoupling = {
+  bone: 'patella',
+  axis: 'x',
+  follow: (primaryRad) => hipDeepFlexionKnee(primaryRad) * 0.5,
+};
+
+// ---------------------------------------------------------------------------
 // Vertebra blocks (base -> apex), verified against the Spine_Armature joints.
 // ---------------------------------------------------------------------------
 
@@ -691,13 +735,14 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // legs overlap in that projection and it is easy to read the standing limb
     // as the moving one.
     sign: { R: -1, L: 1 },
-    // RANGE = 90, NOT the 120 clinical maximum: the rig raises the WHOLE leg with
-    // the knee STRAIGHT (no knee-flexion coupling), so this is a straight-leg
-    // raise, limited to ~90 deg by the hamstrings before the pelvis tilts. 120
-    // deg is only reachable with the knee flexed; posing the straight rig at 120
-    // reads as an inhuman over-kick. The true 120 deg (knee-flexed) is taught in
-    // hipRom.ts's overview.
-    clinicalRange: { min: 0, max: 90 },
+    // RANGE = 120, the full active maximum, because the knee now folds for the
+    // last third of it (hipDeepFlexionKneeCoupling). It used to stop at 90 --
+    // the straight-leg limit -- precisely because posing a STRAIGHT rig at 120
+    // reads as an inhuman over-kick. Capping it was the safe answer and the
+    // wrong one: it taught the straight-leg number as the hip's range, and made
+    // the 120 deg the data cites unreachable in the one place it can be seen.
+    clinicalRange: { min: 0, max: 120 },
+    couplings: [hipDeepFlexionKneeCoupling, hipDeepFlexionPatella],
   },
   'hip-extension': {
     kind: 'joint',
@@ -787,18 +832,28 @@ export const BONE_MAP: Record<string, BoneControl> = {
     armatureBase: 'Leg_Armature',
     bone: 'foot_flex',
     axis: 'y',
-    sign: { R: 1, L: -1 },
+    sign: { R: -1, L: 1 },
     clinicalRange: { min: 0, max: 35 },
-    needsVisualCheck: true,
+    // Sign CORRECTED 2026-11-03: it was inverted, and no render could show it.
+    // A single landmark cannot settle the frontal plane of the foot, because
+    // dorsiflexion raises BOTH borders and looks the same from the side. What
+    // settles it is the TILT between the borders: at 35 deg the first
+    // metatarsal must end up 2,9 cm higher than the fifth, and it ended up
+    // 2,9 cm LOWER -- the sole was turning outwards under the name of
+    // inversion, which is the eversion of a sprain mechanism, backwards.
+    // See scripts/audit-movement-direction.mts.
   },
   'ankle-eversion': {
     kind: 'joint',
     armatureBase: 'Leg_Armature',
     bone: 'foot_flex',
     axis: 'y',
-    sign: { R: -1, L: 1 },
+    sign: { R: 1, L: -1 },
     clinicalRange: { min: 0, max: 15 },
-    needsVisualCheck: true,
+    // Corrected with inversion: at 15 deg the first metatarsal drops 1,1 cm
+    // below the fifth. The 2,9 / 1,1 cm pair also confirms the AXIS, not just
+    // the sign: both match a turn about the foot's long axis over borders
+    // 4,8 cm apart (tan 35 x 4,8 = 3,4; tan 15 x 4,8 = 1,3).
   },
 
   // --- SPINE: regional angle distributed across that region's vertebrae.

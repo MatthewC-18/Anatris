@@ -19,8 +19,11 @@
 //   - The main INVERTOR is tibialis posterior; the main EVERTORS are the
 //     fibularis longus + brevis. Evertor weakness/laxity underlies the recurrent
 //     LATERAL ankle sprain.
-//   - Rig SIGNS are calibrated visually (boneMap needsVisualCheck): the axes +
-//     ranges are correct; only +/- direction is confirmed once in the lab.
+//   - Rig SIGNS are no longer taken on trust, and they were WRONG: inversion
+//     and eversion were inverted until 2026-11-03, driving the sole outwards
+//     under the name of inversion. They are now measured, not eyeballed --
+//     `npm run audit-direction` tilts the two borders of the foot against each
+//     other, which a side render cannot do (dorsiflexion raises both).
 
 import type { RomMovement, RomMovementIndex } from '../types/rom';
 

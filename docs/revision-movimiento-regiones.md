@@ -197,49 +197,97 @@ como que está estropeado. Merece un aviso en pantalla, no exagerar el ángulo.
 
 ## 7. Lo que queda abierto
 
-### 7.1 Flexión de cadera y la rodilla
+### 7.1 Flexion de cadera y la rodilla — resuelto
 
-La flexión de cadera se dibuja con la **rodilla extendida** en todo el arco. El
-rango del dato (0–90°) es el correcto para esa posición —es la elevación de
-pierna recta—, así que no hay error. Pero conviene decidirlo a propósito: la
-goniometría estándar mide 120° con la rodilla flexionada y 90° con ella
-extendida, y hoy el modelo enseña la segunda sin decirlo.
+La flexion de cadera se dibujaba con la **rodilla extendida** en todo el arco y
+se cortaba en 90°, que es el limite real de esa posicion (elevacion de pierna
+estirada). No habia error, pero enseñaba el numero de una prueba como si fuera
+el rango de la cadera, y dejaba los 120° que cita el dato **inalcanzables en el
+unico sitio donde se pueden ver**.
+
+Ahora el arco recorre las dos condiciones de la goniometria **en el orden en que
+las encuentra el cuerpo**: recto hasta 90°, y de 90 a 120 la rodilla se dobla,
+porque es doblandola como se relajan los isquiotibiales biarticulares y el arco
+puede seguir. Es exactamente la explicacion que ya estaba escrita en
+`hipPhases.ts`; lo que faltaba era que el modelo la obedeciera.
+
+Medido: rodilla recta (3,6°) hasta 90°, 44° a 105°, 62° a 120°. Hay una fase
+nueva 90–120 con su aviso: *"Los 120° de la goniometria estandar se miden asi.
+Con la rodilla recta el mismo sujeto da ~90°: no es una cadera distinta, es otra
+prueba."*
 
 ### 7.2 La pierna que atravesaba la mano — arreglado
 
-En abducción de cadera a 45° el muslo pasaba **a través del antebrazo y la
-mano**. El hombro ya tenía la solución (`ARM_CLEARANCE_DEG`, una separación
-cosmética que no forma parte del ángulo clínico); ahora los movimientos de
-pierna la aplican también, **a los dos brazos**: la abducción choca con el brazo
-de su lado y la aducción cruza la línea media y choca con el otro. Simétrico, se
+En abduccion de cadera a 45° el muslo pasaba **a traves del antebrazo y la
+mano**. El hombro ya tenia la solucion (`ARM_CLEARANCE_DEG`, una separacion
+cosmetica que no forma parte del angulo clinico); ahora los movimientos de
+pierna la aplican tambien, **a los dos brazos**: la abduccion choca con el brazo
+de su lado y la aduccion cruza la linea media y choca con el otro. Simetrico, se
 lee como alguien de pie con los brazos ligeramente adelantados, y no se puede
-confundir con un ángulo clínico, que es lo que sí podría pasar con un solo
+confundir con un angulo clinico, que es lo que si podria pasar con un solo
 brazo.
 
-### 7.3 Inversión y eversión del tobillo
+### 7.3 Inversion y eversion del tobillo — estaban al reves
 
-Siguen con `needsVisualCheck: true`. El componente subastragalino no tiene un
-hito distal tan limpio como la punta del pie, así que no entra en el audit de
-direcciones tal cual está. Se resuelve añadiendo un hito en el borde lateral
-del pie y midiendo su altura.
+Seguian con `needsVisualCheck: true`, y **el aviso tenia razon: los dos signos
+estaban invertidos**. La planta giraba hacia FUERA bajo el nombre de inversion,
+que es el mecanismo del esguince de tobillo contado del reves.
 
----
+No se podia ver. Un hito distal suelto no sirve aqui, porque una dorsiflexion
+sube los dos bordes del pie y se parece a lo mismo. Lo que lo zanja es medir el
+**desnivel entre los bordes**: a 35° de inversion el primer metatarsiano tiene
+que acabar por encima del quinto, y acababa 2,9 cm por **debajo**.
+
+Corregido, y de paso queda confirmado el EJE y no solo el signo: 2,4 cm a 35° y
+1,2 cm a 15° es lo que da un giro sobre el eje largo del pie con los bordes
+separados 4,8 cm (tan 35 x 4,8 = 3,4; tan 15 x 4,8 = 1,3).
+
+**Ya no queda ningun movimiento con `needsVisualCheck`.** Y el aviso deja de ser
+un pendiente aceptable: los dos que lo llevaban estaban mal. Lo que hace falta
+no es mirarlo, es medirlo.
+
+### 7.4 La rotacion lumbar se lee como estropeada — dicho en pantalla
+
+Son 5° en total, porque las carillas lumbares son sagitales y la bloquean. El
+dato es correcto y el aviso clinico ya estaba, pero arrastrar el control no mueve
+casi nada y la lectura honesta de la pantalla es "esto esta roto".
+
+La respuesta no es exagerar el angulo, que enseñaria un numero falso, sino
+decirlo: debajo del control, cuando el arco total es de 10° o menos, aparece
+*"Arco real de 5°. Que el modelo apenas se mueva no es un fallo del visor: este
+movimiento casi no existe en el cuerpo."* Sale del arco, no de una lista, asi
+que un movimiento corto futuro lo hereda sin que nadie se acuerde.
 
 ## 8. Estado
 
-341 pruebas en verde, `tsc -b` limpio, `npm run audit-data` con 0 errores y
-0 avisos. Nada del hombro se ha tocado.
+352 pruebas en verde, `tsc -b` limpio, `npm run audit-data` con 0 errores y
+0 avisos, `npm run build` correcto. Nada del hombro se ha tocado.
 
 Herramientas nuevas, todas ejecutables:
 
-| Comando | Para qué |
+| Comando | Para que |
 |---|---|
-| `scripts/audit-movement-direction.mts` | ¿Va el movimiento donde dice su nombre? Deduce "delante" de la anatomía |
-| `scripts/measure-region-frame.mts` | Caja que necesita cada región para que su arco quepa |
-| `scripts/audit-foot-binding.mts` | Qué mallas siguen al hueso y cuáles se quedan |
+| `npm run audit-direction` | Va el movimiento donde dice su nombre? Deduce "delante" de la anatomia, mide desniveles para el plano frontal del pie y el angulo de la rodilla dentro de la flexion de cadera |
+| `scripts/measure-region-frame.mts` | Caja que necesita cada region para que su arco quepa |
+| `scripts/audit-foot-binding.mts` | Que mallas siguen al hueso y cuales se quedan |
 
-Y un aviso que conviene no perder: **`Box3.setFromObject` no sirve para medir
-una malla con esqueleto.** La matriz del objeto no cambia cuando se mueven sus
-huesos, así que informa de cero desplazamiento para todo el cuerpo. Se mide con
-`applyBoneTransform`, como hacen los audits del repo. Ese error me hizo
-"encontrar" que 192 mallas del pie estaban sueltas, y no lo estaban.
+Y una prueba nueva en `npm test`:
+`src/lib/__tests__/movementDirection.test.ts` guarda el signo que tenia cada
+movimiento el dia en que se midio su direccion, con la medida citada en el
+mensaje de fallo. Cambiar un signo rompe la prueba y nombra la medicion que
+contradice, asi que el siguiente volteo tiene que ser deliberado. Esa prueba no
+carga el rig; el audit si, y por eso vive fuera de `npm test`.
+
+### Dos trampas de medicion que conviene no perder
+
+**`Box3.setFromObject` no sirve para medir una malla con esqueleto.** La matriz
+del objeto no cambia cuando se mueven sus huesos, asi que informa de cero
+desplazamiento para todo el cuerpo. Se mide con `applyBoneTransform`, como hacen
+los audits del repo. Ese error me hizo "encontrar" que 192 mallas del pie
+estaban sueltas, y no lo estaban.
+
+**Un desplazamiento no vale para comprobar un acoplamiento.** La primera version
+del chequeo de la rodilla dentro de la flexion de cadera **suspendio un
+acoplamiento correcto**: esperaba que el talon quedase detras de la rodilla, y
+con el muslo casi horizontal a 120° el talon queda delante se doble la rodilla o
+no. Lo que hay que medir es el angulo, con tres hitos a lo largo del miembro.

@@ -37,6 +37,15 @@ interface Check {
   want: 1 | -1;
   /** What that means, in words, for the report. */
   says: string;
+  /**
+   * Second landmark, turning the check into a TILT instead of a displacement:
+   * what is measured is (landmark - vs) along the axis, so a movement that
+   * carries the whole segment is invisible to it and only the relative turn
+   * counts. Inversion is exactly that -- the medial border rises WHILE the
+   * lateral border drops -- and measuring either border on its own cannot
+   * separate it from a plain dorsiflexion of the entire foot.
+   */
+  vs?: string;
 }
 
 const CHECKS: Check[] = [
@@ -46,6 +55,9 @@ const CHECKS: Check[] = [
   { move: 'hip-flexion',          deg: 90, landmark: 'Patella',                                axis: 'anterior', want:  1, says: 'la rodilla va HACIA DELANTE' },
   { move: 'hip-extension',        deg: 20, landmark: 'Patella',                                axis: 'anterior', want: -1, says: 'la rodilla va HACIA ATRAS' },
   { move: 'elbow-flexion',        deg: 140, landmark: 'Capitate',                              axis: 'y', want:  1, says: 'la mano SUBE hacia el hombro' },
+  // Frontal plane of the foot, measured as a tilt between the two borders.
+  { move: 'ankle-inversion',      deg: 35, landmark: 'First_metatarsal_bone', vs: 'Fifth_metatarsal_bone', axis: 'y', want:  1, says: 'la planta mira HACIA DENTRO (sube el borde interno)' },
+  { move: 'ankle-eversion',       deg: 15, landmark: 'First_metatarsal_bone', vs: 'Fifth_metatarsal_bone', axis: 'y', want: -1, says: 'la planta mira HACIA FUERA (sube el borde externo)' },
 ];
 
 const buf = readFileSync(rigGlbPath());
@@ -120,6 +132,24 @@ if (toeRef && heelRef) {
 }
 console.log(`(anterior = ${anteriorSign > 0 ? '+z' : '-z'}, deducido del pie en reposo)`);
 
+// --- And which border of the driven foot is MEDIAL? Same discipline: the first
+// metatarsal is the big-toe side, so on the driven foot it must sit closer to
+// the midline (x = 0) than the fifth. If the GLB ever mirrors a copy, this
+// prints it instead of silently inverting the inversion check.
+{
+  const first = findLandmark('First_metatarsal_bone');
+  const fifth = findLandmark('Fifth_metatarsal_bone');
+  const a = first ? centroid(first) : null;
+  const b = fifth ? centroid(fifth) : null;
+  if (a && b) {
+    const ok = Math.abs(a.x) < Math.abs(b.x);
+    console.log(
+      `(borde interno = 1er metatarsiano x=${a.x.toFixed(3)} vs 5o x=${b.x.toFixed(3)} ` +
+      `-> ${ok ? 'correcto' : 'ATENCION: el 1er metatarsiano NO es el medial'})`,
+    );
+  }
+}
+
 let failures = 0;
 console.log('\n===== DIRECCION DE LOS MOVIMIENTOS =====\n');
 for (const c of CHECKS) {
@@ -131,19 +161,31 @@ for (const c of CHECKS) {
   scene.updateMatrixWorld(true);
   const mesh = findLandmark(c.landmark);
   if (!mesh) { console.log(`  ?  ${c.move.padEnd(24)} sin hito "${c.landmark}"`); continue; }
-  const a = centroid(mesh);
+  const ref = c.vs ? findLandmark(c.vs) : null;
+  if (c.vs && !ref) { console.log(`  ?  ${c.move.padEnd(24)} sin hito "${c.vs}"`); continue; }
+  const axis = c.axis === 'anterior' ? 'z' : c.axis;
+  const read = (): number | null => {
+    const m = centroid(mesh);
+    if (!m) return null;
+    if (!ref) return m[axis];
+    const r = centroid(ref);
+    return r ? m[axis] - r[axis] : null;
+  };
+  const a = read();
 
   poser.pose(c.deg);
   scene.updateMatrixWorld(true);
-  const b = centroid(mesh);
+  const b = read();
   poser.pose(0);
   scene.updateMatrixWorld(true);
-  if (!a || !b) continue;
+  if (a === null || b === null) continue;
 
-  const axis = c.axis === 'anterior' ? 'z' : c.axis;
   const flip = c.axis === 'anterior' ? anteriorSign : 1;
-  const d = (b[axis] - a[axis]) * 100 * flip;
-  const ok = Math.sign(d) === c.want && Math.abs(d) > 0.5;
+  // A tilt moves millimetres, not centimetres: the two borders of a foot are
+  // about 7 cm apart, so 35 deg of inversion only buys a few cm of difference.
+  const floor = c.vs ? 0.2 : 0.5;
+  const d = (b - a) * 100 * flip;
+  const ok = Math.sign(d) === c.want && Math.abs(d) > floor;
   if (!ok) failures++;
   console.log(
     `  ${ok ? 'OK ' : 'MAL'} ${c.move.padEnd(24)} a ${String(c.deg).padStart(3)} deg  ` +
@@ -151,3 +193,57 @@ for (const c of CHECKS) {
   );
 }
 console.log(`\n${failures === 0 ? 'Todas las direcciones son las que dice el nombre.' : failures + ' movimiento(s) van al reves.'}\n`);
+
+// ===========================================================================
+// THE KNEE INSIDE HIP FLEXION
+//
+// Hip flexion past 90 deg only exists with the knee flexed, so the arc borrows
+// one (hipDeepFlexionKneeCoupling in boneMap). A DISPLACEMENT check cannot
+// verify that, and the first version of this one failed a correct coupling
+// because of it: with the thigh near horizontal at 120 deg, the heel ends up in
+// front of the knee whether the knee folds or not. What settles it is the knee
+// ANGLE itself, read off three landmarks along the limb.
+// ===========================================================================
+function kneeAngleDeg(): number | null {
+  const hip = findLandmark('Trochanteric_insertion');
+  const knee = findLandmark('Patella');
+  const heel = findLandmark('Calcaneus');
+  if (!hip || !knee || !heel) return null;
+  const a = centroid(hip);
+  const b = centroid(knee);
+  const c = centroid(heel);
+  if (!a || !b || !c) return null;
+  const thigh = new THREE.Vector3().subVectors(b, a).normalize();
+  const shank = new THREE.Vector3().subVectors(c, b).normalize();
+  // 0 = a straight limb; larger = more folded.
+  return (Math.acos(Math.max(-1, Math.min(1, thigh.dot(shank)))) * 180) / Math.PI;
+}
+
+console.log('===== LA RODILLA DENTRO DE LA FLEXION DE CADERA =====');
+console.log('');
+{
+  const poser = createRigPoser(scene, 'hip-flexion', 'R');
+  const rows: { deg: number; knee: number }[] = [];
+  for (const d of [0, 45, 90, 105, 120]) {
+    poser.pose(d);
+    scene.updateMatrixWorld(true);
+    const k = kneeAngleDeg();
+    if (k !== null) rows.push({ deg: d, knee: k });
+  }
+  poser.pose(0);
+  scene.updateMatrixWorld(true);
+  const rest = rows.find((r) => r.deg === 0)?.knee ?? 0;
+  for (const r of rows) {
+    const extra = r.knee - rest;
+    console.log(
+      `  cadera ${String(r.deg).padStart(3)} deg -> rodilla ${r.knee.toFixed(1).padStart(5)} deg ` +
+        `(${extra >= 0 ? '+' : ''}${extra.toFixed(1)} sobre el reposo)`,
+    );
+  }
+  const straight = rows.filter((r) => r.deg <= 90).every((r) => Math.abs(r.knee - rest) < 2);
+  const folds = (rows.find((r) => r.deg === 120)?.knee ?? rest) - rest > 30;
+  console.log('');
+  console.log(`  ${straight ? 'OK ' : 'MAL'} hasta 90 deg la pierna va RECTA (elevacion de pierna estirada)`);
+  console.log(`  ${folds ? 'OK ' : 'MAL'} a 120 deg la rodilla esta doblada (los isquiotibiales ya no frenan)`);
+  console.log('');
+}
