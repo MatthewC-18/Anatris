@@ -27,6 +27,7 @@
 //
 // UI strings Spanish LATAM; code/ids ASCII; no `any`.
 
+import { REFERENCES } from '../../data/references';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { rigChannel, type RigHighlight } from './RigModel';
 import { demoChannel, useActiveDemo } from './demoChannel';
@@ -496,6 +497,13 @@ export function MovementControls({
   // stillness IS the finding. Derived from the arc, so a future short movement
   // gets the note without anyone remembering to add it.
   const tinyArc = span > 0 && span <= 10;
+  // Measured population value for this movement, when a primary study gives one.
+  const measured = movement?.normative?.[0] ?? null;
+  const measuredSource = useMemo(() => {
+    if (!measured) return '';
+    const r = REFERENCES[measured.cite.ref];
+    return r ? `${r.authors.split(',')[0]} ${r.year}` : measured.cite.ref;
+  }, [measured]);
 
   // What the folded settings row reports, so nothing active is ever hidden.
   const settingsSummary =
@@ -781,6 +789,20 @@ export function MovementControls({
                 <p className={`text-[11px] leading-snug text-slate-400 ${neutralPct != null ? 'mt-3.5' : 'mt-2'}`}>
                   Arco real de {Math.round(span)}°. Que el modelo apenas se mueva no es un fallo
                   del visor: este movimiento casi no existe en el cuerpo.
+                </p>
+              )}
+
+              {/* The arc above is a REFERENCE range, a textbook convention, and
+                  the conventions disagree. Showing the measured population value
+                  next to it is the same rule the orthopedic tests follow here:
+                  a number never appears without the study behind it. */}
+              {measured && (
+                <p className={`font-mono text-[10px] leading-relaxed text-slate-500 ${tinyArc || neutralPct == null ? 'mt-2' : 'mt-3.5'}`}>
+                  Medido {measured.meanDeg}°
+                  {measured.sdDeg != null ? ` ± ${measured.sdDeg}` : ''} ({measured.motion},{' '}
+                  {measured.sample})
+                  {measured.aaosDeg != null ? ` · AAOS ${measured.aaosDeg}°` : ''}
+                  {measuredSource ? ` · ${measuredSource}` : ''}
                 </p>
               )}
 

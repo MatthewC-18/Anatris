@@ -51,6 +51,20 @@ const flexion: RomMovement = {
     { ref: 'kapandji', pageVerified: false },
     { ref: 'neumann', pageVerified: false },
   ],
+  normative: [
+    {
+      meanDeg: 120.3,
+      sdDeg: 8.3,
+      sample: '105 varones sanos de 30 a 40 años',
+      motion: 'pasiva',
+      aaosDeg: 113,
+      cite: {
+        ref: 'roaas-1982',
+        section: 'Tabla 1, cadera (lado derecho)',
+        pageVerified: true,
+      },
+    },
+  ],
   overview:
     'Acercamiento del muslo al tronco en el plano sagital. El arco recorre las DOS condiciones de la goniometría, en el mismo orden en que las encuentra el cuerpo: hasta 90 grados con la rodilla recta (elevación de pierna estirada), donde los isquiotibiales biarticulares frenan el movimiento por insuficiencia pasiva, y de 90 a 120 con la rodilla flexionada, que los relaja y deja continuar. El iliopsoas es el motor principal; el recto femoral y el tensor de la fascia lata asisten al inicio.',
   region: 'hip',
@@ -197,6 +211,20 @@ const extension: RomMovement = {
     { ref: 'kapandji', pageVerified: false },
     { ref: 'neumann', pageVerified: false },
   ],
+  normative: [
+    {
+      meanDeg: 9.4,
+      sdDeg: 5.3,
+      sample: '105 varones sanos de 30 a 40 años',
+      motion: 'pasiva',
+      aaosDeg: 28,
+      cite: {
+        ref: 'roaas-1982',
+        section: 'Tabla 1, cadera (lado derecho)',
+        pageVerified: true,
+      },
+    },
+  ],
   overview:
     'Desplazamiento del muslo por detrás del plano frontal. El rango activo es pequeño (~20 grados; algo más pasivo o con la rodilla flexionada) porque el ligamento iliofemoral (Y de Bigelow) lo frena pronto. El glúteo mayor es el motor principal, sobre todo desde flexión, con los isquiotibiales (biarticulares, descritos en la región de la rodilla) y la porción isquiocondílea del aductor mayor.',
   region: 'hip',
@@ -302,6 +330,20 @@ const abduction: RomMovement = {
       cite: [{ ref: 'neumann', pageVerified: false }],
     },
   ],
+  normative: [
+    {
+      meanDeg: 38.8,
+      sdDeg: 7.0,
+      sample: '105 varones sanos de 30 a 40 años',
+      motion: 'pasiva',
+      aaosDeg: 48,
+      cite: {
+        ref: 'roaas-1982',
+        section: 'Tabla 1, cadera (lado derecho)',
+        pageVerified: true,
+      },
+    },
+  ],
   activations: [
     {
       muscleId: 'gluteus-medius',
@@ -392,6 +434,20 @@ const adduction: RomMovement = {
       cite: [{ ref: 'neumann', pageVerified: false }],
     },
   ],
+  normative: [
+    {
+      meanDeg: 30.5,
+      sdDeg: 7.3,
+      sample: '105 varones sanos de 30 a 40 años',
+      motion: 'pasiva',
+      aaosDeg: 31,
+      cite: {
+        ref: 'roaas-1982',
+        section: 'Tabla 1, cadera (lado derecho)',
+        pageVerified: true,
+      },
+    },
+  ],
   activations: [
     {
       muscleId: 'adductor-magnus',
@@ -475,6 +531,20 @@ const internalRotation: RomMovement = {
       cite: [{ ref: 'neumann', pageVerified: false }],
     },
   ],
+  normative: [
+    {
+      meanDeg: 32.6,
+      sdDeg: 8.2,
+      sample: '105 varones sanos de 30 a 40 años',
+      motion: 'pasiva',
+      aaosDeg: 35,
+      cite: {
+        ref: 'roaas-1982',
+        section: 'Tabla 1, cadera (lado derecho)',
+        pageVerified: true,
+      },
+    },
+  ],
   activations: [
     {
       muscleId: 'gluteus-minimus',
@@ -538,6 +608,20 @@ const externalRotation: RomMovement = {
         { muscleId: 'inferior-gemellus', role: 'assistant' },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }],
+    },
+  ],
+  normative: [
+    {
+      meanDeg: 33.6,
+      sdDeg: 6.8,
+      sample: '105 varones sanos de 30 a 40 años',
+      motion: 'pasiva',
+      aaosDeg: 48,
+      cite: {
+        ref: 'roaas-1982',
+        section: 'Tabla 1, cadera (lado derecho)',
+        pageVerified: true,
+      },
     },
   ],
   activations: [

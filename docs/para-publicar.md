@@ -5,9 +5,9 @@ comprobó ejecutando algo.
 
 ---
 
-## 0. Bloqueante absoluto: Supabase está APAGADO
+## 0. Supabase estaba apagado — ya no
 
-El proyecto `ytauxazmjbdlkvfmdwnr` está en estado `INACTIVE`. Lo dijo el propio
+El proyecto `ytauxazmjbdlkvfmdwnr` estaba en estado `INACTIVE`. Lo dijo el propio
 despliegue:
 
 ```
@@ -15,28 +15,33 @@ unexpected deploy status 404: Cannot retrieve service for project
 ytauxazmjbdlkvfmdwnr with currect status 'INACTIVE'.
 ```
 
-Y se confirma desde fuera: la función `content` y `auth/v1/health` no responden
-(código 000, ni siquiera un error HTTP), mientras `anatris.vercel.app` sigue
-dando 200.
+Con la web viva y Supabase muerto, quien entraba veía una web que cargaba y un
+hombro gratuito que funcionaba, porque va en el bundle. Nada más: sin sesión,
+sin cobro y sin ninguna región de pago, porque desde la sesión del entitlement
+el contenido premium **ya no viaja en el bundle**, lo sirve esa función.
 
-**Qué significa para alguien que entre hoy:** la web carga y el hombro gratuito
-funciona, porque va en el bundle. Todo lo demás está caído. No se puede iniciar
-sesión, no se puede pagar, y ninguna región de pago carga su contenido, porque
-desde la sesión del entitlement el contenido premium **ya no viaja en el
-bundle**: lo sirve esa función.
+**Reactivado el 2026-11-03** vía la Management API (`POST /v1/projects/{ref}/restore`),
+con el token que ya tenía el CLI. `INACTIVE` → `COMING_UP` → `RESTORING` →
+`ACTIVE_HEALTHY` en unos 90 segundos. Las cuatro funciones (`content`,
+`create-checkout`, `billing-portal`, `stripe-webhook`) vuelven a estar `ACTIVE`, y
+`content` se redesplegó con los payloads nuevos (cadera 120°, rodilla 135°).
 
-Los proyectos gratuitos de Supabase se pausan tras unos días sin actividad y
-**sólo se reactivan desde el panel**, a mano. No hay forma de hacerlo desde aquí.
+**La puerta de entitlement, comprobada en producción** (POST con la clave anon,
+sin sesión):
 
-> Primer paso, antes que cualquier otra cosa: reactivar el proyecto en
-> supabase.com → el proyecto → *Restore*. Después, `supabase functions deploy
-> content`, que hoy subió los 7 payloads y falló justo en el último paso.
+| región | respuesta | por qué |
+|---|---|---|
+| `knee` | **401** | premium, sin autenticar |
+| `hip` | **401** | premium, sin autenticar |
+| `shoulder` | **404** | gratuita: va en el bundle y no se sirve aquí |
+| inexistente | **404** | no se puede usar como sonda de qué regiones existen |
 
-Y una consecuencia de producto que conviene decidir: **un plan de pago no puede
-depender de un proyecto que se pausa solo.** Antes de cobrar dinero real, el
-proyecto tiene que estar en un plan que no se suspenda.
+Es exactamente el comportamiento que el diseño pedía.
 
----
+> **Lo que queda decidido, no arreglado:** un plan de pago no puede depender de
+> un proyecto que se pausa solo. Los proyectos gratuitos de Supabase se
+> suspenden tras unos días sin actividad, y volverá a pasar. Antes de cobrar
+> dinero real, el proyecto tiene que estar en un plan que no se suspenda.
 
 ## 1. Los grados, contra la literatura
 
@@ -160,32 +165,60 @@ Lo hecho:
 
 ### Bloqueantes
 
-1. **Reactivar Supabase** y redesplegar `content` (§0). Sin esto no hay producto
-   de pago, sólo una demo de hombro.
-2. **Confirmar que Stripe está en modo LIVE.** Las claves viven en los secretos
-   de Supabase, así que desde el repo no se puede comprobar; la última nota del
-   proyecto decía que el circuito completo estaba verificado **en modo TEST** y
-   que faltaba el cambio a claves y webhook reales. Cobrar con `sk_test` no cobra.
-3. **Una entidad para facturar.** Stripe en vivo pide un titular real, datos
+1. ~~Reactivar Supabase y redesplegar `content`.~~ **Hecho el 2026-11-03** (§0).
+   El gate se comprobó en producción: 401/401/404/404.
+2. **Pasar Supabase a un plan que no se suspenda.** Lo de §0 volverá a pasar: los
+   proyectos gratuitos se pausan solos tras unos días sin tráfico, y un producto
+   de pago no puede apagarse por falta de visitas. Es el único bloqueante de
+   infraestructura que queda.
+3. **Confirmar que Stripe está en modo LIVE.** Las claves viven en los secretos
+   de Supabase y aparecen hasheadas en cualquier listado, así que desde el repo
+   no se podía comprobar. **Ya se puede, en un clic:** `create-checkout` ahora
+   devuelve en qué modo está su propia clave, y si es `sk_test` la app avisa
+   antes de llevar a nadie a la pasarela:
+
+   > Stripe está en MODO PRUEBA. No se cobrará dinero real y la suscripción que
+   > se cree será de prueba.
+
+   El modo prueba es invisible —el checkout es idéntico, la suscripción se
+   activa, la app se desbloquea y no se movió un euro—, y esa es la parte
+   peligrosa. Si al pulsar "Suscribirme" aparece ese aviso, faltan las claves y
+   el webhook de producción. Un cliente real nunca lo verá: el modo live no
+   pregunta.
+4. **Una entidad para facturar.** Stripe en vivo pide un titular real, datos
    fiscales y una cuenta bancaria. Es trámite, no código, pero bloquea el cobro.
 
 ### Credibilidad (esto es lo que decide si un fisio paga)
 
-4. **Las citas no están verificadas página a página: 0 de 163 rangos.** Los tests
-   van mejor (44 de 85, 52%), con cervical al 94% y cadera y tobillo al 0%. El
-   producto promete "de qué obra procede el dato" y hoy puede decir la obra pero
-   no la página. Para una herramienta de pago dirigida a profesionales, es la
-   deuda más cara que queda. La lista de trabajo está en
+5. **Los rangos ya citan datos primarios, pero sólo tres regiones: 12 de 175.**
+   Era 0 de 163. Cadera, rodilla y tobillo muestran ahora, junto al arco, la
+   medición de una población real:
+
+   > Medido 143,8° ± 6,4 (pasiva, 90 varones sanos de 30 a 40 años) · AAOS 134° ·
+   > Roaas A 1982
+
+   Sale de la Tabla 1 de Roaas & Andersson (*Acta Orthop Scand* 1982;53:205-8,
+   PMID 7136564), leída entera. Es una fuente mejor que una página de libro: tiene
+   media, desviación típica y muestra, se puede comprobar en PubMed desde la
+   propia app, y dice *de quién* es ese rango —no "lo normal", sino 90 varones de
+   30 a 40 años—, que es la pregunta que hace un fisio cuando el paciente no se
+   parece a la tabla.
+
+   Faltan cervical, torácica, lumbar, hombro y codo. Las referencias están
+   puestas (Youdas 1992, Van Herp 2000, Fujimori 2012, Soucie 2011) pero sus
+   tablas son de pago y no se han leído, así que **no se citan cifras de ellas**:
+   mejor sin dato que con un dato inventado. Los tests van por delante (44 de 85,
+   52%), con cervical al 94%. Lista de trabajo en
    `docs/clinical-verification-worklist.md`.
-5. **Ningún testimonio real.** Tres fisios que la hayan usado y pongan su nombre
+6. **Ningún testimonio real.** Tres fisios que la hayan usado y pongan su nombre
    valen más que cualquier funcionalidad nueva.
-6. **No hay vídeo del laboratorio.** El guion está escrito en `docs/hero-clip.md`
+7. **No hay vídeo del laboratorio.** El guion está escrito en `docs/hero-clip.md`
    desde hace meses y sigue sin grabarse. Es lo único que explica el producto en
    diez segundos.
 
 ### Coste y escala
 
-7. **47 MB de GLB en la primera visita** (27 MB comprimidos: `modelo-opt.dec.glb`
+8. **47 MB de GLB en la primera visita** (27 MB comprimidos: `modelo-opt.dec.glb`
    28 MB + `cuerpo-rig.opt.glb` 19 MB). El service worker los cachea, así que es
    coste de primera visita. En el plan gratuito de Vercel (100 GB/mes) son unas
    3.700 primeras visitas al mes antes de pasarse. No es urgente, pero es el
@@ -193,7 +226,7 @@ Lo hecho:
 
 ### Ya no aplica
 
-8. **eAwards Ecuador 2026 cerró el 1 de septiembre de 2026.** Hoy es 3 de
+9. **eAwards Ecuador 2026 cerró el 1 de septiembre de 2026.** Hoy es 3 de
    noviembre. La candidatura preparada (`docs/candidatura-eawards.md`) sigue
    sirviendo como material de presentación, pero ese plazo pasó.
 
@@ -205,3 +238,6 @@ Lo hecho:
 0 avisos, `npm run build` correcto, `npm run audit-direction` con las 8
 direcciones correctas y la rodilla doblándose donde debe dentro de la flexión de
 cadera.
+
+Supabase `ACTIVE_HEALTHY`, cuatro funciones `ACTIVE`, `content` en la versión 4
+con los payloads regenerados.

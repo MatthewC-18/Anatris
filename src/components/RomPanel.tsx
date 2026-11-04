@@ -44,6 +44,7 @@ import { buildRomMuscleIndex, type RomParticipation } from '../lib/romIndex';
 import { buildRomNumbering } from '../lib/romNumber';
 import { musclesForRegion, musclesForRomLookup } from '../data/musclesByRegion';
 import type { Muscle } from '../types/muscle';
+import { REFERENCES } from '../data/references';
 import type { MuscleResolution } from '../lib/muscleResolver';
 
 interface RomPanelProps {
@@ -56,6 +57,7 @@ const SYM = {
   DEG: String.fromCharCode(0x00b0), // degrees
   DASH: String.fromCharCode(0x2013), // en dash, for ranges
   DOT: String.fromCharCode(0x00b7), // middle dot, separator
+  PM: String.fromCharCode(0x00b1), // plus-minus, for standard deviations
 } as const;
 
 /** Format a degree range like "15-90 deg" using the safe glyphs. */
@@ -66,6 +68,35 @@ function degRange(a: number, b: number): string {
 /** Format a single degree value like "90 deg". */
 function deg(v: number): string {
   return `${v}${SYM.DEG}`;
+}
+
+/**
+ * The measured population value beside the reference range.
+ *
+ * The number above it is a CONVENTION, not a measurement, and the conventions
+ * disagree: the AAOS handbook gives 28 deg of hip extension, and the study that
+ * measured 105 healthy men by the AAOS's own technique got 9.4. A physio
+ * already knows that spread exists, so hiding it costs trust rather than
+ * buying simplicity. This is the same rule the orthopedic tests follow --
+ * sensitivity never appears without the study behind it.
+ */
+function NormativeNote({ movement }: { movement: RomMovement }): JSX.Element | null {
+  const n = movement.normative?.[0];
+  if (!n) return null;
+  const ref = REFERENCES[n.cite.ref];
+  const author = ref ? ref.authors.split(',')[0] : n.cite.ref;
+  const year = ref ? ref.year : '';
+  return (
+    <p className="mb-2 font-mono text-[10px] leading-relaxed text-slate-500">
+      Medido: {deg(n.meanDeg)}
+      {n.sdDeg != null ? ` ${SYM.PM} ${n.sdDeg}` : ''} ({n.motion}, {n.sample})
+      {n.aaosDeg != null ? ` ${SYM.DOT} AAOS ${deg(n.aaosDeg)}` : ''}
+      {` ${SYM.DOT} `}
+      <span className="text-slate-600">
+        {author} {year}
+      </span>
+    </p>
+  );
 }
 
 // Role -> Tailwind classes for the muscle chips and the legend.
@@ -282,6 +313,8 @@ function MovementView({ resolution }: { resolution: MuscleResolution }) {
           </button>
         )}
       </div>
+
+      <NormativeNote movement={movement} />
 
       <ArcBar
         movement={movement}

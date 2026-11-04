@@ -74,6 +74,20 @@ const flexion: RomMovement = {
     { ref: 'kapandji', pageVerified: false },
     { ref: 'oatis', pageVerified: false },
   ],
+  normative: [
+    {
+      meanDeg: 143.8,
+      sdDeg: 6.4,
+      sample: '90 varones sanos de 30 a 40 años',
+      motion: 'pasiva',
+      aaosDeg: 134,
+      cite: {
+        ref: 'roaas-1982',
+        section: 'Tabla 1, rodilla (lado derecho)',
+        pageVerified: true,
+      },
+    },
+  ],
   overview:
     'Flexión de la pierna sobre el muslo en el plano sagital. El arco llega a 135 grados, el valor de referencia de la AAOS. Con la cadera extendida la flexión activa se queda en ~120 porque el recto femoral, biarticular, la frena; con la cadera flexionada alcanza ~140, y de forma pasiva ~160 (talón al glúteo), un tramo final que el modelo no dibuja porque sin compresión de los tejidos blandos la pantorrilla atravesaría el muslo. El poplíteo "desbloquea" la rodilla extendida rotando la tibia internamente; luego los isquiotibiales lideran la flexión. El gastrocnemio asiste solo con el tobillo libre.',
   region: 'knee',
@@ -321,6 +335,20 @@ const extension: RomMovement = {
         { muscleId: 'vastus-intermedius', role: 'prime-mover' },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }],
+    },
+  ],
+  normative: [
+    {
+      meanDeg: -1.6,
+      sdDeg: 2.8,
+      sample: '90 varones sanos de 30 a 40 años',
+      motion: 'pasiva',
+      aaosDeg: 10,
+      cite: {
+        ref: 'roaas-1982',
+        section: 'Tabla 1, rodilla (lado derecho)',
+        pageVerified: true,
+      },
     },
   ],
   activations: [

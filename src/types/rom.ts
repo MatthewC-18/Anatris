@@ -164,6 +164,37 @@ export interface RomRigHint {
 }
 
 /**
+ * A measured population value for a movement, from a primary study.
+ *
+ * WHY THIS EXISTS. The number this app shows as the "normal range" is a
+ * REFERENCE value -- a textbook convention -- not a measurement of anybody. The
+ * conventions disagree, and not by a little: for hip extension the AAOS
+ * handbook says 28 deg while Roaas and Andersson, measuring 105 healthy men by
+ * the AAOS's own technique, got 9.4 deg. Neither is wrong; they answer
+ * different questions.
+ *
+ * An app that prints one number and no source is less trustworthy to a
+ * physiotherapist than one that shows the spread, because the physio already
+ * knows the spread exists. This is the same discipline the orthopedic tests
+ * follow -- sensitivity and specificity always arrive with the study that
+ * measured them -- extended to the ranges.
+ */
+export interface NormativeMeasurement {
+  /** Mean, in degrees, exactly as the study prints it. */
+  meanDeg: number;
+  /** Standard deviation in degrees, when the study gives one. */
+  sdDeg?: number;
+  /** Who was measured, how many, Spanish and short. */
+  sample: string;
+  /** Active or passive motion -- they are not comparable. */
+  motion: 'activa' | 'pasiva';
+  /** What the AAOS handbook gives for the same movement, per the same study. */
+  aaosDeg?: number;
+  /** Source. */
+  cite: Citation;
+}
+
+/**
  * A complete ROM movement: the joint, the plane/axis it happens in, the total
  * normal range, and the phase breakdown.
  */
@@ -180,6 +211,12 @@ export interface RomMovement {
   totalRangeDeg: { min: number; max: number };
   /** Citation(s) for the total range figure. */
   rangeCite: Citation[];
+  /**
+   * Measured population values for this movement, from primary studies. Shown
+   * beside the reference range so the spread between sources is visible rather
+   * than hidden. See NormativeMeasurement.
+   */
+  normative?: NormativeMeasurement[];
   /** Optional clinical/biomechanical overview of the whole movement, Spanish. */
   overview?: string;
   /** The phase breakdown across the arc. */

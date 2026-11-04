@@ -217,12 +217,34 @@ export function createSupabaseBackend(url: string, anonKey: string): AuthBackend
       interval: BillingInterval = 'monthly',
       currency?: string,
     ): Promise<AuthResult> {
-      const { data, error } = await supabase.functions.invoke<{ url: string }>(
-        'create-checkout',
-        { body: { returnUrl: window.location.origin, interval, currency } },
-      );
+      const { data, error } = await supabase.functions.invoke<{
+        url: string;
+        mode?: 'test' | 'live';
+      }>('create-checkout', {
+        body: { returnUrl: window.location.origin, interval, currency },
+      });
       if (error || !data?.url) {
         return { ok: false, error: 'No se pudo iniciar el pago. Inténtalo de nuevo.' };
+      }
+      // STRIPE TEST MODE IS INVISIBLE, and that is the dangerous part: the
+      // checkout looks identical, the subscription activates, the app unlocks,
+      // and no money moved. The secrets are hashed in every dashboard listing,
+      // so nothing on this side could tell the difference. The function now
+      // reports which mode its key is in, and a test checkout has to be
+      // acknowledged before it proceeds. A real customer never sees this,
+      // because live mode never asks.
+      if (data.mode === 'test') {
+        const go = window.confirm(
+          [
+            'Stripe está en MODO PRUEBA.',
+            '',
+            'No se cobrará dinero real y la suscripción que se cree será de prueba.',
+            'Para cobrar de verdad hay que poner las claves y el webhook de producción.',
+            '',
+            '¿Continuar de todos modos?',
+          ].join('\n'),
+        );
+        if (!go) return { ok: false, error: 'Pago de prueba cancelado.' };
       }
       window.location.assign(data.url);
       return { ok: true };

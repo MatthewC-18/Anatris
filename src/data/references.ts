@@ -207,6 +207,76 @@ export const REFERENCES: Record<string, Reference> = {
   },
 
   // ---- CERVICAL: radiculopatía, mielopatía, inestabilidad y cribado vascular.
+  // ---------------------------------------------------------------------
+  // NORMATIVE RANGE-OF-MOTION STUDIES
+  // ---------------------------------------------------------------------
+  // The ranges this app prints are REFERENCE values -- textbook conventions --
+  // and the conventions disagree. These are the primary measurements, so the
+  // spread can be shown instead of hidden. Identity of every one of them was
+  // checked against its PubMed record; only the first has had its tables read.
+  'roaas-1982': {
+    id: 'roaas-1982',
+    pmid: '7136564',
+    doi: '10.3109/17453678208992202',
+    authors: 'Roaas A, Andersson GBJ',
+    title:
+      'Normal range of motion of the hip, knee and ankle joints in male subjects, 30-40 years of age',
+    edition: '',
+    publisher: 'Acta Orthopaedica Scandinavica',
+    year: 1982,
+    note:
+      'Movilidad PASIVA medida con goniometro por la tecnica de la AAOS en una muestra aleatoria de varones sanos de Goteborg (210 caderas, 180 rodillas, 192 tobillos). Su Tabla 1 imprime ademas la columna de la AAOS, lo que permite ver la diferencia entre el valor de referencia y el medido.',
+  },
+  'soucie-2011': {
+    id: 'soucie-2011',
+    pmid: '21070485',
+    doi: '10.1111/j.1365-2516.2010.02399.x',
+    authors: 'Soucie JM, Wang C, Forsyth A, Funk S, Denny M, Roach KE, Boone D',
+    title: 'Range of motion measurements: reference values and a database for comparison studies',
+    edition: '',
+    publisher: 'Haemophilia',
+    year: 2011,
+    note:
+      'Base normativa de los CDC: 674 sujetos sanos de 2 a 69 anos, hombro, codo, antebrazo, cadera, rodilla y tobillo, estratificada por edad y sexo. Tablas aun no leidas aqui.',
+  },
+  'youdas-1992': {
+    id: 'youdas-1992',
+    pmid: '1409874',
+    doi: '10.1093/ptj/72.11.770',
+    authors: 'Youdas JW, Garrett TR, Suman VJ, Bogard CL, Hallman HO, Carey JR',
+    title: 'Normal range of motion of the cervical spine: an initial goniometric study',
+    edition: '',
+    publisher: 'Physical Therapy',
+    year: 1992,
+    note:
+      'Movilidad ACTIVA cervical con instrumento CROM en 337 sujetos de 11 a 97 anos. Tablas aun no leidas aqui.',
+  },
+  'vanherp-2000': {
+    id: 'vanherp-2000',
+    pmid: '11136876',
+    doi: '10.1093/rheumatology/39.12.1337',
+    authors: 'Van Herp G, Rowe P, Salter P, Paul JP',
+    title:
+      'Three-dimensional lumbar spinal kinematics: a study of range of movement in 100 healthy subjects aged 20 to 60+ years',
+    edition: '',
+    publisher: 'Rheumatology (Oxford)',
+    year: 2000,
+    note:
+      'Cinematica lumbar 3D en 100 sujetos sin lumbalgia reciente, de 20 a 77 anos. Tablas aun no leidas aqui.',
+  },
+  'fujimori-2012': {
+    id: 'fujimori-2012',
+    pmid: '22772578',
+    doi: '10.1097/BRS.0b013e318267254b',
+    authors: 'Fujimori T, Iwasaki M, Nagamoto Y, Ishii T, Kashii M, Murase T',
+    title: 'Kinematics of the thoracic spine in trunk rotation: in vivo 3-dimensional analysis',
+    edition: '',
+    publisher: 'Spine',
+    year: 2012,
+    note:
+      'Rotacion toracica segmento a segmento por TC 3D en 13 voluntarios sanos. Tablas aun no leidas aqui.',
+  },
+
   'wainner-2003': {
     id: 'wainner-2003',
     pmid: '12544957',

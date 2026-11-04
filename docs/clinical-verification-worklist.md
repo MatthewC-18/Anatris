@@ -62,7 +62,7 @@
 ## hip
 
 ### ROM
-- [ ] **Flexión** — 0–90° · fuentes: kapandji, neumann
+- [ ] **Flexión** — 0–120° · fuentes: kapandji, neumann
 - [ ] **Extensión** — 0–20° · fuentes: kapandji, neumann
 - [ ] **Abducción** — 0–45° · fuentes: kapandji, neumann
 - [ ] **Aducción** — 0–20° · fuentes: kapandji
@@ -82,8 +82,8 @@
 ## knee
 
 ### ROM
-- [ ] **Flexión** — 0–105° · fuentes: kapandji, oatis
-- [ ] **Extensión** — 0–105° · fuentes: kapandji
+- [ ] **Flexión** — 0–135° · fuentes: kapandji, oatis
+- [ ] **Extensión** — 0–135° · fuentes: kapandji
 - [ ] **Rotación interna de la tibia** — 0–30° · fuentes: kapandji
 - [ ] **Rotación externa de la tibia** — 0–40° · fuentes: kapandji
 
@@ -154,8 +154,8 @@
 - [ ] **Rotación** — 0–35° · fuentes: kapandji, oatis
 
 ### Tests ortopédicos (sens/espec)
-- [ ] **Percusión con puño cerrado** — S 88% / E 90% · fuentes: langdon-2010
-- [ ] **Signo del supino** — S 81% / E 93% · fuentes: langdon-2010
+- [x] **Percusión con puño cerrado** — S 88% / E 90% · fuentes: langdon-2010
+- [x] **Signo del supino** — S 81% / E 93% · fuentes: langdon-2010
 - [ ] **Prueba de Adams (flexión anterior)** — S 84% / E 93% · fuentes: cote-1998
 - [ ] **Expansión torácica (cirtometría)** — S —% / E —% · fuentes: vanderlinden-1984
 - [ ] **Prueba de Roos (EAST)** — S 84% / E 30% · fuentes: gillard-2001

@@ -24,7 +24,20 @@
 import Stripe from 'npm:stripe@^16';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!);
+const STRIPE_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
+const stripe = new Stripe(STRIPE_KEY);
+
+/**
+ * Is this a TEST key? Derived from the prefix, never from the key itself, and
+ * only ever reported as the word 'test' or 'live'.
+ *
+ * The failure this guards against is the quiet one: shipping with test keys,
+ * watching checkout succeed, and believing money moved. Nothing on the screen
+ * distinguishes the two flows, and the secrets are hashed in every dashboard
+ * listing, so the question "are we actually charging?" had no answer short of
+ * opening Stripe. Now the client gets told, and says so before redirecting.
+ */
+const STRIPE_MODE: 'test' | 'live' = STRIPE_KEY.startsWith('sk_test') ? 'test' : 'live';
 
 // Two prices: monthly + annual. Fall back to the legacy single price id so an
 // existing deployment keeps working until the two new secrets are set.
@@ -141,7 +154,7 @@ Deno.serve(async (req) => {
       },
     });
 
-    return json({ url: session.url });
+    return json({ url: session.url, mode: STRIPE_MODE });
   } catch (err) {
     return json({ error: (err as Error).message }, 500);
   }

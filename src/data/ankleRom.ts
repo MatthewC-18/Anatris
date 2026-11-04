@@ -73,6 +73,20 @@ const dorsiflexion: RomMovement = {
       cite: [{ ref: 'kapandji', pageVerified: false }],
     },
   ],
+  normative: [
+    {
+      meanDeg: 15.3,
+      sdDeg: 5.8,
+      sample: '96 varones sanos de 30 a 40 años',
+      motion: 'pasiva',
+      aaosDeg: 18,
+      cite: {
+        ref: 'roaas-1982',
+        section: 'Tabla 1, tobillo (lado derecho)',
+        pageVerified: true,
+      },
+    },
+  ],
   activations: [
     {
       muscleId: 'tibialis-anterior',
@@ -156,6 +170,20 @@ const plantarflexion: RomMovement = {
         { muscleId: 'plantaris', role: 'assistant' },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }],
+    },
+  ],
+  normative: [
+    {
+      meanDeg: 39.7,
+      sdDeg: 7.5,
+      sample: '96 varones sanos de 30 a 40 años',
+      motion: 'pasiva',
+      aaosDeg: 48,
+      cite: {
+        ref: 'roaas-1982',
+        section: 'Tabla 1, tobillo (lado derecho)',
+        pageVerified: true,
+      },
     },
   ],
   activations: [
@@ -260,6 +288,19 @@ const inversion: RomMovement = {
       cite: [{ ref: 'kapandji', pageVerified: false }],
     },
   ],
+  normative: [
+    {
+      meanDeg: 27.7,
+      sdDeg: 6.9,
+      sample: '96 varones sanos de 30 a 40 años',
+      motion: 'pasiva',
+      cite: {
+        ref: 'roaas-1982',
+        section: 'Tabla 1, tobillo (lado derecho)',
+        pageVerified: true,
+      },
+    },
+  ],
   activations: [
     {
       muscleId: 'tibialis-posterior',
@@ -333,6 +374,19 @@ const eversion: RomMovement = {
         tone: 'pearl',
       },
       cite: [{ ref: 'kapandji', pageVerified: false }],
+    },
+  ],
+  normative: [
+    {
+      meanDeg: 27.6,
+      sdDeg: 4.6,
+      sample: '96 varones sanos de 30 a 40 años',
+      motion: 'pasiva',
+      cite: {
+        ref: 'roaas-1982',
+        section: 'Tabla 1, tobillo (lado derecho)',
+        pageVerified: true,
+      },
     },
   ],
   activations: [

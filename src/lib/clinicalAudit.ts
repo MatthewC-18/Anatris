@@ -79,6 +79,14 @@ export function runClinicalAudit(): AuditResult {
         }
       };
       checkCites(mv.rangeCite, `${at} rangeCite`);
+      // Measured population values count towards the same progress figure: a
+      // primary study with a DOI is a source a reader can actually open, which
+      // is more than an unverified page number in a book gives them.
+      for (const n of mv.normative ?? []) {
+        checkCites([n.cite], `${at} normative`);
+        if (!isFinite(n.meanDeg)) err(`${at} normative`, 'meanDeg no es un número');
+        if (!n.sample.trim()) err(`${at} normative`, 'falta la muestra');
+      }
 
       const phases = [...(mv.phases ?? []), ...(mv.labReverse?.phases ?? [])];
       for (const ph of phases) {
