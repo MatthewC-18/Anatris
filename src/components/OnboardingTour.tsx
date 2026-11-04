@@ -50,42 +50,35 @@ interface TourStep {
   body: string;
 }
 
+// SEIS PASOS ERAN CINCO DE MAS.
+//
+// El recorrido llegaba justo detras del aviso legal a pantalla completa: dos
+// muros seguidos antes de que nadie hubiera visto el producto. Y describia una
+// por una cosas que la propia pantalla ya ensena -- las regiones estan en la
+// barra superior con su nombre, los tests tienen su boton, las tarjetas estan
+// dentro de Repasar.
+//
+// Lo unico que un recien llegado no puede deducir mirando es que hay CUATRO
+// modos de trabajo y que cada uno sirve para algo distinto. Eso es lo que queda,
+// mas que se toca el modelo y que parte es gratis. Tres pasos.
 const STEPS: TourStep[] = [
   {
     icon: <IconModel />,
     where: 'Modo Explorar',
-    title: 'Anatomía clínica en 3D',
-    body: 'Toca cualquier estructura del modelo para consultar su origen, inserción, inervación, acciones y sus notas clínicas.',
-  },
-  {
-    icon: <IconRegions />,
-    where: 'Barra superior',
-    title: 'Seis regiones clínicas',
-    body: 'Hombro, codo, cadera, rodilla, tobillo y columna, esta última dividida en cervical, torácica y lumbar. Cada una trae su contenido clínico completo.',
-  },
-  {
-    icon: <IconMovement />,
-    where: 'Modo Movimiento',
-    title: 'Laboratorio de movimiento',
-    body: 'Desplaza la articulación por su recorrido y observa qué músculo trabaja en cada grado, con qué función y con qué nivel de activación.',
+    title: 'Toca el cuerpo',
+    body: 'Cualquier estructura del modelo responde al clic: origen, inserción, inervación, acciones y notas clínicas. Es por donde se empieza.',
   },
   {
     icon: <IconTrack />,
-    where: 'Modo Aprender',
-    title: 'Siete fases por región',
-    body: 'Un itinerario fijo que va de la anatomía descriptiva al caso clínico, pasando por biomecánica, palpación, tests, patología y tratamiento.',
+    where: 'Barra superior',
+    title: 'Cuatro modos, cuatro tareas',
+    body: 'Explorar es el atlas. Aprender es el itinerario de siete fases, de la anatomía al caso clínico. Repasar son tarjetas y cuestionarios. Movimiento es el laboratorio: mueves la articulación y ves qué músculo trabaja en cada grado.',
   },
   {
     icon: <IconClinical />,
-    where: 'Tests, Evidencia y Neuro',
-    title: 'Rendimiento diagnóstico y evidencia',
-    body: 'Tests ortopédicos con sensibilidad, especificidad y modo examen. Referencias citadas con enlace al estudio. Dermatomas, miotomas y reflejos por raíz.',
-  },
-  {
-    icon: <IconStudy />,
-    where: 'Modo Estudiar',
-    title: 'Repaso espaciado y cuestionarios',
-    body: 'Tarjetas y cuestionarios generados desde el contenido de cada región. El hombro y Fundamentos son gratuitos; el resto del cuerpo y el laboratorio completo requieren Premium.',
+    where: 'Qué es gratis',
+    title: 'El hombro entero, sin pagar',
+    body: 'El hombro y Fundamentos están completos en la versión gratuita, tests y evidencia incluidos. El resto del cuerpo y el laboratorio completo son Premium.',
   },
 ];
 
@@ -264,18 +257,6 @@ function IconModel() {
   );
 }
 
-function IconRegions() {
-  return (
-    <svg {...iconProps}>
-      <rect x="6" y="6" width="16" height="16" rx="3" />
-      <rect x="26" y="6" width="16" height="16" rx="3" />
-      <rect x="6" y="26" width="16" height="16" rx="3" />
-      <rect x="26" y="26" width="16" height="16" rx="3" />
-      <rect x="6" y="6" width="16" height="16" rx="3" fill="currentColor" opacity="0.15" />
-      <path d="M11 14h6M14 11v6" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 function IconTrack() {
   return (
@@ -297,29 +278,7 @@ function IconTrack() {
   );
 }
 
-function IconStudy() {
-  return (
-    <svg {...iconProps}>
-      <rect x="8" y="12" width="32" height="24" rx="4" />
-      <path d="M16 24h16M16 30h10" strokeLinecap="round" opacity="0.5" />
-      <circle cx="36" cy="12" r="7" fill="currentColor" opacity="0.15" stroke="currentColor" />
-      <path d="M32.5 12l2.5 2.5 4-4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
-function IconMovement() {
-  return (
-    <svg {...iconProps}>
-      {/* Goniometer arc + swinging limb: the movement lab. */}
-      <circle cx="14" cy="34" r="2.5" fill="currentColor" stroke="none" />
-      <path d="M14 34L34 20" strokeLinecap="round" />
-      <path d="M14 34L36 34" strokeLinecap="round" opacity="0.5" />
-      <path d="M34 34a20 20 0 0 0-6-14" strokeLinecap="round" opacity="0.6" />
-      <path d="M30 12l4 8-8 1" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
-    </svg>
-  );
-}
 
 function IconClinical() {
   return (

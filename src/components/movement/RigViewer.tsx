@@ -325,8 +325,19 @@ function NavigationRig({ compact }: { compact: boolean }) {
   );
 }
 
+/** After this many ms the wait stops being normal and gets explained. */
+const RIG_SLOW_MS = 6000;
+
 function RigLoaderOverlay({ progress }: { progress: number }) {
   const pct = Math.min(100, Math.round(progress));
+  // A silent spinner that sits there for ten seconds reads as a hung app. Once
+  // the wait is long enough to worry someone, say what is being waited for and
+  // that it only happens once -- the service worker keeps the rig afterwards.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), RIG_SLOW_MS);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-ink-950/80 backdrop-blur-sm animate-fade-in">
       <div className="flex flex-col items-center gap-5">
@@ -347,6 +358,12 @@ function RigLoaderOverlay({ progress }: { progress: number }) {
             style={{ width: `${pct}%` }}
           />
         </div>
+        {slow && (
+          <p className="max-w-[18rem] text-center text-xs leading-relaxed text-slate-500">
+            Es un cuerpo entero con esqueleto, músculo y piel. Se descarga una
+            sola vez y queda guardado para las siguientes visitas.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -366,8 +383,17 @@ export function RigViewer({
   // loader on that signal -- NOT on drei's progress reaching 100, which never
   // happens on a cached reload and would freeze the overlay over a live model.
   // A safety timeout dismisses it regardless so the overlay can never get stuck.
+  //
+  // IT USED TO BE 8 s, AND THE RIG TAKES LONGER THAN THAT. Measured on
+  // localhost with a warm cache, onReady fires at ~10,3 s: the whole body has
+  // to be parsed, its mirrored meshes rewound and its skin repaired before
+  // anything can be drawn. So the failsafe was firing on every single visit,
+  // two seconds early, and handing the user a black stage with no explanation
+  // for the rest of the wait -- the exact impression the overlay exists to
+  // prevent. A failsafe must be longer than the thing it is insuring against;
+  // 40 s only trips when something is genuinely wrong.
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 8000);
+    const t = setTimeout(() => setReady(true), 40000);
     return () => clearTimeout(t);
   }, []);
 

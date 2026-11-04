@@ -37,6 +37,15 @@ describe('routing', () => {
     expect(parseRoute('/rodilla/')).toEqual({ region: 'knee', mode: DEFAULT_MODE });
   });
 
+  it('still resolves the old /estudiar links after the rename to /repasar', () => {
+    // "Estudiar" and "Aprender" named the same thing twice, so the mode was
+    // renamed. Anything already shared or bookmarked must keep working, and it
+    // must land on the SAME mode -- not fall through to the default.
+    expect(parseRoute('/hombro/estudiar')).toEqual({ region: 'shoulder', mode: 'study' });
+    expect(parseRoute('/toracica/estudiar')?.mode).toBe('study');
+    expect(formatRoute({ region: 'shoulder', mode: 'study' })).toBe('/hombro/repasar');
+  });
+
   it('is case-insensitive and tolerates an unknown mode', () => {
     expect(parseRoute('/Hombro/MOVIMIENTO')?.mode).toBe('movement');
     expect(parseRoute('/hombro/inventado')?.mode).toBe(DEFAULT_MODE);
@@ -50,7 +59,7 @@ describe('routing', () => {
 
   it('uses Spanish slugs, not the internal ids', () => {
     expect(formatRoute({ region: 'shoulder', mode: 'movement' })).toBe('/hombro/movimiento');
-    expect(formatRoute({ region: 'thoracic', mode: 'study' })).toBe('/toracica/estudiar');
+    expect(formatRoute({ region: 'thoracic', mode: 'study' })).toBe('/toracica/repasar');
     expect(formatRoute({ region: 'ankle', mode: 'learn' })).toBe('/tobillo/aprender');
   });
 

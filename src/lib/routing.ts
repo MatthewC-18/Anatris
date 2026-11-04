@@ -39,17 +39,26 @@ const REGION_SLUGS: Record<string, string> = {
 const MODE_SLUGS: Record<AppMode, string> = {
   explore: 'explorar',
   learn: 'aprender',
-  study: 'estudiar',
+  // "Estudiar" and "Aprender" named the same activity twice, and nobody could
+  // predict which tab held the flashcards. The mode is spaced repetition, so it
+  // is called what it is. `/estudiar` still resolves (see LEGACY_MODE_SLUGS).
+  study: 'repasar',
   movement: 'movimiento',
+};
+
+/** Old slugs that must keep resolving, so shared links do not rot. */
+const LEGACY_MODE_SLUGS: Record<string, AppMode> = {
+  estudiar: 'study',
 };
 
 /** Reverse lookups, built once. */
 const REGION_BY_SLUG = new Map(
   Object.entries(REGION_SLUGS).map(([id, slug]) => [slug, id]),
 );
-const MODE_BY_SLUG = new Map(
-  Object.entries(MODE_SLUGS).map(([id, slug]) => [slug, id as AppMode]),
-);
+const MODE_BY_SLUG = new Map<string, AppMode>([
+  ...Object.entries(MODE_SLUGS).map(([id, slug]) => [slug, id as AppMode] as const),
+  ...Object.entries(LEGACY_MODE_SLUGS),
+]);
 
 export const DEFAULT_REGION = 'shoulder';
 export const DEFAULT_MODE: AppMode = 'explore';

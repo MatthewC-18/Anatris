@@ -40,11 +40,25 @@ export function buildLabArc(movement: RomMovement): LabArc {
   const min = rev ? rev.minDeg : movement.totalRangeDeg.min;
   const phases = rev ? [...rev.phases, ...movement.phases] : movement.phases;
   const bidirectional = min < 0 && posMax > 0;
-  // Default: start at the opposite extreme (min) so the gesture reads from its
-  // anatomical start (a flexion that begins in extension). For a plain 0..max
-  // arc that is simply 0.
-  const startAt = movement.labStartAt ?? 'min';
-  const startDeg = startAt === 'max' ? posMax : min;
+  // A BIDIRECTIONAL ARC NOW OPENS AT NEUTRAL, NOT AT THE OPPOSITE EXTREME.
+  //
+  // It used to open at `min`, the idea being that a gesture reads best from its
+  // anatomical start. In practice that means choosing "Hombro" and landing on
+  // -30 deg of cross-body ADDUCTION: a different gesture, with a different name,
+  // which the panel duly announces ("Aducción") over a movement the user has not
+  // asked for. It is also the most extreme, most occluded frame in the whole
+  // arc, so the first thing anyone sees of the laboratory is its hardest pose.
+  //
+  // Zero is where a goniometer starts. The body stands neutral, the name in the
+  // panel matches the movement that was picked, and pressing play sweeps it.
+  // The opposite half of the arc is one drag away and loses nothing.
+  //
+  // An EXPLICIT labStartAt still wins: the knee and the elbow set 'max' on
+  // purpose, because their extension arc shares the flexion arc and only makes
+  // sense beginning flexed.
+  const startAt = movement.labStartAt;
+  const startDeg =
+    startAt === 'max' ? posMax : startAt === 'min' ? min : bidirectional ? 0 : min;
   return { min, max: posMax, phases, startDeg, bidirectional };
 }
 
@@ -71,6 +85,18 @@ export function phaseAtAngleIn(
   angle: number,
 ): PhaseAtAngle | null {
   if (phases.length === 0) return null;
+  // ZERO IS THE ONE BOUNDARY WHERE "EARLIER WINS" IS THE WRONG ANSWER.
+  //
+  // On a bidirectional arc the phase that ENDS at 0 belongs to the opposite
+  // gesture: the last slice of adduction, of extension, of internal rotation.
+  // Now that the lab opens at neutral, the generic rule had the panel announce
+  // "Abducción" in its title and then describe an adduction underneath it, on
+  // the very first frame. At exactly 0 the gesture that is about to happen is
+  // the one the user picked, so the phase that STARTS there wins.
+  if (angle === 0) {
+    const starts = phases.findIndex((p) => p.startDeg === 0);
+    if (starts >= 0) return { phase: phases[starts], index: starts, total: phases.length };
+  }
   for (let i = 0; i < phases.length; i++) {
     if (angle <= phases[i].endDeg) {
       return { phase: phases[i], index: i, total: phases.length };

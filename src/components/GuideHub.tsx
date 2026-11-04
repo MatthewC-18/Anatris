@@ -63,7 +63,7 @@ const MODES: ModeInfo[] = [
   },
   {
     id: 'study',
-    label: 'Estudiar',
+    label: 'Repasar',
     tagline: 'Repaso activo',
     desc: 'Quizzes y flashcards automáticos para memorizar.',
     actions: [
@@ -210,7 +210,7 @@ export function GuideHub({
         </GuideTip>
         <GuideTip>
           <b className="text-slate-200">Cambiar de modo</b>: los cuatro botones de arriba a la
-          derecha (Explorar / Aprender / Estudiar / Movimiento).
+          derecha (Explorar / Aprender / Repasar / Movimiento).
         </GuideTip>
         <GuideTip>
           <b className="text-slate-200">Buscar cualquier estructura</b>: el botón «Buscar» o el

@@ -1,7 +1,7 @@
 // src/components/TopBar.tsx
 //
 // Slim top bar: wordmark, region module navigation, search trigger, and the
-// app-level controls (Guía, Planes, Explorar / Aprender / Estudiar / Movimiento).
+// app-level controls (Guía, Planes, Explorar / Aprender / Repasar / Movimiento).
 // Everything lives INSIDE the header flow (no floating absolute-positioned
 // controls), so the left nav and the right controls never overlap.
 //
@@ -116,7 +116,7 @@ const MOBILE_REGIONS: { label: string; region: string }[] = MODULES.flatMap((m) 
 const MODE_ITEMS: { id: AppMode; label: string }[] = [
   { id: 'explore', label: 'Explorar' },
   { id: 'learn', label: 'Aprender' },
-  { id: 'study', label: 'Estudiar' },
+  { id: 'study', label: 'Repasar' },
   { id: 'movement', label: 'Movimiento' },
 ];
 

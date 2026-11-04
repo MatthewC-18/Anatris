@@ -1,6 +1,6 @@
 // src/components/study/StudyView.tsx
 //
-// Top-level "Estudiar" view. It now opens on the premium study experience —
+// Top-level "Repasar" view. It now opens on the premium study experience —
 // "Repaso" (spaced repetition) — and surfaces a progress dashboard (streak,
 // daily goal, mastery, cards due) above three study modes:
 //   - Repaso: SRS review session (only the cards that are due + a daily trickle
@@ -104,7 +104,7 @@ export function StudyView({ region, isConcept }: StudyViewProps) {
           <div className="flex items-end justify-between gap-3">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Estudiar
+                Repasar
               </p>
               <h1 className="font-display text-xl font-bold text-slate-50">{regionName}</h1>
             </div>

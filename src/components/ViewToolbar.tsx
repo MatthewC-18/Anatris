@@ -130,6 +130,15 @@ export function ViewToolbar() {
           rail.faded ? 'rail-fade-end' : ''
         }`}
       >
+        {/* SEIS ICONOS SIN UNA SOLA PALABRA no dicen de qué va la fila: hay que
+            pasar el ratón por encima, uno a uno, para descubrir que son vistas
+            de cámara. Una palabra al principio lo resuelve sin ocupar sitio ni
+            repetir la etiqueta en cada botón, que ensancharía la barra hasta
+            sacarla del móvil. En pantalla pequeña se oculta: ahí el espacio
+            vale más que la pista. */}
+        <span className="ml-1 mr-1.5 hidden shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 sm:inline">
+          Vista
+        </span>
         {primary.map((view) => (
           <ToolbarButton key={view} view={view} onClick={() => requestView(view)} />
         ))}
