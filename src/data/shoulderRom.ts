@@ -34,6 +34,19 @@ const abduction: RomMovement = {
     { ref: 'kapandji', pageVerified: false },
     { ref: 'oatis', pageVerified: false },
   ],
+  normative: [
+    {
+      meanDeg: 150.4,
+      sdDeg: 20.0,
+      sample: '2404 adultos sin dolor de hombro, de 20 a 91 años',
+      motion: 'activa',
+      cite: {
+        ref: 'gill-2020',
+        section: 'Lado dominante (no dominante 148,6 ± 20,4)',
+        pageVerified: true,
+      },
+    },
+  ],
   overview:
     'La elevación del brazo en el plano frontal hasta 180° no es solo glenohumeral: combina movimiento en la articulación glenohumeral y rotación de la escápula sobre el tórax, en una proporción aproximada de 2:1 (ritmo escapulohumeral). Distintos músculos lideran en distintos tramos del arco.',
   region: 'shoulder',
@@ -462,6 +475,19 @@ const flexion: RomMovement = {
       cite: [{ ref: 'kapandji', pageVerified: false }],
     },
   ],
+  normative: [
+    {
+      meanDeg: 159.8,
+      sdDeg: 19.0,
+      sample: '2404 adultos sin dolor de hombro, de 20 a 91 años',
+      motion: 'activa',
+      cite: {
+        ref: 'gill-2020',
+        section: 'Lado dominante (no dominante 158,4 ± 18,7)',
+        pageVerified: true,
+      },
+    },
+  ],
   activations: [
     {
       muscleId: 'deltoid',
@@ -650,6 +676,19 @@ const externalRotation: RomMovement = {
         },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }],
+    },
+  ],
+  normative: [
+    {
+      meanDeg: 58.6,
+      sdDeg: 17.7,
+      sample: '2404 adultos sin dolor de hombro, de 20 a 91 años, estimación visual',
+      motion: 'activa',
+      cite: {
+        ref: 'gill-2020',
+        section: 'Lado dominante (no dominante 56,5 ± 17,9)',
+        pageVerified: true,
+      },
     },
   ],
   activations: [

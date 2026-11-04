@@ -12,6 +12,20 @@ const flexion: RomMovement = {
     { ref: 'kapandji', pageVerified: false },
     { ref: 'oatis', pageVerified: false },
   ],
+  normative: [
+    {
+      meanDeg: 57.7,
+      sdDeg: 8.2,
+      sample: '300 adultos sanos de 18 a 29 años',
+      motion: 'activa',
+      aaosDeg: 45,
+      cite: {
+        ref: 'apti-2023',
+        section: 'Tabla 2, cervical: flexión',
+        pageVerified: true,
+      },
+    },
+  ],
   overview:
     'Flexión de la columna cervical hasta unos 45°. Es un movimiento de control fino antes que de potencia: los flexores profundos (largo del cuello y de la cabeza) inician y modulan el movimiento aplanando la lordosis, mientras el esternocleidomastoideo asume el rol de motor potente en la segunda mitad del arco. El reentrenamiento de los flexores profundos es un pilar de la rehabilitación de la cervicalgia crónica.',
   region: 'cervical',
@@ -130,6 +144,20 @@ const extension: RomMovement = {
   rangeCite: [
     { ref: 'kapandji', pageVerified: false },
     { ref: 'oatis', pageVerified: false },
+  ],
+  normative: [
+    {
+      meanDeg: 59.1,
+      sdDeg: 10.2,
+      sample: '300 adultos sanos de 18 a 29 años',
+      motion: 'activa',
+      aaosDeg: 45,
+      cite: {
+        ref: 'apti-2023',
+        section: 'Tabla 2, cervical: extensión',
+        pageVerified: true,
+      },
+    },
   ],
   overview:
     'La columna cervical es la región del raquis con mayor rango de extensión: hasta 70°. El movimiento lo producen los extensores posteriores en capas (esplenio, longísimo, semiespinoso y suboccipitales), mientras los extensores profundos controlan el deslizamiento segmentario. Los suboccipitales gobiernan la extensión de la articulación atlanto-occipital.',
@@ -273,6 +301,20 @@ const lateralFlexion: RomMovement = {
     { ref: 'kapandji', pageVerified: false },
     { ref: 'oatis', pageVerified: false },
   ],
+  normative: [
+    {
+      meanDeg: 42.1,
+      sdDeg: 7.9,
+      sample: '300 adultos sanos de 18 a 29 años',
+      motion: 'activa',
+      aaosDeg: 45,
+      cite: {
+        ref: 'apti-2023',
+        section: 'Tabla 2, cervical: inclinación derecha (izquierda 41,4 ± 7,7)',
+        pageVerified: true,
+      },
+    },
+  ],
   overview:
     'Inclinación lateral del cuello hasta unos 45°. Los músculos ipsilaterales producen el movimiento (escalenos, esplenio y longísimo del lado al que se inclina), mientras los contralaterales lo frenan excéntricamente. Los escalenos tienen un papel doble: inclinadores del cuello y elevadores de las primeras costillas, clave en el síndrome del desfiladero torácico.',
   region: 'cervical',
@@ -410,6 +452,20 @@ const rotation: RomMovement = {
   rangeCite: [
     { ref: 'kapandji', pageVerified: false },
     { ref: 'oatis', pageVerified: false },
+  ],
+  normative: [
+    {
+      meanDeg: 71.1,
+      sdDeg: 10.5,
+      sample: '300 adultos sanos de 18 a 29 años',
+      motion: 'activa',
+      aaosDeg: 60,
+      cite: {
+        ref: 'apti-2023',
+        section: 'Tabla 2, cervical: rotación derecha (izquierda 70,2 ± 9,7)',
+        pageVerified: true,
+      },
+    },
   ],
   overview:
     'La rotación cervical puede alcanzar los 80° hacia cada lado. El 50% de la rotación total ocurre en C1-C2 (articulación atlanto-axoidea), gobernada por el oblicuo inferior de la cabeza. El esternocleidomastoideo contralateral es el motor superficial más potente. La rotación es el movimiento más frecuentemente limitado en el síndrome de latigazo cervical.',

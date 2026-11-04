@@ -227,54 +227,55 @@ export const REFERENCES: Record<string, Reference> = {
     note:
       'Movilidad PASIVA medida con goniometro por la tecnica de la AAOS en una muestra aleatoria de varones sanos de Goteborg (210 caderas, 180 rodillas, 192 tobillos). Su Tabla 1 imprime ademas la columna de la AAOS, lo que permite ver la diferencia entre el valor de referencia y el medido.',
   },
-  'soucie-2011': {
-    id: 'soucie-2011',
-    pmid: '21070485',
-    doi: '10.1111/j.1365-2516.2010.02399.x',
-    authors: 'Soucie JM, Wang C, Forsyth A, Funk S, Denny M, Roach KE, Boone D',
-    title: 'Range of motion measurements: reference values and a database for comparison studies',
+  'apti-2023': {
+    id: 'apti-2023',
+    doi: '10.4274/jtss.galenos.2023.33042',
+    authors: 'Apti A, Kuru Colak T, Akcay B',
+    title: 'Normative values for cervical and lumbar range of motion in healthy young adults',
     edition: '',
-    publisher: 'Haemophilia',
-    year: 2011,
+    publisher: 'Journal of Turkish Spinal Surgery 2023;34(3):113-117',
+    year: 2023,
     note:
-      'Base normativa de los CDC: 674 sujetos sanos de 2 a 69 anos, hombro, codo, antebrazo, cadera, rodilla y tobillo, estratificada por edad y sexo. Tablas aun no leidas aqui.',
+      'Movilidad ACTIVA cervical y lumbar con goniometro digital de dos brazos por la tecnica de la AAOS, en 300 voluntarios sanos (198 mujeres, 102 varones; media 21,4 anos, rango 18-29), Estambul. Su Tabla 2 da media, DE, mediana y rango de los 12 movimientos, y la discusion imprime al lado el valor de la AAOS. Acceso abierto (CC BY-NC-ND). Tabla 2 leida aqui.',
   },
-  'youdas-1992': {
-    id: 'youdas-1992',
-    pmid: '1409874',
-    doi: '10.1093/ptj/72.11.770',
-    authors: 'Youdas JW, Garrett TR, Suman VJ, Bogard CL, Hallman HO, Carey JR',
-    title: 'Normal range of motion of the cervical spine: an initial goniometric study',
-    edition: '',
-    publisher: 'Physical Therapy',
-    year: 1992,
-    note:
-      'Movilidad ACTIVA cervical con instrumento CROM en 337 sujetos de 11 a 97 anos. Tablas aun no leidas aqui.',
-  },
-  'vanherp-2000': {
-    id: 'vanherp-2000',
-    pmid: '11136876',
-    doi: '10.1093/rheumatology/39.12.1337',
-    authors: 'Van Herp G, Rowe P, Salter P, Paul JP',
+  'gill-2020': {
+    id: 'gill-2020',
+    pmid: '33046038',
+    doi: '10.1186/s12891-020-03665-9',
+    authors: 'Gill TK, Shanahan EM, Tucker GR, Buchbinder R, Hill CL',
     title:
-      'Three-dimensional lumbar spinal kinematics: a study of range of movement in 100 healthy subjects aged 20 to 60+ years',
+      'Shoulder range of movement in the general population: age and gender stratified normative data using a community-based cohort',
     edition: '',
-    publisher: 'Rheumatology (Oxford)',
-    year: 2000,
+    publisher: 'BMC Musculoskeletal Disorders 2020;21:676',
+    year: 2020,
     note:
-      'Cinematica lumbar 3D en 100 sujetos sin lumbalgia reciente, de 20 a 77 anos. Tablas aun no leidas aqui.',
+      'Movilidad ACTIVA de hombro en una cohorte poblacional de Adelaida: 2404 adultos sin dolor ni rigidez de hombro (51,5% varones; media 45,8 anos, DE 17,3; rango 20-91). Flexion y abduccion con inclinometro Plurimeter V; la rotacion externa se estimo visualmente al multiplo de 5 grados mas cercano, asi que su precision es menor que la de los otros dos. Acceso abierto. Tabla leida aqui.',
   },
-  'fujimori-2012': {
-    id: 'fujimori-2012',
-    pmid: '22772578',
-    doi: '10.1097/BRS.0b013e318267254b',
-    authors: 'Fujimori T, Iwasaki M, Nagamoto Y, Ishii T, Kashii M, Murase T',
-    title: 'Kinematics of the thoracic spine in trunk rotation: in vivo 3-dimensional analysis',
+  'zwerus-2017': {
+    id: 'zwerus-2017',
+    pmid: '31210794',
+    doi: '10.1177/1758573217728711',
+    authors:
+      'Zwerus EL, Willigenburg NW, Scholtes VA, Somford MP, Eygendaal D, van den Bekerom MPJ',
+    title: 'Normative values and affecting factors for the elbow range of motion',
     edition: '',
-    publisher: 'Spine',
-    year: 2012,
+    publisher: 'Shoulder & Elbow 2019;11(3):215-224',
+    year: 2017,
     note:
-      'Rotacion toracica segmento a segmento por TC 3D en 13 voluntarios sanos. Tablas aun no leidas aqui.',
+      'Movilidad ACTIVA y PASIVA de codo con goniometro universal, bilateral, en 352 adultos sanos (166 varones, 186 mujeres) de 18 a 79 anos, Amsterdam. Publica media e intervalo de confianza al 95%, NO desviacion tipica, por eso aqui las cifras van sin DE. Las mujeres tienen mas recorrido que los varones en todos los movimientos, y lo pasivo supera a lo activo en 3-5 grados. Acceso abierto. Tabla 2 leida aqui.',
+  },
+  'esteban-2022': {
+    id: 'esteban-2022',
+    pmid: '35459026',
+    doi: '10.3390/s22083042',
+    authors: 'Esteban-Gonzalez P, Sanchez-Romero EA, Villafane JH',
+    title:
+      'Analysis of the active measurement systems of the thoracic range of movements of the spine: a systematic review and a meta-analysis',
+    edition: '',
+    publisher: 'Sensors 2022;22(8):3042',
+    year: 2022,
+    note:
+      'Revision sistematica y metaanalisis de 48 estudios y 2365 sujetos sanos, 11.892 mediciones del raquis toracico. Su conclusion es por que aqui NO se publica una cifra medida para la columna toracica: los resultados de los distintos aparatos son "muy dispares entre si" porque cada herramienta usa un protocolo distinto, y los autores proponen estandarizarlo. Acceso abierto. Leida aqui.',
   },
 
   'wainner-2003': {

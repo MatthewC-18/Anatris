@@ -49,6 +49,18 @@ const flexion: RomMovement = {
     { ref: 'kapandji', pageVerified: false },
     { ref: 'oatis', pageVerified: false },
   ],
+  normative: [
+    {
+      meanDeg: 146,
+      sample: '352 adultos sanos de 18 a 79 años (lado dominante)',
+      motion: 'activa',
+      cite: {
+        ref: 'zwerus-2017',
+        section: 'Media global del lado dominante; por sexo, 143 en varones y 148 en mujeres',
+        pageVerified: true,
+      },
+    },
+  ],
   overview:
     'Flexión del antebrazo sobre el brazo en el plano sagital, hasta unos 145 grados de flexión activa. El braquial y el bíceps lideran; el braquiorradial asiste sobre todo contra resistencia y con el antebrazo en posición neutra. La masa flexora-pronadora de la epitróclea no flexiona el codo: estabiliza su cara medial frente al valgo.',
   region: 'elbow',
@@ -258,6 +270,18 @@ const extension: RomMovement = {
       cite: [{ ref: 'kapandji', pageVerified: false }],
     },
   ],
+  normative: [
+    {
+      meanDeg: -2,
+      sample: '352 adultos sanos de 18 a 79 años (lado dominante; negativo = hiperextensión)',
+      motion: 'activa',
+      cite: {
+        ref: 'zwerus-2017',
+        section: 'Media global del lado dominante; 0 en varones y −5 en mujeres',
+        pageVerified: true,
+      },
+    },
+  ],
   activations: [
     {
       muscleId: 'triceps-brachii',
@@ -354,6 +378,18 @@ const pronation: RomMovement = {
       cite: [{ ref: 'kapandji', pageVerified: false }],
     },
   ],
+  normative: [
+    {
+      meanDeg: 80,
+      sample: '352 adultos sanos de 18 a 79 años (lado dominante)',
+      motion: 'activa',
+      cite: {
+        ref: 'zwerus-2017',
+        section: 'Media global del lado dominante; 78 en varones y 82 en mujeres',
+        pageVerified: true,
+      },
+    },
+  ],
   activations: [
     {
       muscleId: 'pronator-quadratus',
@@ -437,6 +473,18 @@ const supination: RomMovement = {
         },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }],
+    },
+  ],
+  normative: [
+    {
+      meanDeg: 87,
+      sample: '352 adultos sanos de 18 a 79 años (lado dominante)',
+      motion: 'activa',
+      cite: {
+        ref: 'zwerus-2017',
+        section: 'Media global del lado dominante; 85 en varones y 88 en mujeres',
+        pageVerified: true,
+      },
     },
   ],
   activations: [

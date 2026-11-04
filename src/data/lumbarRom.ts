@@ -12,6 +12,20 @@ const flexion: RomMovement = {
     { ref: 'kapandji', pageVerified: false },
     { ref: 'oatis', pageVerified: false },
   ],
+  normative: [
+    {
+      meanDeg: 69.9,
+      sdDeg: 14.5,
+      sample: '300 adultos sanos de 18 a 29 años',
+      motion: 'activa',
+      aaosDeg: 80,
+      cite: {
+        ref: 'apti-2023',
+        section: 'Tabla 2, lumbar: flexión',
+        pageVerified: true,
+      },
+    },
+  ],
   overview:
     'Flexión lumbar hasta unos 60°. La pared abdominal inicia el movimiento concéntricamente aplanando la lordosis; superado el equilibrio, el erector lumbar y los multífidos controlan excéntricamente el descenso. El transverso del abdomen crea presión intraabdominal antes de que comience el movimiento, estabilizando el raquis.',
   region: 'lumbar',
@@ -143,6 +157,20 @@ const extension: RomMovement = {
     { ref: 'kapandji', pageVerified: false },
     { ref: 'oatis', pageVerified: false },
   ],
+  normative: [
+    {
+      meanDeg: 40,
+      sdDeg: 10.2,
+      sample: '300 adultos sanos de 18 a 29 años',
+      motion: 'activa',
+      aaosDeg: 25,
+      cite: {
+        ref: 'apti-2023',
+        section: 'Tabla 2, lumbar: extensión',
+        pageVerified: true,
+      },
+    },
+  ],
   overview:
     'La extensión lumbar puede alcanzar los 35°, aumentando la lordosis. El erector espinal lumbar es el motor concéntrico principal; los multífidos estabilizan segmento a segmento. En clínica, la extensión lumbar repetida es la base de los ejercicios de McKenzie para el síndrome de disfunción posterior.',
   region: 'lumbar',
@@ -241,6 +269,20 @@ const lateralFlexion: RomMovement = {
   rangeCite: [
     { ref: 'kapandji', pageVerified: false },
     { ref: 'oatis', pageVerified: false },
+  ],
+  normative: [
+    {
+      meanDeg: 36.3,
+      sdDeg: 6.4,
+      sample: '300 adultos sanos de 18 a 29 años',
+      motion: 'activa',
+      aaosDeg: 35,
+      cite: {
+        ref: 'apti-2023',
+        section: 'Tabla 2, lumbar: inclinación derecha (izquierda 36,2 ± 6,6)',
+        pageVerified: true,
+      },
+    },
   ],
   overview:
     'Inclinación lateral lumbar hasta unos 25° hacia cada lado. El cuadrado lumbar es el motor ipsilateral más potente; el erector lumbar y los oblicuos colaboran. La inclinación lateral asimétrica o dolorosa es un signo clínico frecuente en la lumbalgia y la hernia discal lumbar.',
@@ -342,6 +384,20 @@ const rotation: RomMovement = {
   rangeCite: [
     { ref: 'kapandji', pageVerified: false },
     { ref: 'oatis', pageVerified: false },
+  ],
+  normative: [
+    {
+      meanDeg: 38.4,
+      sdDeg: 8.7,
+      sample: '300 adultos sanos de 18 a 29 años, giro del TRONCO sentado (incluye la torácica)',
+      motion: 'activa',
+      aaosDeg: 45,
+      cite: {
+        ref: 'apti-2023',
+        section: 'Tabla 2, lumbar: rotación derecha (izquierda 38,6 ± 9,4)',
+        pageVerified: true,
+      },
+    },
   ],
   overview:
     'La rotación lumbar es el rango más limitado del raquis: solo 3-5° totales. Las carillas articulares lumbares están orientadas en el plano sagital, bloqueando mecánicamente la rotación. Forzarla concentra la carga en el anillo fibroso posterior y es un factor de riesgo en la hernia discal lumbar.',

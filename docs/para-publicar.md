@@ -190,26 +190,56 @@ Lo hecho:
 
 ### Credibilidad (esto es lo que decide si un fisio paga)
 
-5. **Los rangos ya citan datos primarios, pero sólo tres regiones: 12 de 175.**
-   Era 0 de 163. Cadera, rodilla y tobillo muestran ahora, junto al arco, la
-   medición de una población real:
+5. **Los rangos ya citan poblaciones reales: 27 de 190.** Era 0 de 163. Junto
+   al arco de referencia aparece ahora lo que se midió en gente de verdad:
 
-   > Medido 143,8° ± 6,4 (pasiva, 90 varones sanos de 30 a 40 años) · AAOS 134° ·
-   > Roaas A 1982
+   > Medido 150,4° ± 20 (activa, 2404 adultos sin dolor de hombro, de 20 a 91
+   > años) · Gill TK 2020
 
-   Sale de la Tabla 1 de Roaas & Andersson (*Acta Orthop Scand* 1982;53:205-8,
-   PMID 7136564), leída entera. Es una fuente mejor que una página de libro: tiene
-   media, desviación típica y muestra, se puede comprobar en PubMed desde la
-   propia app, y dice *de quién* es ese rango —no "lo normal", sino 90 varones de
-   30 a 40 años—, que es la pregunta que hace un fisio cuando el paciente no se
-   parece a la tabla.
+   Es mejor que una página de libro: trae media, desviación típica y muestra, se
+   comprueba en PubMed desde la propia app, y dice *de quién* es la cifra —no "lo
+   normal", sino esas 2404 personas—, que es la pregunta que se hace un fisio
+   cuando el paciente no se parece a la tabla.
 
-   Faltan cervical, torácica, lumbar, hombro y codo. Las referencias están
-   puestas (Youdas 1992, Van Herp 2000, Fujimori 2012, Soucie 2011) pero sus
-   tablas son de pago y no se han leído, así que **no se citan cifras de ellas**:
-   mejor sin dato que con un dato inventado. Los tests van por delante (44 de 85,
-   52%), con cervical al 94%. Lista de trabajo en
-   `docs/clinical-verification-worklist.md`.
+   | región | fuente leída | qué es |
+   |---|---|---|
+   | cadera, rodilla, tobillo | Roaas & Andersson 1982 (PMID 7136564) | pasiva, goniómetro AAOS, 90 varones de 30-40 |
+   | cervical, lumbar | Apti et al. 2023 (DOI 10.4274/jtss.galenos.2023.33042) | activa, goniómetro digital, 300 adultos de 18-29 |
+   | hombro | Gill et al. 2020 (PMID 33046038) | activa, inclinómetro, 2404 adultos de 20-91 |
+   | codo | Zwerus et al. 2017 (PMID 31210794) | activa y pasiva, goniómetro, 352 adultos de 18-79 |
+
+   Las cuatro son de acceso abierto y **se leyó la tabla**, no el resumen. Cada
+   cita dice de qué tabla y qué columna sale, y las asimetrías van dentro
+   (inclinación cervical derecha 42,1 ± 7,9, izquierda 41,4 ± 7,7).
+
+   **Tres cosas que se decidieron no maquillar:**
+
+   - **La columna torácica se queda sin cifra medida, a propósito.** El
+     metaanálisis de Esteban-González 2022 (48 estudios, 2365 sujetos, 11.892
+     mediciones, PMID 35459026) concluye que los valores torácicos de unos
+     aparatos y otros son muy dispares entre sí porque cada herramienta usa su
+     protocolo. Sin patrón común no hay media defendible, y eso se dice en la
+     app en vez de inventar una.
+   - **La rotación lumbar enseña una discrepancia de 5° contra 38°**, y no es un
+     error: el arco de 5° es rotación lumbar *segmentaria*, y los 38,4° de Apti
+     son giro del tronco sentado, que arrastra la torácica. La muestra lo dice
+     en la propia línea. Un fisio que mida 38° con un goniómetro y lea "5°"
+     merece saber por qué.
+   - **El codo va sin desviación típica** porque Zwerus publica intervalo de
+     confianza, no DE. Antes que convertir una cosa en otra, no se pone.
+   - **Fuera las cuatro referencias que nadie había leído.** Youdas 1992, Van
+     Herp 2000, Fujimori 2012 y Soucie 2011 estaban en la bibliografía con la
+     nota "tablas aún no leídas aquí". Una bibliografía con fuentes sin abrir es
+     exactamente lo que esto no puede permitirse; se sustituyeron por las cuatro
+     de arriba, que sí se abrieron.
+
+   Quedan 163 citas sin comprobar, y conviene no confundirlas con lo de arriba:
+   la mayoría son las **fases** dentro de cada arco (los "0-30°, 30-90°"), que
+   ningún estudio normativo publica por separado, y el resto son las páginas de
+   libro que respaldan el arco en sí —Kapandji, Neumann, Oatis—, que siguen sin
+   verificar una a una. Cervical, por ejemplo: 24 de sus 28 citas son fases o
+   páginas de libro. Los tests van por delante: 44 de 85 (52%), con cervical al
+   94%. Lista de trabajo en `docs/clinical-verification-worklist.md`.
 6. **Ningún testimonio real.** Tres fisios que la hayan usado y pongan su nombre
    valen más que cualquier funcionalidad nueva.
 7. **No hay vídeo del laboratorio.** El guion está escrito en `docs/hero-clip.md`

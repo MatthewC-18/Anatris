@@ -44,7 +44,7 @@ const flexion: RomMovement = {
   totalRangeDeg: { min: 0, max: 45 },
   rangeCite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'oatis', pageVerified: false }],
   overview:
-    'Flexión de la columna torácica, hasta unos 30-45 grados, limitada por la caja torácica y la orientación de las carillas. La pared abdominal es el motor concéntrico que inicia y produce la flexión del tronco; una vez vencido el punto de equilibrio, el erector espinal torácico controla excéntricamente el descenso. Aunque la pared abdominal pertenece a la región lumbar, se ilumina aquí porque mueve todo el tronco.',
+    'Flexión de la columna torácica, hasta unos 30-45 grados, limitada por la caja torácica y la orientación de las carillas. La pared abdominal es el motor concéntrico que inicia y produce la flexión del tronco; una vez vencido el punto de equilibrio, el erector espinal torácico controla excéntricamente el descenso. Aunque la pared abdominal pertenece a la región lumbar, se ilumina aquí porque mueve todo el tronco. Aquí no aparece una cifra medida, y es a propósito: la revisión sistemática de Esteban-González (2022), con 48 estudios, 2365 sujetos sanos y 11.892 mediciones, concluye que los valores torácicos de unos aparatos y otros son muy dispares entre sí porque cada herramienta aplica su propio protocolo. Sin patrón de medida común no hay media que se pueda defender, así que el arco se da como referencia y nada más.',
   region: 'thoracic',
   phases: [
     {
@@ -152,7 +152,7 @@ const extension: RomMovement = {
   totalRangeDeg: { min: 0, max: 25 },
   rangeCite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'oatis', pageVerified: false }],
   overview:
-    'Extensión de la columna torácica, hasta unos 20-25 grados, limitada por las apófisis espinosas y la caja torácica. El erector espinal torácico es el motor concéntrico; el transversoespinoso estabiliza segmento a segmento.',
+    'Extensión de la columna torácica, hasta unos 20-25 grados, limitada por las apófisis espinosas y la caja torácica. El erector espinal torácico es el motor concéntrico; el transversoespinoso estabiliza segmento a segmento. Aquí no aparece una cifra medida, y es a propósito: la revisión sistemática de Esteban-González (2022), con 48 estudios, 2365 sujetos sanos y 11.892 mediciones, concluye que los valores torácicos de unos aparatos y otros son muy dispares entre sí porque cada herramienta aplica su propio protocolo. Sin patrón de medida común no hay media que se pueda defender, así que el arco se da como referencia y nada más.',
   region: 'thoracic',
   phases: [
     {
@@ -241,7 +241,7 @@ const lateralFlexion: RomMovement = {
   totalRangeDeg: { min: 0, max: 30 },
   rangeCite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'oatis', pageVerified: false }],
   overview:
-    'Inclinación lateral de la columna torácica, hasta unos 20-30 grados, limitada por la caja torácica. El erector espinal y el oblicuo externo ipsilaterales producen el movimiento; el cuadrado lumbar fija la base y los músculos contralaterales frenan excéntricamente. Los abdominales y el cuadrado lumbar viven en la región lumbar pero participan en la inclinación de todo el tronco.',
+    'Inclinación lateral de la columna torácica, hasta unos 20-30 grados, limitada por la caja torácica. El erector espinal y el oblicuo externo ipsilaterales producen el movimiento; el cuadrado lumbar fija la base y los músculos contralaterales frenan excéntricamente. Los abdominales y el cuadrado lumbar viven en la región lumbar pero participan en la inclinación de todo el tronco. Aquí no aparece una cifra medida, y es a propósito: la revisión sistemática de Esteban-González (2022), con 48 estudios, 2365 sujetos sanos y 11.892 mediciones, concluye que los valores torácicos de unos aparatos y otros son muy dispares entre sí porque cada herramienta aplica su propio protocolo. Sin patrón de medida común no hay media que se pueda defender, así que el arco se da como referencia y nada más.',
   region: 'thoracic',
   phases: [
     {
@@ -329,7 +329,7 @@ const rotation: RomMovement = {
   totalRangeDeg: { min: 0, max: 35 },
   rangeCite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'oatis', pageVerified: false }],
   overview:
-    'Rotación de la columna torácica, hasta unos 30-35 grados. Es la región del raquis donde más rotación se produce: la orientación de las carillas torácicas la favorece. El transversoespinoso contralateral es el motor profundo, pero el gran motor de la rotación del tronco son los oblicuos abdominales cruzados, que aunque pertenecen a la región lumbar rotan toda la caja torácica.',
+    'Rotación de la columna torácica, hasta unos 30-35 grados. Es la región del raquis donde más rotación se produce: la orientación de las carillas torácicas la favorece. El transversoespinoso contralateral es el motor profundo, pero el gran motor de la rotación del tronco son los oblicuos abdominales cruzados, que aunque pertenecen a la región lumbar rotan toda la caja torácica. Aquí no aparece una cifra medida, y es a propósito: la revisión sistemática de Esteban-González (2022), con 48 estudios, 2365 sujetos sanos y 11.892 mediciones, concluye que los valores torácicos de unos aparatos y otros son muy dispares entre sí porque cada herramienta aplica su propio protocolo. Sin patrón de medida común no hay media que se pueda defender, así que el arco se da como referencia y nada más.',
   region: 'thoracic',
   phases: [
     {
