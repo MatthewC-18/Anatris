@@ -5,9 +5,24 @@
 // HONESTY: sensitivity/specificity vary widely by study, degree of pathology
 // and positivity criterion. Every metric set carries verified:false and points
 // to a source until the exact numbers are checked against the primary study.
-// The point estimates below are the commonly cited textbook values (Magee,
-// Orthopedic Physical Assessment; Reiman et al. systematic reviews) and MUST be
-// verified before publishing.
+//
+// ESTADO DE LA VERIFICACION (2026-11-04). Las ocho pruebas citaban un manual y
+// nada mas: cero PubMed, cero forma de comprobar la cifra. Cuatro ya apuntan al
+// ESTUDIO PRIMARIO, y la cifra que ese estudio respalda esta en su resumen
+// publico, asi que cualquiera puede comprobarla sin acceso de biblioteca:
+//
+//   hip-trendelenburg   Bird 2001       72,7% / 76,9%   (las DOS cifras)
+//   hip-fadir           Reiman 2015     sensibilidad agrupada 0,94
+//   hip-resisted-flexion Maslowski 2010 especificidad 0,32
+//   hip-faber           Maslowski 2010  contraste: sensibilidad 0,82
+//
+// Cuando una fuente respalda solo UNA de las dos cifras, el `locator` lo dice y
+// la otra se queda citando el manual sin verificar: el aviso del bloque de
+// probabilidad post-test salta si CUALQUIERA de las fuentes esta sin comprobar,
+// no solo si lo estan todas.
+//
+// Siguen sin fuente primaria: scour, log roll, Thomas y Ober (estas dos ultimas
+// son pruebas de longitud muscular y no llevan cifras).
 //
 // DEMO: each test maps to a driveable hip movementId (from hipRom.ts) plus a
 // note documenting the parts of the composite maneuver the single-axis rig can
@@ -31,7 +46,7 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     metrics: {
       sensitivity: 94,
       specificity: 25,
-      note: 'Muy sensible pero poco específica; útil para descartar. Rango amplio según estudio (sens. ~88-99%).',
+      note: 'Sensibilidad agrupada 0,94 (IC 95% 0,90-0,97) en el metanálisis de Reiman. La especificidad es baja y dispar entre estudios: el positivo aislado no confirma nada.',
     },
     utility: 'rule-out',
     interpretation:
@@ -45,7 +60,14 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       highlightMuscleId: 'iliacus',
       note: 'El rig muestra la rotación interna; la maniobra real se hace en 90° de flexión + aducción.',
     },
-    cite: [{ ref: 'magee', verified: false }],
+    cite: [
+      {
+        ref: 'reiman-2015',
+        verified: true,
+        locator: 'Sensibilidad agrupada 0,94 (IC 95% 0,90-0,97), en el resumen',
+      },
+      { ref: 'magee', verified: false, locator: 'Especificidad (tablas del texto completo)' },
+    ],
   },
   {
     id: 'hip-faber',
@@ -62,7 +84,7 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     metrics: {
       sensitivity: 60,
       specificity: 18,
-      note: 'Especificidad baja; localizar el dolor (inguinal vs posterior) aporta más que el sí/no.',
+      note: 'Especificidad baja; localizar el dolor (inguinal vs posterior) aporta más que el sí/no. La sensibilidad varía mucho con el patrón de referencia: 0,82 (IC 95% 0,57-0,96) frente a bloqueo intraarticular en Maslowski.',
     },
     utility: 'balanced',
     interpretation:
@@ -73,7 +95,14 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       side: 'R',
       note: 'El rig muestra la rotación externa; la posición real combina flexión + abducción + rotación externa.',
     },
-    cite: [{ ref: 'magee', verified: false }],
+    cite: [
+      { ref: 'magee', verified: false, locator: 'Cifras mostradas (sensibilidad y especificidad)' },
+      {
+        ref: 'maslowski-2010',
+        verified: true,
+        locator: 'Sensibilidad 0,82 (IC 95% 0,57-0,96) frente a bloqueo intraarticular',
+      },
+    ],
   },
   {
     id: 'hip-scour',
@@ -200,7 +229,7 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     metrics: {
       sensitivity: 73,
       specificity: 77,
-      note: 'Estimaciones variables; mejora combinada con dolor a la palpación del trocánter.',
+      note: 'Medido sobre 24 mujeres con dolor trocantéreo, con la RM como patrón: 72,7% y 76,9%. Fue el más exacto Y el más fiable de los tres signos comparados; mejora combinado con dolor a la palpación del trocánter.',
     },
     utility: 'balanced',
     interpretation:
@@ -212,7 +241,13 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       highlightMuscleId: 'gluteus-medius',
       note: 'El rig muestra la abducción activa; el signo se valora en carga monopodal.',
     },
-    cite: [{ ref: 'magee', verified: false }],
+    cite: [
+      {
+        ref: 'bird-2001',
+        verified: true,
+        locator: 'Sensibilidad 72,7% y especificidad 76,9%, en el resumen',
+      },
+    ],
   },
   {
     id: 'hip-resisted-flexion',
@@ -228,7 +263,7 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     metrics: {
       sensitivity: 59,
       specificity: 32,
-      note: 'Metricas modestas; interpretar dentro de un cluster.',
+      note: 'Fue la MÁS específica de las cuatro maniobras comparadas frente a bloqueo intraarticular, y aun así sólo 0,32 (IC 95% 0,14-0,55): en la cadera ninguna prueba aislada confirma nada.',
     },
     utility: 'weak',
     interpretation:
@@ -241,6 +276,13 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       resisted: true,
       note: 'El rig muestra la flexión resistida (mano del terapeuta oponiéndose).',
     },
-    cite: [{ ref: 'magee', verified: false }],
+    cite: [
+      {
+        ref: 'maslowski-2010',
+        verified: true,
+        locator: 'Especificidad 0,32 (IC 95% 0,14-0,55), en el resumen',
+      },
+      { ref: 'magee', verified: false, locator: 'Sensibilidad' },
+    ],
   },
 ];

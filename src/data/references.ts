@@ -40,6 +40,21 @@ export interface Reference {
   pmid?: string;
   /** Digital Object Identifier (fallback link when no pmid). */
   doi?: string;
+  /**
+   * A QUIEN se midió: tamaño y tipo de muestra, tal como lo dice la fuente.
+   *
+   * Una sensibilidad del 94% no significa lo mismo medida sobre 24 mujeres de
+   * una consulta de reumatología que sobre un metanálisis de nueve estudios, y
+   * hasta ahora la ficha enseñaba la cifra sin decir sobre quién se obtuvo. El
+   * campo es opcional: una referencia sin él se dibuja igual que antes.
+   */
+  sample?: string;
+  /**
+   * CONTRA QUE se comparó (patrón de referencia): artroscopia, RM, bloqueo
+   * intraarticular... Es lo que decide qué significa "positivo", y dos estudios
+   * de la misma prueba con patrones distintos no son comparables.
+   */
+  standard?: string;
 }
 
 /**
@@ -605,6 +620,55 @@ export const REFERENCES: Record<string, Reference> = {
     publisher: 'J Orthop Sports Phys Ther',
     year: 2013,
     note: 'Guía de práctica clínica de capsulitis adhesiva (hombro congelado): patrón capsular, RE la más limitada.',
+  },
+
+  // ----- Cadera: fuentes PRIMARIAS de las cifras que antes sólo citaban Magee -----
+  //
+  // Las ocho pruebas de cadera mostraban su sensibilidad y su especificidad
+  // apoyadas en un manual, sin PubMed y sin forma de comprobarlas: 0 de 8
+  // verificadas. Estas tres entradas son los estudios de los que salen esas
+  // cifras, y en cada una el número está en el RESUMEN público, de modo que se
+  // puede comprobar sin acceso de biblioteca.
+  'bird-2001': {
+    id: 'bird-2001',
+    pmid: '11592379',
+    authors: 'Bird PA, Oakley SP, Shnier R, Kirkham BW',
+    title:
+      'Prospective evaluation of magnetic resonance imaging and physical examination findings in patients with greater trochanteric pain syndrome',
+    edition: '',
+    publisher: 'Arthritis Rheum',
+    year: 2001,
+    sample: '24 mujeres con síndrome doloroso del trocánter mayor (mediana 58 años)',
+    standard: 'RM 1,5 T: rotura del tendón del glúteo medio',
+    note: 'Signo de Trendelenburg: sensibilidad 72,7% y especificidad 76,9%, el más exacto y el más fiable de los tres signos estudiados (kappa intraobservador 0,676).',
+  },
+
+  'reiman-2015': {
+    id: 'reiman-2015',
+    pmid: '25515771',
+    authors: 'Reiman MP, Goode AP, Cook CE, Hölmich P, Thorborg K',
+    title:
+      'Diagnostic accuracy of clinical tests for the diagnosis of hip femoroacetabular impingement/labral tear: a systematic review with meta-analysis',
+    edition: '',
+    publisher: 'Br J Sports Med',
+    year: 2015,
+    sample: 'Metanálisis de 9 estudios (de 21 localizados; sólo 1 de alta calidad)',
+    standard: 'Pinzamiento femoroacetabular / rotura del labrum confirmados por imagen o artroscopia',
+    note: 'FADIR: sensibilidad agrupada 0,94 (IC 95% 0,90-0,97). Los autores concluyen que sólo sirve como CRIBADO, no para confirmar.',
+  },
+
+  'maslowski-2010': {
+    id: 'maslowski-2010',
+    pmid: '20359681',
+    authors: 'Maslowski E, Sullivan W, Forster Harwood J, et al.',
+    title:
+      'The diagnostic validity of hip provocation maneuvers to detect intra-articular hip pathology',
+    edition: '',
+    publisher: 'PM R',
+    year: 2010,
+    sample: '50 pacientes derivados para infiltración intraarticular de cadera',
+    standard: 'Mejoría ≥80% en la escala visual analógica tras bloqueo anestésico intraarticular guiado por fluoroscopia',
+    note: 'Maniobra de Stinchfield (flexión resistida): la MÁS específica de las cuatro estudiadas, y aun así sólo 0,32 (IC 95% 0,14-0,55). FABER: sensibilidad 0,82 (IC 95% 0,57-0,96).',
   },
 };
 

@@ -15,6 +15,7 @@ import { casesForRegion } from '../../data/clinicalCases';
 import { goToTestInLab, testForStep } from '../../lib/caseEvidence';
 import { optionLetter, shuffledCaseOptions } from '../../lib/caseOptions';
 import type { ClinicalCase, CaseStep } from '../../types/clinicalCase';
+import type { OrthopedicTest } from '../../types/orthopedicTest';
 
 interface CaseViewProps {
   region: string;
@@ -361,6 +362,15 @@ function StepEvidence({ region, step }: { region: string; step: CaseStep }) {
           <span className="ml-1.5 text-amber-500/90">· cifra sin verificar contra la fuente</span>
         )}
       </p>
+      {/* SOBRE QUIEN se midio la cifra que acaba de ver.
+          Es la diferencia entre ensenar un numero y ensenar una prueba: el
+          alumno que lee "sensibilidad 73%" sin saber que sale de 24 mujeres
+          con dolor trocantereo comparadas contra resonancia no ha aprendido a
+          leer evidencia, solo a memorizar una cifra. Se dibuja solo donde la
+          fuente lo trae, asi que no deja hueco en las que aun no lo tienen. */}
+      {studyScope(test) && (
+        <p className="mt-1 text-[11px] leading-relaxed text-slate-600">{studyScope(test)}</p>
+      )}
       {test.demo && (
         <button
           type="button"
@@ -375,6 +385,21 @@ function StepEvidence({ region, step }: { region: string; step: CaseStep }) {
       )}
     </div>
   );
+}
+
+/**
+ * Muestra y patron de referencia de las fuentes de una prueba, en una linea.
+ *
+ * Devuelve cadena vacia cuando ninguna de las fuentes trae esos datos, que es
+ * todavia el caso de la mayoria: el bloque entero no se dibuja.
+ */
+function studyScope(test: OrthopedicTest): string {
+  const partes = test.cite
+    .map((c) => REFERENCES[c.ref])
+    .filter((r): r is NonNullable<typeof r> => Boolean(r))
+    .map((r) => [r.sample, r.standard].filter(Boolean).join(' · '))
+    .filter(Boolean);
+  return [...new Set(partes)].join(' | ');
 }
 
 /**

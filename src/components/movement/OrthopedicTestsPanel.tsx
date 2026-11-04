@@ -214,7 +214,16 @@ function FaganBlock({
 }: {
   metrics: DiagnosticMetrics;
   pretest: number;
-  /** True cuando NINGUNA de las fuentes de este test esta comprobada. */
+  /**
+   * True cuando ALGUNA de las fuentes de este test esta sin comprobar.
+   *
+   * Antes la condicion era "ninguna comprobada", y eso dejaba un hueco: una
+   * prueba cuya SENSIBILIDAD sale de un metanalisis comprobado y cuya
+   * ESPECIFICIDAD sigue saliendo de un manual tenia una cita verificada, asi
+   * que el aviso desaparecia... y el numero que calcula este bloque sale de las
+   * dos cifras. Basta una sin comprobar para que la probabilidad posterior
+   * herede la duda.
+   */
   unverified: boolean;
 }) {
   const lrPos = lrPosNum(metrics);
@@ -778,7 +787,7 @@ function TestRow({
             <FaganBlock
               metrics={test.metrics}
               pretest={pretest}
-              unverified={test.cite.length > 0 && test.cite.every((c) => !c.verified)}
+              unverified={test.cite.some((c) => !c.verified)}
             />
           )}
 
@@ -793,22 +802,42 @@ function TestRow({
               {test.pearl}
             </p>
           )}
-          <div className="space-y-0.5 pt-0.5">
+          {/* LA FICHA DE LA FUENTE, no solo su nombre.
+              Una sensibilidad del 94% no significa lo mismo medida sobre 24
+              mujeres de una consulta que en un metanalisis de nueve estudios,
+              ni comparada contra una resonancia que contra un bloqueo
+              anestesico. Eso es justo lo que un fisio necesita para decidir si
+              la cifra le sirve, y hasta ahora no estaba: la cita era una linea
+              gris con el titulo. Ahora cada fuente dice QUE cifra respalda
+              (`locator`), SOBRE QUIEN se midio (`sample`) y CONTRA QUE
+              (`standard`). Los tres campos son opcionales: una fuente que no
+              los traiga se dibuja exactamente como antes. */}
+          <div className="space-y-1.5 pt-0.5">
             {test.cite.map((c) => {
               const ref = getReference(c.ref as ReferenceId);
               if (!ref) return null;
               return (
-                <p key={c.ref} className="text-[11px] leading-snug text-slate-500">
-                  {formatReference(ref)}
-                  {!c.verified && (
-                    <span
-                      className="ml-1.5 text-amber-500/80"
-                      title="Valores por verificar contra la fuente primaria"
-                    >
-                      por verificar
-                    </span>
+                <div key={c.ref} className="text-[11px] leading-snug text-slate-500">
+                  <p>
+                    {formatReference(ref)}
+                    {!c.verified && (
+                      <span
+                        className="ml-1.5 text-amber-500/80"
+                        title="Valores por verificar contra la fuente primaria"
+                      >
+                        por verificar
+                      </span>
+                    )}
+                  </p>
+                  {c.locator && <p className="text-slate-400">{c.locator}</p>}
+                  {(ref.sample || ref.standard) && (
+                    <p className="text-slate-600">
+                      {ref.sample}
+                      {ref.sample && ref.standard ? ' · ' : ''}
+                      {ref.standard}
+                    </p>
                   )}
-                </p>
+                </div>
               );
             })}
           </div>
