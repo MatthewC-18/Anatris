@@ -32,7 +32,7 @@ const ELEVATION_IDS = new Set(['glenohumeral-abduction', 'glenohumeral-flexion']
 const SECTOR_DEG = [30, 90, 120, 150];
 
 const DEG = Math.PI / 180;
-const ACCENT = 0x22d3ee;
+const ACCENT = 0x4fb6c7;
 const AMBER = 0xfbbf24;
 
 // Dial radius as a FRACTION of the upper-arm length. A real goniometer's dial sits

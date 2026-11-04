@@ -640,17 +640,25 @@ export const BONE_MAP: Record<string, BoneControl> = {
   // to 105 deg, then climbs -- 0.5% of calf verts >3 cm inside the thigh at 120 deg,
   // 2.3% at 140 deg). 105 deg is where this figure's calf first meets its thigh, so
   // it reads as a real deep-flexion pose that stops at soft-tissue apposition rather
-  // than clipping. The TRUE active ROM (~120 deg hip-extended, ~140 deg hip-flexed,
-  // ~160 deg passive heel-to-buttock; Kapandji/Neumann) is taught in kneeRom.ts.
-  // knee-extension shares this arc and starts at its flexed extreme, so it too opens
-  // on the clean 105 deg pose instead of an over-folded, clipping one.
+  // than clipping. The arc now runs to the AAOS reference 135 deg; the deeper
+  // values (~140 hip-flexed, ~160 passive heel-to-buttock; Kapandji/Neumann) stay
+  // in kneeRom.ts's text, because past ~140 the overlap stops reading as flesh
+  // pressing together. knee-extension shares this arc and starts at its flexed
+  // extreme, so it opens on that same pose.
   'knee-flexion': {
     kind: 'joint',
     armatureBase: 'Leg_Armature',
     bone: 'shin_flex',
     axis: 'x',
     sign: { R: -1, L: 1 },
-    clinicalRange: { min: 0, max: 105 },
+    // RAISED 105 -> 135 on 2026-11-03, the AAOS reference value. 105 was a mesh
+    // limit displayed as if it were the clinical range. Two things let it go:
+    // the knee skin no longer tears (src/lib/rigSkinRepair.ts), and the calf's
+    // overlap with the thigh was measured rather than guessed -- at 135 deg it
+    // is 2,8 cm over 1,1% of the calf skin, in the popliteal region where real
+    // flesh presses together. See scripts/measure-knee-fold.mts and the header
+    // of src/data/kneeRom.ts.
+    clinicalRange: { min: 0, max: 135 },
     couplings: [patellarGlide],
   },
   'knee-extension': {
@@ -663,12 +671,11 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // RETURN toward 0 (shown with the quadriceps and started from the flexed
     // end), NOT a rotation past 0, which would kick the shin up into an
     // impossible forward hyperextension.
-    // Max 105 deg, matching knee-flexion (a MESH-clipping limit, not a clinical
-    // one): extension starts at that clean flexed pose where the calf just meets
-    // the thigh, not an over-folded angle where the calf mesh clips through it.
-    // See knee-flexion for the offline interpenetration measurements.
+    // Max 135 deg, matching knee-flexion: extension starts at the AAOS reference
+    // flexion rather than at the old mesh limit. See knee-flexion for the
+    // interpenetration measurements that allowed the raise.
     sign: { R: -1, L: 1 },
-    clinicalRange: { min: 0, max: 105 },
+    clinicalRange: { min: 0, max: 135 },
     couplings: [patellarGlide],
     // Starts bent and straightens, like elbow extension.
     arcFrom: 'max',

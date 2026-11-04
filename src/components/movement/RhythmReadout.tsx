@@ -123,7 +123,7 @@ function citeLabel(cites: Citation[]): string {
 // Segment colors for the humero-escapulo-raquideo rhythm bar (distinct from the
 // muscle-role hues so the two readouts never get confused).
 const SEG = {
-  humerus: { hex: '#22d3ee', dot: 'bg-cyan-400', text: 'text-cyan-300', label: 'Húmero' },
+  humerus: { hex: '#4fb6c7', dot: 'bg-cyan-400', text: 'text-cyan-300', label: 'Húmero' },
   scapula: { hex: '#fbbf24', dot: 'bg-amber-400', text: 'text-amber-300', label: 'Escápula' },
   trunk: { hex: '#34d399', dot: 'bg-emerald-400', text: 'text-emerald-300', label: 'Tronco' },
 } as const;
@@ -547,14 +547,14 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
         <svg viewBox="0 0 200 100" className="h-full w-full" aria-hidden="true">
           <defs>
             <linearGradient id="rr-arc" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#0891b2" />
-              <stop offset="55%" stopColor="#22d3ee" />
-              <stop offset="100%" stopColor="#67e8f9" />
+              <stop offset="0%" stopColor="#2b8495" />
+              <stop offset="55%" stopColor="#4fb6c7" />
+              <stop offset="100%" stopColor="#86d2de" />
             </linearGradient>
           </defs>
 
           {/* Track */}
-          <path d={arcPath(0, 1)} fill="none" stroke="#1e293b" strokeWidth={9} strokeLinecap="round" />
+          <path d={arcPath(0, 1)} fill="none" stroke="#24272d" strokeWidth={9} strokeLinecap="round" />
 
           {/* Active sector highlight (the phase the current angle is in) */}
           {at && (
@@ -626,7 +626,7 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
             cx={knob.x}
             cy={knob.y}
             r={5}
-            fill="#22d3ee"
+            fill="#4fb6c7"
             stroke="#0b1120"
             strokeWidth={2}
             style={{ transition: 'all 150ms ease-out' }}

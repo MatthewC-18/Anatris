@@ -538,7 +538,7 @@ export function MovementControls({
             type="button"
             onClick={togglePlay}
             disabled={!drivable}
-            className="flex shrink-0 items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink-950 shadow-[0_0_22px_-6px_rgba(34,211,238,0.75)] transition-colors hover:bg-accent-soft disabled:opacity-50 sm:text-base"
+            className="flex shrink-0 items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink-950 shadow-[0_0_22px_-6px_rgba(79,182,199,0.75)] transition-colors hover:bg-accent-soft disabled:opacity-50 sm:text-base"
           >
             {playing ? <PauseIcon size={16} /> : <PlayIcon size={16} />}
             {playing ? 'Pausar' : 'Ver movimiento'}

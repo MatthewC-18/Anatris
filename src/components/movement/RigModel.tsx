@@ -28,6 +28,7 @@ import {
   type Side,
   type RigAxis,
 } from '../../lib/boneMap';
+import { blendKneeSkin, kneeHeight, KNEE_SKIN_REACH_M } from '../../lib/rigSkinRepair';
 import {
   colorForMaterial,
   colorForMaterialMesh,
@@ -1637,6 +1638,11 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // forearm. Half the arm skin patches ship mis-bound to forearm_flex.
       const UPPER_ARM_Y = ELBOW_Y + 0.08;
 
+      // Knee height, for the knee-skin blend (src/lib/rigSkinRepair.ts). Read
+      // off the leg armatures for the same reason as the elbow: a rig
+      // re-export must not silently move the band.
+      const KNEE_Y = kneeHeight(scene);
+
       // TWIST BONE per arm (see smoothTwistForearm). Built here rather than in
       // the GLB so no re-export is needed: it shares forearm_rot's rest
       // transform, hangs off forearm_flex as its sibling, and is spliced into
@@ -2117,6 +2123,13 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
             if (center.y > UPPER_ARM_Y) rigidBindTo(mesh, 'humerus_gh');
             else if (center.y < ELBOW_Y)
               smoothTwistForearm(mesh, ELBOW_Y, WRIST_Y, twistFor(mesh));
+          }
+          // The knee's skin ships as rigid region patches on three bones that
+          // move by three different amounts -- the anterior patch rides the
+          // PATELLA, which glides at half the knee angle -- so the joint tore
+          // open from 45 deg of flexion. Blend them into one sheet instead.
+          else if (Math.abs(center.y - KNEE_Y) < KNEE_SKIN_REACH_M) {
+            blendKneeSkin(mesh, KNEE_Y);
           }
           swap(mesh, bodySkinMat);
           mesh.userData.rigLayer = 'skin';

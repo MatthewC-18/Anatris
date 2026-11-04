@@ -124,7 +124,7 @@ function Ring({ pct }: { pct: number }) {
         cy="16"
         r={r}
         fill="none"
-        stroke="#22d3ee"
+        stroke="#4fb6c7"
         strokeWidth="4"
         strokeLinecap="round"
         strokeDasharray={c}

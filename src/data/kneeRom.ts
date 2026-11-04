@@ -42,28 +42,40 @@
 import type { RomMovement, RomMovementIndex } from '../types/rom';
 
 /* ===========================================================================
- * FLEXION (femoro-tibial), 0 -> ~105 deg SHOWN in the lab, sagittal
+ * FLEXION (femoro-tibial), 0 -> 135 deg, sagittal
  *
- * IMPORTANT: 105 deg is a MODEL/mesh limit, not the clinical ROM. The rig folds
- * the calf as a rigid block with no soft-tissue compression, so past ~110 deg the
- * calf mesh drives THROUGH the thigh. 105 deg is where this figure's calf meets its
- * thigh, so the lab stops there and reads clean. The TRUE active ROM is ~120 deg
- * with the hip extended (rectus femoris limit), ~140 deg with the hip flexed, and
- * ~160 deg passive (heel to buttock) -- stated in the overview so teaching stays
- * honest. See boneMap.ts knee-flexion for the interpenetration measurements.
+ * RAISED FROM 105 TO 135 on 2026-11-03. 105 was a mesh limit shown as if it were
+ * the range, and a physio reading "arco 0 a 105" reads a norm that is 30 deg
+ * short: 135 is the AAOS reference value for knee flexion.
+ *
+ * The cap existed because the calf used to drive through the thigh. Two things
+ * changed. The knee skin no longer tears (src/lib/rigSkinRepair.ts: the anterior
+ * patch used to ride the gliding PATELLA and detach), and the overlap was
+ * finally measured instead of eyeballed -- scripts/measure-knee-fold.mts, calf
+ * skin inside the thigh's own cross-section:
+ *
+ *      105 deg ->  4 of 972 vertices (0,4%), deepest 1,2 cm
+ *      120 deg ->  7 (0,7%), deepest 2,1 cm
+ *      135 deg -> 11 (1,1%), deepest 2,8 cm
+ *      150 deg -> 10 (1,0%), deepest 3,0 cm   <- reads as merged, not pressed
+ *
+ * At 135 the overlap is a 1% patch in the popliteal region, which is exactly
+ * where calf and hamstring flesh press together in a real deep knee bend. Past
+ * ~140 it stops looking like compression and starts looking like a bug, so the
+ * deeper values (~140 hip-flexed, ~160 passive heel-to-buttock) stay in text.
  * ======================================================================== */
 const flexion: RomMovement = {
   id: 'knee-flexion',
   name: 'Flexión',
   joint: 'Femorotibial',
   plane: 'Sagital',
-  totalRangeDeg: { min: 0, max: 105 },
+  totalRangeDeg: { min: 0, max: 135 },
   rangeCite: [
     { ref: 'kapandji', pageVerified: false },
     { ref: 'oatis', pageVerified: false },
   ],
   overview:
-    'Flexión de la pierna sobre el muslo en el plano sagital. En el modelo el pliegue se muestra hasta unos 105 grados, donde la pantorrilla ya contacta el muslo; más allá, sin la compresión de los tejidos blandos, las mallas rígidas de pantorrilla y muslo se solaparían. En la persona la flexión activa llega a ~120 grados con la cadera extendida (el recto femoral, biarticular, la frena) y a ~140 grados con la cadera flexionada, y de forma pasiva a ~160 grados (talón al glúteo). El poplíteo "desbloquea" la rodilla extendida rotando la tibia internamente; luego los isquiotibiales lideran la flexión. El gastrocnemio asiste solo con el tobillo libre.',
+    'Flexión de la pierna sobre el muslo en el plano sagital. El arco llega a 135 grados, el valor de referencia de la AAOS. Con la cadera extendida la flexión activa se queda en ~120 porque el recto femoral, biarticular, la frena; con la cadera flexionada alcanza ~140, y de forma pasiva ~160 (talón al glúteo), un tramo final que el modelo no dibuja porque sin compresión de los tejidos blandos la pantorrilla atravesaría el muslo. El poplíteo "desbloquea" la rodilla extendida rotando la tibia internamente; luego los isquiotibiales lideran la flexión. El gastrocnemio asiste solo con el tobillo libre.',
   region: 'knee',
   rig: { axis: [1, 0, 0] },
   phases: [
@@ -126,7 +138,7 @@ const flexion: RomMovement = {
     },
     {
       startDeg: 90,
-      endDeg: 105,
+      endDeg: 135,
       label: 'Final',
       description:
         'Cerca de este punto la pantorrilla contacta el muslo (el modelo se detiene aquí para no atravesarlo). De pie (cadera extendida), la flexión activa real se frena hacia los 120 grados por la tensión del recto femoral (insuficiencia pasiva) y los isquiotibiales trabajan acortados (insuficiencia activa creciente). Con la cadera flexionada el recto femoral se relaja y el arco continúa hasta ~140 grados, limitado entonces por el choque de la pantorrilla con el muslo.',
@@ -148,7 +160,7 @@ const flexion: RomMovement = {
         { deg: 0, level: 1 },
         { deg: 20, level: 0.5 },
         { deg: 40, level: 0.25 },
-        { deg: 105, level: 0.15 },
+        { deg: 135, level: 0.15 },
       ],
     },
     {
@@ -159,7 +171,7 @@ const flexion: RomMovement = {
         { deg: 0, level: 0.3 },
         { deg: 20, level: 0.6 },
         { deg: 90, level: 1 },
-        { deg: 105, level: 0.9 },
+        { deg: 135, level: 0.9 },
       ],
     },
     {
@@ -170,7 +182,7 @@ const flexion: RomMovement = {
         { deg: 0, level: 0.3 },
         { deg: 20, level: 0.6 },
         { deg: 90, level: 0.95 },
-        { deg: 105, level: 0.7 },
+        { deg: 135, level: 0.7 },
       ],
     },
     {
@@ -181,7 +193,7 @@ const flexion: RomMovement = {
         { deg: 10, level: 0.2 },
         { deg: 20, level: 0.55 },
         { deg: 90, level: 0.95 },
-        { deg: 105, level: 0.7 },
+        { deg: 135, level: 0.7 },
       ],
     },
     {
@@ -192,7 +204,7 @@ const flexion: RomMovement = {
         { deg: 0, level: 0.1 },
         { deg: 20, level: 0.35 },
         { deg: 90, level: 0.5 },
-        { deg: 105, level: 0.4 },
+        { deg: 135, level: 0.4 },
       ],
     },
     {
@@ -202,7 +214,7 @@ const flexion: RomMovement = {
       curve: [
         { deg: 0, level: 0.15 },
         { deg: 40, level: 0.35 },
-        { deg: 105, level: 0.4 },
+        { deg: 135, level: 0.4 },
       ],
     },
     {
@@ -212,7 +224,7 @@ const flexion: RomMovement = {
       curve: [
         { deg: 0, level: 0.15 },
         { deg: 40, level: 0.35 },
-        { deg: 105, level: 0.4 },
+        { deg: 135, level: 0.4 },
       ],
     },
     {
@@ -222,29 +234,28 @@ const flexion: RomMovement = {
       curve: [
         { deg: 60, level: 0.1 },
         { deg: 90, level: 0.25 },
-        { deg: 105, level: 0.3 },
+        { deg: 135, level: 0.3 },
       ],
     },
   ],
 };
 
 /* ===========================================================================
- * EXTENSION (return from flexion), ~105 -> 0 deg SHOWN in the lab, sagittal
+ * EXTENSION (return from flexion), 135 -> 0 deg, sagittal
  *
  * Shares the flexion arc and STARTS at its flexed extreme (labStartAt 'max'), so
- * it opens on the same clean ~105 deg pose (calf just meeting the thigh), not an
- * over-folded angle where the calf mesh clips through. See the FLEXION header and
- * boneMap.ts knee-flexion.
+ * it opens on the AAOS reference flexion rather than on a mesh limit. See the
+ * FLEXION header for the interpenetration measurements.
  * ======================================================================== */
 const extension: RomMovement = {
   id: 'knee-extension',
   name: 'Extensión',
   joint: 'Femorotibial',
   plane: 'Sagital',
-  totalRangeDeg: { min: 0, max: 105 },
+  totalRangeDeg: { min: 0, max: 135 },
   rangeCite: [{ ref: 'kapandji', pageVerified: false }],
   overview:
-    'Extensión de la pierna desde la flexión hasta la posición neutra (0 grados). El cuádriceps es el único extensor. En los últimos 30 grados aparece el mecanismo de tornillo: la tibia rota externamente de forma automática y bloquea la rodilla en bipedestación con bajo coste muscular. Un valor negativo indicaría genu recurvatum (hiperextensión). En el modelo el recorrido parte de la flexión de contacto pantorrilla-muslo (~105 grados, límite de la malla); en la persona la flexión de partida es de ~120 grados (cadera extendida) a ~140 grados (cadera flexionada).',
+    'Extensión de la pierna desde la flexión hasta la posición neutra (0 grados). El cuádriceps es el único extensor. En los últimos 30 grados aparece el mecanismo de tornillo: la tibia rota externamente de forma automática y bloquea la rodilla en bipedestación con bajo coste muscular. Un valor negativo indicaría genu recurvatum (hiperextensión). El recorrido parte de 135 grados, el valor de referencia de la AAOS; en la persona la flexión de partida va de ~120 grados (cadera extendida) a ~140 (cadera flexionada).',
   region: 'knee',
   rig: { axis: [1, 0, 0] },
   // Lab: la extension recorre el MISMO arco que la flexion (0 = rodilla recta,
@@ -295,10 +306,10 @@ const extension: RomMovement = {
     },
     {
       startDeg: 90,
-      endDeg: 105,
+      endDeg: 135,
       label: 'Inicio (desde flexión máxima)',
       description:
-        'Al iniciar la extensión desde la flexión de partida (~105 grados en el modelo; ~120 de pie en la persona), el recto femoral está preestirado si la cadera está extendida; con la cadera flexionada sufre insuficiencia activa y pierde eficacia. Los vastos, monoarticulares, no dependen de la posición de la cadera.',
+        'Al iniciar la extensión desde la flexión de partida (135 grados; ~120 de pie en la persona), el recto femoral está preestirado si la cadera está extendida; con la cadera flexionada sufre insuficiencia activa y pierde eficacia. Los vastos, monoarticulares, no dependen de la posición de la cadera.',
       muscles: [
         {
           muscleId: 'rectus-femoris',
@@ -321,7 +332,7 @@ const extension: RomMovement = {
         { deg: 0, level: 1 },
         { deg: 30, level: 0.95 },
         { deg: 90, level: 0.8 },
-        { deg: 105, level: 0.65 },
+        { deg: 135, level: 0.65 },
       ],
     },
     {
@@ -332,7 +343,7 @@ const extension: RomMovement = {
         { deg: 0, level: 1 },
         { deg: 30, level: 0.9 },
         { deg: 90, level: 0.8 },
-        { deg: 105, level: 0.65 },
+        { deg: 135, level: 0.65 },
       ],
     },
     {
@@ -342,7 +353,7 @@ const extension: RomMovement = {
       curve: [
         { deg: 0, level: 0.95 },
         { deg: 90, level: 0.8 },
-        { deg: 105, level: 0.65 },
+        { deg: 135, level: 0.65 },
       ],
     },
     {
@@ -353,7 +364,7 @@ const extension: RomMovement = {
         { deg: 0, level: 0.9 },
         { deg: 30, level: 0.85 },
         { deg: 90, level: 0.75 },
-        { deg: 105, level: 0.6 },
+        { deg: 135, level: 0.6 },
       ],
     },
   ],

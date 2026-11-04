@@ -61,7 +61,7 @@ const VIEW_LABEL: Record<PlateView, string> = {
 const RIM = 'rgba(148,163,184,0.42)';
 const SHADE = '#03070f';
 const TISSUE = 'rgba(24,34,54,0.94)';
-const ACCENT = '#22d3ee';
+const ACCENT = '#4fb6c7';
 
 // Territory fill opacity by state. `IDLE` is high enough that the plate is fully
 // painted before anything is selected -- the old map dimmed to 20% and the figure

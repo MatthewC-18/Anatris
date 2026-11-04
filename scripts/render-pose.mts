@@ -27,6 +27,7 @@ import { applyMirrorRepair } from './lib/mirrorRepair.mts';
 import { pick, rasterize, writePng, type View } from './lib/raster.mts';
 import { rigGlbPath } from './lib/rigPath.mts';
 import { createRigPoser, type Side } from './lib/rigPose.mts';
+import { blendKneeSkin, kneeHeight, KNEE_SKIN_REACH_M } from '../src/lib/rigSkinRepair.ts';
 
 const MOVE = process.env.MOVE ?? 'glenohumeral-abduction';
 const DEGS = (process.env.DEG ?? '90').split(',').map(Number);
@@ -54,6 +55,35 @@ const matNameOf = (m: THREE.Mesh) => {
 };
 const inDistalRegion = (c: THREE.Vector3) =>
   (c.y > 0.6 && c.y < 0.86 && Math.abs(c.x) > 0.18) || c.y < 0.12;
+
+// The load-time skin repairs the APP applies, applied here too. Without them a
+// frame from this script is not the frame the user sees, and reviewing a
+// movement from it is worthless. Set REPAIR=off to see the raw GLB.
+if (process.env.REPAIR !== 'off') {
+  // At load the bones are identity, so a plain world centroid is the rest centre.
+  const restCentre = (m: THREE.Mesh): THREE.Vector3 | null => {
+    const pos = m.geometry.getAttribute('position');
+    if (!pos || pos.count === 0) return null;
+    const step = Math.max(1, Math.floor(pos.count / 120));
+    const v = new THREE.Vector3();
+    const acc = new THREE.Vector3();
+    let n = 0;
+    for (let i = 0; i < pos.count; i += step) {
+      v.fromBufferAttribute(pos, i);
+      m.localToWorld(v);
+      acc.add(v); n++;
+    }
+    return n > 0 ? acc.divideScalar(n) : null;
+  };
+  const kneeY = kneeHeight(scene);
+  scene.traverse((o) => {
+    const m = o as THREE.SkinnedMesh;
+    if (!m.isSkinnedMesh || !materialIsSkin(matNameOf(m))) return;
+    const c = restCentre(m);
+    if (c && Math.abs(c.y - kneeY) < KNEE_SKIN_REACH_M) blendKneeSkin(m, kneeY);
+  });
+  scene.updateMatrixWorld(true);
+}
 
 const poser = createRigPoser(scene, MOVE, SIDE, !RAW);
 

@@ -36,7 +36,7 @@ import { useAnatomyStore } from '../store/anatomyStore';
 // Plane tints (semi-transparent quads). Sagittal = accent cyan (primary),
 // frontal = violet, transverse = amber. Mirrors the ROM/lever palette so the
 // whole app speaks one color language.
-const SAGITTAL_COLOR = 0x22d3ee; // cyan accent
+const SAGITTAL_COLOR = 0x4fb6c7; // cyan accent
 const FRONTAL_COLOR = 0xa78bfa; // violet
 const TRANSVERSE_COLOR = 0xffa51e; // amber
 

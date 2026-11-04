@@ -95,9 +95,9 @@ function ContractionDiagram({ size }: { size: DiagramSize }) {
               <text x="0" y={y + 18} className="fill-slate-500" fontSize="9">
                 {r.note}
               </text>
-              <line x1={x} y1={y} x2={x + 110} y2={y} stroke="#334155" strokeWidth="1" strokeDasharray="3 3" />
-              <rect x={x} y={y - 6} width={r.to} height="12" rx="3" fill="#22d3ee" opacity="0.35" />
-              <rect x={x} y={y - 6} width={r.from} height="12" rx="3" fill="none" stroke="#22d3ee" strokeWidth="1.5" />
+              <line x1={x} y1={y} x2={x + 110} y2={y} stroke="#3c4048" strokeWidth="1" strokeDasharray="3 3" />
+              <rect x={x} y={y - 6} width={r.to} height="12" rx="3" fill="#4fb6c7" opacity="0.35" />
+              <rect x={x} y={y - 6} width={r.from} height="12" rx="3" fill="none" stroke="#4fb6c7" strokeWidth="1.5" />
             </g>
           );
         })}
@@ -109,7 +109,7 @@ function ContractionDiagram({ size }: { size: DiagramSize }) {
     <svg viewBox="0 0 460 320" className="w-full" role="img" aria-label="Tipos de contracción muscular">
       <defs>
         <marker id="cd-arrow" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 z" fill="#22d3ee" />
+          <path d="M0,0 L6,3 L0,6 z" fill="#4fb6c7" />
         </marker>
       </defs>
 
@@ -130,13 +130,13 @@ function ContractionDiagram({ size }: { size: DiagramSize }) {
             </text>
 
             {/* reference length (relaxed) */}
-            <line x1={x} y1={y - 22} x2={x} y2={y + 22} stroke="#334155" strokeWidth="1" />
+            <line x1={x} y1={y - 22} x2={x} y2={y + 22} stroke="#3c4048" strokeWidth="1" />
             <line
               x1={x}
               y1={y}
               x2={x + 260}
               y2={y}
-              stroke="#334155"
+              stroke="#3c4048"
               strokeWidth="1"
               strokeDasharray="4 4"
             />
@@ -149,12 +149,12 @@ function ContractionDiagram({ size }: { size: DiagramSize }) {
               height="26"
               rx="6"
               fill="none"
-              stroke="#22d3ee"
+              stroke="#4fb6c7"
               strokeWidth="1.5"
               strokeDasharray="5 4"
               opacity="0.75"
             />
-            <rect x={x} y={y - 13} width={r.to * 2.4} height="26" rx="6" fill="#22d3ee" opacity="0.28" />
+            <rect x={x} y={y - 13} width={r.to * 2.4} height="26" rx="6" fill="#4fb6c7" opacity="0.28" />
 
             {/* direction of the length change */}
             {r.arrow !== 'none' && (
@@ -163,7 +163,7 @@ function ContractionDiagram({ size }: { size: DiagramSize }) {
                 y1={y + 30}
                 x2={r.arrow === 'in' ? x + r.to * 2.4 + 8 : x + r.to * 2.4 - 8}
                 y2={y + 30}
-                stroke="#22d3ee"
+                stroke="#4fb6c7"
                 strokeWidth="1.6"
                 markerEnd="url(#cd-arrow)"
               />
@@ -209,7 +209,7 @@ const LEVERS = [
   },
 ];
 
-const LEVER_COLOR: Record<string, string> = { F: '#a78bfa', E: '#22d3ee', R: '#ffa51e' };
+const LEVER_COLOR: Record<string, string> = { F: '#a78bfa', E: '#4fb6c7', R: '#ffa51e' };
 const LEVER_NAME: Record<string, string> = { F: 'Fulcro', E: 'Potencia', R: 'Resistencia' };
 
 function LeverDiagram({ size }: { size: DiagramSize }) {
@@ -335,8 +335,8 @@ function KineticChainDiagram({ size }: { size: DiagramSize }) {
         <text x="0" y="30" className="fill-slate-500" fontSize="9">
           El extremo distal se mueve libre
         </text>
-        <line x1="20" y1="55" x2="80" y2="45" stroke="#22d3ee" strokeWidth="3" strokeLinecap="round" />
-        <line x1="80" y1="45" x2="140" y2="60" stroke="#22d3ee" strokeWidth="3" strokeLinecap="round" />
+        <line x1="20" y1="55" x2="80" y2="45" stroke="#4fb6c7" strokeWidth="3" strokeLinecap="round" />
+        <line x1="80" y1="45" x2="140" y2="60" stroke="#4fb6c7" strokeWidth="3" strokeLinecap="round" />
         <circle cx="80" cy="45" r="4" fill="#a78bfa" />
         <circle cx="140" cy="60" r="5" fill="#ffa51e" />
         <text x="148" y="63" className="fill-slate-500" fontSize="9">
@@ -349,8 +349,8 @@ function KineticChainDiagram({ size }: { size: DiagramSize }) {
         <text x="0" y="106" className="fill-slate-500" fontSize="9">
           El extremo distal está fijo
         </text>
-        <line x1="20" y1="128" x2="80" y2="120" stroke="#22d3ee" strokeWidth="3" strokeLinecap="round" />
-        <line x1="80" y1="120" x2="140" y2="132" stroke="#22d3ee" strokeWidth="3" strokeLinecap="round" />
+        <line x1="20" y1="128" x2="80" y2="120" stroke="#4fb6c7" strokeWidth="3" strokeLinecap="round" />
+        <line x1="80" y1="120" x2="140" y2="132" stroke="#4fb6c7" strokeWidth="3" strokeLinecap="round" />
         <circle cx="80" cy="120" r="4" fill="#a78bfa" />
         <line x1="120" y1="135" x2="160" y2="135" stroke="#64748b" strokeWidth="2" />
         <text x="148" y="128" className="fill-slate-500" fontSize="9">
@@ -385,15 +385,15 @@ function KineticChainDiagram({ size }: { size: DiagramSize }) {
       {/* thigh fixed, shin swinging */}
       <line x1="60" y1="105" x2="200" y2="105" stroke="#475569" strokeWidth="4" strokeLinecap="round" />
       <circle cx="200" cy="105" r="8" fill="#a78bfa" />
-      <line x1="200" y1="105" x2="285" y2="150" stroke="#22d3ee" strokeWidth="5" strokeLinecap="round" />
-      <line x1="200" y1="105" x2="300" y2="108" stroke="#22d3ee" strokeWidth="5" strokeLinecap="round" opacity="0.35" />
+      <line x1="200" y1="105" x2="285" y2="150" stroke="#4fb6c7" strokeWidth="5" strokeLinecap="round" />
+      <line x1="200" y1="105" x2="300" y2="108" stroke="#4fb6c7" strokeWidth="5" strokeLinecap="round" opacity="0.35" />
       <circle cx="285" cy="150" r="7" fill="#ffa51e" />
       <path d="M262 168 A 70 70 0 0 0 300 122" stroke="#ffa51e" strokeWidth="1.6" fill="none" markerEnd="url(#kc-arrow)" />
       <text x="312" y="112" className="fill-slate-400" fontSize="11">
         extremo libre
       </text>
 
-      <line x1="0" y1="196" x2="460" y2="196" stroke="#1e293b" strokeWidth="1" />
+      <line x1="0" y1="196" x2="460" y2="196" stroke="#24272d" strokeWidth="1" />
 
       {/* ---- CLOSED CHAIN ---- */}
       <text x="0" y="222" className="fill-slate-200" fontSize="14" fontWeight="600">
@@ -410,9 +410,9 @@ function KineticChainDiagram({ size }: { size: DiagramSize }) {
       <rect x="150" y="288" width="180" height="8" fill="url(#kc-ground)" opacity="0.65" />
       <line x1="150" y1="288" x2="330" y2="288" stroke="#64748b" strokeWidth="1.5" />
       <circle cx="250" cy="288" r="7" fill="#ffa51e" />
-      <line x1="250" y1="288" x2="215" y2="240" stroke="#22d3ee" strokeWidth="5" strokeLinecap="round" />
+      <line x1="250" y1="288" x2="215" y2="240" stroke="#4fb6c7" strokeWidth="5" strokeLinecap="round" />
       <circle cx="215" cy="240" r="8" fill="#a78bfa" />
-      <line x1="215" y1="240" x2="285" y2="222" stroke="#22d3ee" strokeWidth="5" strokeLinecap="round" />
+      <line x1="215" y1="240" x2="285" y2="222" stroke="#4fb6c7" strokeWidth="5" strokeLinecap="round" />
       <text x="298" y="226" className="fill-slate-400" fontSize="11">
         extremo fijo
       </text>

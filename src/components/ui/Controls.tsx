@@ -154,7 +154,7 @@ export function IconButton({
 }) {
   const skin =
     variant === 'primary'
-      ? 'bg-accent text-ink-950 hover:bg-accent-soft shadow-[0_0_16px_-4px_rgba(34,211,238,0.6)]'
+      ? 'bg-accent text-ink-950 hover:bg-accent-soft shadow-[0_0_16px_-4px_rgba(79,182,199,0.6)]'
       : 'text-slate-300 hover:bg-slate-100/[0.07] hover:text-slate-100';
   return (
     <button

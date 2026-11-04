@@ -63,21 +63,25 @@
    * ---------------------------------------------------------------------- */
   :root,
   .theme-ink {
-    --c-page: 7 11 20;
-    --c-card: 15 22 38;
-    --c-line: 30 41 59;
-    --c-fg: 241 245 249;
-    --c-fg2: 148 163 184;
-    --c-fg3: 100 116 139;
-    --c-brand: 34 211 238;
+    /* Neutral graphite, not navy. Tailwind's slate is a saturated blue, and a
+       blue stage both reads as a generated dashboard and shifts how every skin,
+       muscle and bone colour in front of it is perceived. See the note on
+       `slate` in tailwind.config.js; these values are the same ramp. */
+    --c-page: 11 12 15;
+    --c-card: 20 22 26;
+    --c-line: 39 43 49;
+    --c-fg: 241 242 244;
+    --c-fg2: 151 155 163;
+    --c-fg3: 107 112 121;
+    --c-brand: 79 182 199;
     /* The SOLID button fill is deliberately not the accent itself. A full-width
-       bar of #22d3ee is the loudest object on any dark screen, and on the
-       paywall it turned a price into a highlighter stripe. Cyan-700 carries the
+       bar of the accent is the loudest object on any dark screen, and on the
+       paywall it turned a price into a highlighter stripe. This carries the
        same identity, passes contrast against white text, and behaves like a
        button instead of a warning. */
-    --c-brand-fill: 14 116 144;
-    --c-brand-deep: 21 94 117;
-    --c-brand-wash: 12 34 48;
+    --c-brand-fill: 26 103 118;
+    --c-brand-deep: 20 80 92;
+    --c-brand-wash: 13 32 37;
     --c-brand-on: 255 255 255;
   }
 
@@ -178,7 +182,7 @@
     background:
       radial-gradient(
         ellipse 80% 80% at 50% 35%,
-        rgba(34, 211, 238, 0.05),
+        rgba(79, 182, 199, 0.05),
         transparent 60%
       ),
       radial-gradient(ellipse 120% 120% at 50% 120%, #0b1120, #070b14 70%);
@@ -274,8 +278,8 @@
     border-radius: 999px;
     background: linear-gradient(
       90deg,
-      rgba(34, 211, 238, 0.85) 0%,
-      rgba(34, 211, 238, 0.85) calc(var(--fill, 0) * 1%),
+      rgba(79, 182, 199, 0.85) 0%,
+      rgba(79, 182, 199, 0.85) calc(var(--fill, 0) * 1%),
       rgba(148, 163, 184, 0.16) calc(var(--fill, 0) * 1%),
       rgba(148, 163, 184, 0.16) 100%
     );
@@ -285,8 +289,8 @@
     border-radius: 999px;
     background: linear-gradient(
       90deg,
-      rgba(34, 211, 238, 0.85) 0%,
-      rgba(34, 211, 238, 0.85) calc(var(--fill, 0) * 1%),
+      rgba(79, 182, 199, 0.85) 0%,
+      rgba(79, 182, 199, 0.85) calc(var(--fill, 0) * 1%),
       rgba(148, 163, 184, 0.16) calc(var(--fill, 0) * 1%),
       rgba(148, 163, 184, 0.16) 100%
     );
@@ -301,7 +305,7 @@
     background: linear-gradient(180deg, #f8fafc, #cbd5e1);
     border: 1px solid rgba(7, 11, 20, 0.9);
     box-shadow:
-      0 0 0 3px rgba(34, 211, 238, 0.18),
+      0 0 0 3px rgba(79, 182, 199, 0.18),
       0 2px 6px rgba(0, 0, 0, 0.6);
     transition:
       box-shadow 140ms ease,
@@ -310,7 +314,7 @@
   .range-clinical:hover::-webkit-slider-thumb,
   .range-clinical:active::-webkit-slider-thumb {
     box-shadow:
-      0 0 0 5px rgba(34, 211, 238, 0.26),
+      0 0 0 5px rgba(79, 182, 199, 0.26),
       0 2px 8px rgba(0, 0, 0, 0.65);
     transform: scale(1.06);
   }
@@ -321,7 +325,7 @@
     background: linear-gradient(180deg, #f8fafc, #cbd5e1);
     border: 1px solid rgba(7, 11, 20, 0.9);
     box-shadow:
-      0 0 0 3px rgba(34, 211, 238, 0.18),
+      0 0 0 3px rgba(79, 182, 199, 0.18),
       0 2px 6px rgba(0, 0, 0, 0.6);
   }
   .range-clinical:disabled {
@@ -513,20 +517,24 @@
 .shimmer-bar {
   background: linear-gradient(
     90deg,
-    rgba(34, 211, 238, 0.2) 0%,
-    rgba(34, 211, 238, 0.9) 50%,
-    rgba(34, 211, 238, 0.2) 100%
+    rgba(79, 182, 199, 0.2) 0%,
+    rgba(79, 182, 199, 0.9) 50%,
+    rgba(79, 182, 199, 0.2) 100%
   );
   background-size: 200% 100%;
 }
 
-/* Movement-lab "stage": a soft cool spotlight blooming behind the model so it
-   reads as lit on a premium studio backdrop rather than floating on flat ink. */
+/* Movement-lab "stage": a soft spotlight blooming behind the model so it reads
+   as lit on a studio backdrop rather than floating on flat ink.
+   The light used to be BLUE (rgba(120,170,220)), which is the one place a
+   colour cast does real damage: it falls directly on the skin, the muscle and
+   the bone, and those colours are the content. A near-neutral light with the
+   faintest warmth lets the tissue be the only hue on the stage. */
 .rig-stage-glow {
   background: radial-gradient(
     ellipse 55% 60% at 50% 42%,
-    rgba(120, 170, 220, 0.16),
-    rgba(80, 130, 190, 0.05) 45%,
+    rgba(214, 211, 205, 0.13),
+    rgba(170, 166, 160, 0.045) 45%,
     transparent 70%
   );
 }
@@ -537,7 +545,7 @@
   background: radial-gradient(
     ellipse 75% 85% at 50% 48%,
     transparent 55%,
-    rgba(4, 7, 14, 0.45) 100%
+    rgba(7, 8, 10, 0.45) 100%
   );
 }
 
@@ -550,7 +558,7 @@
  * outline + offset (not a border) so it can't shift any layout.
  * ------------------------------------------------------------------------ */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
-  outline: 2px solid rgba(34, 211, 238, 0.85);
+  outline: 2px solid rgba(79, 182, 199, 0.85);
   outline-offset: 2px;
   border-radius: 0.35rem;
 }

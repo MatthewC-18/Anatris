@@ -19,6 +19,39 @@ export default {
       },
       colors: {
         // ------------------------------------------------------------------
+        // SLATE, OVERRIDDEN
+        // ------------------------------------------------------------------
+        // The UI is painted in `slate` in over a thousand places, and Tailwind's
+        // slate is not a grey: slate-900 is hsl(222, 47%, 11%), a saturated
+        // navy. Navy surfaces under a cyan accent is the single most recognisable
+        // "generated dashboard" combination on the web, and it was the thing
+        // that read as machine-made here -- "ese azul de fondo es muy de IA".
+        //
+        // There is also a clinical reason, and it is the stronger one. This app
+        // is a lit stage for a BODY. A blue surround shifts how every skin,
+        // muscle and bone colour in front of it is perceived; medical
+        // illustrators and photographers mount work on neutral grey for exactly
+        // that reason. A navy stage quietly lies about the tissue.
+        //
+        // So slate is redefined here as a near-neutral graphite: same lightness
+        // ladder (every existing contrast pairing survives), saturation cut from
+        // ~45% to ~8%, keeping a trace of cool so it reads as graphite and not
+        // as mud. Overriding the ramp rather than rewriting 1018 class names
+        // means no screen can be missed and the change is one commit to undo.
+        slate: {
+          50: '#f9fafb',
+          100: '#f1f2f4',
+          200: '#e3e5e8',
+          300: '#c8cbd0',
+          400: '#979ba3',
+          500: '#6b7079',
+          600: '#525761',
+          700: '#3c4048',
+          800: '#24272d',
+          900: '#16181c',
+          950: '#0b0c0f',
+        },
+        // ------------------------------------------------------------------
         // SEMANTIC SURFACE / TEXT TOKENS
         // ------------------------------------------------------------------
         // Resolved from CSS variables set by a theme scope (`.theme-paper` for
@@ -45,20 +78,29 @@ export default {
           wash: 'rgb(var(--c-brand-wash) / <alpha-value>)',
           on: 'rgb(var(--c-brand-on) / <alpha-value>)',
         },
-        // Accent — clinical cyan, used sparingly for active/selected state.
+        // Accent — used sparingly for active/selected state.
+        //
+        // Was Tailwind's cyan-400 (#22d3ee). That exact value, on a navy
+        // surface, is the other half of the generated-dashboard look, and at
+        // 85% saturation it also out-shouted the muscle-role colours, which are
+        // the ones that actually carry meaning here. Same family, pulled back
+        // to an instrument readout rather than a neon sign: colour in this app
+        // should mean something, and spending the loudest one on chrome is what
+        // made it look authored by nobody.
         accent: {
-          DEFAULT: '#22d3ee', // cyan-400
-          soft: '#67e8f9', // cyan-300
-          deep: '#0891b2', // cyan-600
-          glow: 'rgba(34, 211, 238, 0.15)',
+          DEFAULT: '#4fb6c7',
+          soft: '#86d2de',
+          deep: '#2b8495',
+          glow: 'rgba(79, 182, 199, 0.15)',
         },
-        // The near-black blue-tinted base surfaces.
+        // The near-black base surfaces. Neutral graphite, not navy — see the
+        // note on `slate` above; these are the same ramp carried further down.
         ink: {
-          950: '#070b14',
-          900: '#0b1120',
-          850: '#0f1626',
-          800: '#141d30',
-          700: '#1c2740',
+          950: '#0b0c0f',
+          900: '#0f1114',
+          850: '#14161a',
+          800: '#1b1e22',
+          700: '#272b31',
         },
         // Clinical green — a second accent for "go / healthy / range achieved".
         // Paired with the cyan accent it gives the palette a physiotherapy
@@ -81,7 +123,7 @@ export default {
       boxShadow: {
         glass: '0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04)',
         'glass-lg': '0 16px 48px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-        'accent-glow': '0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 24px rgba(34, 211, 238, 0.25)',
+        'accent-glow': '0 0 0 1px rgba(79, 182, 199, 0.42), 0 0 24px rgba(79, 182, 199, 0.22)',
       },
       backdropBlur: {
         xs: '2px',
