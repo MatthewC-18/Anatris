@@ -115,17 +115,50 @@ export function blendHipSkin(
       if (!mesh.isMesh || classify(mesh) !== 'skin') return;
       const sk = mesh as THREE.SkinnedMesh;
       if (!sk.isSkinnedMesh || !sk.skeleton) return;
-      if (dominantBoneName(mesh) !== 'vert_sacrum') return;
+      const dom = dominantBoneName(mesh);
+      if (dom !== 'vert_sacrum' && dom !== 'femur_base') return;
       if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
       const bs = mesh.geometry.boundingSphere;
       if (!bs) return;
       const c = bs.center.clone().applyMatrix4(mesh.matrixWorld);
       if (Math.abs(c.x) < MIDLINE_M || Math.sign(c.x) !== sideSign) return;
-      // Alrededor de la articulacion: por debajo ya es muslo (y lo lleva el
-      // esqueleto de la pierna), muy por encima es abdomen y no se entera.
-      if (c.y < hip.y - 0.2 || c.y > hip.y + 0.12) return;
 
       const pos = mesh.geometry.getAttribute('position');
+      if (!pos) return;
+      // SE ELIGE POR DONDE LLEGA LA TESELA, NO POR DONDE ESTA SU CENTRO.
+      //
+      // El primer pase miraba el centro de la esfera envolvente, y eso dejaba
+      // escapar justo a las culpables. `Anterior_region_of_thigh_2` tiene el
+      // centro a 14 cm POR DEBAJO de la cadera -- parece muslo y nada mas --
+      // pero su borde superior sube hasta 8 cm POR ENCIMA de la articulacion, y
+      // viene ligada 100% a `femur_base`, sin un solo vertice de transicion. Al
+      // girar el femur, ese trozo de piel que esta a la altura de la cresta
+      // iliaca se va con el muslo: medido, 7,2 cm, mientras sus vecinas a esa
+      // misma altura (`Gluteal_region_4`, `Femoral_triangle_2`) se quedan en
+      // 0,0 cm. De ahi el agujero que se abria en la rotacion interna de
+      // cadera, por el que se veian el gluteo mayor y el femur.
+      //
+      // Cogiendolas por su EXTREMO SUPERIOR el degradado por altura hace el
+      // resto solo: lo que esta a mas de una mano por debajo de la cadera sigue
+      // siendo 100% femur y no se mueve ni un pixel, y lo que sube a la pelvis
+      // se queda quieto como sus vecinas.
+      if (dom === 'vert_sacrum') {
+        // Lado de la PELVIS: alrededor de la articulacion. Por debajo ya es
+        // muslo (y lo lleva el esqueleto de la pierna), muy por encima es
+        // abdomen y no se entera.
+        if (c.y < hip.y - 0.2 || c.y > hip.y + 0.12) return;
+      } else {
+        // Lado del MUSLO: entra si LLEGA a la cadera, aunque su centro este
+        // muy abajo.
+        let top = -Infinity;
+        for (let i = 0; i < pos.count; i++) {
+          _v.fromBufferAttribute(pos, i);
+          mesh.localToWorld(_v);
+          if (_v.y > top) top = _v.y;
+        }
+        if (top < hip.y) return;
+      }
+
       const si = mesh.geometry.getAttribute('skinIndex');
       const sw = mesh.geometry.getAttribute('skinWeight');
       if (!pos || !si || !sw) return;
