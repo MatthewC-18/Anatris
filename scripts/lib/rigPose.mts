@@ -31,6 +31,7 @@ import { repairFaceWinding } from '../../src/lib/faceWinding.ts';
 import { bridgeShoulderSkin } from '../../src/lib/shoulderSkinBridge.ts';
 import { gradeShoulderMuscleBinding } from '../../src/lib/shoulderMuscleBinding.ts';
 import { relaxSkinSeams } from '../../src/lib/skinSeamRelax.ts';
+import { blendHipSkin } from '../../src/lib/rigHipSkin.ts';
 import {
   smoothNeckSkin,
   smoothSkinSpine,
@@ -165,6 +166,13 @@ export function createRigPoser(
     );
     smoothNeckSkin(scene, vertY, (mesh) => (layerOf(mesh) === 'skin' ? 'skin' : 'other'));
   }
+  // Y la piel de la cadera, que cruza dos esqueletos (ver rigHipSkin).
+  blendHipSkin(scene, (mesh) => {
+    const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    return layerForMaterial((first as THREE.Material | undefined)?.name ?? null) === 'skin'
+      ? 'skin'
+      : 'other';
+  });
   relaxSkinSeams(scene);
   // Y los religados del brazo, que hasta ahora SOLO hacia la aplicacion.
   //

@@ -61,6 +61,7 @@ import { repairFaceWinding } from '../../lib/faceWinding';
 import { bridgeShoulderSkin } from '../../lib/shoulderSkinBridge';
 import { gradeShoulderMuscleBinding } from '../../lib/shoulderMuscleBinding';
 import { relaxSkinSeams } from '../../lib/skinSeamRelax';
+import { blendHipSkin } from '../../lib/rigHipSkin';
 import {
   smoothNeckSkin,
   smoothSkinSpine,
@@ -1555,6 +1556,17 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // at 180 deg) and the axilla, which showed its walls the moment the arm left
       // the trunk. Runs LAST of the three weight passes, so it relaxes the result
       // of the other two. See src/lib/skinSeamRelax.ts.
+      // PIEL DE LA CADERA (src/lib/rigHipSkin.ts). La nalga y el muslo viven en
+      // esqueletos distintos, asi que el pliegue gluteo no tenia transicion: se
+      // abria en flexion y ensenaba el gluteo mayor. Religa esas teselas al
+      // esqueleto de la pierna para poder repartirlas.
+      blendHipSkin(scene, (mesh) => {
+        const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+        return layerForMaterial((first as THREE.Material | undefined)?.name ?? null) === 'skin'
+          ? 'skin'
+          : 'other';
+      });
+
       // PIEL DEL CUELLO POR NIVEL (src/lib/rigSpineSkin.ts). Venia con el 100%
       // del peso en el atlas, asi que en la flexion cervical giraba en bloque
       // alrededor de lo ALTO del cuello, se despegaba del torax y dejaba el
