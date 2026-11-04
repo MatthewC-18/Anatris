@@ -62,6 +62,7 @@ import { bridgeShoulderSkin } from '../../lib/shoulderSkinBridge';
 import { gradeShoulderMuscleBinding } from '../../lib/shoulderMuscleBinding';
 import { relaxSkinSeams } from '../../lib/skinSeamRelax';
 import { blendHipSkin } from '../../lib/rigHipSkin';
+import { regradeAnkleCrossers } from '../../lib/rigAnkleRebind';
 import {
   smoothNeckSkin,
   smoothSkinSpine,
@@ -1565,6 +1566,18 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         return layerForMaterial((first as THREE.Material | undefined)?.name ?? null) === 'skin'
           ? 'skin'
           : 'other';
+      });
+
+      // MUSCULOS Y TENDONES QUE CRUZAN EL TOBILLO (src/lib/rigAnkleRebind.ts).
+      // El flexor largo de los dedos venia ligado entero al hueso del PIE, asi
+      // que su vientre -- que vive en la pierna -- salia disparado en la flexion
+      // plantar y dibujaba una aguja rosa por detras del talon. El tendon de
+      // Aquiles tenia el fallo simetrico: ligado entero a la tibia, su insercion
+      // en el calcaneo no acompanaba al pie.
+      regradeAnkleCrossers(scene, (mesh) => {
+        const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+        const layer = layerForMaterial((first as THREE.Material | undefined)?.name ?? null);
+        return layer === 'muscle' || layer === 'connective' ? 'soft' : 'other';
       });
 
       // PIEL DEL CUELLO POR NIVEL (src/lib/rigSpineSkin.ts). Venia con el 100%

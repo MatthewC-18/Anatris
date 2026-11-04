@@ -32,6 +32,7 @@ import { bridgeShoulderSkin } from '../../src/lib/shoulderSkinBridge.ts';
 import { gradeShoulderMuscleBinding } from '../../src/lib/shoulderMuscleBinding.ts';
 import { relaxSkinSeams } from '../../src/lib/skinSeamRelax.ts';
 import { blendHipSkin } from '../../src/lib/rigHipSkin.ts';
+import { regradeAnkleCrossers } from '../../src/lib/rigAnkleRebind.ts';
 import {
   smoothNeckSkin,
   smoothSkinSpine,
@@ -172,6 +173,12 @@ export function createRigPoser(
     return layerForMaterial((first as THREE.Material | undefined)?.name ?? null) === 'skin'
       ? 'skin'
       : 'other';
+  });
+  // Y los musculos y tendones que cruzan el TOBILLO (ver rigAnkleRebind).
+  regradeAnkleCrossers(scene, (mesh) => {
+    const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    const layer = layerForMaterial((first as THREE.Material | undefined)?.name ?? null);
+    return layer === 'muscle' || layer === 'connective' ? 'soft' : 'other';
   });
   relaxSkinSeams(scene);
   // Y los religados del brazo, que hasta ahora SOLO hacia la aplicacion.

@@ -58,9 +58,22 @@ const ONLY = (() => {
   return a ? new RegExp(a.slice(7), 'i') : null;
 })();
 
-/** Shoulder band. Below 1.1 is chest/abdomen, above 1.55 is neck. */
-const Y_LO = 1.05;
-const Y_HI = 1.60;
+/* LA BANDA DE ALTURA SE MIDE, YA NO SE ESCRIBE A MANO.
+ *
+ * Este script nacio para el hombro y traia la banda del hombro clavada en dos
+ * constantes (1,05 a 1,60 m). Fuera de ahi no media NADA: la flexion plantar
+ * del tobillo sacaba una punta rosa de ocho centimetros por detras del talon y
+ * el informe decia, con las tres columnas en cero, que no habia nada que ver.
+ * Veintiocho de los treinta y cuatro movimientos de la aplicacion caen fuera de
+ * esa banda, asi que durante todo este tiempo el aparato solo miraba seis.
+ *
+ * Ahora la banda sale de la propia pose: se posa al angulo mayor, se mira que
+ * mallas se han movido de verdad y se toma su rango de alturas con un palmo de
+ * margen. Un movimiento del tobillo mide el tobillo y uno del hombro mide el
+ * hombro, sin decirle nada.
+ */
+let Y_LO = 0;
+let Y_HI = 2;
 /** How far a muscle vertex may be from the skin and still be judged against it. */
 const NEAR = 0.03;
 /** Neighbours averaged, so one bad normal cannot invent a spill. */
@@ -93,7 +106,6 @@ scene.traverse((o) => {
   // Driven side (or midline) and the shoulder band only. A generous margin,
   // because a bounding-sphere centre is not where the vertices are.
   if (c.x * sideSign < -0.08) return;
-  if (c.y < Y_LO - 0.25 || c.y > Y_HI + 0.25) return;
   all.push({ mesh: m, name: m.name, layer });
 });
 const skinM = all.filter((m) => m.layer === 'skin');
@@ -274,6 +286,30 @@ function spillNow(): Map<string, { max: number; count: number; at: THREE.Vector3
     if (max > -Infinity) out.set(m.name, { max, count, at });
   }
   return out;
+}
+
+/* --- la banda de altura, medida sobre lo que REALMENTE se mueve --- */
+{
+  poser.pose(0);
+  const before = all.map((m) => posed(m, false).p.map((q) => q.clone()));
+  poser.pose(ANGLES[ANGLES.length - 1]);
+  let lo = Infinity;
+  let hi = -Infinity;
+  all.forEach((m, mi) => {
+    const after = posed(m, false).p;
+    for (let i = 0; i < after.length && i < before[mi].length; i++) {
+      if (before[mi][i].distanceTo(after[i]) < 0.001) continue;
+      if (after[i].y < lo) lo = after[i].y;
+      if (after[i].y > hi) hi = after[i].y;
+      if (before[mi][i].y < lo) lo = before[mi][i].y;
+      if (before[mi][i].y > hi) hi = before[mi][i].y;
+    }
+  });
+  if (lo <= hi) {
+    Y_LO = lo - 0.1;
+    Y_HI = hi + 0.1;
+    console.log(`banda medida: y de ${Y_LO.toFixed(2)} a ${Y_HI.toFixed(2)} m`);
+  }
 }
 
 poser.pose(0);
