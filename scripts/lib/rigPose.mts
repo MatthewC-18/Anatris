@@ -31,7 +31,7 @@ import { repairFaceWinding } from '../../src/lib/faceWinding.ts';
 import { bridgeShoulderSkin } from '../../src/lib/shoulderSkinBridge.ts';
 import { gradeShoulderMuscleBinding } from '../../src/lib/shoulderMuscleBinding.ts';
 import { relaxSkinSeams } from '../../src/lib/skinSeamRelax.ts';
-import { rebindArmBellies } from '../../src/lib/rigArmRebind.ts';
+import { rebindArmBellies, reweightArmAboveElbow } from '../../src/lib/rigArmRebind.ts';
 import { trimForearmOutliers } from '../../src/lib/rigLimbTrim.ts';
 import { layerForMaterial } from '../../src/lib/materialColors.ts';
 import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../src/lib/biomech/scapulaWrap.ts';
@@ -146,6 +146,9 @@ export function createRigPoser(
   // Y el recorte medido del antebrazo, por el mismo motivo: sin el, la hoja
   // sale con el antebrazo erizado de tendones digitales disparados fuera del
   // brazo. Oculta lo que no tiene arreglo, igual que la aplicacion.
+  // Y el reparto por vertice que devuelve al humero la piel y la fascia del
+  // brazo que venian mezcladas con el antebrazo (ver rigArmRebind).
+  reweightArmAboveElbow(scene);
   for (const m of trimForearmOutliers(scene)) m.visible = false;
 
   scene.updateMatrixWorld(true);

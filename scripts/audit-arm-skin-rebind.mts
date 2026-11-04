@@ -32,8 +32,10 @@ import {
   armHeights,
   boneBaseName,
   dominantBoneName,
+  distalArmWeight,
   isUpperArmBelly,
   rebindArmBellies,
+  reweightArmAboveElbow,
 } from '../src/lib/rigArmRebind.ts';
 import { layerForMaterial } from '../src/lib/materialColors.ts';
 
@@ -41,6 +43,14 @@ import { layerForMaterial } from '../src/lib/materialColors.ts';
 const DEG = 145;
 /** Por encima de esto se considera que la pieza se ha ido de viaje, en metros. */
 const TOLERANCE_M = 0.01;
+/**
+ * Las piezas de MEZCLA cruzan el codo a proposito, asi que se reparte su peso
+ * de forma continua en vez de pegarlas a un hueso: su mitad distal SI tiene
+ * que acompanar al antebrazo. Lo que se vigila en ellas es que el brazo deje
+ * de arrastrarse -- de 8 cm de mediana a menos de uno -- no que queden
+ * clavadas. Las otras dos familias si van pegadas, y ahi el listón es cero.
+ */
+const TOLERANCE_BLEND_M = 0.03;
 
 const matNameOf = (m: THREE.Mesh): string => {
   const f = Array.isArray(m.material) ? m.material[0] : m.material;
@@ -95,7 +105,7 @@ async function freshScene(): Promise<THREE.Group> {
 
 interface Piece {
   mesh: THREE.Mesh;
-  kind: 'piel' | 'vientre';
+  kind: 'piel' | 'vientre' | 'mezcla';
   arm: 'izquierdo' | 'derecho';
   before: THREE.Vector3;
 }
@@ -109,12 +119,17 @@ function armPieces(scene: THREE.Group): Piece[] {
     const m = o as THREE.Mesh;
     if (!m.isMesh || !(m as THREE.SkinnedMesh).isSkinnedMesh) return;
     const kindOf = classify(m);
-    let kind: 'piel' | 'vientre' | null = null;
+    let kind: 'piel' | 'vientre' | 'mezcla' | null = null;
     if (kindOf === 'muscle' && isUpperArmBelly(m.name)) kind = 'vientre';
     else if (kindOf === 'skin' && dominantBoneName(m) === 'forearm_flex') kind = 'piel';
+    // MEZCLA: la piel del brazo que no es de NADIE del todo -- dominante el
+    // humero, pero con medio peso en el antebrazo. Ni el religado por nombre
+    // ni el religado por hueso dominante la cogian, y era la que destapaba
+    // el biceps al doblar el codo. La arregla reweightArmAboveElbow.
+    else if (distalArmWeight(m) > 0.05) kind = 'mezcla';
     if (!kind) return;
     posedCentre(m, c);
-    if (kind === 'piel' && c.y <= H.upperArmY) return;
+    if (kind !== 'vientre' && c.y <= H.upperArmY) return;
     out.push({
       mesh: m,
       kind,
@@ -149,11 +164,12 @@ function report(label: string, rows: { p: Piece; travel: number }[]): number {
   console.log(`   ${label}`);
   let moved = 0;
   for (const arm of ['derecho', 'izquierdo'] as const) {
-    for (const kind of ['piel', 'vientre'] as const) {
+    for (const kind of ['piel', 'vientre', 'mezcla'] as const) {
       const g = rows.filter((r) => r.p.arm === arm && r.p.kind === kind);
       if (!g.length) continue;
       const t = g.map((r) => r.travel).sort((a, b) => a - b);
-      const bad = g.filter((r) => r.travel > TOLERANCE_M).length;
+      const lim = kind === 'mezcla' ? TOLERANCE_BLEND_M : TOLERANCE_M;
+      const bad = g.filter((r) => r.travel > lim).length;
       moved += bad;
       console.log(
         `     brazo ${arm.padEnd(10)} ${kind.padEnd(8)} ${String(g.length).padStart(3)} piezas   ` +
@@ -182,9 +198,11 @@ console.log('');
 const fixedScene = await freshScene();
 const fixedPieces = armPieces(fixedScene);
 const done = rebindArmBellies(fixedScene, classify);
+const mixed = reweightArmAboveElbow(fixedScene);
 const fixedRows = travels(fixedScene, fixedPieces);
 const fixedMoved = report(
-  `CON rebindArmBellies (${done.bellies} vientres, ${done.skinPatches} parches, ${done.orphans} duplicados ocultos):`,
+  `CON rebindArmBellies (${done.bellies} vientres, ${done.skinPatches} parches, ${done.orphans} duplicados ocultos)` +
+    ` + reweightArmAboveElbow (${mixed.vertices} vertices en ${mixed.meshes} mallas):`,
   fixedRows,
 );
 

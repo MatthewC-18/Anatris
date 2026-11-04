@@ -45,6 +45,7 @@ import {
   dominantBoneName,
   isUpperArmBelly,
   rigidBindTo,
+  reweightArmAboveElbow,
 } from '../../lib/rigArmRebind';
 import {
   colorForMaterial,
@@ -2005,6 +2006,13 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           bone: effBone,
         });
       });
+      // REPARTO POR VERTICE DEL BRAZO. Lo de arriba pega mallas ENTERAS al
+      // humero y por eso deja fuera la piel MEZCLADA del brazo (dominante el
+      // humero, la mitad del peso en el antebrazo). Esa piel se arrastraba
+      // hasta 5,7 cm al doblar el codo y destapaba el biceps. Va aqui, al
+      // final, para que no deshaga ningun religado anterior.
+      reweightArmAboveElbow(scene, { elbowY: ELBOW_Y, wristY: WRIST_Y, upperArmY: UPPER_ARM_Y });
+
       // Remove the doubled Z-Anatomy bones that Z-fight into a speckled mess.
       hideOverlapDuplicates(dupCandidates);
       // Dedup losers become permanently hidden (never resurrected by a toggle).

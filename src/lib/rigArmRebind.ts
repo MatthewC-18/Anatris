@@ -206,3 +206,143 @@ export function rebindArmBellies(
   });
   return report;
 }
+
+/** Huesos del antebrazo y la mano: nada por encima del codo debe obedecerles. */
+const DISTAL_ARM_BONES = new Set(['forearm_flex', 'forearm_rot', 'hand_flex']);
+
+/**
+ * Cuanto peso del ANTEBRAZO queda en una malla, como fraccion del total.
+ * Util para medir el fallo que arregla `reweightArmAboveElbow`.
+ */
+export function distalArmWeight(mesh: THREE.Mesh): number {
+  const sk = mesh as THREE.SkinnedMesh;
+  if (!sk.isSkinnedMesh || !sk.skeleton) return 0;
+  const idx = mesh.geometry.getAttribute('skinIndex');
+  const wgt = mesh.geometry.getAttribute('skinWeight');
+  if (!idx || !wgt) return 0;
+  let tot = 0;
+  let dist = 0;
+  for (let i = 0; i < idx.count; i++) {
+    for (let k = 0; k < 4; k++) {
+      const w = wgt.getComponent(i, k);
+      if (w <= 0) continue;
+      tot += w;
+      if (DISTAL_ARM_BONES.has(boneBaseName(sk.skeleton.bones[idx.getComponent(i, k)]?.name ?? '')))
+        dist += w;
+    }
+  }
+  return tot > 0 ? dist / tot : 0;
+}
+
+/** Lo que movio `reweightArmAboveElbow`. */
+export interface ArmReweightReport {
+  /** Mallas con al menos un vertice corregido. */
+  meshes: number;
+  /** Vertices cuyo peso distal se paso (en parte o del todo) al humero. */
+  vertices: number;
+}
+
+/**
+ * DEVUELVE AL HUMERO EL TEJIDO DEL BRAZO QUE OBEDECIA AL ANTEBRAZO.
+ *
+ * `rebindArmBellies` pega mallas ENTERAS al humero, y para eso tiene que
+ * elegirlas: los vientres por el nombre, la piel por su hueso DOMINANTE. Esa
+ * segunda regla deja fuera lo peor del GLB -- la piel del brazo que viene
+ * MEZCLADA, con el humero como dominante pero la mitad del peso en
+ * `forearm_flex`. Medido a 90 grados de flexion de codo, antes de esto:
+ * `Anterior_region_of_arm_1` viajaba 5,7 cm, `Lateral_bicipital_groove` 4,6 cm
+ * y la fascia braquial 4,2 cm. La piel del brazo se arrastraba hacia el
+ * antebrazo y DESTAPABA el biceps, que si estaba bien fijo: en la hoja de
+ * flexion de codo el vientre aparecia desnudo, por fuera de la piel.
+ *
+ * Aqui no se elige la malla, se elige el VERTICE, que es lo unico que distingue
+ * el brazo del pliegue del codo dentro de una misma pieza de piel. Por encima
+ * del codo el peso distal pasa al humero; justo en el codo no se toca nada, y
+ * entre medias se reparte de forma continua, que es lo que evita una costura
+ * horizontal a media altura del brazo.
+ *
+ * Pegar la pieza entera al humero NO vale aqui: estas mallas cruzan el codo y
+ * se partirian al doblarlo.
+ *
+ * Idempotente: una segunda pasada no encuentra peso distal que mover.
+ */
+export function reweightArmAboveElbow(
+  scene: THREE.Object3D,
+  heights: ArmHeights = armHeights(scene),
+): ArmReweightReport {
+  const report: ArmReweightReport = { meshes: 0, vertices: 0 };
+  const band = Math.max(1e-4, heights.upperArmY - heights.elbowY);
+  const v = new THREE.Vector3();
+  scene.traverse((o) => {
+    const sk = o as THREE.SkinnedMesh;
+    if (!sk.isSkinnedMesh || !sk.skeleton) return;
+    // Solo los dos esqueletos del hombro tienen humero; en los demas no hay
+    // adonde devolver el peso (y no hay brazo que arreglar).
+    const hi = sk.skeleton.bones.findIndex((b) => boneBaseName(b.name) === 'humerus_gh');
+    if (hi < 0) return;
+    const distal = new Set<number>();
+    sk.skeleton.bones.forEach((b, i) => {
+      if (DISTAL_ARM_BONES.has(boneBaseName(b.name))) distal.add(i);
+    });
+    if (distal.size === 0) return;
+
+    const pos = sk.geometry.getAttribute('position');
+    const idx = sk.geometry.getAttribute('skinIndex');
+    const wgt = sk.geometry.getAttribute('skinWeight');
+    if (!pos || !idx || !wgt) return;
+
+    let touched = 0;
+    for (let i = 0; i < pos.count; i++) {
+      // En reposo los huesos son identidad, asi que la posicion de mundo del
+      // vertice sin pielar ES su altura real.
+      v.fromBufferAttribute(pos, i);
+      sk.localToWorld(v);
+      const t = Math.min(1, Math.max(0, (v.y - heights.elbowY) / band));
+      if (t <= 0) continue;
+
+      const acc = new Map<number, number>();
+      let moved = 0;
+      for (let k = 0; k < 4; k++) {
+        const w = wgt.getComponent(i, k);
+        if (w <= 0) continue;
+        const b = idx.getComponent(i, k);
+        if (distal.has(b)) {
+          moved += w * t;
+          const keep = w * (1 - t);
+          if (keep > 0) acc.set(b, (acc.get(b) ?? 0) + keep);
+        } else {
+          acc.set(b, (acc.get(b) ?? 0) + w);
+        }
+      }
+      if (moved <= 1e-6) continue;
+      acc.set(hi, (acc.get(hi) ?? 0) + moved);
+
+      // Solo caben cuatro influencias: se quedan las cuatro mayores y se
+      // renormaliza, de modo que la postura de reposo no se mueve.
+      const top = [...acc].sort((a, b) => b[1] - a[1]).slice(0, 4);
+      const sum = top.reduce((s, [, w]) => s + w, 0) || 1;
+      idx.setXYZW(
+        i,
+        top[0]?.[0] ?? hi,
+        top[1]?.[0] ?? 0,
+        top[2]?.[0] ?? 0,
+        top[3]?.[0] ?? 0,
+      );
+      wgt.setXYZW(
+        i,
+        (top[0]?.[1] ?? 1) / sum,
+        (top[1]?.[1] ?? 0) / sum,
+        (top[2]?.[1] ?? 0) / sum,
+        (top[3]?.[1] ?? 0) / sum,
+      );
+      touched++;
+    }
+    if (touched > 0) {
+      idx.needsUpdate = true;
+      wgt.needsUpdate = true;
+      report.meshes++;
+      report.vertices += touched;
+    }
+  });
+  return report;
+}
