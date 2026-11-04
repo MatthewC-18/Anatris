@@ -31,7 +31,17 @@ import { repairFaceWinding } from '../../src/lib/faceWinding.ts';
 import { bridgeShoulderSkin } from '../../src/lib/shoulderSkinBridge.ts';
 import { gradeShoulderMuscleBinding } from '../../src/lib/shoulderMuscleBinding.ts';
 import { relaxSkinSeams } from '../../src/lib/skinSeamRelax.ts';
-import { rebindArmBellies, reweightArmAboveElbow } from '../../src/lib/rigArmRebind.ts';
+import {
+  smoothNeckSkin,
+  smoothSkinSpine,
+  smoothSpineConnective,
+  vertebraHeights,
+} from '../../src/lib/rigSpineSkin.ts';
+import {
+  dominantBoneName,
+  rebindArmBellies,
+  reweightArmAboveElbow,
+} from '../../src/lib/rigArmRebind.ts';
 import { trimForearmOutliers } from '../../src/lib/rigLimbTrim.ts';
 import { layerForMaterial } from '../../src/lib/materialColors.ts';
 import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../src/lib/biomech/scapulaWrap.ts';
@@ -129,6 +139,32 @@ export function createRigPoser(
   bindClaviclesToShoulderGirdle(scene);
   bridgeShoulderSkin(scene);
   gradeShoulderMuscleBinding(scene);
+  // REPARTO POR NIVEL DEL RAQUIS, que hasta ahora SOLO hacia la aplicacion.
+  //
+  // Sin esto las hojas de los doce movimientos del raquis mentian: los
+  // musculos del cuello se despegaban en bloque de la columna, un fallo que la
+  // aplicacion ya corrige al cargar. Y al compartirlo se vio lo que faltaba en
+  // los dos: la PIEL del cuello venia igual de mal.
+  {
+    const vertY = vertebraHeights(scene);
+    const layerOf = (mesh: THREE.Mesh) => {
+      const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      return layerForMaterial((first as THREE.Material | undefined)?.name ?? null);
+    };
+    scene.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh || layerOf(mesh) !== 'muscle') return;
+      const sk = mesh as THREE.SkinnedMesh;
+      if (!sk.isSkinnedMesh || !sk.skeleton) return;
+      // Mismo criterio que la aplicacion: hueso DOMINANTE vertebral.
+      if (!dominantBoneName(mesh).startsWith('vert_')) return;
+      smoothSkinSpine(mesh, vertY);
+    });
+    smoothSpineConnective(scene, vertY, (mesh) =>
+      layerOf(mesh) === 'connective' ? 'connective' : 'other',
+    );
+    smoothNeckSkin(scene, vertY, (mesh) => (layerOf(mesh) === 'skin' ? 'skin' : 'other'));
+  }
   relaxSkinSeams(scene);
   // Y los religados del brazo, que hasta ahora SOLO hacia la aplicacion.
   //

@@ -147,6 +147,30 @@ const wantLayer = (layer: string) =>
   : LAYERS === 'skin' ? layer === 'skin'
   : layer === 'muscle' || layer === 'connective' || layer === 'bone';
 
+// EL MIEMBRO DE ENFRENTE, EN LA VISTA LATERAL.
+//
+// Mirando de perfil, la camara ve los DOS miembros superpuestos, y solo uno
+// esta posado. En la hoja de dorsiflexion eso aparecia como una segunda hilera
+// de dedos que se quedaba abajo mientras el pie subia: durante un rato pareci
+// un fallo del rig, y no era mas que el otro pie quieto detras. Lo mismo
+// enturbia cadera, rodilla y codo.
+//
+// Asi que en vista lateral se dibuja solo el lado posado. El umbral deja
+// pasar todo lo que esta cerca de la linea media (tronco, cabeza, raquis),
+// que no estorba porque no hay copia enfrente. Se puede apagar con
+// BOTHSIDES=on para comparar los dos a la vez.
+const MIDLINE_KEEP_M = 0.06;
+const POSED_X_SIGN = SIDE === 'R' ? 1 : -1;
+const cullFarLimb = VIEW === 'side' && process.env.BOTHSIDES !== 'on';
+const _c = new THREE.Vector3();
+const onPosedSide = (m: THREE.Mesh): boolean => {
+  if (!cullFarLimb) return true;
+  const g = m.geometry;
+  if (!g.boundingSphere) g.computeBoundingSphere();
+  _c.copy(g.boundingSphere!.center).applyMatrix4(m.matrixWorld);
+  return Math.abs(_c.x) < MIDLINE_KEEP_M || Math.sign(_c.x) === POSED_X_SIGN;
+};
+
 const tiles: { buffer: Uint8Array; width: number; height: number }[] = [];
 for (const deg of DEGS) {
   poser.pose(deg);
@@ -159,6 +183,7 @@ for (const deg of DEGS) {
     // dibujaba los tendones digitales que la aplicacion ya habia quitado.
     include: (m) =>
       m.visible &&
+      onPosedSide(m) &&
       !/g0\d\d$/.test(m.name) && !/_system/i.test(m.name) && !/^General[_ ]terms$/i.test(m.name),
     color: (m) => {
       const mat = matNameOf(m);
