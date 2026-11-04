@@ -23,7 +23,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
 import { rigChannel, type RigCommand } from './RigModel';
-import { resolveArmatureName, type Side } from '../../lib/boneMap';
+import { resolveArmatureName, rigSideFor, type GeomSide } from '../../lib/boneMap';
 
 /** The elevation gestures this arc covers (both raise the arm from the side). */
 const ELEVATION_IDS = new Set(['glenohumeral-abduction', 'glenohumeral-flexion']);
@@ -59,7 +59,11 @@ export function ShoulderRhythmArc(): JSX.Element {
   // dial reads as a filling goniometer, not a static ring.
   const progressRef = useRef<THREE.Line | null>(null);
   // Cached bones (re-resolved when the side changes or until the rig loads).
-  const bonesRef = useRef<{ side: Side; shoulder: THREE.Object3D; elbow: THREE.Object3D } | null>(null);
+  const bonesRef = useRef<{
+    side: GeomSide;
+    shoulder: THREE.Object3D;
+    elbow: THREE.Object3D;
+  } | null>(null);
 
   useEffect(() => {
     // --- Build the arc group ONCE (unit radius; scaled to the arm length each
@@ -182,7 +186,9 @@ export function ShoulderRhythmArc(): JSX.Element {
   }, [scene]);
 
   // Resolve the shoulder + elbow bones for a side (retried until the rig loads).
-  const resolveBones = (side: Side): boolean => {
+  // `side` es el lado DEL RIG: el llamador traduce con `rigSideFor`, porque el
+  // arco se dibuja sobre huesos y el nodo `_R` esta en +x (ver boneMap).
+  const resolveBones = (side: GeomSide): boolean => {
     if (bonesRef.current && bonesRef.current.side === side) return true;
     const root = scene.getObjectByName(resolveArmatureName('Shoulder_Armature', side));
     if (!root) return false;
@@ -216,7 +222,7 @@ export function ShoulderRhythmArc(): JSX.Element {
     const cmd: RigCommand = rigChannel.get();
     const show =
       cmd.showMarkers !== false && !!cmd.movementId && ELEVATION_IDS.has(cmd.movementId);
-    if (!show || !resolveBones(cmd.side)) {
+    if (!show || !resolveBones(rigSideFor(cmd.side))) {
       group.visible = false;
       return;
     }

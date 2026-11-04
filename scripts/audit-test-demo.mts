@@ -15,7 +15,11 @@ import { readFileSync } from 'node:fs';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
-import { getBoneControl, resolveArmatureName, type Side } from '../src/lib/boneMap.ts';
+import {
+  getBoneControl,
+  resolveArmatureName,
+  type GeomSide,
+} from '../src/lib/boneMap.ts';
 import { layerForMaterial } from '../src/lib/materialColors.ts';
 import { buildMuscleResolution } from '../src/lib/muscleResolver.ts';
 import { parseMeshName } from '../src/lib/parseMeshName.ts';
@@ -39,7 +43,10 @@ import type { Muscle } from '../src/types/muscle.ts';
 import type { RomMuscleRole } from '../src/types/rom.ts';
 
 const TEST_ID = process.argv[2] ?? 'mill';
-const SIDE: Side = 'R';
+// LADO DEL RIG, no clinico: este script resuelve el armature y compara signos
+// de x, asi que habla la convencion geometrica. El `R` de los datos de un test
+// es clinico y la aplicacion lo cruza con `rigSideFor`. Ver boneMap.
+const SIDE: GeomSide = 'R';
 const D2R = Math.PI / 180;
 const buf = readFileSync(rigGlbPath());
 const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
@@ -149,7 +156,9 @@ const posedStats = (m: THREE.Mesh) => {
   return { p50: ds[Math.floor(ds.length * 0.5)], max: ds[ds.length - 1], c: box.getCenter(new THREE.Vector3()) };
 };
 
-const wantSide = SIDE === 'R' ? 'right' : 'left';
+// El nodo `_R` esta en +x, que es la IZQUIERDA anatomica, asi que el lado del
+// rig `R` corresponde a las mallas llamadas `l` (medido: npm run audit-laterality).
+const wantSide = SIDE === 'R' ? 'left' : 'right';
 // What the TEST sends is its own highlightMuscleId; the movement's activation
 // list is what the free-movement console sends. The test's comes first, because
 // that is what a demo actually shows.
@@ -176,7 +185,7 @@ for (const a of [...testGlow, ...acts]) {
     if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
     const wc = mesh.geometry.boundingSphere!.center.clone().applyMatrix4(mesh.matrixWorld);
     const pside: string =
-      Math.abs(wc.x) >= 0.04 ? (wc.x > 0 ? 'right' : 'left') : parseMeshName(n).side;
+      Math.abs(wc.x) >= 0.04 ? (wc.x > 0 ? 'left' : 'right') : parseMeshName(n).side;
     if (pside !== wantSide && pside !== 'center') continue;
     const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
     if (!layerForMaterial((mat as THREE.Material | undefined)?.name)) continue;
@@ -185,6 +194,6 @@ for (const a of [...testGlow, ...acts]) {
   }
   rows.sort((x, y) => y.max - x.max);
   for (const r of rows)
-    console.log(`     ${(r.p50 * 100).toFixed(1).padStart(5)} cm from axis (worst ${(r.max * 100).toFixed(1)})  x=${r.x.toFixed(2)} (${r.x > 0 ? 'RIGHT arm' : 'LEFT arm'})  name says "${r.side}"  ${r.n}`);
+    console.log(`     ${(r.p50 * 100).toFixed(1).padStart(5)} cm from axis (worst ${(r.max * 100).toFixed(1)})  x=${r.x.toFixed(2)} (${r.x > 0 ? 'LEFT arm' : 'RIGHT arm'})  name says "${r.side}"  ${r.n}`);
   if (rows.length === 0) console.log('     (no mesh on this side survives the visibility rules)');
 }

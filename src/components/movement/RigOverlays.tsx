@@ -35,7 +35,14 @@ import { buildMuscleResolution, type MuscleResolution } from '../../lib/muscleRe
 import { parseMeshName, type ParsedSide } from '../../lib/parseMeshName';
 import { MUSCLES_BY_REGION } from '../../data/musclesByRegion';
 import { movementById } from '../../data/romByRegion';
-import { getBoneControl, resolveArmatureName, type Side } from '../../lib/boneMap';
+import { readingAngleFor } from '../../lib/labCamera';
+import {
+  getBoneControl,
+  resolveArmatureName,
+  rigSideFor,
+  type GeomSide,
+  type Side,
+} from '../../lib/boneMap';
 import type { RomMuscleRole } from '../../types/rom';
 
 // Role -> emissive glow color (amber prime / sky assistant / violet stabilizer),
@@ -116,7 +123,13 @@ function paintImplicated(clone: THREE.MeshStandardMaterial, baseColor: THREE.Col
   clone.emissiveIntensity = IMPLICATED_EMISSIVE;
 }
 
-/** Side letter -> parsed-mesh side. */
+/**
+ * Lado CLINICO -> nombre anatomico del lado, para elegir mallas.
+ *
+ * Es la identidad a proposito: 'R' es la derecha del paciente y la malla de la
+ * derecha se llama 'right'. El cruce con la geometria del GLB lo resuelve
+ * `sideOfMesh`, que es quien mira el signo de x.
+ */
 function parsedSide(side: Side): 'left' | 'right' {
   return side === 'R' ? 'right' : 'left';
 }
@@ -311,8 +324,13 @@ export function RigOverlays(): JSX.Element {
     const worldQuat = new THREE.Quaternion();
     const worldScale = new THREE.Vector3();
 
-    /** Find the driven joint object for a movement + side, or null. */
-    const findJoint = (movementId: string, side: Side): THREE.Object3D | null => {
+    /**
+     * Find the driven joint object for a movement + side, or null.
+     *
+     * `side` es el lado DEL RIG (sufijo del armature), no el clinico: los dos
+     * llamadores pasan `rigSideFor(cmd.side)`. Ver boneMap.rigSideFor.
+     */
+    const findJoint = (movementId: string, side: GeomSide): THREE.Object3D | null => {
       const ctrl = getBoneControl(movementId);
       if (!ctrl) return null;
       let armatureName: string | null = null;
@@ -357,7 +375,7 @@ export function RigOverlays(): JSX.Element {
         return;
       }
       const mv = movementById(cmd.movementId);
-      const joint = cmd.movementId ? findJoint(cmd.movementId, cmd.side) : null;
+      const joint = cmd.movementId ? findJoint(cmd.movementId, rigSideFor(cmd.side)) : null;
       if (!mv?.rig || !joint) {
         mk.visible = false;
         return;
@@ -405,7 +423,8 @@ export function RigOverlays(): JSX.Element {
       const ctrl = cmd.movementId ? getBoneControl(cmd.movementId) : null;
       const isLimb = ctrl?.kind === 'joint' || ctrl?.kind === 'chain';
       const on = cmd.resistance === true && !!cmd.movementId && isLimb;
-      const joint = on && cmd.movementId ? findJoint(cmd.movementId, cmd.side) : null;
+      const joint =
+        on && cmd.movementId ? findJoint(cmd.movementId, rigSideFor(cmd.side)) : null;
       if (!on || !joint || !ctrl) {
         grp.visible = false;
         return;
@@ -538,7 +557,13 @@ export function RigOverlays(): JSX.Element {
       const sideOfMesh = (name: string, mesh: THREE.Mesh): ParsedSide => {
         if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
         const c = mesh.geometry.boundingSphere!.center.clone().applyMatrix4(mesh.matrixWorld);
-        if (Math.abs(c.x) >= LATERAL_M) return c.x > 0 ? 'right' : 'left';
+        // +x es la IZQUIERDA anatomica en este GLB. Estaba al contrario, de modo
+        // que el brillo iba al brazo opuesto al accionado -- que es justo lo que
+        // el comentario de arriba atribuyo a "sufijos espejados" de Z-Anatomy.
+        // No lo estan: emparejando 950 mallas, el sufijo `l` cae en +x el 99%
+        // de las veces (`npm run audit-laterality`). Lo que estaba espejado era
+        // esta lectura.
+        if (Math.abs(c.x) >= LATERAL_M) return c.x > 0 ? 'left' : 'right';
         return parseMeshName(name).side;
       };
       const forMuscleMeshes = (muscleId: string, cb: (mesh: THREE.Mesh) => void): void => {
@@ -608,20 +633,25 @@ export function RigOverlays(): JSX.Element {
       }
     };
 
-    // --- Camera framing per plane on movement change.
-    // Azimuth/polar so the gesture's plane faces the viewer: side-on (lateral) for
-    // sagittal flexion/extension, an oblique for transverse rotation, front for
-    // frontal abduction. Left side mirrors the azimuth so the driven limb stays
-    // toward the camera.
+    // --- DESDE DONDE SE MIRA CADA MOVIMIENTO, al cambiar de movimiento.
+    //
+    // Los angulos los decide `labCamera.readingAngleFor`, no esta funcion: el
+    // reparto por planos vivia aqui escrito a mano y comparaba la cadena EXACTA
+    // ('Sagital', 'Transversal'), asi que los movimientos cuyo plano esta
+    // escrito 'Transverso' -- los de cadera y codo -- se quedaban sin vista, y
+    // una rotacion de cadera se reproducia desde el tres cuartos de entrada,
+    // donde no se aprecia nada. Tambien espejaba el azimut para el lado
+    // izquierdo partiendo de que la derecha estaba en +x, que es al contrario
+    // (ver boneMap.rigSideFor): la camara se iba al lado opuesto al que se
+    // mueve y el tronco tapaba el miembro.
     const planeView = (cmd: RigCommand): { azimuth: number; polar: number; plane: string } => {
       const plane = movementById(cmd.movementId)?.plane ?? '';
-      let azimuth = 0;
-      let polar = 1.35; // ~77 deg from top
-      if (plane === 'Sagital') azimuth = Math.PI / 2; // side-on for flexion
-      else if (plane === 'Transversal') { azimuth = Math.PI / 5; polar = 1.0; }
-      else azimuth = 0; // Frontal (abduction): face front
-      if (cmd.side === 'L') azimuth = -azimuth;
-      return { azimuth, polar, plane };
+      const angle = readingAngleFor(plane, cmd.side);
+      return {
+        azimuth: angle ? THREE.MathUtils.degToRad(angle.azimuthDeg) : 0,
+        polar: angle ? THREE.MathUtils.degToRad(angle.polarDeg) : 1.35,
+        plane,
+      };
     };
 
     const frameForPlane = (cmd: RigCommand): void => {
@@ -636,7 +666,7 @@ export function RigOverlays(): JSX.Element {
         // muscles piling up in an oblique 3/4. Done instantly (no transition) so it
         // is in place before AutoFit's fitToBox, which only dollies to frame and
         // preserves this orientation. Frontal (shoulder) keeps AutoFit's 3/4 look.
-        if (plane === 'Sagital' || plane === 'Transversal') {
+        if (!/^frontal/i.test(plane)) {
           void controls.rotateTo(azimuth, polar, false);
         }
         return;

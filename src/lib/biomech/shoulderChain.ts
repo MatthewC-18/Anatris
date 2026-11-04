@@ -40,6 +40,9 @@
 // here is closed: `npm run audit-direction` measures every driven direction
 // against the rest pose. Keep the flag false until the page locators land.
 
+// Tipo solo: no crea ciclo en tiempo de ejecucion (boneMap importa esto).
+import type { GeomSide } from '../boneMap';
+
 export const SHOULDER_CHAIN_VERIFIED = false;
 
 const DEG = Math.PI / 180;
@@ -297,11 +300,13 @@ export interface ShoulderChainPose {
 /**
  * Decompose an arm-elevation angle into the shoulder joint chain.
  * @param elevationDeg arm elevation 0..180 (clamped).
- * @param side 'R' | 'L' — sets the sign of abduction and contralateral lean.
+ * @param side lado DEL RIG (sufijo del armature), no el clinico: fija el signo
+ *   de la abduccion y de la inclinacion contralateral, que estan calibrados
+ *   contra la geometria del GLB. Ver boneMap.rigSideFor.
  */
 export function shoulderChain(
   elevationDeg: number,
-  side: 'R' | 'L' = 'R',
+  side: GeomSide = 'R',
   mod?: ShoulderChainMod,
 ): ShoulderChainPose {
   // Frozen-shoulder ceiling: cap the POSITIVE arc only (adduction is untouched).

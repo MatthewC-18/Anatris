@@ -16,7 +16,11 @@ import { readFileSync } from 'node:fs';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
-import { getBoneControl, resolveArmatureName } from '../src/lib/boneMap.ts';
+import {
+  getBoneControl,
+  resolveArmatureName,
+  rigSideFor,
+} from '../src/lib/boneMap.ts';
 import { ORTHOPEDIC_TESTS_BY_REGION } from '../src/data/orthopedicTests/index.ts';
 import { rigGlbPath } from './lib/rigPath.mts';
 import { createRigPoser, baseName, type Side } from './lib/rigPose.mts';
@@ -60,7 +64,10 @@ const PROBES: THREE.Vector3[] = [
 /** Pose one test's demo and return its landmark positions. */
 async function poseTest(test: (typeof tests)[number]): Promise<THREE.Vector3[]> {
   const demo = test.demo!;
-  const side = (demo.side ?? 'R') as Side;
+  // `demo.side` es el lado CLINICO del dato del test; el poser quiere el lado
+  // DEL RIG. Sin este cruce el banco posaba el miembro contrario al que posa la
+  // aplicacion, y las medidas valian para el brazo equivocado.
+  const side = rigSideFor((demo.side ?? 'R') as Side);
   const ld = new GLTFLoader();
   ld.setMeshoptDecoder(MeshoptDecoder);
   const gl = await new Promise<any>((r, j) => ld.parse(ab.slice(0), '', r, j));

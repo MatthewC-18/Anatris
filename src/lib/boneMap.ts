@@ -926,8 +926,71 @@ export const BONE_MAP: Record<string, BoneControl> = {
 // Pure helpers (no THREE).
 // ---------------------------------------------------------------------------
 
-/** Full unique armature node name for a paired limb, e.g. Shoulder_Armature_R. */
-export function resolveArmatureName(base: LimbArmatureBase, side: Side): string {
+// ---------------------------------------------------------------------------
+// LADO CLINICO contra LADO DEL RIG, que NO son el mismo.
+//
+// EL HALLAZGO, Y ESTA MEDIDO: en este GLB los nodos que se llaman `_R`
+// (`Shoulder_Armature_R`, `Leg_Armature_R`) estan en +x, y +x es la IZQUIERDA
+// anatomica. O sea que el nombre del nodo dice lo contrario del lado del cuerpo
+// al que pertenece, y elegir "Derecho" en el panel movia el miembro IZQUIERDO
+// del modelo. En una aplicacion de fisioterapia eso no es cosmetico: es un
+// Hawkins "derecho" demostrado sobre el hombro izquierdo, un miotoma C5
+// ensenado en el brazo equivocado y una tarjeta de paciente con el lado
+// cambiado.
+//
+// No se ve: un cuerpo es casi simetrico, asi que la pose equivocada sale
+// perfectamente bien en pantalla. Se comprobo por tres caminos independientes,
+// y `npm run audit-laterality` los repite en cada ejecucion:
+//
+//   1. 950 mallas emparejadas por su sufijo de lado (`...l` / `...r`): la `l`
+//      cae en +x el 99% de las veces.
+//   2. las VISCERAS del atlas, que no admiten discusion de simetria: bazo
+//      +0,085, apex del corazon +0,026, colon descendente +0,049 frente a
+//      apendice -0,054 y colon ascendente -0,088. Cinco de cinco.
+//   3. el comentario que ya traia AnatomyModel ("+X = body's LEFT"), escrito
+//      tras una comprobacion visual en su dia.
+//
+// COMO SE ARREGLA, Y POR QUE ASI. Hay dos convenciones en el codigo y las dos
+// son utiles:
+//
+//   - el LADO CLINICO (`Side`) es lo que el usuario pide: "Derecho" es su
+//     derecha. Es lo que viaja por `rigChannel`, lo que se rotula en el panel
+//     y lo que dicen los datos de los tests (`demo.side`).
+//   - el LADO DEL RIG (`GeomSide`) es el sufijo de los nodos y el signo de x.
+//     TODO lo calibrado contra la geometria -- las 24 tablas `sign: { R, L }`,
+//     SCAPULA_WRAP_SIGN, shoulderChain, shoulderSkinBridge, y los quince
+//     scripts de medida que comprueban cosas como `x > 0.15` -- habla en esta.
+//
+// Girar la segunda convencion habria obligado a reescribir, a mano y sin poder
+// comprobarlo mas que a ojo, todas esas calibraciones: mucho mas probable
+// introducir un error nuevo que arreglar el viejo. Asi que la traduccion ocurre
+// en UN sitio, aqui, y los dos puntos por los que el lado clinico entra a la
+// capa geometrica (`RigModel.apply` y `RigOverlays`) la aplican una sola vez.
+//
+// Regla para el futuro: si una funcion toca huesos, mallas o signos de x, su
+// parametro es `GeomSide`. Si rotula, elige o guarda lo que el usuario pidio,
+// es `Side`.
+
+/** Lado tal y como lo nombra el rig: el sufijo del armature y el signo de x. */
+export type GeomSide = 'R' | 'L';
+
+/**
+ * El lado DEL RIG que hay que mover para un lado CLINICO.
+ *
+ * Es un cruce, no la identidad; el bloque de arriba explica por que y con que
+ * se midio. Toda conversion entre las dos convenciones pasa por aqui.
+ */
+export function rigSideFor(clinical: Side): GeomSide {
+  return clinical === 'R' ? 'L' : 'R';
+}
+
+/**
+ * Nombre del nodo del armature de un miembro, p. ej. Shoulder_Armature_R.
+ *
+ * `side` es el lado DEL RIG, no el clinico: pasa el resultado de `rigSideFor`
+ * si vienes de algo que el usuario eligio.
+ */
+export function resolveArmatureName(base: LimbArmatureBase, side: GeomSide): string {
   return `${base}_${side}`;
 }
 

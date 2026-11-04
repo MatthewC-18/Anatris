@@ -26,7 +26,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { rigChannel, type RigCommand } from './RigModel';
 import { movementById } from '../../data/romByRegion';
-import { getBoneControl, type Side } from '../../lib/boneMap';
+import { getBoneControl, rigSideFor, type Side } from '../../lib/boneMap';
 import { shoulderChain } from '../../lib/biomech/shoulderChain';
 import { kneeScrewHome, type ScrewHomeZone } from '../../lib/biomech/kneeCoupling';
 import { cervicalRotationSplit } from '../../lib/biomech/cervicalCoupling';
@@ -327,7 +327,7 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
   // shoulder elevation chain decomposes this, and only above neutral.
   const rhythm = useMemo(() => {
     if (!isChain || angle <= 0) return null;
-    const r = shoulderChain(angle, cmd.side, pathology?.shoulderMod).readout;
+    const r = shoulderChain(angle, rigSideFor(cmd.side), pathology?.shoulderMod).readout;
     const gh = Math.max(0, r.ghDeg);
     const sc = Math.max(0, r.scapulaDeg);
     const tr = Math.max(0, r.trunkDeg);
@@ -335,13 +335,13 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
     if (total <= 0) return null;
     // When a pathology is active, keep the NORMAL ratio at this angle as a
     // reference so the alteration reads as "X:1 vs normal Y:1".
-    const normalRatio = pathology ? shoulderChain(angle, cmd.side).readout.ratio : null;
+    const normalRatio = pathology ? shoulderChain(angle, rigSideFor(cmd.side)).readout.ratio : null;
     // WHERE THE SCAPULAR SHARE COMES FROM. The blade does not turn on the chest:
     // it turns because the clavicle elevates at the sternoclavicular joint AND the
     // blade turns on the clavicle at the acromioclavicular. Splitting the girdle
     // was what fixed the rig ("no se mueve en conjunto"), and the same two numbers
     // are the biomechanics a physio wants to read while the arm goes up.
-    const chain = shoulderChain(angle, cmd.side, pathology?.shoulderMod);
+    const chain = shoulderChain(angle, rigSideFor(cmd.side), pathology?.shoulderMod);
     const R2D = 180 / Math.PI;
     const scTotal = chain.scapulothoracicUpwardRot * R2D;
     // The readout's scapular figure is rescaled once the trunk joins in (>150),

@@ -25,6 +25,7 @@ import * as THREE from 'three';
 import {
   getBoneControl,
   resolveArmatureName,
+  rigSideFor,
   distributeSpineAngle,
   type Side,
   type RigAxis,
@@ -333,7 +334,9 @@ function dissectSideOfMesh(mesh: THREE.Mesh, named: ParsedSide): ParsedSide {
   const ax = Math.abs(x);
   if (ax < SIDE_LATERAL_M && named !== 'center') return named;
   if (ax < SIDE_MIDLINE_M) return 'center';
-  return x > 0 ? 'right' : 'left';
+  // +x es la IZQUIERDA anatomica en este GLB (medido: ver boneMap.rigSideFor).
+  // Estaba al reves, asi que "quitar el pectoral derecho" pelaba el izquierdo.
+  return x > 0 ? 'left' : 'right';
 }
 
 // ---------------------------------------------------------------------------
@@ -1091,7 +1094,13 @@ export interface RigHighlight {
 export interface RigCommand {
   /** movementId from *Rom.ts, or null for the rest pose. */
   movementId: string | null;
-  /** Which limb to drive (ignored by spine movements). */
+  /**
+   * Que miembro accionar, en LADO CLINICO: 'R' es la derecha del paciente
+   * (ignorado por los movimientos de raquis).
+   *
+   * No es el sufijo del armature. `apply` lo traduce con `rigSideFor` porque en
+   * este GLB el nodo `_R` esta en +x, que es la izquierda anatomica.
+   */
   side: Side;
   /** Clinical angle in degrees (signed: negative drives the opposite gesture). */
   angleDeg: number;
@@ -2562,7 +2571,20 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
   const movedRootsRef = useRef<Set<THREE.Object3D>>(new Set());
 
   const apply = useCallback(
-    (cmd: RigCommand) => {
+    (incoming: RigCommand) => {
+      // EL LADO SE TRADUCE AQUI, UNA SOLA VEZ.
+      //
+      // `rigChannel` lleva el lado CLINICO (lo que el usuario pidio en el panel
+      // y lo que dicen los datos de los tests). De esta linea hacia abajo todo
+      // es geometria -- nodos de armature, tablas de signo, mallas -- y en este
+      // GLB los nodos `_R` estan en +x, que es la izquierda anatomica. Sin esta
+      // conversion, pedir "Derecho" movia el brazo izquierdo del modelo. Ver el
+      // bloque de boneMap.rigSideFor, donde esta la medida.
+      //
+      // Se hace envolviendo el comando en vez de retocar cada uso para que no
+      // pueda quedarse ninguno sin convertir: dentro de `apply` no existe otro
+      // `cmd`.
+      const cmd: RigCommand = { ...incoming, side: rigSideFor(incoming.side) };
       const { byArmature, restQuat, restPos, restWorld, restRootLocal } = rig;
 
       // Glass skin: fade the body skin out while muscles are highlighted (or when

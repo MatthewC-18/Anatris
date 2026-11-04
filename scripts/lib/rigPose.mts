@@ -35,6 +35,18 @@ import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../src/lib/biomech/scapulaWra
 
 const D2R = Math.PI / 180;
 
+// LADO DEL RIG, no lado clinico.
+//
+// Este banco y los quince scripts de medida que lo usan hablan la convencion
+// GEOMETRICA: `R` es el armature `_R`, que en este GLB esta en +x. Y +x es la
+// IZQUIERDA anatomica (medido: `npm run audit-laterality`), asi que posar con
+// `R` mueve el miembro izquierdo del modelo.
+//
+// No se cambia a proposito: las comprobaciones de esos scripts estan escritas
+// contra el signo de x (`x > 0.15`, `sideSign`), igual que las tablas de signo
+// de boneMap. Lo que sí cruza es cualquier script que parta de un dato CLINICO
+// -- `demo.side` de un test, por ejemplo -- y debe hacerlo con
+// `boneMap.rigSideFor` antes de llamar aqui (ver measure-test-poses.mts).
 export type Side = 'R' | 'L';
 
 const LATS_ROT_FOLLOW = 0.18;
