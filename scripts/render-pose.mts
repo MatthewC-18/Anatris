@@ -159,7 +159,18 @@ const wantLayer = (layer: string) =>
 // pasar todo lo que esta cerca de la linea media (tronco, cabeza, raquis),
 // que no estorba porque no hay copia enfrente. Se puede apagar con
 // BOTHSIDES=on para comparar los dos a la vez.
-const MIDLINE_KEEP_M = 0.06;
+// QUE CUENTA COMO "EL OTRO LADO".
+//
+// No vale un umbral de distancia a la linea media: con 6 cm se colaba alguna
+// tesela de la rodilla de enfrente (las rodillas quedan cerca) y aparecia
+// flotando como un parche despegado; con 3 cm se iba la piel del muslo de
+// enfrente y dejaba sus aductores al aire. Las dos cosas son defectos que
+// INVENTA la herramienta, que es lo que mas cuesta descartar.
+//
+// La pregunta correcta no es si la malla esta cerca de la linea media, sino si
+// la CRUZA: el tronco, la cabeza y el raquis la cruzan y no tienen copia
+// enfrente, asi que se quedan; un muslo, una rodilla o un pie no la cruzan y
+// se van si son del lado contrario.
 const POSED_X_SIGN = SIDE === 'R' ? 1 : -1;
 const cullFarLimb = VIEW === 'side' && process.env.BOTHSIDES !== 'on';
 const _c = new THREE.Vector3();
@@ -167,8 +178,11 @@ const onPosedSide = (m: THREE.Mesh): boolean => {
   if (!cullFarLimb) return true;
   const g = m.geometry;
   if (!g.boundingSphere) g.computeBoundingSphere();
-  _c.copy(g.boundingSphere!.center).applyMatrix4(m.matrixWorld);
-  return Math.abs(_c.x) < MIDLINE_KEEP_M || Math.sign(_c.x) === POSED_X_SIGN;
+  const bs = g.boundingSphere;
+  if (!bs) return true;
+  _c.copy(bs.center).applyMatrix4(m.matrixWorld);
+  if (Math.abs(_c.x) <= bs.radius) return true; // cruza la linea media
+  return Math.sign(_c.x) === POSED_X_SIGN;
 };
 
 const tiles: { buffer: Uint8Array; width: number; height: number }[] = [];
