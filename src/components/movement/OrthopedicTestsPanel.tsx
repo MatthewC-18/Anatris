@@ -207,7 +207,16 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
  * tinted card, and the arrow states the actual transition (30% -> 68%) because
  * that difference IS the clinical point of the test.
  */
-function FaganBlock({ metrics, pretest }: { metrics: DiagnosticMetrics; pretest: number }) {
+function FaganBlock({
+  metrics,
+  pretest,
+  unverified,
+}: {
+  metrics: DiagnosticMetrics;
+  pretest: number;
+  /** True cuando NINGUNA de las fuentes de este test esta comprobada. */
+  unverified: boolean;
+}) {
   const lrPos = lrPosNum(metrics);
   const lrNeg = lrNegNum(metrics);
   const postPos = lrPos != null ? postProb(pretest, lrPos) : null;
@@ -215,6 +224,19 @@ function FaganBlock({ metrics, pretest }: { metrics: DiagnosticMetrics; pretest:
   return (
     <div className="border-t border-slate-800/70 pt-2.5">
       <Kicker>Probabilidad post-test</Kicker>
+      {/* EL AVISO VA AQUI, no solo abajo junto a la cita.
+          Este bloque es el que mas autoridad aparenta de todo el panel: coge
+          una probabilidad previa y devuelve una posterior con un decimal. Si la
+          sensibilidad de la que sale no la ha comprobado nadie contra la fuente,
+          el numero de salida hereda esa duda, y decirlo en gris de 11 px al
+          final de la ficha -- despues de haber ensenado la cifra grande -- es
+          decirlo donde ya no cambia nada. Una linea, sin alarmismo: el dato
+          sigue siendo util, pero el usuario sabe de que pie cojea. */}
+      {unverified && (
+        <p className="mt-1 text-[11px] leading-snug text-amber-500/90">
+          Calculado con cifras aún no comprobadas contra la fuente primaria.
+        </p>
+      )}
       <div className="mt-2 grid grid-cols-2 gap-4">
         <FaganResult
           title="Si sale positivo"
@@ -750,7 +772,13 @@ function TestRow({
           {/* Interpretacion reveals the intended use (the exam answer); hold it
               until the prediction is revealed. */}
           {!hideMetrics && <Detail label="Interpretación">{test.interpretation}</Detail>}
-          {!hideMetrics && <FaganBlock metrics={test.metrics} pretest={pretest} />}
+          {!hideMetrics && (
+            <FaganBlock
+              metrics={test.metrics}
+              pretest={pretest}
+              unverified={test.cite.length > 0 && test.cite.every((c) => !c.verified)}
+            />
+          )}
 
           {test.demo?.note && (
             <p className="text-[11px] text-slate-500">En el modelo: {test.demo.note}</p>

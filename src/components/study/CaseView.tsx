@@ -10,6 +10,7 @@
 
 import { useMemo, useState } from 'react';
 import { casesForRegion } from '../../data/clinicalCases';
+import { optionLetter, shuffledCaseOptions } from '../../lib/caseOptions';
 import type { ClinicalCase } from '../../types/clinicalCase';
 
 interface CaseViewProps {
@@ -105,8 +106,22 @@ function CaseRunner({
   const [picked, setPicked] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
+  /** Bumped by "Repetir el caso", so the options reshuffle on a second pass. */
+  const [attempt, setAttempt] = useState(0);
 
   const step = steps[index];
+  // LAS OPCIONES SE DESORDENAN AQUI, y por una razon medida: en el contenido
+  // real la respuesta correcta era la opcion `a` en los 38 pasos de los 15
+  // casos. El 100%. Se aprobaba pulsando siempre la primera sin leer, y por eso
+  // todos los pasos parecian el mismo. Ver src/lib/caseOptions.ts.
+  //
+  // Clave en `step.id` + `attempt`: avanzar de paso reordena, y rehacer el caso
+  // tambien, asi que no se memoriza la posicion.
+  const options = useMemo(
+    () => shuffledCaseOptions(step),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [step.id, attempt],
+  );
   const answered = picked != null;
   const pickedCorrect = answered && step.options.find((o) => o.id === picked)?.correct;
 
@@ -151,13 +166,30 @@ function CaseRunner({
             {score}/{steps.length} · {pct}%
           </span>
         </div>
-        <button
-          type="button"
-          onClick={onExit}
-          className="self-center rounded-lg bg-accent/20 px-5 py-2.5 text-sm font-medium text-accent transition-colors hover:bg-accent/30"
-        >
-          Elegir otro caso
-        </button>
+        <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
+          {/* Repetir sirve para algo ahora que las opciones se reordenan: antes
+              era el mismo examen con las mismas posiciones. */}
+          <button
+            type="button"
+            onClick={() => {
+              setAttempt((a) => a + 1);
+              setIndex(0);
+              setPicked(null);
+              setScore(0);
+              setDone(false);
+            }}
+            className="rounded-lg border border-slate-700 px-5 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:border-slate-500 hover:text-slate-100"
+          >
+            Repetir el caso
+          </button>
+          <button
+            type="button"
+            onClick={onExit}
+            className="rounded-lg bg-accent/20 px-5 py-2.5 text-sm font-medium text-accent transition-colors hover:bg-accent/30"
+          >
+            Elegir otro caso
+          </button>
+        </div>
       </div>
     );
   }
@@ -201,7 +233,7 @@ function CaseRunner({
         {step.prompt}
       </h3>
       <div className="flex flex-col gap-2">
-        {step.options.map((o) => {
+        {options.map((o, i) => {
           const isPicked = picked === o.id;
           const reveal = answered && o.correct;
           const wrongPick = answered && isPicked && !o.correct;
@@ -222,6 +254,9 @@ function CaseRunner({
                       : 'border-slate-800 text-slate-200 hover:border-slate-600 hover:bg-slate-800/40',
               ].join(' ')}
             >
+              <span className="mr-2 font-mono text-xs text-slate-500">
+                {optionLetter(i)}.
+              </span>
               {o.text}
             </button>
           );

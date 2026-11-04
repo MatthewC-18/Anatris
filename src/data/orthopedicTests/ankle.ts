@@ -114,18 +114,20 @@ export const ANKLE_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     target: 'Sindesmosis tibiofibular y ligamento deltoideo',
     purpose: 'Detectar el esguince alto (sindesmal) y la lesión del deltoideo.',
     maneuver:
-      'Con la rodilla flexionada y el tobillo neutro, se aplica rotación externa al pie mientras se estabiliza la pierna.',
+      'Con la rodilla flexionada, se lleva el tobillo a DORSIFLEXIÓN y se aplica rotación externa al pie mientras se estabiliza la pierna.',
     positive:
       'Dolor en la sindesmosis anterolateral (o medial, si es el deltoideo) reproducido con la rotación externa.',
     metrics: {
-      sensitivity: 20,
-      specificity: 85,
-      note: 'Poco sensible; un positivo es más informativo que un negativo.',
+      sensitivity: 71,
+      specificity: 63,
+      lrPositive: 1.93,
+      lrNegative: 0.46,
+      note: 'Con DORSIFLEXIÓN. Sin ella la sensibilidad cae mucho: la versión en tobillo neutro es la que se cita en torno al 20%. Sman 2015 mide la de dorsiflexión, que es la recomendable.',
     },
-    utility: 'rule-in',
+    utility: 'balanced',
     interpretation:
-      'Dolor sindesmal reproducido apoya el esguince alto (SpPin); confírmalo con el squeeze y la clínica.',
-    cite: [{ ref: 'magee', verified: false }],
+      'Es de las dos más sensibles del grupo sindesmal, no una prueba de confirmación: un negativo resta (LR- 0,46), un positivo aporta poco por sí solo (LR+ 1,93). Combínala con la palpación sindesmal y con el squeeze.',
+    cite: [{ ref: 'sman-2015', verified: true, locator: 'Tabla 3' }],
   },
   {
     id: 'ankle-squeeze',
@@ -139,13 +141,15 @@ export const ANKLE_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       'Se comprimen la tibia y la fíbula juntas en el tercio medio de la pierna, proximal a la lesión.',
     positive: 'Dolor referido distal en la sindesmosis al comprimir proximalmente.',
     metrics: {
-      sensitivity: 30,
-      specificity: 93,
-      note: 'Poco sensible, muy específica; útil para confirmar.',
+      sensitivity: 26,
+      specificity: 88,
+      lrPositive: 2.15,
+      lrNegative: 0.84,
+      note: 'Poco sensible y bastante específica, pero el intervalo del LR+ cruza el 1 (0,86 a 5,39): por sí sola no confirma nada.',
     },
     utility: 'rule-in',
     interpretation:
-      'Un dolor sindesmal distal al comprimir proximal apoya con fuerza el esguince alto (SpPin).',
-    cite: [{ ref: 'magee', verified: false }],
+      'Un positivo sube la sospecha de esguince alto, pero con un intervalo que incluye el 1 no cierra el diagnóstico. Un negativo no sirve para descartar (LR- 0,84). Úsala DESPUÉS de una prueba sensible (palpación sindesmal, rotación externa con dorsiflexión).',
+    cite: [{ ref: 'sman-2015', verified: true, locator: 'Tabla 3' }],
   },
 ];

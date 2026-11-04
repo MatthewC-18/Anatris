@@ -278,6 +278,20 @@ export const REFERENCES: Record<string, Reference> = {
       'Revision sistematica y metaanalisis de 48 estudios y 2365 sujetos sanos, 11.892 mediciones del raquis toracico. Su conclusion es por que aqui NO se publica una cifra medida para la columna toracica: los resultados de los distintos aparatos son "muy dispares entre si" porque cada herramienta usa un protocolo distinto, y los autores proponen estandarizarlo. Acceso abierto. Leida aqui.',
   },
 
+  'sman-2015': {
+    id: 'sman-2015',
+    pmid: '24255766',
+    doi: '10.1136/bjsports-2013-092787',
+    authors:
+      'Sman AD, Hiller CE, Rae K, Linklater J, Black DA, Nicholson LL, Burns J, Refshauge KM',
+    title: 'Diagnostic accuracy of clinical tests for ankle syndesmosis injury',
+    edition: '',
+    publisher: 'British Journal of Sports Medicine 2015;49(5):323-329',
+    year: 2015,
+    note:
+      'Estudio transversal de precision diagnostica: 87 pacientes con esguince de tobillo de menos de dos semanas, en 9 clinicas de dos ciudades australianas, contra RESONANCIA leida por un radiologo cegado. Tabla 3 leida aqui: rotacion externa con dorsiflexion S 0,71 (0,55-0,83) / E 0,63 (0,49-0,75), LR+ 1,93, LR- 0,46; squeeze S 0,26 (0,15-0,42) / E 0,88 (0,76-0,94), LR+ 2,15 (0,86-5,39); dolor a la palpacion de los ligamentos sindesmales S 0,92 / E 0,29; lunge con compresion S 0,69 / E 0,41. La conclusion de los autores es que ninguna prueba aislada basta.',
+  },
+
   'wainner-2003': {
     id: 'wainner-2003',
     pmid: '12544957',
