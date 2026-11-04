@@ -2153,9 +2153,21 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       }
       movedRootsRef.current.clear();
 
+      // DE DONDE PARTE UNA ROTACION QUE CAE SOBRE UN HUESO YA COLOCADO.
+      //
+      // rotate() devuelve el hueso a reposo y gira desde ahi, que es lo
+      // correcto... salvo cuando ese hueso YA lo habia colocado la postura de
+      // exploracion. Pasa en la rotacion tibial: la rodilla a 90 grados y el
+      // giro viven los dos en el hueso shin_flex, de modo que el giro borraba la
+      // flexion y la pierna volvia a quedarse recta. Y una rotacion
+      // longitudinal con la rodilla recta es un cilindro girando sobre su eje:
+      // no se ve nada, que es exactamente lo que la postura existe para
+      // evitar. Partiendo de la postura, el eje local ya es el eje largo de la
+      // tibia y el giro sale donde tiene que salir.
+      const postureBase = new Map<THREE.Object3D, THREE.Quaternion>();
       const rotate = (bone: THREE.Object3D, axis: RigAxis, rad: number): void => {
-        const rq = restQuat.get(bone);
-        if (rq) bone.quaternion.copy(rq);
+        const base = postureBase.get(bone) ?? restQuat.get(bone);
+        if (base) bone.quaternion.copy(base);
         else bone.quaternion.identity();
         // Rotate about the bone's LOCAL axis, on top of the rest orientation.
         bone.rotateOnAxis(AXIS_VEC[axis], rad);
@@ -2426,7 +2438,10 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         );
         for (const p of ctrl.posture) {
           const pb = postureBones?.get(p.bone);
-          if (pb) rotate(pb, p.axis, p.sign[cmd.side] * p.deg * DEG2RAD);
+          if (pb) {
+            rotate(pb, p.axis, p.sign[cmd.side] * p.deg * DEG2RAD);
+            postureBase.set(pb, pb.quaternion.clone());
+          }
           // eslint-disable-next-line no-console
           else console.warn(`[RigModel] posture bone not found: ${p.bone}`);
         }

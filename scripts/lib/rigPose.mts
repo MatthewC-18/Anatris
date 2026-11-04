@@ -302,15 +302,23 @@ export function createRigPoser(
       const s = restScale.get(o); if (s) o.scale.copy(s);
     });
     // --- EXAMINATION POSTURE (RigModel): held at every angle, 0 included ---
+    //
+    // Lo que la postura deja hecho es la BASE desde la que gira el movimiento,
+    // no algo que el movimiento pueda pisar. En la rotacion tibial los dos
+    // caen sobre shin_flex: sin esto, el giro devolvia el hueso a reposo y la
+    // rodilla se estiraba, que es justo lo que la postura evita.
+    const postureBase = new Map<THREE.Object3D, THREE.Quaternion>();
     if (!isChain && (control as any).posture) {
       for (const p of (control as any).posture) {
         const pb = jointBones.get(p.bone);
         if (!pb) continue;
         pb.quaternion.copy(restQuat.get(pb)!);
         pb.rotateOnAxis(AX[p.axis], p.sign[side] * p.deg * D2R);
+        postureBase.set(pb, pb.quaternion.clone());
       }
       scene.updateMatrixWorld(true);
     }
+    const baseOf = (b: THREE.Object3D) => postureBase.get(b) ?? restQuat.get(b)!;
     if (deg !== 0 && isSpine) {
       // --- a SPINE movement: one regional angle spread over a vertebra block,
       // exactly as RigModel does it. Motion accumulates up the chain, so each
@@ -337,12 +345,12 @@ export function createRigPoser(
         // Couplings (the patella riding the knee, the hip's cross-over flexion).
         // RigModel applies them; the harness did not, so every coupled movement
         // was measured with half of itself missing.
-        bone.quaternion.copy(restQuat.get(bone)!);
+        bone.quaternion.copy(baseOf(bone));
         bone.rotateOnAxis(AX[j.axis], rad);
         for (const cp of (j.couplings ?? []) as any[]) {
           const cb = jointBones.get(cp.bone);
           if (!cb) continue;
-          cb.quaternion.copy(restQuat.get(cb)!);
+          cb.quaternion.copy(baseOf(cb));
           cb.rotateOnAxis(AX[cp.axis], cp.follow(rad));
         }
       }
