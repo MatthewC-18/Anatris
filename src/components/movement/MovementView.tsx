@@ -9,7 +9,8 @@
 // signature so the App call site is unchanged, but the rig lab is self-contained
 // and does not consume them.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { consumeFocusTest } from '../../lib/caseEvidence';
 import { RigViewer } from './RigViewer';
 import {
   MobileLabSheet,
@@ -96,7 +97,34 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   const compact = useIsCompact();
   const [sheetTab, setSheetTab] = useState<LabTab>('movimiento');
   const [detent, setDetent] = useState<SheetDetent>('peek');
-  useEffect(() => setSheetTab('movimiento'), [region]);
+  // Cambiar de region devuelve la hoja a Movimiento. Se compara con la region
+  // ANTERIOR a proposito: en el primer render la region todavia es null y se
+  // resuelve despues, asi que un efecto sobre [region] a secas se disparaba
+  // tambien al montar y pisaba la pestana que acaba de elegir el enlace
+  // profundo de un caso clinico.
+  const prevRegionRef = useRef(region);
+  useEffect(() => {
+    if (prevRegionRef.current === region) return;
+    prevRegionRef.current = region;
+    setSheetTab('movimiento');
+  }, [region]);
+
+  // LLEGADA DESDE UN CASO CLINICO: /<region>/movimiento?prueba=<id>.
+  //
+  // El parametro se lee UNA vez y se borra de la direccion. Tiene que ser aqui
+  // y no dentro del panel porque el panel se monta en dos sitios (la columna
+  // de escritorio y la pestana de la hoja movil) y el primero que lo leyera
+  // dejaria al otro sin nada. Ademas hay que ABRIR el panel, que no es cosa
+  // suya.
+  const [focusTestId, setFocusTestId] = useState<string | null>(null);
+  useEffect(() => {
+    const id = consumeFocusTest();
+    if (!id) return;
+    setFocusTestId(id);
+    setRightPanel('tests');
+    setSheetTab('tests');
+    setDetent('full');
+  }, []);
 
   const sheetTabs = useMemo<LabTabDef[]>(() => {
     const tabs: LabTabDef[] = [
@@ -126,6 +154,7 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
             bare
             onOpenChange={() => {}}
             onOpenEvidence={onOpenEvidence}
+            focusTestId={focusTestId}
           />
         ),
       },
@@ -325,6 +354,7 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
                   open={rightPanel === 'tests'}
                   onOpenChange={(o) => setRightPanel(o ? 'tests' : 'none')}
                   onOpenEvidence={onOpenEvidence}
+                  focusTestId={focusTestId}
                 />
               ) : (
                 <LockedSheet

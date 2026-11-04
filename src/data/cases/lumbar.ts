@@ -35,6 +35,7 @@ export const LUMBAR_CASES: ClinicalCase[] = [
       },
       {
         id: 'q2',
+        showsTest: 'slr-lasegue',
         prompt: '¿Qué prueba neural tensa la raíz y reproduce el dolor irradiado?',
         options: [
           { id: 'a', text: 'Elevación de la pierna recta (Lasègue / SLR)', correct: true },

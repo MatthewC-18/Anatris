@@ -23,6 +23,7 @@ export const ELBOW_CASES: ClinicalCase[] = [
     steps: [
       {
         id: 'q1',
+        showsTest: 'cozen',
         prompt: '¿Qué grupo muscular se origina en el epicóndilo lateral y reproduce el dolor?',
         options: [
           { id: 'a', text: 'Extensores de la muñeca y los dedos', correct: true },
@@ -60,6 +61,7 @@ export const ELBOW_CASES: ClinicalCase[] = [
     steps: [
       {
         id: 'q1',
+        showsTest: 'tinel-cubital',
         prompt: '¿Qué nervio pasa por detrás del epicóndilo medial y explica este patrón?',
         options: [
           { id: 'a', text: 'Nervio cubital', correct: true },

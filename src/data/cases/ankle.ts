@@ -23,6 +23,7 @@ export const ANKLE_CASES: ClinicalCase[] = [
     steps: [
       {
         id: 'q1',
+        showsTest: 'ankle-anterior-drawer',
         prompt: '¿Qué ligamento se lesiona primero en el mecanismo de inversión?',
         options: [
           { id: 'a', text: 'Peroneoastragalino anterior (LPAA)', correct: true },

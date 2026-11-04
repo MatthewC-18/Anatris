@@ -36,6 +36,17 @@ export interface CaseStep {
   options: CaseOption[];
   /** Shown after answering (right or wrong) to teach the reasoning. */
   explanation: string;
+  /**
+   * Id de la PRUEBA ORTOPEDICA que ilustra este paso, si lo hay.
+   *
+   * Un paso que la nombra deja de ser solo texto: debajo de la explicacion
+   * aparecen la maniobra, el hallazgo positivo y los numeros reales de esa
+   * prueba (sensibilidad, especificidad, LR, estudio), y un enlace que la
+   * abre en el laboratorio con su demostracion en 3D. El id tiene que existir
+   * en las pruebas de la MISMA region: lo vigila el test de regresion de
+   * caseEvidence.
+   */
+  showsTest?: string;
 }
 
 /** A complete interactive clinical case for one region. */

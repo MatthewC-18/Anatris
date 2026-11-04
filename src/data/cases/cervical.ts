@@ -35,6 +35,7 @@ export const CERVICAL_CASES: ClinicalCase[] = [
       },
       {
         id: 'q2',
+        showsTest: 'spurling',
         prompt: '¿Qué prueba reproduce el dolor radicular al cerrar el foramen?',
         options: [
           { id: 'a', text: 'Test de Spurling', correct: true },

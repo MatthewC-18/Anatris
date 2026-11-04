@@ -23,6 +23,7 @@ export const SHOULDER_CASES: ClinicalCase[] = [
     steps: [
       {
         id: 'q1',
+        showsTest: 'painful-arc',
         prompt: '¿Qué estructura es la más probablemente implicada en un arco doloroso de 60–120°?',
         options: [
           { id: 'a', text: 'Tendón del supraespinoso', correct: true },
@@ -35,6 +36,7 @@ export const SHOULDER_CASES: ClinicalCase[] = [
       },
       {
         id: 'q2',
+        showsTest: 'empty-can',
         prompt: '¿Qué prueba ayuda a aislar el supraespinoso?',
         options: [
           { id: 'a', text: 'Maniobra de Jobe (lata vacía)', correct: true },
@@ -109,6 +111,7 @@ export const SHOULDER_CASES: ClinicalCase[] = [
     steps: [
       {
         id: 'q1',
+        showsTest: 'drop-arm',
         prompt: '¿Qué músculo es el principal iniciador de los primeros grados de abducción?',
         options: [
           { id: 'a', text: 'Supraespinoso', correct: true },

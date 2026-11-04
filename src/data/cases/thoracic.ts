@@ -35,6 +35,7 @@ export const THORACIC_CASES: ClinicalCase[] = [
       },
       {
         id: 'q2',
+        showsTest: 'closed-fist-percussion',
         prompt: '¿Qué dos signos de exploración apoyan mejor esa sospecha?',
         options: [
           {
@@ -96,6 +97,7 @@ export const THORACIC_CASES: ClinicalCase[] = [
       },
       {
         id: 'q2',
+        showsTest: 'roos-east',
         prompt: 'La prueba de Roos (EAST) reproduce los síntomas a los dos minutos. ¿Cómo lo interpretas?',
         options: [
           {

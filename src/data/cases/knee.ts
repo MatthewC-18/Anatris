@@ -35,6 +35,7 @@ export const KNEE_CASES: ClinicalCase[] = [
       },
       {
         id: 'q2',
+        showsTest: 'lachman',
         prompt: '¿Qué prueba clínica explora la integridad del LCA?',
         options: [
           { id: 'a', text: 'Test de Lachman', correct: true },

@@ -9,9 +9,12 @@
 // immediate feedback + explanation -> takeaway summary.
 
 import { useMemo, useState } from 'react';
+import { LockGlyph, useFeatureGate } from '../account/PremiumGate';
+import { REFERENCES } from '../../data/references';
 import { casesForRegion } from '../../data/clinicalCases';
+import { goToTestInLab, testForStep } from '../../lib/caseEvidence';
 import { optionLetter, shuffledCaseOptions } from '../../lib/caseOptions';
-import type { ClinicalCase } from '../../types/clinicalCase';
+import type { ClinicalCase, CaseStep } from '../../types/clinicalCase';
 
 interface CaseViewProps {
   region: string;
@@ -274,6 +277,7 @@ function CaseRunner({
             {pickedCorrect ? '¡Correcto!' : 'Respuesta incorrecta'}
           </p>
           <p className="text-sm leading-relaxed text-slate-300">{step.explanation}</p>
+          <StepEvidence region={clinicalCase.region} step={step} />
           <button
             type="button"
             onClick={next}
@@ -300,5 +304,106 @@ function LevelBadge({ level }: { level: ClinicalCase['level'] }) {
     >
       {level}
     </span>
+  );
+}
+
+/* ===========================================================================
+ * LA PRUEBA QUE EL PASO NOMBRA
+ *
+ * Un paso que apunta a una prueba ortopedica (`showsTest`) ya no se queda en la
+ * explicacion: aqui debajo aparecen la maniobra, el hallazgo positivo, los
+ * numeros reales de esa prueba y el estudio del que salen, con un enlace que la
+ * abre en el laboratorio con su demostracion en 3D.
+ *
+ * POR QUE. La aplicacion tiene 79 pruebas con sensibilidad, especificidad,
+ * razones de verosimilitud y cita, y los casos no las tocaban: decian "la
+ * maniobra de Jobe carga selectivamente al supraespinoso" y ahi se acababa. El
+ * alumno leia una afirmacion; ahora ve de donde sale y cuanto vale.
+ *
+ * Se dibuja SOLO si la prueba esta disponible. En una region de pago cuyo
+ * contenido todavia no ha llegado del edge function, `testForStep` devuelve
+ * null y este bloque no existe, en vez de dejar una tarjeta a medias.
+ * ======================================================================== */
+
+function StepEvidence({ region, step }: { region: string; step: CaseStep }) {
+  const test = useMemo(() => testForStep(region, step), [region, step]);
+  const gate = useFeatureGate('orthopedic-tests');
+  if (!test) return null;
+  const { sensitivity: sens, specificity: spec } = test.metrics;
+  const unverified = test.cite.some((c) => !c.verified);
+  return (
+    <div className="rounded-xl border border-slate-800/80 bg-slate-900/50 p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="font-display text-sm font-semibold text-slate-100">{test.name}</p>
+        <span className="shrink-0 font-mono text-[10px] uppercase tracking-wide text-slate-500">
+          {test.target}
+        </span>
+      </div>
+      <dl className="mt-2.5 flex flex-col gap-1.5 text-xs leading-relaxed text-slate-400">
+        <div>
+          <dt className="inline font-medium text-slate-300">Maniobra. </dt>
+          <dd className="inline">{test.maneuver}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-slate-300">Positivo. </dt>
+          <dd className="inline">{test.positive}</dd>
+        </div>
+      </dl>
+      {(sens != null || spec != null) && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5">
+          {sens != null && <Metric label="Sensibilidad" value={sens} tone="sky" />}
+          {spec != null && <Metric label="Especificidad" value={spec} tone="emerald" />}
+        </div>
+      )}
+      <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+        {test.cite.map((c) => REFERENCES[c.ref]?.authors ?? c.ref).join('; ')}
+        {unverified && (
+          <span className="ml-1.5 text-amber-500/90">· cifra sin verificar contra la fuente</span>
+        )}
+      </p>
+      {test.demo && (
+        <button
+          type="button"
+          onClick={() => (gate.unlocked ? goToTestInLab(region, test.id) : gate.requestUpgrade())}
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3.5 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:border-slate-500 hover:text-slate-100"
+        >
+          {/* Con candado si el panel de pruebas no esta desbloqueado: mejor
+              decirlo aqui que mandar al usuario a una puerta cerrada. */}
+          {!gate.unlocked && <LockGlyph className="h-3 w-3" />}
+          Ver la prueba en el laboratorio →
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Una cifra de la prueba.
+ *
+ * El color dice EL EJE, no si la cifra es buena: cielo = sensibilidad,
+ * esmeralda = especificidad, igual que en el panel de pruebas. Dos pantallas
+ * que usan el mismo color para cosas distintas se leen mal las dos.
+ */
+function Metric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: 'sky' | 'emerald';
+}) {
+  const bar = tone === 'sky' ? 'bg-sky-400/80' : 'bg-emerald-400/80';
+  const txt = tone === 'sky' ? 'text-sky-300' : 'text-emerald-300';
+  return (
+    <div className="flex min-w-[8.5rem] flex-1 flex-col gap-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[11px] text-slate-500">{label}</span>
+        <span className={`font-display text-sm font-semibold ${txt}`}>{value}%</span>
+      </div>
+      <div className="h-1 w-full overflow-hidden rounded-full bg-slate-800">
+        <div className={`h-full rounded-full ${bar}`} style={{ width: `${value}%` }} />
+      </div>
+    </div>
   );
 }

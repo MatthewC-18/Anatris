@@ -39,6 +39,7 @@ export const HIP_CASES: ClinicalCase[] = [
       },
       {
         id: 'q2',
+        showsTest: 'hip-fadir',
         prompt: '¿Qué test provoca mejor el pinzamiento anterior?',
         options: [
           { id: 'a', text: 'FADIR (flexión, aducción y rotación interna)', correct: true },
@@ -96,6 +97,7 @@ export const HIP_CASES: ClinicalCase[] = [
       },
       {
         id: 'q2',
+        showsTest: 'hip-trendelenburg',
         prompt: 'La pelvis derecha desciende en apoyo monopodal izquierdo. ¿Cómo se llama y qué indica?',
         options: [
           {

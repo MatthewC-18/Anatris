@@ -609,6 +609,8 @@ function TestRow({
 
   return (
     <div
+      // Lo usa el enlace profundo de un caso clinico para traer la fila a la vista.
+      id={testRowDomId(test.id)}
       className={`border-l-2 transition-colors ${u.bar} ${
         selected ? 'bg-accent/[0.06]' : expanded ? 'bg-slate-800/20' : 'hover:bg-slate-800/20'
       }`}
@@ -816,12 +818,16 @@ function TestRow({
   );
 }
 
+/** Id de DOM de la fila de una prueba, para traerla a la vista desde fuera. */
+export const testRowDomId = (testId: string) => `prueba-${testId}`;
+
 export function OrthopedicTestsPanel({
   region,
   open,
   onOpenChange,
   onOpenEvidence,
   bare = false,
+  focusTestId = null,
 }: {
   region: string | null;
   open: boolean;
@@ -835,6 +841,12 @@ export function OrthopedicTestsPanel({
    * is wider than the phone it is sitting on.
    */
   bare?: boolean;
+  /**
+   * Prueba que hay que abrir nada mas montar, porque alguien llego aqui desde
+   * un caso clinico (/<region>/movimiento?prueba=<id>). Se despliega su ficha
+   * y se la trae a la vista; si la region no la tiene, no pasa nada.
+   */
+  focusTestId?: string | null;
 }) {
   const tests = useMemo(() => testsForRegion(region), [region]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -854,6 +866,25 @@ export function OrthopedicTestsPanel({
   // Exam mode: hide metrics, let the user predict per test, then reveal.
   const [examMode, setExamMode] = useState(false);
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
+
+  // LLEGADA DESDE UN CASO CLINICO. El caso enlaza la prueba que acaba de
+  // explicar; aqui se despliega su ficha y se la trae a la vista, para que el
+  // usuario aterrice EN la prueba y no en una lista de veinte donde tiene que
+  // buscarla. Se limpia el filtro de texto por si venia escrito de antes y la
+  // dejaria fuera de la lista.
+  useEffect(() => {
+    if (!focusTestId || !tests.some((t) => t.id === focusTestId)) return;
+    setQuery('');
+    setOnly3d(false);
+    setExpandedId(focusTestId);
+    // Tras el repintado que despliega la ficha, no antes.
+    const raf = requestAnimationFrame(() => {
+      document
+        .getElementById(testRowDomId(focusTestId))
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [focusTestId, tests]);
 
   const dismissHelp = () => {
     setShowHelp(false);
