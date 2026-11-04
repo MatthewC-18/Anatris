@@ -1303,6 +1303,26 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       const hum = byArmature.get(armName)?.get('humerus_gh');
       if (hum) restWorld.set(hum, hum.matrixWorld.clone());
     }
+    // ...AND THE ELBOW, WITHOUT WHICH THE WHOLE AIM STAGE DID NOTHING.
+    //
+    // The aim rebuilds the humeral shaft from its REST direction, shoulder ->
+    // elbow, and it reads both ends out of this map. The humerus got in here as
+    // a passenger of the latissimus pass above; `forearm_flex` was never
+    // captured by anything, so `restWorld.get(elbow)` was always undefined and
+    // the aim's guard dropped out silently, on every shoulder movement, for both
+    // sides.
+    //
+    // What that cost: the aim is the stage that lands the arm on exactly the
+    // angle the panel reports, and it is also where cross-body adduction is
+    // carried IN FRONT of the trunk (shoulderChain's crossBodyFlex is applied
+    // there and nowhere else). With it dead, the negative end of the frontal arc
+    // adducted in the pure frontal plane -- straight into the thorax -- which is
+    // the pose the shoulder lab opens on. The offline renderer was right all
+    // along; it implements the same aim and had its own rest matrices.
+    for (const [, armName] of LATS_PAIRS) {
+      const elbow = byArmature.get(armName)?.get('forearm_flex');
+      if (elbow) restWorld.set(elbow, elbow.matrixWorld.clone());
+    }
     return { byArmature, restQuat, restPos, restWorld, restRootLocal };
   }, [scene]);
 
@@ -2565,6 +2585,11 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // 0 deg, before the user had moved anything.
       const clearanceRot = new Map<THREE.Object3D, THREE.Quaternion>();
 
+      // How much forward swing the CLINICAL model already spent on this pose, in
+      // degrees (see armClearanceFactor). Written by the chain branch below, read
+      // by the cosmetic clearance after it. 0 for every pose that has none.
+      let clinicalForwardDeg = 0;
+
       // FOREARM TWIST BONE: take HALF of whatever forearm_rot ended up doing, so
       // the roll is spread over two equal steps instead of one big one (see
       // smoothTwistForearm). Reads the posed bone rather than the command, so it
@@ -2734,7 +2759,24 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
             ctrl.axis === 'x');
         if (!elevationMovement) return 1;
         const f = (ARM_CLEARANCE_FADE_DEG - cmd.angleDeg) / ARM_CLEARANCE_FADE_DEG;
-        return f < 0 ? 0 : f > 1 ? 1 : f;
+        const capped = f < 0 ? 0 : f > 1 ? 1 : f;
+        // ...AND IT MUST NOT ADD TO THE SWING THE MOVEMENT ALREADY PERFORMS.
+        //
+        // Below neutral this arc is cross-body adduction, and the clinical model
+        // already carries the limb in front of the trunk for it (shoulderChain's
+        // crossBodyFlex, up to 45 deg). The cosmetic clearance exists for exactly
+        // the same reason, so at the adduction end the two stack -- and they do
+        // not stack cleanly: the aim leaves the humerus turned, so this rotation,
+        // which is applied about the bone's OWN x, no longer points forward in
+        // the world. The arm ended up neither at the side nor across the body,
+        // and from the front it read as swallowed by the chest. It is the pose
+        // the shoulder lab OPENS on.
+        //
+        // So spend only what the movement has not already spent. At 0 deg
+        // nothing is borrowed and the clearance is the full 35; at -30 the chain
+        // has borrowed 45 and the clearance is 0. Above neutral nothing changes.
+        const remaining = ARM_CLEARANCE_DEG * capped - clinicalForwardDeg;
+        return remaining <= 0 ? 0 : remaining / ARM_CLEARANCE_DEG;
       };
 
       // MANEUVER COMPONENTS. Held at a fixed angle while the base movement
@@ -2922,6 +2964,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
                 // limb inside the abdomen. Same sagittal swing the flexion arc
                 // uses below, applied on top of the frontal placement.
                 const cross = outputs.crossBodyFlex;
+                if (cross) clinicalForwardDeg = Math.abs(cross) / DEG2RAD;
                 if (cross) {
                   const rz = Math.hypot(want.z, want.y);
                   const az = Math.atan2(want.z, -want.y) + cross;
