@@ -154,7 +154,11 @@ for (const deg of DEGS) {
     view: VIEW,
     box: BOX,
     width: W,
+    // `visible === false` es como la aplicacion marca lo que oculta al cargar
+    // (recorte del antebrazo, duplicados, contenedores). Sin mirarlo, la hoja
+    // dibujaba los tendones digitales que la aplicacion ya habia quitado.
     include: (m) =>
+      m.visible &&
       !/g0\d\d$/.test(m.name) && !/_system/i.test(m.name) && !/^General[_ ]terms$/i.test(m.name),
     color: (m) => {
       const mat = matNameOf(m);

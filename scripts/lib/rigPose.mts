@@ -31,6 +31,9 @@ import { repairFaceWinding } from '../../src/lib/faceWinding.ts';
 import { bridgeShoulderSkin } from '../../src/lib/shoulderSkinBridge.ts';
 import { gradeShoulderMuscleBinding } from '../../src/lib/shoulderMuscleBinding.ts';
 import { relaxSkinSeams } from '../../src/lib/skinSeamRelax.ts';
+import { rebindArmBellies } from '../../src/lib/rigArmRebind.ts';
+import { trimForearmOutliers } from '../../src/lib/rigLimbTrim.ts';
+import { layerForMaterial } from '../../src/lib/materialColors.ts';
 import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../src/lib/biomech/scapulaWrap.ts';
 
 const D2R = Math.PI / 180;
@@ -127,6 +130,24 @@ export function createRigPoser(
   bridgeShoulderSkin(scene);
   gradeShoulderMuscleBinding(scene);
   relaxSkinSeams(scene);
+  // Y los religados del brazo, que hasta ahora SOLO hacia la aplicacion.
+  //
+  // Sin esto, las hojas de revision mentian: a 145 grados de flexion de codo
+  // mostraban los vientres del biceps y del braquial disparados por delante
+  // del pecho, porque el GLB los trae pesados al antebrazo. La aplicacion los
+  // devuelve al humero al cargar; el banco no lo hacia, de modo que revisar
+  // el movimiento con estas imagenes era inventarse un defecto. Comparten
+  // codigo (src/lib/rigArmRebind.ts) justamente para que no vuelva a pasar.
+  rebindArmBellies(scene, (mesh) => {
+    const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    const layer = layerForMaterial(first?.name ?? null);
+    return layer === 'muscle' ? 'muscle' : layer === 'skin' ? 'skin' : 'other';
+  });
+  // Y el recorte medido del antebrazo, por el mismo motivo: sin el, la hoja
+  // sale con el antebrazo erizado de tendones digitales disparados fuera del
+  // brazo. Oculta lo que no tiene arreglo, igual que la aplicacion.
+  for (const m of trimForearmOutliers(scene)) m.visible = false;
+
   scene.updateMatrixWorld(true);
 
   const byArm = new Map<string, Map<string, THREE.Object3D>>();

@@ -32,6 +32,21 @@ import {
 } from '../../lib/boneMap';
 import { blendKneeSkin, kneeHeight, KNEE_SKIN_REACH_M } from '../../lib/rigSkinRepair';
 import {
+  ARM_COLUMN_X,
+  FOREARM_CULLS,
+  inArmBand,
+  inDistalRegion,
+  inWristCuff,
+  trimForearmOutliers,
+} from '../../lib/rigLimbTrim';
+// Religados del brazo, compartidos con el banco de render (scripts/lib/rigPose.mts).
+import {
+  armHeights,
+  dominantBoneName,
+  isUpperArmBelly,
+  rigidBindTo,
+} from '../../lib/rigArmRebind';
+import {
   colorForMaterial,
   colorForMaterialMesh,
   materialIsSkin,
@@ -397,29 +412,17 @@ function isCorruptedSpike(mesh: THREE.Mesh): boolean {
   return max > SPIKE_MAX_M && max / median > SPIKE_RATIO;
 }
 
-/** Dominant (highest-weight) bone name of a skinned mesh, or '' if not skinned. */
-function dominantBoneName(mesh: THREE.Mesh): string {
-  const sk = mesh as THREE.SkinnedMesh;
-  if (!sk.isSkinnedMesh || !sk.skeleton) return '';
-  const idx = mesh.geometry.getAttribute('skinIndex');
-  const wgt = mesh.geometry.getAttribute('skinWeight');
-  if (!idx || !wgt) return '';
-  const acc = new Map<number, number>();
-  const n = Math.min(idx.count, 200);
-  for (let i = 0; i < n; i++) {
-    for (let k = 0; k < 4; k++) {
-      const w = wgt.getComponent(i, k);
-      if (w > 0) {
-        const b = idx.getComponent(i, k);
-        acc.set(b, (acc.get(b) ?? 0) + w);
-      }
-    }
-  }
-  let best = -1;
-  let bw = 0;
-  for (const [b, w] of acc) if (w > bw) { bw = w; best = b; }
-  return best >= 0 && sk.skeleton.bones[best] ? sk.skeleton.bones[best].name : '';
-}
+// `dominantBoneName`, `rigidBindTo`, `armHeights` e `isUpperArmBelly` viven en
+// src/lib/rigArmRebind.ts. Estaban aqui dentro, y por eso el banco de render no
+// los aplicaba: las hojas de revision mostraban los vientres del brazo saliendo
+// disparados en la flexion de codo, un fallo que la aplicacion ya no tiene.
+//
+// Al mudarlos se arreglo ademas un fallo real. La version local devolvia el
+// nombre CRUDO del hueso y aqui se comparaba contra `forearm_flex` a secas,
+// pero el segundo armature llama al suyo `forearm_flex_1`: 137 mallas entraban
+// por la regla y 136 no. Un brazo religado y el otro no, que mirando uno solo
+// parece perfecto. Medido con `npm run audit-arm-skin`: tres parches de piel
+// por brazo que no deberian moverse al doblar el codo recorrian 9,5 cm.
 
 // ---------------------------------------------------------------------------
 // Smooth spine-muscle re-skin (premium spine compaction).
@@ -776,308 +779,12 @@ function hideOverlapDuplicates(candidates: DupCandidate[]): number {
 // y ~= 0.865); foot+ankle skin sits at y < 0.12.
 // ---------------------------------------------------------------------------
 
-/**
- * FOREARM CULLS, the old NAME-based rules: hide all the forearm's connective,
- * hide muscle in the wrist cuff, hide anything matching the digital-muscle regex.
- * Superseded by the measured cull below (see cullForearmOutliers), which drops
- * only what actually sticks out and so keeps 60% more of the forearm's bulk.
- * Left in place, disabled, because they are the documented fallback if the
- * measured rule ever misjudges a re-exported rig.
- */
-const FOREARM_CULLS = false;
-
-/**
- * How far past the limb's own radius a mesh may reach before it is trimmed.
- *
- * The name-based culls emptied the forearm; removing them filled it back up but
- * let loose spikes through. Neither is a judgement about a muscle's NAME -- it is
- * about where its geometry lands, so that is what we measure.
- *
- * The reference is the arm's own BONE AXIS, not its skin: the digital tendons run
- * into the fingers, where hand skin is sampled thinly, and a skin-cloud distance
- * there says 25 cm for a structure that is perfectly in place. The threshold is
- * taken from the forearm SKIN's own distance to that axis, so it adapts to the rig
- * rather than hardcoding a body size, and p95 is used rather than the max so one
- * stray vertex cannot condemn an otherwise healthy belly. Measured on the shipped
- * rig the sleeve is 6.3 cm, which is the number this margin is applied to.
- */
-const LIMB_OUTLIER_MARGIN = 1.02;
-
-/**
- * Below this fraction of surviving triangles a trimmed mesh is hidden instead:
- * what is left of a long tendon whose whole length was cut away is a handful of
- * scattered faces, which reads as debris rather than as anatomy.
- */
-const LIMB_TRIM_MIN_KEPT = 0.1;
-
-/** The limb axis: one segment per bone-to-child pair under `root`. */
-function boneAxis(root: THREE.Object3D): [THREE.Vector3, THREE.Vector3][] {
-  const segs: [THREE.Vector3, THREE.Vector3][] = [];
-  root.traverse((o) => {
-    if (!(o as THREE.Bone).isBone) return;
-    const a = o.getWorldPosition(new THREE.Vector3());
-    for (const child of o.children) {
-      if ((child as THREE.Bone).isBone) {
-        segs.push([a, child.getWorldPosition(new THREE.Vector3())]);
-      }
-    }
-  });
-  return segs;
-}
-
-const _seg = new THREE.Vector3();
-const _rel = new THREE.Vector3();
-/**
- * Distance from `p` to the limb axis.
- *
- * SEGMENTS, not the bone origins. An arm armature has seven bones, so the cloud
- * of their positions leaves a ~25 cm hole down the forearm: a vertex halfway
- * along it measures 12 cm from both the elbow and the wrist while sitting right
- * on the bone. Thresholding against that cloud is thresholding against the gap
- * between bones, and it passed rods reaching twice as far as the skin. Against
- * the axis the forearm's own sleeve measures 6.3 cm, which is a real radius.
- */
-function distToAxis(p: THREE.Vector3, segs: readonly [THREE.Vector3, THREE.Vector3][]): number {
-  let best = Infinity;
-  for (const [a, b] of segs) {
-    _seg.subVectors(b, a);
-    _rel.subVectors(p, a);
-    const lenSq = _seg.lengthSq();
-    let t = lenSq > 1e-9 ? _rel.dot(_seg) / lenSq : 0;
-    t = t < 0 ? 0 : t > 1 ? 1 : t;
-    const d = _rel.addScaledVector(_seg, -t).lengthSq();
-    if (d < best) best = d;
-  }
-  return Math.sqrt(best);
-}
-
-/**
- * The forearm's TAPERED SLEEVE: its skin radius as a function of how far down the
- * elbow -> wrist axis you are, 5.2 cm at the elbow narrowing to 3.9 cm at the
- * wrist on the shipped rig.
- *
- * One radius for the whole limb cannot describe an arm, and worse, a plain
- * distance-to-axis test is blind to the thing that was on screen: a bar lying
- * ACROSS the forearm never leaves the axis, it just pierces the skin on both
- * sides, and a 10 cm bar centred on the bone measures 5 cm -- comfortably inside
- * a limit taken from the widest part of the limb. The rig ships several such
- * bars, muscles the exporter left rotated ~90 deg (23 cm of extensor digitorum
- * running front-to-back through a 4 cm wrist), and they are what "no esta bien
- * colocado" refers to. Sampling the skin per axial station catches them.
- *
- * Returns a predicate: is this rest-pose world point inside the sleeve? Points
- * above the elbow are not judged by it -- the humeral origins live there, and
- * they are handled by anchorOriginToHumerus.
- */
-function makeSleeveTest(
-  elbow: THREE.Vector3,
-  wrist: THREE.Vector3,
-  skin: readonly THREE.Mesh[],
-  margin: number,
-): (p: THREE.Vector3) => boolean {
-  const axis = new THREE.Vector3().subVectors(wrist, elbow);
-  const lenSq = axis.lengthSq();
-  if (lenSq <= 1e-6) return () => true;
-  const rel = new THREE.Vector3();
-  /** Axial station (0 elbow, 1 wrist) and radius off the axis. */
-  const station = (p: THREE.Vector3): [number, number] => {
-    rel.subVectors(p, elbow);
-    const t = rel.dot(axis) / lenSq;
-    return [t, rel.addScaledVector(axis, -t).length()];
-  };
-  const BINS = 12;
-  const bins: number[][] = Array.from({ length: BINS }, () => []);
-  const v = new THREE.Vector3();
-  for (const mesh of skin) {
-    const pos = mesh.geometry.getAttribute('position');
-    if (!pos) continue;
-    const step = Math.max(1, Math.floor(pos.count / 400));
-    for (let i = 0; i < pos.count; i += step) {
-      v.fromBufferAttribute(pos, i);
-      mesh.localToWorld(v);
-      const [t, r] = station(v);
-      if (t < 0 || t > 1) continue;
-      bins[Math.min(BINS - 1, Math.floor(t * BINS))].push(r);
-    }
-  }
-  const profile = bins.map((xs) => {
-    if (xs.length === 0) return NaN;
-    xs.sort((a, b) => a - b);
-    return xs[Math.floor(xs.length * 0.95)];
-  });
-  if (profile.every((x) => Number.isNaN(x))) return () => true;
-  // A bin the skin did not reach borrows its neighbours' widest, so the profile
-  // is defined end to end and never pinches the limb shut where it has no data.
-  for (let i = 0; i < BINS; i++) {
-    if (!Number.isNaN(profile[i])) continue;
-    const near = profile.filter((x, j) => !Number.isNaN(x) && Math.abs(j - i) <= 2);
-    profile[i] = near.length > 0 ? Math.max(...near) : Infinity;
-  }
-  const radiusAt = (t: number): number => {
-    const c = t < 0 ? 0 : t > 1 ? 1 : t;
-    const x = c * (BINS - 1);
-    const i = Math.min(BINS - 2, Math.floor(x));
-    return profile[i] + (profile[i + 1] - profile[i]) * (x - i);
-  };
-  return (p: THREE.Vector3): boolean => {
-    const [t, r] = station(p);
-    if (t < -0.05) return true; // above the elbow: not the forearm's business
-    // Past the wrist there is nothing to be inside of: the hand is a solid skin
-    // cap with every internal piece hidden, so a tendon that carries on into it
-    // can only come out through the palm.
-    if (t > 1.05) return false;
-    return r <= radiusAt(t) * margin;
-  };
-}
-
-/**
- * A mesh lying ACROSS the limb instead of along it.
- *
- * A forearm muscle runs the length of the forearm: it covers a long axial span
- * and hugs the axis. The export-mangled ones are the exact opposite -- their
- * vertices bunch into 1-3 cm of the limb's length and fan out to 8-15 cm of
- * radius, because the mesh is lying crosswise. On the shipped rig the two groups
- * do not overlap: twelve meshes score 0.10-0.32, every healthy structure scores
- * 1.21 or more. They are the bars seen crossing the forearm, and unlike the ones
- * repairMirroredMeshes rebuilds, they are mangled on BOTH arms, so there is no
- * good twin to copy from and nothing to do but hide them. Fixing them for real
- * means rebuilding them in Blender (see the export recipe).
- *
- * Both conditions are needed: the small ring ligaments of the wrist are "short"
- * too, but they do not fan out, and they must stay.
- */
-const CROSSWISE_MAX_RATIO = 0.5;
-const CROSSWISE_MIN_RADIAL_M = 0.06;
-
-function isCrosswise(mesh: THREE.Mesh, elbow: THREE.Vector3, wrist: THREE.Vector3): boolean {
-  const pos = mesh.geometry.getAttribute('position');
-  if (!pos || pos.count < 16) return false;
-  const axis = new THREE.Vector3().subVectors(wrist, elbow);
-  const lenSq = axis.lengthSq();
-  if (lenSq <= 1e-6) return false;
-  const len = Math.sqrt(lenSq);
-  const rel = new THREE.Vector3();
-  const ts: number[] = [];
-  const rs: number[] = [];
-  const step = Math.max(1, Math.floor(pos.count / 300));
-  for (let i = 0; i < pos.count; i += step) {
-    rel.fromBufferAttribute(pos, i);
-    mesh.localToWorld(rel);
-    rel.sub(elbow);
-    const t = rel.dot(axis) / lenSq;
-    ts.push(t * len);
-    rs.push(rel.addScaledVector(axis, -t).length());
-  }
-  if (ts.length < 8) return false;
-  ts.sort((a, b) => a - b);
-  rs.sort((a, b) => a - b);
-  const q = (a: number[], f: number) => a[Math.floor(a.length * f)];
-  const span = q(ts, 0.95) - q(ts, 0.05);
-  const radial = q(rs, 0.95) - q(rs, 0.05);
-  return radial > CROSSWISE_MIN_RADIAL_M && span / radial < CROSSWISE_MAX_RATIO;
-}
-
-/**
- * Drop the triangles of `mesh` that lie outside the limb, keeping the rest.
- * Returns the fraction of triangles kept, so the caller can hide a mesh that has
- * essentially nothing left. Measured in the REST pose, where bone matrices are
- * identity, so a vertex's bind position is its world position.
- */
-function trimMeshToLimb(
-  mesh: THREE.Mesh,
-  segs: readonly [THREE.Vector3, THREE.Vector3][],
-  limit: number,
-  inSleeve: (p: THREE.Vector3) => boolean,
-): number {
-  const geom = mesh.geometry;
-  const idx = geom.getIndex();
-  const pos = geom.getAttribute('position');
-  if (!idx || !pos || pos.count === 0) return 1;
-  const inside = new Uint8Array(pos.count);
-  const p = new THREE.Vector3();
-  for (let i = 0; i < pos.count; i++) {
-    p.fromBufferAttribute(pos, i);
-    mesh.localToWorld(p);
-    inside[i] = distToAxis(p, segs) <= limit && inSleeve(p) ? 1 : 0;
-  }
-  const arr = idx.array as ArrayLike<number>;
-  const kept: number[] = [];
-  for (let i = 0; i + 2 < arr.length; i += 3) {
-    if (inside[arr[i]] && inside[arr[i + 1]] && inside[arr[i + 2]]) {
-      kept.push(arr[i], arr[i + 1], arr[i + 2]);
-    }
-  }
-  const frac = arr.length > 0 ? kept.length / arr.length : 1;
-  if (frac >= LIMB_TRIM_MIN_KEPT && frac < 1) {
-    // clone: geometry can be shared with a deduped twin we must not damage.
-    const next = geom.clone();
-    next.setIndex(kept);
-    next.computeBoundingBox();
-    next.computeBoundingSphere();
-    mesh.geometry = next;
-  }
-  return frac;
-}
-
-/**
- * True when a rest-pose world center lies in the hand/wrist or foot/ankle
- * cluster. Forearm and leg (muscle bellies, proximal skin) sit outside and keep
- * their normal muscle+bone rendering.
- */
-function inDistalRegion(c: THREE.Vector3): boolean {
-  const hand = c.y > 0.6 && c.y < 0.86 && Math.abs(c.x) > 0.18;
-  const foot = c.y < 0.12;
-  return hand || foot;
-}
-
-// ---------------------------------------------------------------------------
-// Forearm "wire" cull.
-//
-// The joint-connecting CONNECTIVE layer (tendon/ligament/capsule/cartilage) was
-// added so the scattered distal bones read as a connected hand -- but the hand
-// is now a solid SKIN-CAP, so that rationale is gone. In the FOREARM the same
-// layer renders as thin, glossy, pearly-white strands (the wrist ligaments and
-// the long carpi/digitorum tendons spanning the forearm) that spill out past the
-// skin cap as loose "alambres". In the arm band we therefore keep MUSCLE + BONE
-// (which read as a clean, meaty forearm) and drop the connective wires. Legs and
-// torso sit outside this band and keep their connective.
-//
-// Band (three.js y-up, measured on the shipped GLB): arms are the lateral
-// columns |x| > 0.16; the forearm/wrist/elbow connective spans y 0.82..1.35
-// (the wrist ligaments begin at y ~= 0.86, just above the hand cap).
-// ---------------------------------------------------------------------------
-/**
- * Half-width of the trunk at arm height: beyond this the mesh is in one of the
- * lateral arm columns, inside it belongs to the body. Any rule keyed to a HEIGHT
- * along the arm needs this too, because with the arms down the forearm hangs
- * beside the lumbar spine — the elbow and the abdominal wall are the same
- * height, so a y-only test reads the trunk as forearm (see anchorOriginToHumerus
- * at its call site).
- */
-const ARM_COLUMN_X = 0.16;
-
-function inArmBand(c: THREE.Vector3): boolean {
-  return Math.abs(c.x) > ARM_COLUMN_X && c.y > 0.82 && c.y < 1.4;
-}
-
-// ---------------------------------------------------------------------------
-// Wrist cuff.
-//
-// Just above the hand skin-cap, the thin DISTAL forearm muscles (the dorsal
-// extensor slips -- extensor digitorum / digiti minimi / indicis / pollicis,
-// abductor pollicis longus, palmaris longus, pronator quadratus) reach the wrist
-// and poke through the thin skin there as loose red spindles ("cosas salidas en
-// la muñeca"). We hide MUSCLE in this cuff so the wrist reads clean under the
-// skin; the bone (radius/ulna, which does not poke and bridges to the hand) and
-// the main forearm bellies higher up (y >= 0.96) stay. Connective here is already
-// gone via inArmBand.
-//
-// Band (three.js y-up): laterally |x| > 0.18, from the top of the hand cap
-// (y ~= 0.86) up to y < 0.96 (the distal ~10 cm of forearm).
-// ---------------------------------------------------------------------------
-function inWristCuff(c: THREE.Vector3): boolean {
-  return Math.abs(c.x) > 0.18 && c.y >= 0.86 && c.y < 0.96;
-}
+// El recorte del antebrazo (FOREARM_CULLS, inDistalRegion, inArmBand,
+// inWristCuff, y el recorte medido contra el eje del miembro) vive ahora en
+// src/lib/rigLimbTrim.ts, para que el banco de render aplique exactamente el
+// mismo que la aplicacion. Estando aqui dentro no lo aplicaba, y las hojas
+// de revision mostraban el antebrazo erizado de tendones que en pantalla no
+// estan: un defecto inventado tapando los de verdad.
 
 // ---------------------------------------------------------------------------
 // Channel: the DOM control panel commands the in-canvas rig through this.
@@ -1692,25 +1399,9 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       };
 
       // --- Arm rebind geometry (elbow-flexion + forearm-pronation fixes). ---
-      // Elbow (forearm_flex) and wrist (hand_flex) world heights from the shoulder
-      // armatures, so the thresholds below survive a rig re-export instead of
-      // being hardcoded. Both arms share ~the same heights; take the lower.
-      let elbowY = Infinity;
-      let wristY = Infinity;
-      for (const side of ['R', 'L'] as const) {
-        const sr = scene.getObjectByName(`Shoulder_Armature_${side}`);
-        sr?.traverse((o) => {
-          const bn = o.name.replace(/_\d+$/, '');
-          if (bn === 'forearm_flex') elbowY = Math.min(elbowY, o.getWorldPosition(new THREE.Vector3()).y);
-          else if (bn === 'hand_flex') wristY = Math.min(wristY, o.getWorldPosition(new THREE.Vector3()).y);
-        });
-      }
-      const ELBOW_Y = isFinite(elbowY) ? elbowY : 1.1;
-      const WRIST_Y = isFinite(wristY) ? wristY : 0.86;
-      // Skin/soft-tissue whose center sits this far ABOVE the elbow is upper-arm
-      // (arm proper, not the elbow crease) and must ride the humerus, not the
-      // forearm. Half the arm skin patches ship mis-bound to forearm_flex.
-      const UPPER_ARM_Y = ELBOW_Y + 0.08;
+      // Alturas leidas del propio rig (src/lib/rigArmRebind.ts): un re-export
+      // del GLB puede mover el codo, y el umbral tiene que moverse con el.
+      const { elbowY: ELBOW_Y, wristY: WRIST_Y, upperArmY: UPPER_ARM_Y } = armHeights(scene);
 
       // Knee height, for the knee-skin blend (src/lib/rigSkinRepair.ts). Read
       // off the leg armatures for the same reason as the elbow: a rig
@@ -1972,95 +1663,10 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         );
       }
 
-      // MEASURED OUTLIER CULL (see LIMB_OUTLIER_MARGIN). Trim away the
-      // forearm/hand geometry that lands outside the limb, judged against the
-      // arm's own bone AXIS and thresholded by how far its SKIN sits from it.
-      const limbOutliers = new Set<THREE.Object3D>();
-      {
-        const _p = new THREE.Vector3();
-        for (const side of ['R', 'L'] as Side[]) {
-          const root = shoulderRootFor(side);
-          if (!root) continue;
-          const segs = boneAxis(root);
-          if (segs.length === 0) continue;
-          const reach = (mesh: THREE.Mesh): number => {
-            const pos = mesh.geometry.getAttribute('position');
-            if (!pos || pos.count === 0) return 0;
-            const step = Math.max(1, Math.floor(pos.count / 300));
-            const d: number[] = [];
-            for (let i = 0; i < pos.count; i += step) {
-              _p.fromBufferAttribute(pos, i);
-              mesh.localToWorld(_p); // rest pose: bones are identity at bind
-              d.push(distToAxis(_p, segs));
-            }
-            d.sort((a, b) => a - b);
-            return d[Math.floor(d.length * 0.95)] ?? 0;
-          };
-          // Everything of THIS arm at or below the elbow, skin included.
-          const inLimb: { mesh: THREE.Mesh; layer: AnatomyLayer; p95: number; cy: number }[] = [];
-          scene.traverse((o) => {
-            const mesh = o as THREE.SkinnedMesh;
-            if (!mesh.isMesh || !mesh.isSkinnedMesh) return;
-            if (!belongsTo(mesh, root)) return;
-            const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-            const layer = layerForMaterial((mat as THREE.Material | undefined)?.name);
-            if (!layer) return;
-            const c = meshWorldCenter(mesh);
-            if (c.y > ELBOW_Y + 0.02) return; // forearm and hand only
-            // The centre is reused by both skin filters below; computing it
-            // three times per mesh was free only in the sense that nobody timed it.
-            inLimb.push({ mesh, layer, p95: reach(mesh), cy: c.y });
-          });
-          // The limb's own radius, from the skin that wraps the FOREARM. The
-          // hand's skin is excluded: an open hand's fingers splay well away from
-          // any bone, which pushes the threshold out and lets every spike
-          // through. Forearm skin alone measures 6.3 cm off the axis -- the real
-          // sleeve the digital tendons have to stay inside of.
-          const skinReach = inLimb
-            .filter((e) => e.layer === 'skin' && e.cy >= WRIST_Y - 0.02)
-            .reduce((mx, e) => Math.max(mx, e.p95), 0);
-          if (skinReach <= 0) continue;
-          const limit = skinReach * LIMB_OUTLIER_MARGIN;
-          // ...and the same skin read as a TAPERED sleeve, which is what catches
-          // anything lying across the limb rather than running away from it.
-          let elbowP: THREE.Vector3 | null = null;
-          let wristP: THREE.Vector3 | null = null;
-          root.traverse((o) => {
-            const bn = o.name.replace(/_\d+$/, '');
-            if (bn === 'forearm_flex' && !elbowP) elbowP = o.getWorldPosition(new THREE.Vector3());
-            else if (bn === 'hand_flex' && !wristP) wristP = o.getWorldPosition(new THREE.Vector3());
-          });
-          const inSleeve =
-            elbowP && wristP
-              ? makeSleeveTest(
-                  elbowP,
-                  wristP,
-                  inLimb
-                    .filter((e) => e.layer === 'skin' && e.cy >= WRIST_Y - 0.02)
-                    .map((e) => e.mesh),
-                  LIMB_OUTLIER_MARGIN,
-                )
-              : () => true;
-          // TRIM, don't drop. Some offenders are long muscles whose BELLY sits
-          // properly in the forearm and whose TENDON runs on to the fingers; it
-          // is only the tendon that flies, and hiding the whole mesh threw away
-          // the bulkiest bellies there. So we drop only the triangles that leave
-          // the limb and keep the mesh. Others -- the ~90 deg mis-oriented
-          // exports -- have nothing left afterwards and are hidden, since a
-          // handful of stray triangles reads as debris rather than as muscle.
-          for (const e of inLimb) {
-            if (e.layer === 'skin') continue;
-            // Crosswise meshes are not trimmed, they are dropped: there is no
-            // in-place part of a muscle that is lying across the arm.
-            if (elbowP && wristP && isCrosswise(e.mesh, elbowP, wristP)) {
-              limbOutliers.add(e.mesh);
-              continue;
-            }
-            const kept = trimMeshToLimb(e.mesh, segs, limit, inSleeve);
-            if (kept < LIMB_TRIM_MIN_KEPT) limbOutliers.add(e.mesh);
-          }
-        }
-      }
+      // RECORTE MEDIDO DEL ANTEBRAZO (src/lib/rigLimbTrim.ts). Recorta los
+      // triangulos que se salen del miembro y devuelve las mallas que no tienen
+      // arreglo, para ocultarlas mas abajo. Compartido con el banco de render.
+      const limbOutliers = trimForearmOutliers(scene, { elbowY: ELBOW_Y, wristY: WRIST_Y, upperArmY: UPPER_ARM_Y });
 
       const latsGeoms = new Map<string, number>();
       scene.traverse((o) => {
@@ -2132,23 +1738,6 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // Rewrite every vertex of a skinned mesh to ride ONE bone (weight 1). Rest
       // pose is preserved (bone*boneInverse = identity at bind). Returns false if
       // the mesh is not skinned or the bone is absent from its own skeleton.
-      const rigidBindTo = (mesh: THREE.Mesh, boneBase: string): boolean => {
-        const sk = mesh as THREE.SkinnedMesh;
-        if (!sk.isSkinnedMesh || !sk.skeleton) return false;
-        const bi = sk.skeleton.bones.findIndex((b) => b.name.replace(/_\d+$/, '') === boneBase);
-        if (bi < 0) return false;
-        const si = mesh.geometry.getAttribute('skinIndex');
-        const sw = mesh.geometry.getAttribute('skinWeight');
-        if (!si || !sw) return false;
-        for (let i = 0; i < si.count; i++) {
-          si.setXYZW(i, bi, 0, 0, 0);
-          sw.setXYZW(i, 1, 0, 0, 0);
-        }
-        si.needsUpdate = true;
-        sw.needsUpdate = true;
-        return true;
-      };
-
       scene.traverse((o) => {
         const mesh = o as THREE.Mesh;
         if (!mesh.isMesh) return;
@@ -2191,10 +1780,15 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         // BODY SKIN: the whole-body envelope. Shares the premium skin material;
         // toggled as the 'skin' layer (body skin peels; the distal cap does not).
         if (layer === 'skin') {
-          // Fix the arm skin binding before it becomes body skin. Half the
-          // upper-arm patches ship on forearm_flex and swing about the elbow on
-          // flexion (they belong on the humerus); the forearm skin below the
-          // elbow is blended toward forearm_rot so it ROLLS with pronation.
+          // Arregla el ligado de la piel del brazo antes de que pase a ser piel
+          // del cuerpo. Los parches del brazo propiamente dicho viajan en
+          // forearm_flex y giran alrededor del codo cuando deberian montar el
+          // humero; la piel por debajo del codo se mezcla hacia forearm_rot para
+          // que RUEDE con la pronacion.
+          //
+          // Decia "la mitad de los parches" y esa mitad no era una propiedad del
+          // GLB: era este propio if, que comparaba el nombre crudo del hueso y
+          // por tanto solo cogia un brazo (ver la nota de dominantBoneName).
           if (dominantBoneName(mesh) === 'forearm_flex') {
             if (center.y > UPPER_ARM_Y) rigidBindTo(mesh, 'humerus_gh');
             else if (center.y < ELBOW_Y)
@@ -2317,15 +1911,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
             const shaft = humeralShaft.get(center.x >= 0 ? 'R' : 'L');
             if (shaft) gradeScapulaToHumerus(mesh, shaft[0], shaft[1]);
           }
-          const isArmBelly =
-            ln.includes('biceps brachii') ||
-            // The triceps LONG head crosses the shoulder (origin on the scapular
-            // infraglenoid tubercle), re-weighted in the GLB so that origin rides
-            // the scapula; rebinding it rigidly to the humerus would tear that
-            // origin off during abduction, so EXCLUDE it (the lateral/medial heads
-            // don't cross the shoulder and still rebind for the elbow).
-            (ln.includes('triceps brachii') && !ln.includes('long head')) ||
-            (ln.includes('brachialis') && !ln.includes('coraco'));
+          const isArmBelly = isUpperArmBelly(mesh.name);
           if (isArmBelly) {
             // The upper-arm belly rides the humerus, not the forearm, so it stays
             // fixed through the elbow arc. rigidBindTo fails only for the stray
