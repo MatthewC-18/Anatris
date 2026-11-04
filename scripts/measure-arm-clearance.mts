@@ -180,3 +180,48 @@ for (const deg of DEGS) {
       `${where ? `${where.slice(0, 34)} @ y=${whereY.toFixed(2)}` : '-'}`,
   );
 }
+
+// --- THE UPPER ARM, WHICH THE TABLE ABOVE CANNOT SEE -------------------------
+//
+// The scan above stops at the elbow on purpose: near the shoulder the limb is
+// part of the body's own silhouette, so a correctly placed arm root reads as
+// deeply "inside". That exclusion is right for the root and wrong for everything
+// between it and the elbow, and it is why this script once reported a clean 0.0
+// cm for a pose in which the whole humerus was buried in the chest.
+//
+// The elbow settles it without any windowing at all. It is a single landmark, it
+// hangs well clear of the trunk at rest, and if it ends up between the two skins
+// the upper arm went through the body -- whatever the forearm did afterwards.
+const elbowBone = (() => {
+  let b: THREE.Object3D | null = null;
+  armature?.traverse((o) => {
+    if (b === null && /^forearm_flex/.test(o.name)) b = o;
+  });
+  return b as THREE.Object3D | null;
+})();
+
+if (elbowBone === null) {
+  console.log('');
+  console.log('  (no forearm_flex bone on this side: elbow check skipped)');
+} else {
+  console.log('');
+  console.log('  EL CODO, QUE LA TABLA DE ARRIBA NO MIRA');
+  console.log('  deg    codo z    piel delante    dentro del cuerpo');
+  for (const deg of DEGS) {
+    poser.pose(deg);
+    scene.updateMatrixWorld(true);
+    const e = elbowBone.getWorldPosition(new THREE.Vector3());
+    const k = key(e.x, e.y);
+    const zf = front.get(k);
+    const zb = back.get(k);
+    const over = Math.abs(e.x) <= OVER_TRUNK_X && e.y >= TRUNK_Y_LO && e.y <= TRUNK_Y_HI;
+    let verdict = 'fuera del tronco';
+    if (over && zf !== undefined && zb !== undefined) {
+      verdict = e.z > zb && e.z < zf ? `DENTRO ${((zf - e.z) * 100).toFixed(1)} cm` : 'por delante';
+    }
+    console.log(
+      `${String(deg).padStart(5)}   ${(e.z * 100).toFixed(1).padStart(6)} cm   ` +
+        `${(zf !== undefined ? `${(zf * 100).toFixed(1)} cm` : '-').padStart(10)}   ${verdict}`,
+    );
+  }
+}
