@@ -35,6 +35,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { claimWarmModel, gzUrl } from './modelWarm';
 
 export interface LoadedGLTF {
   scene: THREE.Group;
@@ -48,11 +49,13 @@ type Entry =
 /** One entry per URL, so a remount does not refetch 27 MB. */
 const cache = new Map<string, Entry>();
 
-/** `/a/b.glb?v=7` -> `/a/b.glb.gz?v=7`: the suffix goes on the PATH, not the query. */
-export function gzUrl(url: string): string {
-  const q = url.indexOf('?');
-  return q < 0 ? `${url}.gz` : `${url.slice(0, q)}.gz${url.slice(q)}`;
-}
+/**
+ * `/a/b.glb?v=7` -> `/a/b.glb.gz?v=7`: the suffix goes on the PATH, not the query.
+ *
+ * Lives in modelWarm.ts now, which is the three-free half of this module, and is
+ * re-exported here because this is where callers (and the test) look for it.
+ */
+export { gzUrl } from './modelWarm';
 
 /** True when the browser can inflate gzip for us. Every WebGL2 browser can. */
 function canInflate(): boolean {
@@ -93,17 +96,30 @@ async function drain(res: Response, url: string, expected: number): Promise<Arra
 }
 
 async function fetchModelBytes(url: string): Promise<ArrayBuffer> {
+  // If main.tsx already started this download (see modelWarm.ts), take it rather
+  // than asking for the same 11 MB a second time. It may be the compressed copy
+  // or the plain one, depending on what the server had.
+  const claimed = claimWarmModel(url);
+  const warm = claimed ? await claimed : null;
+  if (warm) {
+    try {
+      if (!warm.compressed) return await drain(warm.res, url, 0);
+      const inflated = await inflate(warm.res, url);
+      if (inflated) return inflated;
+    } catch {
+      // A preload that turns out to be unusable must not fail the load: fall
+      // through and fetch it the ordinary way.
+    }
+  }
   if (canInflate()) {
     try {
       const res = await fetch(gzUrl(url));
-      // A 404 here is the expected case in dev, not a failure.
+      // NOT a 404 in dev: vite rewrites unknown paths to index.html and answers
+      // 200, so `res.ok` is true for a 5 KB HTML page. `inflate` returns null
+      // when the bytes are not gzip, which is how that case is caught.
       if (res.ok && res.body) {
-        // Progress is counted on the COMPRESSED download, which is the part that
-        // takes the time; inflation is local and fast, so it happens in one go
-        // once the bytes are in.
-        const gz = await drain(res, url, 16 * 1024 * 1024);
-        const stream = new Response(gz).body!.pipeThrough(new DecompressionStream('gzip'));
-        return await new Response(stream).arrayBuffer();
+        const inflated = await inflate(res, url);
+        if (inflated) return inflated;
       }
     } catch {
       // Network hiccup on the compressed copy: fall through to the plain file
@@ -113,6 +129,39 @@ async function fetchModelBytes(url: string): Promise<ArrayBuffer> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`No se pudo cargar el modelo ${url} (HTTP ${res.status})`);
   return await drain(res, url, 0);
+}
+
+/**
+ * Read a model response that is SUPPOSED to be the gzipped copy, and hand back
+ * usable GLB bytes -- or null when the bytes are neither.
+ *
+ * Three things can come back from `<name>.glb.gz`, and the difference is only
+ * visible in the first bytes:
+ *
+ *  - REAL GZIP (`1f 8b`). The normal case: inflate it here.
+ *  - ALREADY A GLB (`glTF`). The server declared `Content-Encoding: gzip`, so
+ *    the browser inflated it before we ever saw it. `vite preview` does exactly
+ *    this. The old code handed those bytes to DecompressionStream, which threw,
+ *    and the load fell back to fetching the PLAIN 19 MB file -- so every load
+ *    through such a server was downloading 11 MB and then 19 MB more, measured.
+ *    Now they are used as they are.
+ *  - HTML. `vite dev` rewrites unknown paths to index.html and answers 200, so
+ *    `res.ok` is true for a 5 KB page. That is the null case, and the caller
+ *    fetches the plain model instead.
+ *
+ * Progress is counted on the download, which is the part that takes the time;
+ * inflation is local and fast, so it happens in one go once the bytes are in.
+ */
+async function inflate(res: Response, url: string): Promise<ArrayBuffer | null> {
+  const bytes = await drain(res, url, 16 * 1024 * 1024);
+  const head = new Uint8Array(bytes, 0, Math.min(4, bytes.byteLength));
+  if (head[0] === 0x1f && head[1] === 0x8b) {
+    const stream = new Response(bytes).body!.pipeThrough(new DecompressionStream('gzip'));
+    return await new Response(stream).arrayBuffer();
+  }
+  // 'glTF' -- the binary glTF magic.
+  if (head[0] === 0x67 && head[1] === 0x6c && head[2] === 0x54 && head[3] === 0x46) return bytes;
+  return null;
 }
 
 

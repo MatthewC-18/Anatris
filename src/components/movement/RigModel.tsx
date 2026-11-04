@@ -19,6 +19,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useCompressedGLTF } from '../../lib/compressedGLTF';
+import { RIG_URL as WARM_RIG_URL } from '../../lib/modelWarm';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
@@ -125,7 +126,11 @@ import { pathologyById } from '../../data/pathologies';
 // rebind above); tightened the posterior deltoid + teres minor origins toward the
 // scapula. Fixes the residual "pico" poking out of the posterior axilla at high
 // abduction.
-const RIG_URL = '/cuerpo-rig.opt.glb?v=7';
+// The URL itself lives in modelWarm.ts, which is the module main.tsx can import
+// to start the download before this component exists. Two copies of the string
+// would drift the first time the `?v=` cache-buster is bumped, and the warmed
+// bytes would be handed to nobody.
+const RIG_URL = WARM_RIG_URL;
 
 // The five unique armature roots. Bone names collide between sides, so we ALWAYS
 // look a bone up inside its armature subtree, never globally.
@@ -1517,6 +1522,46 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
     scene.updateMatrixWorld(true);
 
     if (!scene.userData.__rigPrepared) {
+      // --- O(1) "does this mesh belong to that armature?" -------------------
+      //
+      // The three places that ask this used to answer it with
+      // `root.getObjectById(bone.id)`, which WALKS THE WHOLE SUBTREE, once per
+      // bone, per mesh, over 2659 skinned meshes. One of them (`twistFor`) also
+      // called `scene.getObjectByName` -- a full-scene traversal -- inside the
+      // same per-mesh loop.
+      //
+      // Both answers are fixed for the life of the scene, so look them up once.
+      //
+      // WHAT IT IS WORTH, measured: `npm run measure-prepare` times both
+      // versions over the real GLB in node, where nothing throttles the clock.
+      // 78 ms -> 13 ms per full pass, same 683 meshes matched, so ~100 ms across
+      // the three sites. Worth having and NOT the reason the preparation takes
+      // seconds: that is the arm trim's triangle work, and the browser's own
+      // numbers for it (1,9 s one run, 5,1 s the next) came from a preview pane
+      // running as a background page and should not be quoted.
+      const _armatureRootCache = new Map<string, THREE.Object3D | null>();
+      const shoulderRootFor = (side: Side): THREE.Object3D | null => {
+        const key = `Shoulder_Armature|${side}`;
+        let r = _armatureRootCache.get(key);
+        if (r === undefined) {
+          r = scene.getObjectByName(resolveArmatureName('Shoulder_Armature', side)) ?? null;
+          _armatureRootCache.set(key, r);
+        }
+        return r;
+      };
+      const _descendantIds = new Map<number, Set<number>>();
+      const belongsTo = (mesh: THREE.Object3D, root: THREE.Object3D): boolean => {
+        const sk = mesh as THREE.SkinnedMesh;
+        if (!sk.isSkinnedMesh || !sk.skeleton) return false;
+        let ids = _descendantIds.get(root.id);
+        if (!ids) {
+          ids = new Set<number>();
+          root.traverse((o) => ids!.add(o.id));
+          _descendantIds.set(root.id, ids);
+        }
+        return sk.skeleton.bones.some((b) => ids!.has(b.id));
+      };
+
       // ---- FIRST time this scene is seen: full style + layer-tag pass. ----
       const dupCandidates: DupCandidate[] = [];
       // PREMIUM per-tissue shading. One lightweight MeshStandardMaterial per
@@ -1707,9 +1752,9 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         const sk = mesh as THREE.SkinnedMesh;
         if (!sk.isSkinnedMesh || !sk.skeleton) return undefined;
         for (const [side, twist] of forearmTwist) {
-          const root = scene.getObjectByName(resolveArmatureName('Shoulder_Armature', side));
+          const root = shoulderRootFor(side);
           if (!root) continue;
-          if (!sk.skeleton.bones.some((b) => root.getObjectById(b.id))) continue;
+          if (!belongsTo(sk, root)) continue;
           spliceTwist(sk, twist);
           return twist;
         }
@@ -1925,7 +1970,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       {
         const _p = new THREE.Vector3();
         for (const side of ['R', 'L'] as Side[]) {
-          const root = scene.getObjectByName(resolveArmatureName('Shoulder_Armature', side));
+          const root = shoulderRootFor(side);
           if (!root) continue;
           const segs = boneAxis(root);
           if (segs.length === 0) continue;
@@ -1943,17 +1988,19 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
             return d[Math.floor(d.length * 0.95)] ?? 0;
           };
           // Everything of THIS arm at or below the elbow, skin included.
-          const inLimb: { mesh: THREE.Mesh; layer: AnatomyLayer; p95: number }[] = [];
+          const inLimb: { mesh: THREE.Mesh; layer: AnatomyLayer; p95: number; cy: number }[] = [];
           scene.traverse((o) => {
             const mesh = o as THREE.SkinnedMesh;
             if (!mesh.isMesh || !mesh.isSkinnedMesh) return;
-            if (!mesh.skeleton?.bones.some((b) => root.getObjectById(b.id))) return;
+            if (!belongsTo(mesh, root)) return;
             const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
             const layer = layerForMaterial((mat as THREE.Material | undefined)?.name);
             if (!layer) return;
             const c = meshWorldCenter(mesh);
             if (c.y > ELBOW_Y + 0.02) return; // forearm and hand only
-            inLimb.push({ mesh, layer, p95: reach(mesh) });
+            // The centre is reused by both skin filters below; computing it
+            // three times per mesh was free only in the sense that nobody timed it.
+            inLimb.push({ mesh, layer, p95: reach(mesh), cy: c.y });
           });
           // The limb's own radius, from the skin that wraps the FOREARM. The
           // hand's skin is excluded: an open hand's fingers splay well away from
@@ -1961,7 +2008,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           // through. Forearm skin alone measures 6.3 cm off the axis -- the real
           // sleeve the digital tendons have to stay inside of.
           const skinReach = inLimb
-            .filter((e) => e.layer === 'skin' && meshWorldCenter(e.mesh).y >= WRIST_Y - 0.02)
+            .filter((e) => e.layer === 'skin' && e.cy >= WRIST_Y - 0.02)
             .reduce((mx, e) => Math.max(mx, e.p95), 0);
           if (skinReach <= 0) continue;
           const limit = skinReach * LIMB_OUTLIER_MARGIN;
@@ -1980,7 +2027,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
                   elbowP,
                   wristP,
                   inLimb
-                    .filter((e) => e.layer === 'skin' && meshWorldCenter(e.mesh).y >= WRIST_Y - 0.02)
+                    .filter((e) => e.layer === 'skin' && e.cy >= WRIST_Y - 0.02)
                     .map((e) => e.mesh),
                   LIMB_OUTLIER_MARGIN,
                 )
@@ -2386,14 +2433,14 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         interface Piece { mesh: THREE.Mesh; layer: AnatomyLayer; c: THREE.Vector3; verts: number }
         const bySide = new Map<string, { L: Piece[]; R: Piece[] }>();
         for (const side of ['R', 'L'] as Side[]) {
-          const root = scene.getObjectByName(resolveArmatureName('Shoulder_Armature', side));
+          const root = shoulderRootFor(side);
           if (!root) continue;
           scene.traverse((o) => {
             const mesh = o as THREE.SkinnedMesh;
             if (!mesh.isMesh || !mesh.isSkinnedMesh || !mesh.visible) return;
             const layer = mesh.userData.rigLayer as AnatomyLayer | 'hidden' | undefined;
             if (!layer || layer === 'hidden' || layer === 'skin') return;
-            if (!mesh.skeleton?.bones.some((b) => root.getObjectById(b.id))) return;
+            if (!belongsTo(mesh, root)) return;
             const key = structureKey(mesh.name);
             if (!key) return;
             const entry = bySide.get(key) ?? { L: [], R: [] };

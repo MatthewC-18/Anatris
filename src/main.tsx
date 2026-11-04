@@ -29,3 +29,4 @@ createRoot(rootEl).render(
     </ErrorBoundary>
   </StrictMode>,
 );
+

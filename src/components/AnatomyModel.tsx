@@ -51,6 +51,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { preloadGLTF, useCompressedGLTF } from '../lib/compressedGLTF';
+import { ATLAS_URL } from '../lib/modelWarm';
 import { ThreeEvent, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { AnatomyEntry } from '../types/anatomy';
@@ -72,7 +73,9 @@ import type { RomMuscleRole } from '../types/rom';
 // so decimation is safe; the 0.5%-AABB error bound keeps surfaces smooth and all
 // 3388 mesh names are preserved so anatomy-index selection is unchanged. Regenerate
 // with `node scripts/decimate-glb.mjs public/modelo-opt.glb public/modelo-opt.dec.glb 0.3`.
-const MODEL_URL = '/modelo-opt.dec.glb';
+// The URL lives in modelWarm.ts so main.tsx can start the download before this
+// component is reached; see the note there.
+const MODEL_URL = ATLAS_URL;
 preloadGLTF(MODEL_URL);
 
 // Highlight color: bright amber/orange. Chosen because the muscle atlas color

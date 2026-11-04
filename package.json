@@ -20,7 +20,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "optimize-rig": "node scripts/decimate-glb.mjs rig-src/cuerpo-rig.glb public/cuerpo-rig.opt.glb 0.4 --no-quantize",
-    "optimize-model": "node scripts/decimate-glb.mjs rig-src/modelo-opt.glb public/modelo-opt.dec.glb 0.3"
+    "optimize-model": "node scripts/decimate-glb.mjs rig-src/modelo-opt.glb public/modelo-opt.dec.glb 0.3",
+    "measure-prepare": "tsx --tsconfig tsconfig.scripts.json scripts/measure-rig-prepare.mts"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

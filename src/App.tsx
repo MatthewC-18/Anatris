@@ -32,6 +32,7 @@ import { useAnatomyIndex } from './hooks/useAnatomyIndex';
 import { useMuscleResolution } from './hooks/useMuscleResolution';
 import { usePremiumRegion } from './hooks/usePremiumRegion';
 import { useAnatomyStore } from './store/anatomyStore';
+import { warmModelForMode } from './lib/modelWarm';
 import { TopBar, type AppMode, type Overlay } from './components/TopBar';
 // CODE SPLITTING — what the ENTRY chunk is allowed to contain.
 //
@@ -196,6 +197,22 @@ export default function App() {
     () => readEntered() || readRoute() != null,
   );
   const [tourDone, setTourDone] = useState<boolean>(() => readTourDone());
+
+  // EL MODELO 3D EMPIEZA A BAJAR AQUÍ, no cuando el visor existe.
+  //
+  // Medido: la petición del rig arrancaba a los dos segundos de abrir el
+  // laboratorio, porque hasta entonces nadie la había hecho -- primero el
+  // bundle, luego la ruta, luego el trozo diferido de MovementView, luego
+  // RigViewer, luego Suspense, y por fin RigModel pedía 11 MB. Sabiendo el modo
+  // ya se sabe qué archivo hace falta, así que se pide en paralelo con el resto.
+  //
+  // Condicionado a `accepted` y `entered` a propósito: 11 MB traídos para
+  // alguien que todavía está leyendo el aviso médico, y que puede cerrarlo, son
+  // ancho de banda que paga el proyecto y no usa nadie. Ver src/lib/modelWarm.ts.
+  useEffect(() => {
+    if (!accepted || !entered) return;
+    warmModelForMode(mode);
+  }, [accepted, entered, mode]);
   const compact = useIsCompact();
   const entitlement = useEntitlement();
 
