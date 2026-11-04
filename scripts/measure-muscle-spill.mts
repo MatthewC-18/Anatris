@@ -279,16 +279,60 @@ function spillNow(): Map<string, { max: number; count: number; at: THREE.Vector3
 poser.pose(0);
 const rest = spillNow();
 
+/* ======================================================================
+ * UN MUSCULO QUE NO SE HA MOVIDO NO PUEDE HABER SALIDO POR EL MOVIMIENTO.
+ *
+ * Midiendo la rotacion interna del hombro, este script acusaba al diafragma,
+ * al transverso del abdomen, a los intercostales internos, a los rotatores y
+ * al iliocostal lumbar de asomar 4 cm por fuera de la piel. Medido aparte, el
+ * desplazamiento de esos cinco en ese movimiento es de 0,00 cm: no se mueven
+ * ni una centesima de milimetro. La cifra era del aparato de medida.
+ *
+ * La causa esta en como se decide "hacia fuera": con el parche de PIEL mas
+ * cercano. Al girar el brazo, la piel del propio brazo barre el costado y pasa
+ * a ser la piel mas cercana a un musculo profundo del tronco, con su normal
+ * apuntando hacia otro lado. El musculo profundo no se ha movido; lo que ha
+ * cambiado es contra que se le compara.
+ *
+ * El filtro es el enunciado de arriba y no hace falta mas: se mide cuanto se
+ * desplaza cada malla entre reposo y la pose, y la que no llega a un milimetro
+ * no se reporta. No tapa nada real -- un musculo quieto no puede atravesar una
+ * piel que tampoco se mueve -- y deja fuera toda esta familia de falsos
+ * positivos, que son los que hacian ilegible el listado completo.
+ * ====================================================================== */
+const MOVED_MIN_M = 0.001;
+const restPts = new Map<string, THREE.Vector3[]>();
+for (const m of softM) restPts.set(m.name, posed(m, false).p.map((q) => q.clone()));
+
+/** Nombres de musculos que REALMENTE se mueven en esta pose. */
+function movedNow(): Set<string> {
+  const moved = new Set<string>();
+  for (const m of softM) {
+    const before = restPts.get(m.name);
+    if (!before) continue;
+    const after = posed(m, false).p;
+    const step = Math.max(1, Math.floor(after.length / 120));
+    for (let i = 0; i < after.length && i < before.length; i += step) {
+      if (before[i].distanceTo(after[i]) >= MOVED_MIN_M) {
+        moved.add(m.name);
+        break;
+      }
+    }
+  }
+  return moved;
+}
+
 console.log('\nspill = muscle vertex OUTSIDE the skin, cm. "growth" is over the rest pose.');
 console.log('a positive growth is the movement pushing a muscle through the envelope.\n');
 console.log(' angle   worst growth   muscle                              verts out   where');
 for (const deg of ANGLES) {
   poser.pose(deg);
   const now = spillNow();
+  const moved = movedNow();
   let best = 0, bestName = '', bestCount = 0, bestAt = new THREE.Vector3();
   for (const [name, cur] of now) {
     const r = rest.get(name);
-    if (!r) continue;
+    if (!r || !moved.has(name)) continue;
     const growth = cur.max - r.max;
     if (growth > best) { best = growth; bestName = name; bestCount = cur.count - r.count; bestAt = cur.at; }
   }
@@ -305,7 +349,9 @@ for (const deg of ANGLES) {
 const DETAIL = ANGLES.includes(90) ? 90 : ANGLES[Math.floor(ANGLES.length / 2)];
 poser.pose(DETAIL);
 const now = spillNow();
+const movedAtDetail = movedNow();
 const rows = [...now.entries()]
+  .filter(([name]) => movedAtDetail.has(name))
   .map(([name, cur]) => ({ name, growth: cur.max - (rest.get(name)?.max ?? cur.max), cur }))
   .filter((r) => r.growth > REPORT)
   .sort((a, b) => b.growth - a.growth)

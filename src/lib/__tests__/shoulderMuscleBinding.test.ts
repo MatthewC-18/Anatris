@@ -103,8 +103,15 @@ function buildScene() {
   const teres = makeMesh('Teres_minor_muscle', 0.07, 0.28, 15, skeleton, [
     { boneIndex: 2, w: 1 },
   ]);
-  // A muscle the fix must NOT touch: the deltoid is already graded by its parts.
-  const deltoid = makeMesh('Scapular_spinal_part_of_deltoid_muscle', 0.10, 0.26, 9, skeleton, [
+  // Una malla que el arreglo NO debe tocar.
+  //
+  // Antes lo era la porcion escapular del deltoides, con el argumento de que el
+  // deltoides "ya viene repartido". Dejo de serlo: medida, esa porcion viene al
+  // reves (67% humero) y a 100 grados de rotacion interna sale 2,6 cm por fuera
+  // de la piel, asi que ahora si entra en el pase. El control negativo pasa a
+  // ser la porcion CLAVICULAR, que se queda fuera a proposito y por una razon
+  // geometrica: su anclaje es la clavicula, que este pase no sabe medir.
+  const deltoid = makeMesh('Clavicular_part_of_deltoid_muscle', 0.10, 0.26, 9, skeleton, [
     { boneIndex: 1, w: 0.6 },
     { boneIndex: 2, w: 0.4 },
   ]);
@@ -229,9 +236,10 @@ describe('gradeShoulderMuscleBinding', () => {
   });
 
   it('does not touch muscles that do not cross the glenohumeral joint', () => {
-    // The deltoid already ships graded by its three parts, and the latissimus and
-    // pectoralis span the THORAX to the humerus -- a different pair of bones.
-    // Re-weighting either from here would move geometry that is currently right.
+    // La porcion clavicular del deltoides se ancla en la CLAVICULA, que no esta
+    // entre los huesos que este pase sabe medir, y el latisimo y el pectoral
+    // cruzan del TORAX al humero, otro par de huesos distinto. Regraduar
+    // cualquiera de los tres desde aqui moveria geometria que hoy esta bien.
     const { scene, deltoid } = buildScene();
     gradeShoulderMuscleBinding(scene);
     const w = weightsAt(deltoid, 0);

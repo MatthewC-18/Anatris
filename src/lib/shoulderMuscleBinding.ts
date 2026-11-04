@@ -56,14 +56,41 @@ function layerOf(mesh: THREE.Mesh): string | null {
  * Muscles that CROSS the glenohumeral joint, i.e. whose origin is on the scapula
  * and whose insertion is on the humerus or beyond.
  *
- * Deliberately a list and not "every muscle in the shoulder armature". The
- * deltoid already ships graded by its three parts and behaves; latissimus dorsi
- * and pectoralis major span the THORAX to the humerus, which is a different pair
- * of bones and a separate problem. Re-weighting either from here would move
- * geometry that is currently right.
+ * Deliberately a list and not "every muscle in the shoulder armature".
+ * Latissimus dorsi and pectoralis major span the THORAX to the humerus, which is
+ * a different pair of bones and a separate problem. Re-weighting either from
+ * here would move geometry that is currently right.
+ *
+ * EL DELTOIDES POSTERIOR ENTRO DESPUES, Y POR ESTO.
+ *
+ * Esta lista decia que el deltoides "ya viene repartido por sus tres porciones y
+ * se porta bien". Se portaba bien en los dos arcos que se habian mirado --
+ * abduccion y flexion -- y en el tercero no: a 100 grados de ROTACION INTERNA la
+ * porcion escapular (la posterior) sale 2,6 cm POR FUERA de la piel, con 142
+ * vertices al aire, y en la pantalla es una mancha roja enorme sobre el hombro.
+ *
+ * El motivo esta en el reparto que traia el GLB:
+ *
+ *   Scapular_spinal_part_of_deltoid_muscle   humerus_gh 67%  scapula 33%
+ *   Acromial_part_of_deltoid_muscle          scapula 68%  humerus_gh 32%
+ *
+ * Justo al reves de la anatomia. La porcion POSTERIOR nace en la espina de la
+ * escapula, el anclaje mas alejado y mas fijo de los tres, asi que deberia ser
+ * la MAS escapular; viene siendo la mas humeral. En un giro sobre el eje largo
+ * del humero eso manda dos tercios del vientre a dar la vuelta al eje, y el
+ * vientre emerge por delante atravesando la piel del hombro.
+ *
+ * SOLO entra la porcion posterior, y eso tambien esta medido. La CLAVICULAR se
+ * queda fuera porque su anclaje es la CLAVICULA, que no esta entre los huesos
+ * que este pase sabe medir (`SCAPULA_MESH`), y ademas viene bien repartida
+ * (clavicula 78% / humero 22%). La ACROMIAL se probo y se saco: graduada
+ * empeoraba, pasando de no asomar nada a 0,77 cm y 74 vertices fuera a 70
+ * grados. Tiene sentido -- su origen, el acromion, esta casi sobre la cabeza
+ * humeral, asi que la razon de distancias que usa este pase no la separa bien --
+ * y es la razon de que la lista siga siendo una LISTA y no "todo el hombro".
  */
 const SPANS_GLENOHUMERAL =
-  /^(supraspinatus|infraspinatus|teres_minor|teres_major|subscapularis|coracobrachialis|(short|long)_head_of_biceps_brachii|long_head_of_triceps)/i;
+  /^(supraspinatus|infraspinatus|teres_minor|teres_major|subscapularis|coracobrachialis|(short|long)_head_of_biceps_brachii|long_head_of_triceps|scapular_spinal_part_of_deltoid)/i;
 
 /**
  * Bone meshes that stand for each anchor. Matched against the MESH name AND
