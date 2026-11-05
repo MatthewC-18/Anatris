@@ -48,10 +48,54 @@ export function boneBaseName(name: string): string {
  * esqueleto -- que es justo lo que delata a los duplicados ligados a la
  * columna, porque en el esqueleto Spine no hay humero.
  */
+/**
+ * Indice de un hueso en el esqueleto de la malla, ELIGIENDO EL LADO CORRECTO.
+ *
+ * MOVER UN BRAZO ARRANCABA LA PIEL DEL OTRO.
+ *
+ * Los dos hombros tienen un hueso llamado `humerus_gh`, y hasta aqui estos
+ * pases lo buscaban con un `findIndex` por nombre, que devuelve el PRIMERO.
+ * Mientras cada malla tuvo un solo esqueleto eso bastaba. Dejo de bastar en
+ * cuanto otro pase (la soldadura de costuras) empalma en un esqueleto el humero
+ * del otro lado: a partir de ese momento una tesela del brazo izquierdo podia
+ * recibir el humero DERECHO, y al abducir un brazo una tira de piel del otro
+ * salia disparada. Medido en `Medial_bicipital_groover`, que esta en x=-0,179:
+ * hasta un 45% de su peso acababa en el humero de x=+0,16, y la tesela viajaba
+ * 30,6 cm al abducir el brazo contrario.
+ *
+ * El nombre no distingue lados, pero la POSICION si. Entre los huesos que
+ * comparten nombre se elige el que esta mas cerca de la malla, que es el unico
+ * criterio que no depende de como se llamen los armatures ni de en que orden
+ * los haya metido nadie en el esqueleto.
+ */
+export function sideBoneIndex(sk: THREE.SkinnedMesh, boneBase: string): number {
+  const matches: number[] = [];
+  sk.skeleton.bones.forEach((b, i) => {
+    if (boneBaseName(b.name) === boneBase) matches.push(i);
+  });
+  if (matches.length <= 1) return matches[0] ?? -1;
+  if (!sk.geometry.boundingSphere) sk.geometry.computeBoundingSphere();
+  const bs = sk.geometry.boundingSphere;
+  if (!bs) return matches[0];
+  const centre = bs.center.clone().applyMatrix4(sk.matrixWorld);
+  let best = matches[0];
+  let bestD = Infinity;
+  const p = new THREE.Vector3();
+  for (const i of matches) {
+    sk.skeleton.bones[i].getWorldPosition(p);
+    const d = p.distanceTo(centre);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
 export function rigidBindTo(mesh: THREE.Mesh, boneBase: string): boolean {
   const sk = mesh as THREE.SkinnedMesh;
   if (!sk.isSkinnedMesh || !sk.skeleton) return false;
-  const bi = sk.skeleton.bones.findIndex((b) => boneBaseName(b.name) === boneBase);
+  const bi = sideBoneIndex(sk, boneBase);
   if (bi < 0) return false;
   const si = mesh.geometry.getAttribute('skinIndex');
   const sw = mesh.geometry.getAttribute('skinWeight');
@@ -278,7 +322,10 @@ export function reweightArmAboveElbow(
     if (!sk.isSkinnedMesh || !sk.skeleton) return;
     // Solo los dos esqueletos del hombro tienen humero; en los demas no hay
     // adonde devolver el peso (y no hay brazo que arreglar).
-    const hi = sk.skeleton.bones.findIndex((b) => boneBaseName(b.name) === 'humerus_gh');
+    // El humero DE ESTE LADO: ver `sideBoneIndex`. Con un `findIndex` por
+    // nombre, una tesela del brazo izquierdo acababa colgando del humero
+    // derecho y salia disparada al mover el otro brazo.
+    const hi = sideBoneIndex(sk, 'humerus_gh');
     if (hi < 0) return;
     const distal = new Set<number>();
     sk.skeleton.bones.forEach((b, i) => {
