@@ -101,6 +101,43 @@ function StudyCard({ study }: { study: EvidenceStudy }) {
         </p>
       )}
 
+      {/* SOBRE QUIEN SE MIDIO Y CONTRA QUE.
+          Esta pagina listaba autor, titulo y revista: una bibliografia. Lo que
+          convierte una cita en evidencia legible son otras dos cosas, y las
+          dos estan ya en el fichero de referencias: la MUESTRA (`sample`) y el
+          PATRON DE REFERENCIA (`standard`). Una sensibilidad del 94% medida
+          contra bloqueo anestesico en 48 pacientes y la misma cifra medida
+          contra la impresion clinica de un explorador no valen igual, y hasta
+          ahora la pagina no dejaba verlo. Se dibuja solo donde la fuente lo
+          trae, asi que no deja huecos en las que aun no lo tienen. */}
+      {(ref.sample || ref.standard) && (
+        <dl className="mt-2.5 flex flex-col gap-1 text-[11px] leading-snug">
+          {ref.sample && (
+            <div>
+              <dt className="inline text-slate-500">Muestra. </dt>
+              <dd className="inline text-slate-400">{ref.sample}</dd>
+            </div>
+          )}
+          {ref.standard && (
+            <div>
+              <dt className="inline text-slate-500">Patrón de referencia. </dt>
+              <dd className="inline text-slate-400">{ref.standard}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+
+      {/* Y QUE ENCONTRO. `note` lleva el hallazgo con sus cifras y sus
+          salvedades -- que una prueba no tiene especificidad publicada, que el
+          79% que todo el mundo cita es la exactitud y no la especificidad, que
+          el 40% de las roturas no las vio ninguna de las cuatro pruebas. Es la
+          diferencia entre citar un estudio y haberlo leido. */}
+      {ref.note && (
+        <p className="mt-2.5 border-l border-slate-800 pl-3 text-[11px] leading-relaxed text-slate-400">
+          {ref.note}
+        </p>
+      )}
+
       <div className="mt-3 flex items-center gap-3">
         {url && (
           <a
