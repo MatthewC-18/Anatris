@@ -61,6 +61,7 @@ import { repairFaceWinding } from '../../lib/faceWinding';
 import { bridgeShoulderSkin } from '../../lib/shoulderSkinBridge';
 import { gradeShoulderMuscleBinding } from '../../lib/shoulderMuscleBinding';
 import { relaxSkinSeams } from '../../lib/skinSeamRelax';
+import { inflateSkinShell } from '../../lib/skinShellInflate';
 import { blendHipSkin } from '../../lib/rigHipSkin';
 import { regradeAnkleCrossers } from '../../lib/rigAnkleRebind';
 import {
@@ -1520,6 +1521,14 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         // eslint-disable-next-line no-console
         console.info(`[RigModel] rebuilt ${repairedCount} mirror-mangled meshes from their twins`);
       }
+
+      // EL SOBRE DE LA PIEL, ENGORDADO 2 mm (src/lib/skinShellInflate.ts).
+      // La piel viene muy decimada: donde el cuerpo es convexo, la cuerda de
+      // una faceta pasa por DEBAJO de la superficie real y el musculo asoma por
+      // ella en esquirlas de uno o dos milimetros. Eso es el moteado rosa que
+      // salia en el pecho, el abdomen y la frente ya en reposo. Va lo primero
+      // porque es el unico pase que mueve POSICIONES; los demas, pesos.
+      inflateSkinShell(scene);
 
       // FACE WINDING. Z-Anatomy mirrors one half of the body, and a mirror
       // reverses winding, so on that half every camera-facing fragment is a BACK

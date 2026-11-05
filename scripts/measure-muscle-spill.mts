@@ -75,6 +75,8 @@ const ONLY = (() => {
 let Y_LO = Number(process.env.YLO ?? 0);
 let Y_HI = Number(process.env.YHI ?? 2);
 const BAND_FIXED = process.env.YLO !== undefined || process.env.YHI !== undefined;
+/** Profundidad de CADA vertice que asoma, para el histograma de `RESTONLY`. */
+let DEPTHS: number[] | null = null;
 /** How far a muscle vertex may be from the skin and still be judged against it. */
 const NEAR = 0.03;
 /** Neighbours averaged, so one bad normal cannot invent a spill. */
@@ -274,19 +276,27 @@ function spillNow(): Map<string, { max: number; count: number; at: THREE.Vector3
       if (near.length < K) continue;
       near.sort((a, b) => a.d - b.d);
       const use = near.slice(0, K);
-      // Local patch: centroid + averaged normal. Averaging before projecting (as
-      // opposed to projecting on each neighbour and taking a median) smooths the
-      // per-vertex normal noise of a decimated surface without letting one
-      // outlier neighbour decide the sign.
-      const c = new THREE.Vector3();
-      const n = new THREE.Vector3();
-      for (const { s } of use) { c.add(s.p); n.add(s.n); }
-      c.multiplyScalar(1 / use.length);
-      if (n.lengthSq() < 1e-12) continue;
-      n.normalize();
-      const signed = off.subVectors(v, c).dot(n);
+      // MEDIANA DE LOS VECINOS, NO UN PARCHE PROMEDIADO.
+      //
+      // Promediar centroide y normal de los K vecinos suaviza el ruido de una
+      // superficie decimada, y por eso se hacia asi. Pero la piel de este
+      // modelo son ~250 teselas de SABANAS DISTINTAS, y a 3 cm de un musculo
+      // del costado hay dos: la del torax, cuya normal apunta hacia fuera del
+      // tronco, y la del BRAZO que cuelga al lado, cuya normal apunta hacia el
+      // tronco. Promediadas dan una normal sin sentido, y el serrato anterior
+      // -- que esta perfectamente dentro del torax -- salia 27 mm "fuera de la
+      // piel" por estar fuera de la piel del brazo.
+      //
+      // Proyectando sobre CADA vecino y quedandose con la mediana, un vecino de
+      // otra sabana no puede decidir: para que un vertice cuente como fuera
+      // tiene que estarlo respecto de la MITAD de la piel que lo rodea.
+      const signeds: number[] = [];
+      for (const { s } of use) signeds.push(off.subVectors(v, s.p).dot(s.n));
+      signeds.sort((a, b) => a - b);
+      const signed = signeds[Math.floor(signeds.length / 2)];
       if (signed > max) { max = signed; at = v.clone(); }
       if (signed > REPORT) count++;
+      if (DEPTHS && signed > 0) DEPTHS.push(signed);
     }
     if (max > -Infinity) out.set(m.name, { max, count, at });
   }
@@ -328,6 +338,15 @@ const rest = spillNow();
 // la piel. Este modo lo lista para poder decidir con una cifra si se arregla
 // engordando la piel o aflojando el musculo.
 if (process.env.RESTONLY) {
+  // Segunda pasada, ahora anotando CADA vertice: la cifra por malla es su peor
+  // vertice, y con eso no se puede decidir entre engordar la piel unos
+  // milimetros o meter el tejido hacia dentro. Hace falta el reparto.
+  DEPTHS = [];
+  poser.pose(0);
+  spillNow();
+  const d = DEPTHS.sort((a, b) => a - b);
+  const pct = (q: number) => (d.length ? d[Math.min(d.length - 1, Math.floor(q * d.length))] : 0);
+  DEPTHS = null;
   const rows = [...rest.entries()]
     .filter(([, v]) => v.max > 0.0005)
     .sort((a, b) => b[1].max - a[1].max);
@@ -340,8 +359,25 @@ if (process.env.RESTONLY) {
   console.log(`
   ${rows.length} mallas asoman, ${total} vertices en total.`);
   const over = (mm: number) => rows.filter(([, v]) => v.max * 1000 > mm).length;
-  console.log(`  por encima de 1 mm: ${over(1)}   de 2 mm: ${over(2)}   de 5 mm: ${over(5)}   de 10 mm: ${over(10)}
-`);
+  console.log(`  por encima de 1 mm: ${over(1)}   de 2 mm: ${over(2)}   de 5 mm: ${over(5)}   de 10 mm: ${over(10)}`);
+  console.log(
+    `
+  reparto por VERTICE (${d.length} asoman):  mediana ${(pct(0.5) * 1000).toFixed(1)} mm` +
+      `   p75 ${(pct(0.75) * 1000).toFixed(1)}   p90 ${(pct(0.9) * 1000).toFixed(1)}` +
+      `   p99 ${(pct(0.99) * 1000).toFixed(1)}   max ${(d[d.length - 1] * 1000 || 0).toFixed(1)}`,
+  );
+  const band = (lo: number, hi: number) => d.filter((x) => x * 1000 > lo && x * 1000 <= hi).length;
+  console.log(
+    `  por tramo:  0,5-3 mm ${band(0.5, 3)}   3-6 ${band(3, 6)}   6-12 ${band(6, 12)}` +
+      `   12-20 ${band(12, 20)}   >20 ${band(20, 1e9)}`,
+  );
+  const under = (mm: number) => d.filter((x) => x * 1000 <= mm).length;
+  console.log(
+    `  vertices que taparia engordar la piel:  1 mm ${((under(1) / d.length) * 100).toFixed(0)}%` +
+      `   2 mm ${((under(2) / d.length) * 100).toFixed(0)}%   3 mm ${((under(3) / d.length) * 100).toFixed(0)}%` +
+      `   5 mm ${((under(5) / d.length) * 100).toFixed(0)}%
+`,
+  );
   process.exit(0);
 }
 

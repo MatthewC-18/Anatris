@@ -31,6 +31,7 @@ import { repairFaceWinding } from '../../src/lib/faceWinding.ts';
 import { bridgeShoulderSkin } from '../../src/lib/shoulderSkinBridge.ts';
 import { gradeShoulderMuscleBinding } from '../../src/lib/shoulderMuscleBinding.ts';
 import { relaxSkinSeams } from '../../src/lib/skinSeamRelax.ts';
+import { inflateSkinShell } from '../../src/lib/skinShellInflate.ts';
 import { blendHipSkin } from '../../src/lib/rigHipSkin.ts';
 import { regradeAnkleCrossers } from '../../src/lib/rigAnkleRebind.ts';
 import {
@@ -138,6 +139,11 @@ export function createRigPoser(
   scene.updateMatrixWorld(true);
   // Mesh repair the app does at load. Must run BEFORE the rest pose is captured,
   // or the harness measures a rig the user never sees.
+  // EL SOBRE DE LA PIEL, ENGORDADO 2 mm (src/lib/skinShellInflate.ts). Las
+  // facetas de la piel son enormes y planas, y su cuerda se hunde bajo el
+  // musculo que tapan: de ahi el moteado rosa de todas las hojas. Va primero
+  // porque es el unico pase que mueve POSICIONES.
+  inflateSkinShell(scene);
   repairFaceWinding(scene);
   bindClaviclesToShoulderGirdle(scene);
   bridgeShoulderSkin(scene);
