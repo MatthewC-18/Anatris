@@ -35,6 +35,7 @@ import { blendHipSkin } from '../../src/lib/rigHipSkin.ts';
 import { regradeAnkleCrossers } from '../../src/lib/rigAnkleRebind.ts';
 import {
   smoothNeckSkin,
+  smoothTrunkSkin,
   smoothSkinSpine,
   smoothSpineConnective,
   vertebraHeights,
@@ -179,6 +180,18 @@ export function createRigPoser(
     const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
     const layer = layerForMaterial((first as THREE.Material | undefined)?.name ?? null);
     return layer === 'muscle' || layer === 'connective' ? 'soft' : 'other';
+  });
+
+  // Y LA PIEL DEL TRONCO, por el mismo motivo que la del cuello: el abdomen
+  // anterior venia como una pila de teselas rigidas, una por vertebra, y a 60
+  // grados de flexion lumbar se abrian entre si 9,5 cm (medido entre
+  // `Epigastric_regionl`, al 100% en vert_L1, y `Umbilical_region`, al 100% en
+  // vert_L4). Despues de `blendHipSkin`, no antes: ver la nota de la funcion.
+  smoothTrunkSkin(scene, vertebraHeights(scene), (mesh) => {
+    const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    return layerForMaterial((first as THREE.Material | undefined)?.name ?? null) === 'skin'
+      ? 'skin'
+      : 'other';
   });
   relaxSkinSeams(scene);
   // Y los religados del brazo, que hasta ahora SOLO hacia la aplicacion.

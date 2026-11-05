@@ -65,6 +65,7 @@ import { blendHipSkin } from '../../lib/rigHipSkin';
 import { regradeAnkleCrossers } from '../../lib/rigAnkleRebind';
 import {
   smoothNeckSkin,
+  smoothTrunkSkin,
   smoothSkinSpine,
   smoothSpineConnective,
   vertebraHeights,
@@ -1596,6 +1597,19 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           : 'other';
       });
       smoothNeckSkin(scene, vertYByName, (mesh) => {
+        const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+        return layerForMaterial((first as THREE.Material | undefined)?.name ?? null) === 'skin'
+          ? 'skin'
+          : 'other';
+      });
+
+      // Y LA PIEL DEL TRONCO (misma funcion, una planta mas abajo). El abdomen
+      // anterior venia como una pila de teselas rigidas, una por vertebra: a 60
+      // grados de flexion lumbar `Epigastric_regionl` (100% vert_L1) y
+      // `Umbilical_region` (100% vert_L4) compartian un vertice en reposo y
+      // acababan a 9,5 cm. `relaxSkinSeams` no llega ahi porque descarta a
+      // proposito la franja de la linea media. Va DESPUES de `blendHipSkin`.
+      smoothTrunkSkin(scene, vertYByName, (mesh) => {
         const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
         return layerForMaterial((first as THREE.Material | undefined)?.name ?? null) === 'skin'
           ? 'skin'

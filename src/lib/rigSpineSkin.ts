@@ -236,3 +236,53 @@ export function smoothSpineConnective(
   });
   return report;
 }
+
+/** Toraxicas, lumbares y sacro: el tronco, todo lo que no es cuello. */
+const TRUNK = /^vert_(T\d+|L\d+|sacrum)$/;
+
+/**
+ * REPARTE POR NIVEL LA PIEL DEL TRONCO.
+ *
+ * Es el mismo fallo del cuello, una planta mas abajo, y se habia dado por
+ * tratado ("la del tronco ya la tratan otros pases"). No lo estaba.
+ *
+ * Medido a 60 grados de flexion lumbar: dos vertices que en reposo son EL MISMO
+ * PUNTO, uno en `Epigastric_regionl` y otro en `Umbilical_region`, acaban a
+ * 9,5 cm. El primero lleva `vert_L1 = 1,000` y el segundo `vert_L4 = 1,000`. El
+ * abdomen anterior es una pila de teselas rigidas, una por vertebra, y al
+ * doblarse se abren entre si. Detras del mismo fallo: `Sacral_region` (100% en
+ * `vert_sacrum`, que no se mueve nunca) contra `Vertebral_region`, 11,1 cm.
+ *
+ * `relaxSkinSeams` no llegaba porque descarta a proposito una franja de 2 cm a
+ * cada lado de la LINEA MEDIA, que es justo donde viven el ombligo, el
+ * epigastrio y el sacro.
+ *
+ * El reparto por altura de `smoothSkinSpine` lo cierra solo: dos vertices que
+ * estan a la misma altura obtienen las mismas dos vertebras y los mismos pesos,
+ * asi que la costura no puede abrirse, y de paso el abdomen se pliega en vez de
+ * partirse en escalones.
+ *
+ * VA DESPUES DE `blendHipSkin`, no antes. Aquel pase se queda con la piel de la
+ * pelvis mirando quien es su hueso DOMINANTE (`vert_sacrum`) y la religa a un
+ * esqueleto de dos huesos de la pierna. Si este pase corriese primero, esas
+ * teselas pasarian a ser una mezcla L5/sacro, ya no darian `vert_sacrum` como
+ * dominante y la cadera volveria a abrirse por el pliegue gluteo. Corriendo
+ * despues no hay conflicto: a una tesela ya religada no le queda ni una
+ * vertebra en el esqueleto, de modo que `smoothSkinSpine` la deja intacta.
+ */
+export function smoothTrunkSkin(
+  scene: THREE.Object3D,
+  vertY: Map<string, number>,
+  classify: (mesh: THREE.Mesh) => 'skin' | 'other',
+): NeckSkinReport {
+  const report: NeckSkinReport = { meshes: 0 };
+  scene.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh || classify(mesh) !== 'skin') return;
+    const sk = mesh as THREE.SkinnedMesh;
+    if (!sk.isSkinnedMesh || !sk.skeleton) return;
+    if (!TRUNK.test(dominantVertebra(sk))) return;
+    if (smoothSkinSpine(mesh, vertY)) report.meshes++;
+  });
+  return report;
+}
