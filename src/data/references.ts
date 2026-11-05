@@ -582,7 +582,13 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Am J Sports Med',
     year: 2005,
-    note: 'Descripción y precisión del moving valgus stress test para el LCU del codo.',
+    pmid: '15701609',
+    doi: '10.1177/0363546504267804',
+    sample:
+      '21 pacientes operados por dolor medial de codo; las cifras salen de 17 positivos y 4 negativos',
+    standard:
+      'Exploración quirúrgica del ligamento colateral medial o prueba de estrés en valgo bajo artroscopia',
+    note: 'Sensibilidad 100% (17 de 17) y especificidad 75% (3 de 4). Esos denominadores importan: la especificidad se calculó sobre CUATRO pacientes, de modo que un solo caso distinto la habría movido 25 puntos. Nivel de evidencia 2. El dato reproducible del estudio es el arco: el dolor aparece entre 120° y 70° y es máximo a 90° de flexión.',
   },
   'novak-1994': {
     id: 'novak-1994',
@@ -591,16 +597,24 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'J Hand Surg Am',
     year: 1994,
-    note: 'Precisión del Tinel del cubital y del test de flexión-compresión del codo.',
+    pmid: '7806810',
+    doi: '10.1016/0363-5023(94)90193-7',
+    sample: '32 pacientes (44 extremidades) y 33 controles sanos',
+    standard: 'Síndrome del túnel cubital confirmado por electrodiagnóstico',
+    note: 'SENSIBILIDADES a los 30 segundos, y sólo sensibilidades: Tinel 0,70, flexión del codo aislada 0,32, compresión aislada 0,55, compresión + flexión 0,91. El resumen NO publica especificidad de ninguna de las cuatro; de los controles dice únicamente que "rara vez" dieron positivo. Cualquier especificidad numérica atribuida a este estudio (el 98% del Tinel, el 97% de la flexión-compresión) no está en la fuente.',
   },
   'saroja-2014': {
     id: 'saroja-2014',
-    authors: 'Saroja G, Antony Leo Aseer P, Sai Kumar N',
+    authors: 'Saroja G, Antony Leo Aseer P, Venkata Sai PM',
     title: 'Diagnostic accuracy of provocative tests in lateral epicondylitis',
     edition: '',
     publisher: 'Int J Physiother Res',
     year: 2014,
-    note: 'Cifras de Cozen y Mill para la epicondilalgia lateral.',
+    doi: '10.16965/ijpr.2014.699',
+    sample: '30 sujetos; un segundo explorador, ciego a los resultados de las pruebas, hizo la ecografía',
+    standard:
+      'Ecografía musculoesquelética: grosor del tendón extensor común, ecotextura y contorno óseo del epicóndilo',
+    note: 'Las seis cifras, del resumen: sensibilidad Cozen 84%, Maudsley 88%, Mill 53%; especificidad Cozen 0%, Maudsley 0%, Mill 100%. Sí, cero: en esta serie de 30 las dos pruebas resistidas dieron positivo en TODOS los sujetos con ecografía negativa. Con 30 sujetos los negativos son pocos, así que el 0% y el 100% son extremos de muestra pequeña, no constantes biológicas. Única con área bajo la curva ROC significativa: Mill (0,769).',
   },
   'zwerus-2018': {
     id: 'zwerus-2018',

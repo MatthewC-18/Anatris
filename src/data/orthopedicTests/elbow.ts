@@ -9,9 +9,29 @@
 // locator); the provocation tests without solid accuracy data stay note-only or
 // verified: false and say so.
 //
-// Sources (see references.ts): Saroja 2014 (Cozen/Mill), O'Driscoll 2005 (moving
-// valgus), Novak 1994 (Tinel + flexión-compresión del cubital), Zwerus 2018
-// (revisión de la evidencia de la exploración del codo).
+// Sources (see references.ts): Saroja 2014 (Cozen/Maudsley/Mill), O'Driscoll 2005
+// (moving valgus), Novak 1994 (Tinel + flexión-compresión del cubital), Zwerus
+// 2018 (revisión de la evidencia de la exploración del codo).
+//
+// ESTADO DE LA VERIFICACION (2026-11-04). Abiertos los tres resumenes
+// primarios, cuatro cifras no estaban en su fuente y una prueba se estaba
+// quedando sin datos que si existen:
+//
+//   cozen      79% / 80%  ->  84% / 0%   la fuente dice otra cosa, en AMBAS
+//   maudsley   sin cifras ->  88% / 0%   el estudio si las publica
+//   tinel      70% / 98%  ->  70% / --   el 98% no esta en Novak 1994
+//   flex+compr 91% / 97%  ->  91% / --   el 97% tampoco
+//
+// Las especificidades del 0% de Saroja no son un error de lectura: en esa serie
+// de 30 sujetos, TODOS los que tenian ecografia negativa dieron positivo en las
+// dos pruebas resistidas. Con 30 sujetos los negativos son pocos, asi que el 0%
+// y el 100% de Mill son extremos de muestra pequena; se muestran con esa
+// advertencia en la nota, porque lo que sostienen es la DIRECCION (Cozen y
+// Maudsley descartan, Mill confirma) y no el valor exacto.
+//
+// Y de Novak 1994, el dato que hay que ensenar no es un numero suelto: la
+// flexion del codo SOLA tiene sensibilidad 0,32, la compresion sola 0,55, y las
+// dos juntas 0,91. La maniobra funciona cuando se anade la compresion.
 //
 // DEMO note: the elbow rig drives flexión/extensión + pronación/supinación. Most
 // tests are resisted/stress maneuvers of the wrist or ligament; the demo poses
@@ -33,13 +53,13 @@ const tests: OrthopedicTest[] = [
       'Codo en extensión y antebrazo pronado; el paciente hace extensión y desviación radial de la muñeca contra la resistencia del explorador (puño cerrado).',
     positive: 'Dolor en el epicóndilo lateral al resistir la extensión de la muñeca.',
     metrics: {
-      sensitivity: 79,
-      specificity: 80,
-      note: 'Saroja 2014: 79/80 (variable entre estudios: hasta 84% sens con especificidad baja).',
+      sensitivity: 84,
+      specificity: 0,
+      note: 'Las dos cifras del único estudio que las mide (Saroja 2014, 30 sujetos, ecografía como patrón de referencia). La especificidad es 0%: en esa serie TODOS los sujetos con ecografía negativa dieron Cozen positivo. Con 30 sujetos los negativos son pocos, así que el 0% es un extremo de muestra pequeña y no una constante; lo que sí sostiene es que esta prueba no confirma nada.',
     },
-    utility: 'balanced',
+    utility: 'rule-out',
     interpretation:
-      'Sensibilidad y especificidad parecidas; tiende a ser mejor para DESCARTAR (buena sensibilidad). Combínalo con Mill para confirmar.',
+      'Sirve para DESCARTAR, no para confirmar: con 84% de sensibilidad un Cozen negativo hace poco probable la epicondilalgia, y un positivo aislado no dice nada. Para confirmar, Mill.',
     demo: {
       movementId: 'elbow-extension',
       angleDeg: 10,
@@ -51,7 +71,9 @@ const tests: OrthopedicTest[] = [
       highlightMuscleId: 'common-extensor-origin',
       note: 'Con el codo en extensión y antebrazo pronado se resiste la extensión de la muñeca (componente de muñeca no reproducido).',
     },
-    cite: [{ ref: 'saroja-2014', verified: true, locator: 'Cozen 79/80' }],
+    cite: [
+      { ref: 'saroja-2014', verified: true, locator: 'Cozen: sensibilidad 84%, especificidad 0%' },
+    ],
   },
   {
     id: 'mill',
@@ -67,7 +89,7 @@ const tests: OrthopedicTest[] = [
     metrics: {
       sensitivity: 53,
       specificity: 100,
-      note: 'Saroja 2014: 53/100. Muy específico, poco sensible.',
+      note: 'Las dos cifras del mismo estudio (Saroja 2014, 30 sujetos, ecografía como patrón de referencia) y la única de las tres pruebas con área bajo la curva ROC significativa (0,769). Especificidad 100% sobre 30 sujetos: el intervalo de confianza real es ancho, pero es la única de la serie que sirve para CONFIRMAR.',
     },
     utility: 'rule-in',
     interpretation:
@@ -78,7 +100,13 @@ const tests: OrthopedicTest[] = [
       highlightMuscleId: 'common-extensor-origin',
       note: 'Con antebrazo pronado y muñeca flexionada se extiende pasivamente el codo; el modelo muestra la pronación y resalta el origen extensor, que es lo que se estira.',
     },
-    cite: [{ ref: 'saroja-2014', verified: true, locator: 'Mill 53/100' }],
+    cite: [
+      {
+        ref: 'saroja-2014',
+        verified: true,
+        locator: 'Mill: sensibilidad 53%, especificidad 100%, ROC 0,769',
+      },
+    ],
   },
   {
     id: 'maudsley',
@@ -92,18 +120,27 @@ const tests: OrthopedicTest[] = [
       'El paciente extiende el tercer dedo contra resistencia con el codo en extensión.',
     positive: 'Dolor en el epicóndilo lateral al resistir la extensión del tercer dedo.',
     metrics: {
-      note: 'Sin datos robustos de precisión (Zwerus 2018: evidencia escasa para los tests de codo).',
+      sensitivity: 88,
+      specificity: 0,
+      note: 'La MÁS sensible de las tres pruebas resistidas en Saroja 2014 (30 sujetos, ecografía como patrón de referencia), y con la misma especificidad del 0% que el Cozen: todos los sujetos con ecografía negativa dieron positivo. Muestra pequeña, así que el 0% es un extremo y no una constante; el mensaje que aguanta es que provoca dolor también sin lesión ecográfica.',
     },
-    utility: 'weak',
+    utility: 'rule-out',
     interpretation:
-      'Prueba de provocación sin precisión establecida: úsala como apoyo clínico dentro del cuadro, no de forma aislada.',
+      'Su valor está en el negativo: con 88% de sensibilidad, un Maudsley negativo hace poco probable la epicondilalgia lateral. El positivo aislado no confirma.',
     demo: {
       movementId: 'elbow-extension',
       angleDeg: 10,
       highlightMuscleId: 'common-extensor-origin',
       note: 'Con el codo en extensión se resiste la extensión del tercer dedo (componente digital no reproducido).',
     },
-    cite: [{ ref: 'zwerus-2018', verified: false }],
+    cite: [
+      {
+        ref: 'saroja-2014',
+        verified: true,
+        locator: 'Maudsley: sensibilidad 88%, especificidad 0%',
+      },
+      { ref: 'zwerus-2018', verified: false, locator: 'Evidencia escasa para los tests de codo' },
+    ],
   },
 
   // ==================== EPICONDILALGIA MEDIAL (GOLFISTA) ====================
@@ -149,7 +186,7 @@ const tests: OrthopedicTest[] = [
     metrics: {
       sensitivity: 100,
       specificity: 75,
-      note: 'O’Driscoll 2005 (serie pequeña, 21 pacientes): 100/75. Muy sensible.',
+      note: 'Sensibilidad 100% (17 de 17) y especificidad 75% (3 de 4) frente a exploración quirúrgica o artroscópica (O’Driscoll 2005, 21 pacientes operados). Los denominadores son el dato: la especificidad sale de CUATRO pacientes, así que un caso distinto la movería 25 puntos. Lo más reproducible del estudio no es la cifra, es el arco: dolor entre 120° y 70°, máximo a 90°.',
     },
     utility: 'rule-out',
     interpretation:
@@ -159,7 +196,13 @@ const tests: OrthopedicTest[] = [
       angleDeg: 90,
       note: 'Se aplica un valgo constante mientras se flexiona-extiende el codo por el arco 70-120°; el modelo muestra la flexión.',
     },
-    cite: [{ ref: 'odriscoll-2005', verified: true, locator: 'moving valgus 100/75' }],
+    cite: [
+      {
+        ref: 'odriscoll-2005',
+        verified: true,
+        locator: 'Sensibilidad 100% (17/17), especificidad 75% (3/4), en el resumen',
+      },
+    ],
   },
   {
     id: 'valgus-stress-elbow',
@@ -200,18 +243,23 @@ const tests: OrthopedicTest[] = [
     positive: 'Parestesias/hormigueo irradiados al 4.º y 5.º dedos.',
     metrics: {
       sensitivity: 70,
-      specificity: 98,
-      note: 'Novak 1994: 70/98. Alta especificidad; alto valor predictivo negativo.',
+      note: 'Sensibilidad 0,70 a los 30 segundos (Novak 1994, 44 extremidades con túnel cubital confirmado por electrodiagnóstico frente a 33 controles). SIN cifra de especificidad: ese estudio no la publica para ninguna de sus cuatro maniobras; de los controles dice sólo que "rara vez" dieron positivo. El 98% que suele citarse no está en la fuente.',
     },
-    utility: 'rule-in',
+    utility: 'balanced',
     interpretation:
-      'Muy específico (SpPin): un Tinel positivo apoya la neuropatía cubital; también aparece en un porcentaje de personas sanas, así que interprétalo con la clínica.',
+      'Un Tinel positivo apoya la neuropatía cubital, pero con la cautela de que su especificidad no está medida: también aparece en personas sanas. Interprétalo con la clínica y el electrodiagnóstico.',
     demo: {
       movementId: 'elbow-flexion',
       angleDeg: 90,
       note: 'Se percute el nervio en el canal epitrócleo-olecraniano con el codo en flexión (percusión no reproducida).',
     },
-    cite: [{ ref: 'novak-1994', verified: true, locator: 'Tinel 70/98' }],
+    cite: [
+      {
+        ref: 'novak-1994',
+        verified: true,
+        locator: 'Sensibilidad del Tinel 0,70 a los 30 s (sin especificidad publicada)',
+      },
+    ],
   },
   {
     id: 'elbow-flexion-pressure',
@@ -226,8 +274,7 @@ const tests: OrthopedicTest[] = [
     positive: 'Parestesias en el territorio cubital (4.º-5.º dedos) durante la posición mantenida.',
     metrics: {
       sensitivity: 91,
-      specificity: 97,
-      note: 'Novak 1994: la flexión SOLA es poco sensible (~32%); combinada con compresión del nervio sube a ~91%.',
+      note: 'Las tres sensibilidades del mismo estudio, a los 30 segundos: flexión SOLA 0,32, compresión sola 0,55, las dos juntas 0,91 (Novak 1994). Ahí está el mensaje clínico: la maniobra funciona cuando se añade la compresión del nervio. SIN cifra de especificidad: el estudio no la publica.',
     },
     utility: 'rule-out',
     interpretation:
@@ -237,7 +284,13 @@ const tests: OrthopedicTest[] = [
       angleDeg: 120,
       note: 'Codo en flexión máxima con compresión del nervio, sostenido; el modelo muestra la flexión.',
     },
-    cite: [{ ref: 'novak-1994', verified: false, locator: 'flexión+compresión ~91% (esp aprox.)' }],
+    cite: [
+      {
+        ref: 'novak-1994',
+        verified: true,
+        locator: 'Flexión + compresión: sensibilidad 0,91 (sin especificidad publicada)',
+      },
+    ],
   },
 ];
 
