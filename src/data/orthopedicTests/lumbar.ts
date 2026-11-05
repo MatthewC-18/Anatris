@@ -20,6 +20,25 @@
 // SI provocation tests load the pelvis, so those either approximate the lumbar
 // position with an honest `note` or omit the demo (the pelvis-only SI tests).
 
+// ESTADO DE LA VERIFICACION (2026-11-04). Las tres citas que quedaban sin
+// comprobar en esta region estan resueltas, y una de ellas ensenaba numeros de
+// un estudio que no los publica.
+//
+//   slr-lasegue             91% / 26%  ->  igual, pero con el contraste medido
+//   femoral-nerve-stretch   50% / 100% ->  CONFIRMADAS (Suri 2011, Tabla 3)
+//   prone-instability-test  72% / 58%  ->  nota: Hicks 2005 no es diagnostico
+//
+// Hicks 2005 no mide si el test de inestabilidad en prono acierta un
+// diagnostico: mide si predice la RESPUESTA a ocho semanas de ejercicio de
+// estabilizacion. Es un estudio pronostico, y presentarlo como precision
+// diagnostica confunde dos cosas distintas.
+//
+// Y de Suri 2011 sale el mejor material docente de esta region: el mismo
+// Lasegue da 69% / 84% si lo que se busca es compresion de L5-S1 y 16% / 31%
+// si se busca L2-L4, sobre los MISMOS 57 pacientes y con el mismo explorador
+// ciego a la resonancia. No es que una cifra este mal: es que una prueba no
+// tiene una cifra, tiene una por pregunta.
+
 import type { OrthopedicTest } from '../../types/orthopedicTest';
 
 const tests: OrthopedicTest[] = [
@@ -39,7 +58,7 @@ const tests: OrthopedicTest[] = [
     metrics: {
       sensitivity: 91,
       specificity: 26,
-      note: 'Devillé 2000 (metaanálisis): 91/26. Muy sensible, poco específico.',
+      note: 'Las dos cifras del metanálisis de Devillé, con hernia discal quirúrgica como patrón. Pero el mismo Lasègue vale otra cosa si lo que se busca es OTRA raíz: frente a la RM (Suri, 57 pacientes, explorador ciego), da 69% / 84% para la compresión L5-S1 y 16% / 31% para la L2-L4. No es contradicción: es que una prueba no tiene una cifra, tiene una por pregunta.',
     },
     utility: 'rule-out',
     interpretation:
@@ -54,12 +73,12 @@ const tests: OrthopedicTest[] = [
     cite: [
       { ref: 'deville-2000', verified: true, locator: 'metaanálisis, SLR ipsilateral' },
       {
+        // Resuelto 2026-11-04: el resumen solo da razones de verosimilitud,
+        // pero el texto completo esta abierto en PMC2978791 y las cifras estan
+        // en la Tabla 3.
         ref: 'suri-2011',
-        verified: false,
-        // Comprobado 2026-08-06 (PMID 20543768): el resumen presenta razones
-        // de verosimilitud, no sensibilidad/especificidad, y no nombra estos
-        // tests. Comprobar en las tablas del texto completo.
-        locator: 'PENDIENTE: el resumen da razones de verosimilitud, no sens/espec',
+        verified: true,
+        locator: 'Tabla 3: Lasègue 69%/84% en L5-S1 y 16%/31% en L2-L4',
       },
     ],
   },
@@ -133,7 +152,7 @@ const tests: OrthopedicTest[] = [
     metrics: {
       sensitivity: 50,
       specificity: 100,
-      note: 'Suri 2011 (prone knee bend frente a RM): ~50/100 para L2-L4. Datos limitados; la sensibilidad sube con el nivel L3.',
+      note: 'Las dos cifras de la Tabla 3 de Suri 2011 (57 pacientes, explorador CIEGO a la resonancia): 50% (IC 31-69) y 100% (IC 88-100) para la compresión L2-L4, con razón de verosimilitud positiva infinita, porque no hubo ni un falso positivo. Acotada al nivel L3 sube a 70% / 88%. Y la versión CRUZADA, igual de específica (100%) pero con 5% de sensibilidad, dio positivo en un solo paciente de la serie: no se puede contar con ella.',
     },
     utility: 'rule-in',
     interpretation:
@@ -145,7 +164,13 @@ const tests: OrthopedicTest[] = [
       angleDeg: 20,
       note: 'En prono se flexiona la rodilla y se extiende la cadera; el modelo muestra la extensión lumbar, que también tensa las raíces altas.',
     },
-    cite: [{ ref: 'suri-2011', verified: false, locator: 'reverse SLR, L2-L4' }],
+    cite: [
+      {
+        ref: 'suri-2011',
+        verified: true,
+        locator: 'Tabla 3: 50% (31-69) / 100% (88-100), LR+ infinito; Tabla 4: L3 70%/88%',
+      },
+    ],
   },
 
   // ========================== INESTABILIDAD LUMBAR ==========================
@@ -188,11 +213,9 @@ const tests: OrthopedicTest[] = [
       'Con el tronco en la camilla y los pies apoyados en el suelo, se aplica presión posteroanterior sobre el segmento doloroso; luego el paciente levanta los pies (activa la musculatura) y se repite.',
     positive: 'Dolor con los pies apoyados que DISMINUYE al levantarlos y activar la musculatura.',
     metrics: {
-      sensitivity: 72,
-      specificity: 58,
-      note: 'Hicks 2005; rendimiento moderado. Más útil como predictor de respuesta al ejercicio de estabilización.',
+      note: 'SIN cifras de diagnóstico, y por un motivo de fondo: el estudio que se le cita (Hicks 2005, 54 pacientes con lumbalgia no radicular) no mide si la prueba acierta un diagnóstico, sino si predice la RESPUESTA a ocho semanas de ejercicio de estabilización. Las que circulaban (72% / 58%) no están en él. Lo que sí publica es una regla con seis variables -- edad, Lasègue, esta prueba, movimientos aberrantes, hipermovilidad lumbar y creencias de miedo-evitación -- con razón de verosimilitud 4,0 para predecir el éxito y 0,18 para el fracaso.',
     },
-    utility: 'balanced',
+    utility: 'weak',
     interpretation:
       'Precisión moderada aislado. Su valor real es pronóstico: un positivo predice buena respuesta a un programa de estabilización lumbar.',
     demo: {
@@ -200,7 +223,13 @@ const tests: OrthopedicTest[] = [
       angleDeg: 18,
       note: 'En prono se aplica presión posteroanterior sobre el segmento; el modelo aproxima con una ligera extensión lumbar.',
     },
-    cite: [{ ref: 'hicks-2005', verified: false }],
+    cite: [
+      {
+        ref: 'hicks-2005',
+        verified: true,
+        locator: 'Regla de predicción de respuesta: LR+ 4,0 / LR− 0,18 (no es precisión diagnóstica)',
+      },
+    ],
   },
 
   // ============================ DOLOR SACROILÍACO ============================

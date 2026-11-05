@@ -41,6 +41,7 @@ import {
   smoothSpineConnective,
   vertebraHeights,
 } from '../../src/lib/rigSpineSkin.ts';
+import { blendPelvicOrigins } from '../../src/lib/rigPelvicOrigin.ts';
 import {
   dominantBoneName,
   rebindArmBellies,
@@ -198,6 +199,15 @@ export function createRigPoser(
     return layerForMaterial((first as THREE.Material | undefined)?.name ?? null) === 'skin'
       ? 'skin'
       : 'other';
+  });
+  // Y LOS ORIGENES PELVICOS (src/lib/rigPelvicOrigin.ts). El gluteo mayor y
+  // los demas musculos de la cadera vienen pesados al CIEN POR CIEN en el
+  // femur, origen sacro e isquiopubico incluidos, de modo que al flexionar
+  // la cadera se despegaban de la pelvis y salian por la nalga.
+  blendPelvicOrigins(scene, (mesh) => {
+    const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    const layer = layerForMaterial((first as THREE.Material | undefined)?.name ?? null);
+    return layer === 'muscle' ? 'muscle' : layer === 'connective' ? 'connective' : 'other';
   });
   relaxSkinSeams(scene);
   // Y los religados del brazo, que hasta ahora SOLO hacia la aplicacion.

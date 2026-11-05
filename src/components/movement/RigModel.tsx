@@ -71,6 +71,7 @@ import {
   smoothSpineConnective,
   vertebraHeights,
 } from '../../lib/rigSpineSkin';
+import { blendPelvicOrigins } from '../../lib/rigPelvicOrigin';
 import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../lib/biomech/scapulaWrap';
 import { muscleDepthLevel, type MuscleDepthLevel } from '../../lib/muscleDepth';
 import { parseMeshName, structureKey, type ParsedSide } from '../../lib/parseMeshName';
@@ -1624,7 +1625,16 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           ? 'skin'
           : 'other';
       });
-      relaxSkinSeams(scene);
+      // Y LOS ORIGENES PELVICOS (src/lib/rigPelvicOrigin.ts). El gluteo mayor y
+    // los demas musculos de la cadera vienen pesados al CIEN POR CIEN en el
+    // femur, origen sacro e isquiopubico incluidos, de modo que al flexionar
+    // la cadera se despegaban de la pelvis y salian por la nalga.
+    blendPelvicOrigins(scene, (mesh) => {
+      const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      const layer = layerForMaterial((first as THREE.Material | undefined)?.name ?? null);
+      return layer === 'muscle' ? 'muscle' : layer === 'connective' ? 'connective' : 'other';
+    });
+    relaxSkinSeams(scene);
       if (muscleGrade.skipped.length > 0) {
         // eslint-disable-next-line no-console
         console.warn(

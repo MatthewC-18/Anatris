@@ -423,7 +423,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Spine',
     year: 2011,
-    note: 'Precisión de la exploración (incluye SLR y tensión femoral / reverse SLR) por niveles lumbares.',
+    doi: '10.1097/BRS.0b013e3181c953cc',
+    sample:
+      '57 pacientes con dolor radicular de menos de 12 semanas; se excluyeron los 103 que ya tenían la RM disponible, para que el explorador estuviera CIEGO al patrón de referencia',
+    standard:
+      'Compresión radicular en resonancia magnética, por región (L2-L4 frente a L5-S1) y por nivel concreto',
+    note: 'Texto completo abierto (PMC2978791); las cifras están en las Tablas 3 y 4. Compresión MEDIA (L2-L4): tensión femoral 50% / 100% (LR+ infinito), tensión femoral cruzada 5% / 100%, Lasègue 16% / 31%, Lasègue cruzado 4% / 93%. Compresión BAJA (L5-S1): Lasègue 69% / 84% (LR+ 4,3), cruzado 7% / 96%. Por nivel: tensión femoral en L3, 70% / 88% (LR+ 5,7). Lo que ensena este estudio es que la cifra de una prueba cambia por completo segun QUE se busque: el mismo Lasègue vale 16% de sensibilidad para la raíz alta y 69% para la baja.',
   },
   'kasai-2006': {
     id: 'kasai-2006',
@@ -444,7 +449,11 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Arch Phys Med Rehabil',
     year: 2005,
-    note: 'Test de inestabilidad en prono y regla de predicción para ejercicio de estabilización.',
+    doi: '10.1016/j.apmr.2005.03.033',
+    sample: '54 pacientes con lumbalgia NO radicular derivados a fisioterapia',
+    standard:
+      'No es un estudio diagnóstico: el desenlace es la RESPUESTA a ocho semanas de ejercicio de estabilización, medida por el cambio en el Oswestry (18 éxitos, 15 fracasos, 21 mejoría parcial)',
+    note: 'Cuidado al citarlo: este estudio NO publica sensibilidad ni especificidad del test de inestabilidad en prono, porque no mide si acierta un diagnóstico. Lo que publica es una regla de predicción de RESPUESTA AL TRATAMIENTO con razón de verosimilitud positiva 4,0 para el éxito y negativa 0,18 para el fracaso, construida con seis variables: edad, Lasègue, test de inestabilidad en prono, movimientos aberrantes, hipermovilidad lumbar y creencias de miedo-evitación.',
   },
   'laslett-2005': {
     id: 'laslett-2005',
