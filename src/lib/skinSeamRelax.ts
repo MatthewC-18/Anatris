@@ -417,6 +417,15 @@ export function relaxSkinSeams(scene: THREE.Object3D): SeamRelaxResult {
     };
 
     let touched = false;
+    // QUE VERTICES HA RESUELTO ESTA PASADA, para que nadie los pise luego.
+    //
+    // Un religado rigido posterior (`rigidBindTo`) pone la malla entera a un
+    // hueso, y eso DESHACE la costura: la copia del vertice que vive en la otra
+    // tesela se queda con el reparto y esta se va con su hueso. Asi se abria la
+    // axila, 7 cm a 100 grados de rotacion interna.
+    const settled: Uint8Array =
+      (M.mesh.userData.seamSettled as Uint8Array | undefined) ??
+      new Uint8Array(M.node.length);
     for (let vi = 0; vi < M.node.length; vi++) {
       const n = M.node[vi];
       if (n < 0 || !movable.has(n)) continue;
@@ -437,11 +446,13 @@ export function relaxSkinSeams(scene: THREE.Object3D): SeamRelaxResult {
       if (total <= 1e-6) continue;
       si.setXYZW(vi, idx[0], idx[1], idx[2], idx[3]);
       sw.setXYZW(vi, wts[0] / total, wts[1] / total, wts[2] / total, wts[3] / total);
+      settled[vi] = 1;
       touched = true;
     }
     if (touched) {
       si.needsUpdate = true;
       sw.needsUpdate = true;
+      M.mesh.userData.seamSettled = settled;
       result.meshes++;
     }
   }

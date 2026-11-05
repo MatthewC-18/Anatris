@@ -72,8 +72,9 @@ const ONLY = (() => {
  * margen. Un movimiento del tobillo mide el tobillo y uno del hombro mide el
  * hombro, sin decirle nada.
  */
-let Y_LO = 0;
-let Y_HI = 2;
+let Y_LO = Number(process.env.YLO ?? 0);
+let Y_HI = Number(process.env.YHI ?? 2);
+const BAND_FIXED = process.env.YLO !== undefined || process.env.YHI !== undefined;
 /** How far a muscle vertex may be from the skin and still be judged against it. */
 const NEAR = 0.03;
 /** Neighbours averaged, so one bad normal cannot invent a spill. */
@@ -106,6 +107,10 @@ scene.traverse((o) => {
   // Driven side (or midline) and the shoulder band only. A generous margin,
   // because a bounding-sphere centre is not where the vertices are.
   if (c.x * sideSign < -0.08) return;
+  // Lo que el banco OCULTA no se ve, asi que no puede ser un defecto visible:
+  // los internos distales de la mano y el recorte del antebrazo salian los
+  // primeros de la lista y no aparecen en ninguna hoja.
+  if (!m.visible) return;
   all.push({ mesh: m, name: m.name, layer });
 });
 const skinM = all.filter((m) => m.layer === 'skin');
@@ -305,7 +310,7 @@ function spillNow(): Map<string, { max: number; count: number; at: THREE.Vector3
       if (before[mi][i].y > hi) hi = before[mi][i].y;
     }
   });
-  if (lo <= hi) {
+  if (lo <= hi && !BAND_FIXED) {
     Y_LO = lo - 0.1;
     Y_HI = hi + 0.1;
     console.log(`banda medida: y de ${Y_LO.toFixed(2)} a ${Y_HI.toFixed(2)} m`);
@@ -314,6 +319,31 @@ function spillNow(): Map<string, { max: number; count: number; at: THREE.Vector3
 
 poser.pose(0);
 const rest = spillNow();
+
+// MODO REPOSO: lo que ya asoma SIN MOVER NADA.
+//
+// Las hojas de revision salen moteadas de puntos rosas en el pecho, el abdomen
+// y la cara, y estan ahi tambien en el primer fotograma, el de reposo. No es un
+// fallo del movimiento: es tejido que el GLB deja unos milimetros por fuera de
+// la piel. Este modo lo lista para poder decidir con una cifra si se arregla
+// engordando la piel o aflojando el musculo.
+if (process.env.RESTONLY) {
+  const rows = [...rest.entries()]
+    .filter(([, v]) => v.max > 0.0005)
+    .sort((a, b) => b[1].max - a[1].max);
+  console.log(`
+--- FUERA DE LA PIEL EN REPOSO (banda y ${Y_LO.toFixed(2)} a ${Y_HI.toFixed(2)}) ---`);
+  console.log('  fuera   verts   malla');
+  for (const [name, v] of rows.slice(0, 40))
+    console.log(`  ${(v.max * 1000).toFixed(1).padStart(5)} mm ${String(v.count).padStart(6)}   ${name}`);
+  const total = rows.reduce((a, [, v]) => a + v.count, 0);
+  console.log(`
+  ${rows.length} mallas asoman, ${total} vertices en total.`);
+  const over = (mm: number) => rows.filter(([, v]) => v.max * 1000 > mm).length;
+  console.log(`  por encima de 1 mm: ${over(1)}   de 2 mm: ${over(2)}   de 5 mm: ${over(5)}   de 10 mm: ${over(10)}
+`);
+  process.exit(0);
+}
 
 /* ======================================================================
  * UN MUSCULO QUE NO SE HA MOVIDO NO PUEDE HABER SALIDO POR EL MOVIMIENTO.

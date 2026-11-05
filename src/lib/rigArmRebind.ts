@@ -92,6 +92,31 @@ export function sideBoneIndex(sk: THREE.SkinnedMesh, boneBase: string): number {
   return best;
 }
 
+/**
+ * Liga una malla entera a un hueso, SALVO los vertices que `relaxSkinSeams` ya
+ * resolvio.
+ *
+ * LA AXILA SE ABRIA SIETE CENTIMETROS Y LA CULPA ERA DE ESTA FUNCION.
+ *
+ * A 100 grados de rotacion interna, seis vertices que en reposo eran el MISMO
+ * punto -- una copia en `Lateral_region_of_thorax`, otra en
+ * `Posterior_region_of_arm_2` -- acababan a 7,0 cm uno del otro. Medido: la
+ * copia del torax llevaba `humerus_gh 0,42 / vert_T9 0,24 / vert_T6 0,22 /
+ * latshum_r 0,13`, y la del brazo `humerus_gh 1,000`.
+ *
+ * Ese 1,000 lo escribia esta funcion. `relaxSkinSeams` habia soldado el punto y
+ * le habia dado a LAS DOS copias el mismo reparto -- comprobado: desactivando el
+ * religado posterior, la separacion cae a 0,0 cm -- y despues el pase de piel del
+ * brazo ponia la tesela entera a un solo hueso y deshacia la mitad del trabajo.
+ * Un religado rigido no puede ir detras de un reparto por vertice sin romperlo.
+ *
+ * De modo que la costura manda: `relaxSkinSeams` deja apuntado en
+ * `mesh.userData.seamSettled` que vertices ha resuelto, y aqui se saltan. Lo que
+ * no toco la costura se liga igual que antes, asi que la piel del brazo que
+ * viajaba en el antebrazo sigue volviendo al humero.
+ *
+ * Devuelve false solo si la malla no es pielable o no tiene ese hueso.
+ */
 export function rigidBindTo(mesh: THREE.Mesh, boneBase: string): boolean {
   const sk = mesh as THREE.SkinnedMesh;
   if (!sk.isSkinnedMesh || !sk.skeleton) return false;
@@ -100,7 +125,9 @@ export function rigidBindTo(mesh: THREE.Mesh, boneBase: string): boolean {
   const si = mesh.geometry.getAttribute('skinIndex');
   const sw = mesh.geometry.getAttribute('skinWeight');
   if (!si || !sw) return false;
+  const settled = mesh.userData.seamSettled as Uint8Array | undefined;
   for (let i = 0; i < si.count; i++) {
+    if (settled?.[i]) continue;
     si.setXYZW(i, bi, 0, 0, 0);
     sw.setXYZW(i, 1, 0, 0, 0);
   }
