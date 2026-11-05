@@ -112,28 +112,27 @@ const tests: OrthopedicTest[] = [
     positive:
       'Asimetría de altura entre ambos hemitórax (giba costal). Con escoliómetro se cuantifica la rotación del tronco; el umbral habitual de derivación es 5° a 7°.',
     metrics: {
-      sensitivity: 84,
-      specificity: 93,
-      note: 'Varía mucho según el umbral del escoliómetro (5° vs 7°), la edad y el ángulo de Cobb de referencia. Côté 1998 estudia precisión y fiabilidad de la prueba y del escoliómetro.',
+      note: 'Sin punto estimado defendible: Côté 1998 (105 pacientes, patrón de referencia Cobb ≥20° torácico) no publica sensibilidad ni especificidad en el registro público. Lo que sí sostiene: la prueba de Adams es MÁS SENSIBLE que el escoliómetro para curvas torácicas de 20° o más, y la concordancia entre dos exploradores es sustancial en la torácica pero POBRE en la lumbar. Cualquier cifra de precisión depende además del umbral del escoliómetro (5° frente a 7°) y de la edad.',
     },
     utility: 'rule-in',
     interpretation:
       'Una giba franca indica rotación vertebral, es decir deformidad estructural, y obliga a valorar radiografía con medición de Cobb. La ausencia de giba no descarta curvas pequeñas ni deformidades lumbares.',
     pearl:
-      'La actitud escoliótica funcional (por dismetría o contractura) DESAPARECE en la flexión; la estructural mantiene o acentúa la giba. Ésa es toda la prueba.',
+      'La actitud escoliótica funcional (por dismetría o contractura) DESAPARECE en la flexión; la estructural mantiene o acentúa la giba. Ésa es toda la prueba. En la LUMBAR, en cambio, dos exploradores se ponen de acuerdo mal: ahí fíate del escoliómetro, no del ojo.',
     demo: {
       movementId: 'thoracic-flexion',
       angleDeg: 40,
       highlightMuscleId: 'semispinalis-thoracis',
       note: 'El modelo muestra la flexión torácica de la maniobra; la giba costal depende de la rotación vertebral del paciente y no se reproduce en un raquis simétrico.',
     },
-    cite: [{
+    cite: [
+      {
         ref: 'cote-1998',
-        verified: false,
-        // Comprobado 2026-08-06 (PMID 9563110): el registro publico no muestra
-        // las cifras; estan en el texto completo.
-        locator: 'PENDIENTE: cifras no visibles en el registro publico',
-      }],
+        verified: true,
+        locator:
+          'mas sensible que el escaliometro en curvas toracicas >=20 grados; concordancia POBRE en la lumbar (resumen)',
+      },
+    ],
   },
 
   // ==================== ESPONDILOARTRITIS AXIAL ====================
@@ -158,7 +157,13 @@ const tests: OrthopedicTest[] = [
       'Aporta poco de forma aislada. Su valor está en el CONJUNTO con dolor lumbar inflamatorio (rigidez matutina de más de 30 minutos, mejora con el ejercicio y no con el reposo, despertar nocturno) y con la limitación de Schober.',
     pearl:
       'Mide siempre en el mismo nivel y anota la cifra: el seguimiento longitudinal del mismo paciente informa mucho más que compararlo con un valor de referencia.',
-    cite: [{ ref: 'vanderlinden-1984', verified: false }],
+    cite: [
+      {
+        ref: 'vanderlinden-1984',
+        verified: true,
+        locator: 'el criterio de expansion toracica es "demasiado poco sensible" (resumen)',
+      },
+    ],
   },
 
   // ==================== SÍNDROME DEL DESFILADERO TORÁCICO ====================
@@ -176,26 +181,28 @@ const tests: OrthopedicTest[] = [
     positive:
       'Reproducción de parestesias, pesadez o dolor en el miembro superior, o incapacidad de mantener los tres minutos por fatiga del lado sintomático.',
     metrics: {
-      sensitivity: 84,
-      specificity: 30,
-      note: 'Gillard 2001: alta sensibilidad y especificidad baja. Muchos sujetos sanos refieren molestias al tercer minuto.',
+      sensitivity: 72,
+      specificity: 53,
+      note: 'ATENCIÓN: 72/53 es la MEDIA de TODOS los tests provocativos de Gillard 2001, no la cifra propia de este test; el resumen no publica cifras por test y las revisiones que las dan se contradicen. Lo que sí está medido por test es el comportamiento en SANOS (Plewa 1998, 53 voluntarios): el EAST altera el pulso en el 62%, da parestesias en el 36% y dolor en el 21%. Solo el criterio "tiene que interrumpir la prueba" se sostiene, con un límite superior de falsos positivos del 16%.',
     },
     utility: 'rule-out',
     interpretation:
-      'Sensible pero poco específico (SnNout): tolerar los tres minutos sin síntomas hace improbable el desfiladero neurógeno. Un positivo aislado no lo confirma: hay que integrarlo con la clínica y con los otros tests.',
+      'Sensible pero poco específico (SnNout): tolerar los tres minutos sin síntomas hace improbable el desfiladero neurógeno. Un positivo aislado no lo confirma. Y define ANTES qué cuentas como positivo: en voluntarios sanos, el pulso se altera en seis de cada diez y aparecen parestesias en uno de cada tres, así que esos dos criterios no sirven; el que se sostiene es tener que interrumpir la prueba.',
     pearl:
       'Compara SIEMPRE los dos lados en la misma sesión. Lo relevante es la asimetría (un lado que claudica antes), no la aparición de molestias en sí.',
-    cite: [{
+    cite: [
+      {
         ref: 'gillard-2001',
-        verified: false,
-        // Comprobado 2026-08-06 (PMID 11707008). OJO, dos riesgos concretos:
-        // (1) el 85% que el resumen da para Adson es un VALOR PREDICTIVO
-        //     POSITIVO, no una especificidad -- son cosas distintas;
-        // (2) el resumen da 72% / 53% como media de TODOS los tests
-        //     provocativos, sospechosamente igual al 70/53 de Wright.
-        // Confirmar en las tablas antes de dar por buena ninguna cifra.
-        locator: 'PENDIENTE: el resumen mezcla VPP y la media global 72/53; verificar por test',
-      }],
+        verified: true,
+        locator: 'media de todos los tests provocativos 72%/53%, en el resumen (no por test)',
+      },
+      {
+        ref: 'plewa-1998',
+        verified: true,
+        locator:
+          'EAST en 53 sanos: pulso 62%, parestesias 36%, dolor 21%; interrumpir la prueba, falsos positivos <=16%',
+      },
+    ],
   },
   {
     id: 'adson',
@@ -211,26 +218,27 @@ const tests: OrthopedicTest[] = [
     positive:
       'Disminución o desaparición del pulso radial, o reproducción de los síntomas del paciente.',
     metrics: {
-      sensitivity: 79,
-      specificity: 76,
-      note: 'Gillard 2001. La abolición del pulso aparece en un porcentaje apreciable de personas asintomáticas, por lo que el criterio de positividad más útil es la reproducción de SÍNTOMAS, no el pulso.',
+      sensitivity: 72,
+      specificity: 53,
+      note: 'ATENCIÓN: 72/53 es la MEDIA de TODOS los tests provocativos de Gillard 2001, no la cifra propia de Adson; el 85% que ese resumen da para Adson es un valor predictivo POSITIVO, no una especificidad. Lo medido por test es el comportamiento en SANOS (Plewa 1998, 53 voluntarios): el pulso se altera en el 11% y hay parestesias en el 11%, pero DOLOR en el 0% -- con el dolor como criterio, el límite superior de falsos positivos es del 7%.',
     },
     utility: 'balanced',
     interpretation:
-      'Rendimiento moderado en ambas direcciones: interprétalo dentro de un conjunto de tests, nunca aislado. Si solo se abole el pulso sin síntomas, el hallazgo tiene poco valor.',
+      'Interprétalo dentro de un conjunto de tests, nunca aislado. Y sobre todo: el criterio de positividad decide el resultado. Uno de cada nueve sanos pierde pulso con esta maniobra, así que el pulso por sí solo no vale; ninguno de los 53 sanos de Plewa refirió DOLOR, de modo que el dolor reproducido sí es un hallazgo con peso.',
     pearl:
       'La variante de Wright-Adson gira la cabeza al lado CONTRARIO. Sea cual sea la variante, deja constancia de cuál usaste: cambian los resultados.',
-    cite: [{
+    cite: [
+      {
         ref: 'gillard-2001',
-        verified: false,
-        // Comprobado 2026-08-06 (PMID 11707008). OJO, dos riesgos concretos:
-        // (1) el 85% que el resumen da para Adson es un VALOR PREDICTIVO
-        //     POSITIVO, no una especificidad -- son cosas distintas;
-        // (2) el resumen da 72% / 53% como media de TODOS los tests
-        //     provocativos, sospechosamente igual al 70/53 de Wright.
-        // Confirmar en las tablas antes de dar por buena ninguna cifra.
-        locator: 'PENDIENTE: el resumen mezcla VPP y la media global 72/53; verificar por test',
-      }],
+        verified: true,
+        locator: 'media de todos los tests provocativos 72%/53%, en el resumen (no por test)',
+      },
+      {
+        ref: 'plewa-1998',
+        verified: true,
+        locator: 'Adson en 53 sanos: pulso 11%, parestesias 11%, dolor 0%; falsos positivos por dolor <=7%',
+      },
+    ],
   },
   {
     id: 'wright-hyperabduction',
@@ -246,26 +254,22 @@ const tests: OrthopedicTest[] = [
     positive:
       'Disminución del pulso radial o reproducción de parestesias en la mano.',
     metrics: {
-      sensitivity: 70,
+      sensitivity: 72,
       specificity: 53,
-      note: 'Gillard 2001. Es el test de desfiladero con el rendimiento más pobre: muchos falsos positivos en sujetos sanos.',
+      note: 'ATENCIÓN: 72/53 es la MEDIA de TODOS los tests provocativos de Gillard 2001, no la cifra propia de Wright; el 92% que ese resumen da para la hiperabducción es un valor predictivo POSITIVO, no una especificidad. A diferencia de Adson y del EAST, esta maniobra NO entró en el estudio de falsos positivos en sanos, así que de ella no hay ni siquiera ese contraste.',
     },
     utility: 'weak',
     interpretation:
       'Poco fiable de forma aislada. Su interés es localizador: cuando es el ÚNICO positivo, orienta al espacio retropectoral (pectoral menor) más que al interescalénico.',
     pearl:
       'Si es positivo, revisa el pectoral menor y la posición escapular: en muchos casos el trabajo terapéutico está ahí y no en los escalenos.',
-    cite: [{
+    cite: [
+      {
         ref: 'gillard-2001',
-        verified: false,
-        // Comprobado 2026-08-06 (PMID 11707008). OJO, dos riesgos concretos:
-        // (1) el 85% que el resumen da para Adson es un VALOR PREDICTIVO
-        //     POSITIVO, no una especificidad -- son cosas distintas;
-        // (2) el resumen da 72% / 53% como media de TODOS los tests
-        //     provocativos, sospechosamente igual al 70/53 de Wright.
-        // Confirmar en las tablas antes de dar por buena ninguna cifra.
-        locator: 'PENDIENTE: el resumen mezcla VPP y la media global 72/53; verificar por test',
-      }],
+        verified: true,
+        locator: 'media de todos los tests provocativos 72%/53%, en el resumen (no por test)',
+      },
+    ],
   },
 
   // ==================== CAJA TORÁCICA ====================

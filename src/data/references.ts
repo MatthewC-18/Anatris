@@ -480,7 +480,10 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Spine',
     year: 1998,
-    note: 'Precisión y fiabilidad de la prueba de Adams y del escoliómetro en el cribado de escoliosis.',
+    sample: '105 pacientes remitidos a una consulta de escoliosis por asimetría del tronco, explorados por 2 examinadores independientes',
+    standard: 'ángulo de Cobb en radiografía, con el umbral en curvas torácicas de 20° o más',
+    note:
+      'El resumen NO publica sensibilidad ni especificidad; lo que sí afirma es que la prueba de Adams es MÁS SENSIBLE que el escoliómetro para curvas torácicas de 20° o más, y que la concordancia entre exploradores es sustancial en la torácica pero POBRE en la lumbar.',
   },
   'vanderlinden-1984': {
     id: 'vanderlinden-1984',
@@ -490,7 +493,9 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Arthritis Rheum',
     year: 1984,
-    note: 'Criterios de Nueva York modificados; la expansión torácica reducida es uno de los criterios clínicos.',
+    standard: 'familiares de pacientes con espondilitis anquilosante y controles de población',
+    note:
+      'Criterios de Nueva York modificados. El propio resumen califica el criterio de expansión torácica de "demasiado poco sensible", y es la razón por la que se mantuvo pero dejó de pesar por sí solo. El umbral de 2,5 cm que suele citarse NO aparece en el resumen.',
   },
   'gillard-2001': {
     id: 'gillard-2001',
@@ -501,7 +506,27 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Joint Bone Spine',
     year: 2001,
-    note: 'Compara Adson, Wright (hiperabducción) y Roos/EAST en el síndrome del desfiladero torácico.',
+    sample: '48 pacientes con sospecha de síndrome del desfiladero torácico',
+    standard:
+      'ninguno único: ecografía Doppler, electrofisiología y angio-TC helicoidal, sin patrón de referencia aceptado',
+    note:
+      'OJO con las cifras que se le atribuyen. El resumen solo da la MEDIA de todos los tests provocativos (sensibilidad 72%, especificidad 53%) y dos valores predictivos POSITIVOS (Adson 85%, hiperabducción 92%), que no son especificidades. Las cifras por test que circulan en las revisiones se contradicen entre sí: para Adson se citan 79/76 y 72/53 atribuidos a este mismo estudio.',
+  },
+
+  'plewa-1998': {
+    id: 'plewa-1998',
+    pmid: '9562199',
+    authors: 'Plewa MC, Delinger M',
+    title:
+      'The false-positive rate of thoracic outlet syndrome shoulder maneuvers in healthy subjects',
+    edition: '',
+    publisher: 'Acad Emerg Med',
+    year: 1998,
+    sample: '53 voluntarios adultos SANOS (27 mujeres, 29,7 ± 6,4 años; rango 21-58)',
+    standard:
+      'ninguno: mide cuántas personas SIN síntomas dan positivo, no compara contra una prueba de imagen',
+    note:
+      'Lo que aporta es el lado de la especificidad, y el criterio de positividad lo cambia todo. En sanos: Adson altera el pulso en el 11% y da parestesias en el 11%, pero DOLOR en el 0%; el EAST altera el pulso en el 62%, da parestesias en el 36% y dolor en el 21%. Con el dolor como criterio, el límite superior del intervalo de falsos positivos es del 7% para Adson y del 16% para tener que interrumpir el EAST.',
   },
 
   // ---- RODILLA: cruzados (LCA/LCP), menisco y ligamentos colaterales.
