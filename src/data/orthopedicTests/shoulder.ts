@@ -184,26 +184,26 @@ const tests: OrthopedicTest[] = [
       'Dorso de la mano sobre la región lumbar; el paciente intenta separar la mano de la espalda contra ligera resistencia.',
     positive: 'Incapacidad de despegar la mano de la espalda.',
     metrics: {
-      sensitivity: 62,
+      sensitivity: 18,
       specificity: 100,
-      note: 'Gerber 1991 (serie pequeña); especificidad muy alta, sensibilidad menor en series posteriores.',
+      note: 'Barth 2006, 68 pacientes consecutivos con artroscopia como patrón de referencia: 17,6% de sensibilidad y 100% de especificidad. La cifra de sensibilidad que circula (60%) no sale de ninguna de las dos fuentes: Gerber describió la prueba en 1991 sin publicar sensibilidad ni especificidad. Con una especificidad del 100% un positivo cierra el diagnóstico, pero se le escapan CUATRO de cada cinco roturas.',
     },
     utility: 'rule-in',
     interpretation:
-      'Especificidad muy alta: un positivo confirma disfunción del subescapular. Requiere rango de rotación interna suficiente para ejecutarse.',
+      'La más específica de las cuatro pruebas de subescapular y la MENOS sensible de todas: un positivo confirma, un negativo no dice nada. Requiere rango de rotación interna suficiente para ejecutarse.',
     pearl:
       'Si el paciente no alcanza la posición lumbar (hombro rígido/doloroso), usa el belly-press como alternativa.',
     demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }], movementId: 'glenohumeral-internal-rotation', angleDeg: 90, highlightMuscleId: 'subscapularis', note: 'La mano parte del dorso lumbar y se despega de la espalda.' },
     cite: [
       {
+        ref: 'barth-2006',
+        verified: true,
+        locator: 'Resumen: lift-off 17,6% / 100%, n = 68, artroscopia',
+      },
+      {
         ref: 'gerber-1991',
-        verified: false,
-        // Checked 2026-08-04 against the PubMed record: Gerber & Krushell 1991
-        // is a 16-case series that DESCRIBES the lift-off test but reports no
-        // sensitivity or specificity at all (and, with no control group, could
-        // not yield a meaningful 100% specificity). 62/100 must come from a
-        // later series — find it and re-attribute, or drop the figures.
-        locator: 'PENDIENTE: el original no da sens/espec; 62/100 procede de otra fuente sin identificar',
+        verified: true,
+        locator: 'Descripción original de la maniobra; NO publica sensibilidad ni especificidad',
       },
     ],
   },
@@ -221,21 +221,17 @@ const tests: OrthopedicTest[] = [
     metrics: {
       sensitivity: 40,
       specificity: 98,
-      note: 'Alta especificidad; alternativa al lift-off en hombro rígido.',
+      note: 'Barth 2006, los MISMOS 68 pacientes que midieron el lift-off: 40% de sensibilidad y 97,9% de especificidad. Importa que sea la misma serie, porque ahí el belly-press dobla la sensibilidad del lift-off sin perder especificidad. En ese estudio la prueba más sensible fue el abrazo de oso (bear-hug, 60% / 91,7%), y aun así el 40% de las roturas de subescapular no las predijo NINGUNA de las cuatro pruebas.',
     },
     utility: 'rule-in',
     interpretation:
-      'Muy específico: un positivo confirma déficit del subescapular. Poco sensible aislado.',
+      'Muy específico: un positivo confirma déficit del subescapular. Poco sensible aislado, aunque el doble que el lift-off en la misma serie.',
     demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }], movementId: 'glenohumeral-internal-rotation', angleDeg: 45, highlightMuscleId: 'subscapularis', note: 'La palma presiona el abdomen con el codo por delante del cuerpo.' },
     cite: [
       {
-        ref: 'hegedus-2012',
-        verified: false,
-        // Checked 2026-08-04: the Hegedus 2012 abstract lists the MODIFIED
-        // belly press only as a promising test with "high sensitivities and
-        // specificities", giving no figures. 40/98 is not supported by the
-        // cited source — confirm in the full-text tables or re-attribute.
-        locator: 'PENDIENTE: 40/98 no consta en el resumen; comprobar tabla del texto completo',
+        ref: 'barth-2006',
+        verified: true,
+        locator: 'Resumen: belly-press 40% / 97,9%, n = 68, artroscopia',
       },
     ],
   },
@@ -275,23 +271,17 @@ const tests: OrthopedicTest[] = [
       'Desde la posición de aprensión, el explorador aplica una fuerza posterior sobre la cabeza humeral.',
     positive: 'Alivio de la aprensión, que reaparece al retirar la fuerza (test de sorpresa).',
     metrics: {
-      sensitivity: 65,
-      specificity: 90,
-      note: 'Lo 2004; depende del criterio (alivio de la aprensión vs del dolor).',
+      note: 'SIN CIFRA PROPIA, y el motivo es el hallazgo. Lo 2004 (46 pacientes, cuatro examinadores ciegos e independientes) midió las tres pruebas juntas y concluyó que el alivio de la aprensión o del dolor con la recolocación "añadía poco" al valor del conjunto: no publicó sensibilidad ni especificidad de la recolocación aislada. Lo que sí midió es la prueba de SORPRESA, que es la mejor de las tres por separado (63,9% / 98,9%), y el conjunto: con aprensión en las tres pruebas, el valor predictivo positivo fue del 93,6%. La recolocación vale como paso intermedio para llegar a la sorpresa, no como prueba con cifra propia.',
     },
     utility: 'rule-in',
     interpretation:
-      'Confirmatorio de la aprensión: si el alivio es el criterio, es específico de inestabilidad anterior.',
+      'Es el paso intermedio de una secuencia, no una prueba independiente: su utilidad medida está en completar aprensión + recolocación + sorpresa, donde el conjunto positivo es muy específico de inestabilidad anterior traumática.',
     demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-external-rotation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Misma posición que la aprensión. Lo único que cambia es que el explorador empuja la cabeza humeral hacia atrás — por eso el brazo se ve igual.' },
     cite: [
       {
         ref: 'lo-2004',
-        verified: false,
-        // Checked 2026-08-04: the Lo 2004 abstract gives figures ONLY for the
-        // surprise test (63.89 / 98.91). It reports nothing numeric for the
-        // relocation test — in fact it concludes the relocation test "added
-        // little to the value of the tests". Confirm 65/90 in the full text.
-        locator: 'PENDIENTE: 65/90 no consta en el resumen (solo da cifras del test de sorpresa)',
+        verified: true,
+        locator: 'Resumen: la recolocación "añade poco"; sorpresa 63,89% / 98,91%; VPP del conjunto 93,6%',
       },
     ],
   },
@@ -379,24 +369,16 @@ const tests: OrthopedicTest[] = [
     positive: 'Dolor localizado en la articulación acromioclavicular.',
     metrics: {
       sensitivity: 77,
-      specificity: 79,
-      note: 'Chronopoulos 2004; localización del dolor clave para diferenciar de la patología subacromial.',
+      note: 'Chronopoulos 2004 (35 pacientes operados de resección de clavícula distal, casos y controles) publica la sensibilidad del 77%, la más alta de las tres pruebas acromioclaviculares. El 79% que suele acompañarla NO es la especificidad: es la EXACTITUD global de la prueba, y son cosas distintas. La especificidad de esta prueba no consta en esa fuente. Lo que sí consta cambia cómo se usa: el valor predictivo positivo fue MENOR del 30% en las tres pruebas y el negativo mayor del 94%. Es decir, sirve para descartar, no para confirmar; y como es un diseño de casos y controles, esos valores predictivos dependen de una prevalencia artificial.',
     },
-    utility: 'balanced',
+    utility: 'rule-out',
     interpretation:
-      'Equilibrado y con buena localización: dolor en la AC (no subacromial) orienta a lesión acromioclavicular.',
+      'Un negativo deja la articulación acromioclavicular prácticamente fuera (VPN > 94%). Un positivo NO la confirma: con un VPP por debajo del 30%, el dolor a la aducción cruzada es frecuente sin lesión acromioclavicular. La localización del dolor en la propia AC, y no en el subacromial, es lo que aporta valor.',
     cite: [
       {
         ref: 'chronopoulos-2004',
-        verified: false,
-        // Checked 2026-08-04 against the PubMed abstract: sensitivity 77% is
-        // confirmed verbatim. The 79% is NOT confirmed as specificity — the
-        // abstract reports 79% as the test's overall ACCURACY ("followed by the
-        // cross arm adduction stress test (79%)"), which is a different
-        // quantity. Confirm the specificity in the full-text table before
-        // marking this verified; if it turns out to be the accuracy, the
-        // specificity figure has to be corrected or removed.
-        locator: 'sens 77% confirmada; 79% figura como EXACTITUD en el resumen, no como especificidad',
+        verified: true,
+        locator: 'Resumen: aducción cruzada sens 77%, exactitud 79%; VPP < 30% y VPN > 94% en las tres pruebas',
       },
     ],
   },

@@ -118,7 +118,7 @@ const tests: OrthopedicTest[] = [
     metrics: {
       sensitivity: 90,
       specificity: 99,
-      note: 'Malanga 2003: 90/99. El test de elección para el LCP.',
+      note: 'Rubinstein 1994, 39 sujetos con 19 roturas crónicas aisladas de LCP y examinadores cegados a la historia y al diagnóstico: 90% de sensibilidad y 99% de especificidad, con una exactitud global del 96%. La prueba más sensible y específica fue este cajón posterior CON palpación del escalón tibiofemoral, no la inspección sola. La exactitud fue mayor en laxitudes de grado II y III que en grado I.',
     },
     utility: 'rule-in',
     interpretation:
@@ -130,7 +130,18 @@ const tests: OrthopedicTest[] = [
       angleDeg: 90,
       note: 'A 90° de flexión se traslada la tibia hacia posterior (translación, que el modelo no reproduce).',
     },
-    cite: [{ ref: 'malanga-2003', verified: true, locator: 'cajón posterior 90/99' }],
+    cite: [
+      {
+        ref: 'rubinstein-1994',
+        verified: true,
+        locator: 'Resumen: 90% / 99%, exactitud 96%, n = 39; el cajón posterior fue la prueba más sensible y específica',
+      },
+      {
+        ref: 'malanga-2003',
+        verified: true,
+        locator: 'Revisión narrativa: confirma el cajón posterior como prueba de elección, sin aportar cifras propias',
+      },
+    ],
   },
   {
     id: 'posterior-sag',
@@ -144,13 +155,11 @@ const tests: OrthopedicTest[] = [
       'Con caderas y rodillas a 90° (piernas sostenidas), se observa de perfil la posición de la tuberosidad tibial anterior.',
     positive: 'La tibia proximal cae hacia posterior respecto al lado sano.',
     metrics: {
-      sensitivity: 79,
-      specificity: 100,
-      note: 'Malanga 2003: alta especificidad. Confirma la posición de partida antes del cajón.',
+      note: 'SIN CIFRA PROPIA. El 79% / 100% que esta aplicación mostraba se atribuía a Malanga 2003, que es una revisión narrativa y no publica cifras del sag. Lo que SÍ está medido es la exploración del LCP en conjunto: Rubinstein 1994 (39 sujetos, 19 roturas crónicas aisladas de LCP, examinadores cegados a la historia y al diagnóstico) da 90% de sensibilidad y 99% de especificidad, con una exactitud global del 96%, y señala que la prueba más sensible y específica es el CAJÓN POSTERIOR con palpación del escalón tibiofemoral. La exactitud fue mayor en laxitudes de grado II y III que en grado I. El sag es el paso que coloca la rodilla antes de ese cajón, no una prueba con cifra propia.',
     },
     utility: 'rule-in',
     interpretation:
-      'Muy específico: un sag visible confirma insuficiencia del LCP y evita malinterpretar la traslación en el cajón. Explora siempre antes del cajón anterior/posterior.',
+      'Un sag visible orienta a insuficiencia del LCP y, sobre todo, evita malinterpretar la traslación del cajón: si la tibia parte caída, un cajón anterior "normal" puede ser en realidad la reducción de una tibia subluxada. Explóralo SIEMPRE antes del cajón anterior y posterior.',
     demo: {
       movementId: 'knee-flexion',
       angleDeg: 90,
@@ -158,13 +167,14 @@ const tests: OrthopedicTest[] = [
     },
     cite: [
       {
+        ref: 'rubinstein-1994',
+        verified: true,
+        locator: 'Resumen: exploración del LCP 90% / 99%, exactitud 96%, n = 39',
+      },
+      {
         ref: 'malanga-2003',
-        verified: false,
-        // Checked 2026-08-04 against the PubMed record: Malanga 2003 is a
-        // narrative review whose abstract summarises the tests only in words
-        // ("sensitive and specific", "lack of well-designed studies") and gives
-        // no numbers. The figures live in its full-text tables — confirm there.
-        locator: 'PENDIENTE: el resumen no da cifras; comprobar las tablas del texto completo',
+        verified: true,
+        locator: 'Revisión narrativa: describe el sag como complemento del cajón posterior, sin cifras propias',
       },
     ],
   },
@@ -305,9 +315,7 @@ const tests: OrthopedicTest[] = [
       'Se aplica una fuerza en valgo a la rodilla a 0° y a 30° de flexión, comparando la apertura con el lado sano.',
     positive: 'Apertura medial aumentada y/o dolor; la apertura a 0° sugiere lesión más grave (cápsula/cruzados).',
     metrics: {
-      sensitivity: 86,
-      specificity: 68,
-      note: 'Datos limitados; la apertura a 0° implica lesión combinada. Valores orientativos.',
+      note: 'SIN CIFRA DEFENDIBLE, y no por falta de búsqueda. El 86% / 68% que se mostraba aquí se atribuía a Malanga 2003, que no lo publica; y su conclusión sobre estas pruebas es justamente la contraria a dar un número: aunque la exploración de los ligamentos colaterales PARECE sensible y específica, faltan estudios bien diseñados que la validen. Lo que sí se puede afirmar en consulta es el hallazgo estructural: la apertura en valgo a 30° de flexión apunta al ligamento colateral medial, mientras que la apertura con la rodilla en EXTENSIÓN COMPLETA implica lesión combinada (cruzado y/o esquina posteromedial) y cambia el manejo.',
     },
     utility: 'balanced',
     interpretation:
@@ -320,12 +328,8 @@ const tests: OrthopedicTest[] = [
     cite: [
       {
         ref: 'malanga-2003',
-        verified: false,
-        // Checked 2026-08-04 against the PubMed record: Malanga 2003 is a
-        // narrative review whose abstract summarises the tests only in words
-        // ("sensitive and specific", "lack of well-designed studies") and gives
-        // no numbers. The figures live in its full-text tables — confirm there.
-        locator: 'PENDIENTE: el resumen no da cifras; comprobar las tablas del texto completo',
+        verified: true,
+        locator: 'Revisión narrativa: "lack of well-designed studies" para los ligamentos colaterales',
       },
     ],
   },
@@ -341,9 +345,7 @@ const tests: OrthopedicTest[] = [
       'Se aplica una fuerza en varo a la rodilla a 0° y a 30° de flexión, comparando la apertura con el lado sano.',
     positive: 'Apertura lateral aumentada y/o dolor; la apertura a 0° sugiere lesión más grave (esquina posterolateral).',
     metrics: {
-      sensitivity: 25,
-      specificity: 90,
-      note: 'Datos escasos; el LCL se lesiona con menos frecuencia. Valores orientativos.',
+      note: 'SIN CIFRA DEFENDIBLE, por el mismo motivo que la prueba en valgo: el 25% / 90% no consta en Malanga 2003, que concluye que a la exploración de los colaterales le faltan estudios bien diseñados que la validen. El LCL se lesiona con mucha menos frecuencia que el LCM, así que cualquier cifra procedería además de series muy pequeñas. Lo útil sigue siendo estructural: apertura en varo a 30° orienta al colateral lateral; apertura en extensión completa, a lesión combinada con la esquina posterolateral.',
     },
     utility: 'balanced',
     interpretation:
@@ -356,12 +358,8 @@ const tests: OrthopedicTest[] = [
     cite: [
       {
         ref: 'malanga-2003',
-        verified: false,
-        // Checked 2026-08-04 against the PubMed record: Malanga 2003 is a
-        // narrative review whose abstract summarises the tests only in words
-        // ("sensitive and specific", "lack of well-designed studies") and gives
-        // no numbers. The figures live in its full-text tables — confirm there.
-        locator: 'PENDIENTE: el resumen no da cifras; comprobar las tablas del texto completo',
+        verified: true,
+        locator: 'Revisión narrativa: "lack of well-designed studies" para los ligamentos colaterales',
       },
     ],
   },
