@@ -185,6 +185,69 @@ const onPosedSide = (m: THREE.Mesh): boolean => {
   return Math.sign(_c.x) === POSED_X_SIGN;
 };
 
+// ---------------------------------------------------------------------------
+// BREAKS=1: QUE SE VE QUE NO DEBERIA VERSE, CONTADO EN PIXELES.
+//
+// Los medidores de "musculo fuera de la piel" aproximan la piel por una nube de
+// puntos con normales, y eso falla en los dos sentidos: el serrato anterior da
+// 27 mm fuera por estar fuera de la piel del BRAZO, y el oblicuo externo, que
+// SI se ve en la hoja, no aparece en la lista. Una nube de puntos no es una
+// superficie.
+//
+// El rasterizador si lo es, y ademas es EXACTAMENTE el que dibuja las hojas:
+// sabe, pixel a pixel, que malla lo pinto. De modo que con la piel puesta la
+// pregunta tiene respuesta exacta y sin modelo -- cuantos pixeles del cuerpo no
+// son piel, y de quien son -- y es la unica cifra que corresponde a lo que el
+// usuario ve de verdad.
+// ---------------------------------------------------------------------------
+const breakTally = new Map<string, { px: number; layer: string; first: number }>();
+let breakBodyPx = 0;
+let breakNonSkinPx = 0;
+
+function tallyBreaks(deg: number, owners: (string | null)[]): void {
+  const layerCache = new Map<string, string>();
+  const layerByName = (name: string): string => {
+    const hit = layerCache.get(name);
+    if (hit !== undefined) return hit;
+    let out = '';
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (out || !m.isMesh || m.name !== name) return;
+      out = layerForMaterial(matNameOf(m)) ?? '';
+    });
+    layerCache.set(name, out);
+    return out;
+  };
+  for (const name of owners) {
+    if (!name) continue;
+    breakBodyPx++;
+    const layer = layerByName(name);
+    if (layer === 'skin') continue;
+    breakNonSkinPx++;
+    const e = breakTally.get(name);
+    if (e) e.px++;
+    else breakTally.set(name, { px: 1, layer, first: deg });
+  }
+}
+
+function reportBreaks(): void {
+  const rows = [...breakTally.entries()].sort((a, b) => b[1].px - a[1].px);
+  const pct = ((breakNonSkinPx / Math.max(1, breakBodyPx)) * 100).toFixed(3);
+  console.log(
+    `
+--- ROTURAS DE LA PIEL: ${breakNonSkinPx} de ${breakBodyPx} pixeles de cuerpo (${pct}%) ---`,
+  );
+  console.log('  pixeles   capa         malla                                  grados');
+  for (const [name, e] of rows.slice(0, Number(process.env.TOP ?? 20))) {
+    console.log(
+      `  ${String(e.px).padStart(7)}   ${e.layer.padEnd(11)}  ${name.slice(0, 38).padEnd(38)}  ${e.first}`,
+    );
+  }
+  console.log(`
+  ${rows.length} mallas visibles que no son piel.
+`);
+}
+
 const tiles: { buffer: Uint8Array; width: number; height: number }[] = [];
 for (const deg of DEGS) {
   poser.pose(deg);
@@ -215,7 +278,10 @@ for (const deg of DEGS) {
   tiles.push({ buffer: r.buffer, width: r.width, height: r.height });
   console.log(`  ${MOVE} ${deg} deg -> ${r.drawn} triangles`);
   if (DEGS.length === 1 && process.env.PICK) pick(process.env.PICK, r.owners, r.width);
+  if (process.env.BREAKS) tallyBreaks(deg, r.owners);
 }
+
+if (process.env.BREAKS) reportBreaks();
 
 // Stitch the angles side by side into one contact sheet, with a hairline between
 // tiles so the frames read as separate poses.

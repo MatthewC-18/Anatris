@@ -40,11 +40,22 @@ import { materialIsSkin } from './materialColors';
 /**
  * Cuanto se engorda la piel, en metros.
  *
- * Dos milimetros es la flecha de una faceta de piel de unos 4 cm sobre el
- * torax, que es el tamano que tienen aqui. Menos deja esquirlas; mas empieza a
- * notarse como hinchazon en las zonas finas (dorso de la mano, cara).
+ * Tres milimetros es el OPTIMO MEDIDO, no una estimacion. Con el contador de
+ * roturas del rasterizador (`BREAKS=1` en `scripts/render-pose.mts`, que cuenta
+ * cuantos pixeles del cuerpo NO son piel) sobre la vista frontal en reposo:
+ *
+ *   sin engordar   1951 pixeles   1,467%
+ *   2 mm            805           0,592%
+ *   3 mm            692           0,504%   <- minimo
+ *   4 mm            712           0,513%
+ *   6 mm            811           0,572%
+ *
+ * La curva tiene fondo porque engordar de mas abre otros huecos (las cuencas de
+ * los ojos, sobre todo) y empieza a notarse en las zonas finas. La flecha
+ * teorica de una faceta de 3-4 cm sobre un torax de 15 cm de radio es de 0,75 a
+ * 1,3 mm, asi que el optimo medido queda, como cabe esperar, algo por encima.
  */
-export const SKIN_INFLATE_M = 0.002;
+export const SKIN_INFLATE_M = 0.003;
 
 /** Dos vertices a menos de esto son el MISMO punto, duplicado entre teselas. */
 const WELD_M = 0.0025;
