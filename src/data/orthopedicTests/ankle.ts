@@ -2,10 +2,26 @@
 //
 // Orthopedic special tests for the ANKLE. Analogue of ./hip.ts.
 //
-// HONESTY: sensitivity/specificity vary by study, grade and positivity
-// criterion. Every metric set carries verified:false and points to a source
-// (Magee; systematic reviews) until the numbers are checked. Point estimates
-// below are commonly cited textbook values and MUST be verified before publishing.
+// ESTADO DE LA VERIFICACION (2026-11-04). Las cinco pruebas estan comprobadas
+// contra su fuente primaria y ninguna cita ya un manual sin abrir.
+//
+//   ankle-anterior-drawer   78% / 75%  ->  nota: nadie lo mide POR SEPARADO
+//   ankle-talar-tilt        50% / 88%  ->  nota: tampoco, y lo instrumentado rinde peor
+//   ankle-thompson          96% / 93%  ->  confirmadas: Maffulli 1998, 174 roturas
+//   ankle-kleiger / squeeze            ->  ya estaban, Sman 2015
+//
+// El hallazgo que cambia como se ensena el tobillo esta en van Dijk 1996 (160
+// traumatismos consecutivos por inversion, hallazgos quirurgicos como patron de
+// referencia): el estudio no compara pruebas sueltas, compara ESTRATEGIAS. La
+// misma exploracion fisica da 71% / 33% antes de las 48 horas y 96% / 84% a los
+// cinco dias. Esa diferencia es mayor que la que separa a dos pruebas
+// distintas, y mayor que la que separa al explorador experto (96/84) del
+// inexperto bien instruido (89/70). En el tobillo, el factor que manda es
+// CUANDO se explora.
+//
+// Por eso las dos pruebas de estabilidad lateral pasan a nota: la cifra honrada
+// no es suya, es la de la exploracion completa y diferida de la que forman
+// parte.
 //
 // DEMO: mapped to a driveable ankle movementId (from ankleRom.ts) only where the
 // single-axis rig approximates the maneuver; passive-translation tests (drawer,
@@ -28,14 +44,13 @@ export const ANKLE_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     positive:
       'Desplazamiento anterior aumentado del astrágalo (a veces con hoyuelo de succión) frente al lado sano.',
     metrics: {
-      sensitivity: 78,
-      specificity: 75,
-      note: 'Mejor a partir de las 48 h del esguince (menos dolor/espasmo). Rango amplio según estudio.',
+      note: 'SIN cifras propias: el estudio de referencia (van Dijk, 160 traumatismos consecutivos por inversión, hallazgos quirúrgicos como patrón) NO mide el cajón por separado, sino la exploración completa. Y lo que mide es demoledor: antes de las 48 h, 71% de sensibilidad y 33% de especificidad; LA MISMA exploración a los cinco días, 96% y 84%. Esa diferencia es mayor que la que hay entre dos pruebas distintas. Combinado con dolor a la palpación del LPAA y hematoma, el cajón alcanza el 96% de sensibilidad.',
     },
     utility: 'balanced',
     interpretation:
       'Laxitud aumentada respecto al lado sano apoya lesión del LPAA; combínalo con la inclinación astragalina y la clínica.',
-    pearl: 'Más fiable en fase subaguda; el dolor agudo limita la maniobra.',
+    pearl:
+      'Lo que más cambia el rendimiento no es la técnica, es la FECHA: a los 4-5 días del esguince la exploración pasa de 71%/33% a 96%/84%, porque el dolor y el edema agudos impiden localizar la palpación y tolerar la maniobra.',
     demo: {
       movementId: 'ankle-plantarflexion',
       angleDeg: 15,
@@ -43,7 +58,13 @@ export const ANKLE_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       highlightMuscleId: 'fibularis-brevis',
       note: 'El rig posa la ligera flexión plantar de partida; la prueba es una traslación anterior pasiva del astrágalo.',
     },
-    cite: [{ ref: 'magee', verified: false }],
+    cite: [
+      {
+        ref: 'vandijk-1996',
+        verified: true,
+        locator: 'Tabla 1: exploración <48 h 71%/33%, a los 5 días 96%/84%',
+      },
+    ],
   },
   {
     id: 'ankle-talar-tilt',
@@ -57,13 +78,11 @@ export const ANKLE_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       'Con el retropié en posición neutra, se invierte pasivamente el calcáneo/astrágalo comparando con el lado contralateral.',
     positive: 'Aumento de la apertura/inclinación lateral respecto al lado sano.',
     metrics: {
-      sensitivity: 50,
-      specificity: 88,
-      note: 'Poco sensible pero bastante específica; la comparación bilateral es esencial.',
+      note: 'SIN cifras: no hay estudio que mida la inclinación astragalina MANUAL por separado. Las que circulan (50% / 88%) no tienen fuente localizable. Lo más cercano que sí está medido es la radiografía de estrés en el mismo protocolo de van Dijk, 68% de sensibilidad y 71% de especificidad, que es la versión instrumentada de esta misma maniobra y rinde peor que la exploración física diferida.',
     },
-    utility: 'rule-in',
+    utility: 'weak',
     interpretation:
-      'Una inclinación aumentada y asimétrica (SpPin) apoya la lesión del calcaneoperoneo.',
+      'Una inclinación aumentada y asimétrica apoya la lesión del calcaneoperoneo, pero sin precisión medida no sostiene una decisión por sí sola: su sitio está junto al cajón anterior y la palpación, a los 4-5 días.',
     demo: {
       movementId: 'ankle-inversion',
       angleDeg: 30,
@@ -71,7 +90,13 @@ export const ANKLE_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       highlightMuscleId: 'fibularis-brevis',
       note: 'El rig muestra la inversión del retropié que estresa el complejo lateral.',
     },
-    cite: [{ ref: 'magee', verified: false }],
+    cite: [
+      {
+        ref: 'vandijk-1996',
+        verified: true,
+        locator: 'Tabla 1: radiografía de estrés (talar tilt instrumentado) 68%/71%',
+      },
+    ],
   },
   /* ======================= Achilles ======================= */
   {
@@ -89,7 +114,7 @@ export const ANKLE_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     metrics: {
       sensitivity: 96,
       specificity: 93,
-      note: 'Prueba muy sensible y específica para la rotura completa.',
+      note: 'Las dos cifras del mismo estudio (Maffulli 1998: 174 roturas completas y 28 sospechas sin rotura, recogidas a lo largo de 13 años). Fue la más sensible de las cinco pruebas comparadas, junto con Matles (0,88 / 0,85); la palpación del hueco se queda en 0,73. El dato que remata: en TODOS los pacientes del estudio al menos DOS pruebas fueron positivas.',
     },
     utility: 'rule-out',
     interpretation:
@@ -102,7 +127,13 @@ export const ANKLE_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       highlightMuscleId: 'gastrocnemius',
       note: 'El rig muestra la flexión plantar que un Aquiles íntegro produce al comprimir la pantorrilla (positiva = NO ocurre).',
     },
-    cite: [{ ref: 'magee', verified: false }],
+    cite: [
+      {
+        ref: 'maffulli-1998',
+        verified: true,
+        locator: 'Compresión de la pantorrilla: sensibilidad 0,96, especificidad 0,93',
+      },
+    ],
   },
   /* ======================= Syndesmosis (high sprain) ======================= */
   {

@@ -6,9 +6,17 @@
 // precio del fallo es silencioso -- el bloque de evidencia simplemente no se
 // dibuja -- asi que no se notaria hasta que alguien abriese ese caso concreto.
 //
-// Tambien se comprueba que la prueba enlazada tenga algo que ENSEÑAR: numeros y
+// Tambien se comprueba que la prueba enlazada tenga algo que ENSEÑAR y una
 // cita. Enlazar una ficha vacia es peor que no enlazar nada, porque promete una
 // evidencia que no esta.
+//
+// "Algo que ensenar" NO es necesariamente un par de numeros. Al abrir las
+// fuentes primarias aparecieron pruebas cuya cifra no la publica nadie -- el
+// cajon anterior de tobillo, el log roll de cadera -- y la ficha honrada es la
+// que lo dice y explica que SI esta medido (en el tobillo, que la misma
+// exploracion pasa de 71%/33% a 96%/84% segun se haga antes de 48 horas o a los
+// cinco dias). Eso ensena mas que un 78/75 sin procedencia. Asi que vale una de
+// dos: cifras, o una nota con sustancia. Lo que no vale es una ficha vacia.
 
 import { describe, expect, it } from 'vitest';
 import type { ClinicalCase } from '../../types/clinicalCase';
@@ -95,9 +103,17 @@ describe('casos clínicos → pruebas ortopédicas', () => {
       const t = (TESTS[l.region] ?? []).find((x) => x.id === l.testId);
       if (!t) continue;
       const sinCifra = t.metrics.sensitivity == null && t.metrics.specificity == null;
+      // Una nota de menos de 120 caracteres no explica por que no hay cifra:
+      // es un hueco con buenas maneras. El umbral existe para que nadie tape
+      // una ficha vacia con "sin datos" y se quede tan ancho.
+      const sinNota = (t.metrics.note ?? '').length < 120;
       const sinCita = t.cite.length === 0;
-      if (sinCifra || sinCita)
-        vacias.push(`${l.caseId}/${l.stepId} -> ${l.testId}${sinCifra ? ' (sin cifras)' : ''}${sinCita ? ' (sin cita)' : ''}`);
+      if ((sinCifra && sinNota) || sinCita)
+        vacias.push(
+          `${l.caseId}/${l.stepId} -> ${l.testId}${
+            sinCifra && sinNota ? ' (sin cifras y sin nota que lo explique)' : ''
+          }${sinCita ? ' (sin cita)' : ''}`,
+        );
     }
     expect(vacias).toEqual([]);
   });

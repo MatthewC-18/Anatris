@@ -709,6 +709,35 @@ export const REFERENCES: Record<string, Reference> = {
     standard: 'Mejoría ≥80% en la escala visual analógica tras bloqueo anestésico intraarticular guiado por fluoroscopia',
     note: 'Maniobra de Stinchfield (flexión resistida): la MÁS específica de las cuatro estudiadas, y aun así sólo 0,32 (IC 95% 0,14-0,55). FABER: sensibilidad 0,82 (IC 95% 0,57-0,96). El resumen público no publica cifra para el scour: TODA especificidad de cadera por encima de 0,32 contradice este estudio.',
   },
+  'vandijk-1996': {
+    id: 'vandijk-1996',
+    pmid: '9065068',
+    doi: '10.3109/17453679608997757',
+    authors: 'van Dijk CN, Mol BWJ, Lim LSL, Marti RK, Bossuyt PMM',
+    title:
+      'Diagnosis of ligament rupture of the ankle joint: physical examination, arthrography, stress radiography and sonography compared in 160 patients after inversion trauma',
+    edition: '',
+    publisher: 'Acta Orthop Scand',
+    year: 1996,
+    sample: '160 pacientes consecutivos de 18 a 40 años con traumatismo por inversión; 135 operados',
+    standard:
+      'Hallazgos intraoperatorios en los operados; artrografía más seguimiento clínico mínimo de seis meses en el resto',
+    note: 'El estudio NO mide el cajón anterior por separado: compara 13 ESTRATEGIAS completas (Tabla 1). Exploración física antes de las 48 h: 71% / 33%. La misma exploración a los 5 DÍAS por un explorador experimentado: 96% / 84%; por uno inexperto pero bien instruido: 89% / 70%. Artrografía: 96% / 71%. Radiografía de estrés: 68% / 71%. El hallazgo que manda no es qué prueba se hace, es CUÁNDO. En la discusión: la combinación de dolor a la palpación del LPAA, hematoma y cajón anterior positivo tiene una sensibilidad del 96%; hematoma más dolor a la palpación, del 90%.',
+  },
+  'maffulli-1998': {
+    id: 'maffulli-1998',
+    pmid: '9548122',
+    doi: '10.1177/03635465980260021801',
+    authors: 'Maffulli N',
+    title:
+      'The clinical diagnosis of subcutaneous tear of the Achilles tendon. A prospective study in 174 patients',
+    edition: '',
+    publisher: 'Am J Sports Med',
+    year: 1998,
+    sample: '174 pacientes con rotura completa y 28 con sospecha sin rotura, reclutados a lo largo de 13 años',
+    standard: 'Rotura subcutánea completa del tendón calcáneo; ausencia de rotura confirmada por imagen',
+    note: 'Compresión de la pantorrilla (Thompson/Simmonds): sensibilidad 0,96 y especificidad 0,93, la más sensible de las cinco pruebas junto con Matles (0,88 / 0,85). Palpación del hueco: 0,73 despierto, 0,81 bajo anestesia, especificidad 0,89. Copeland y O’Brien: 0,80. En TODOS los pacientes del estudio al menos dos pruebas fueron positivas: de ahí que la recomendación sea combinarlas, no elegir una.',
+  },
   'palsson-2020': {
     id: 'palsson-2020',
     pmid: '32335699',
