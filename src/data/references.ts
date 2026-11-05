@@ -464,7 +464,10 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Man Ther',
     year: 2005,
-    note: 'Clúster de provocación sacroilíaca (distracción, empuje del muslo, compresión, thrust sacro, Gaenslen).',
+    doi: '10.1016/j.math.2005.01.003',
+    sample: '48 pacientes explorados por fisioterapeutas, diseño ciego frente al patrón',
+    standard: 'Inyección de anestésico local dentro de la articulación sacroilíaca',
+    note: 'El resumen publica el CONJUNTO, no las pruebas sueltas: tres o más positivas de seis dan 94% de sensibilidad y 78% de especificidad; el área bajo la curva de las mejores dos de cuatro es 0,842. Y dos frases que valen más que cualquier cifra individual: todo paciente que respondió al bloqueo tuvo al menos una prueba positiva, y cuando las seis son negativas la sacroilíaca queda descartada como origen del dolor. Las cifras por prueba suelta están en las tablas del texto completo, que es de pago.',
   },
 
   // ---- TORÁCICA: fractura vertebral, escoliosis, espondiloartritis axial y

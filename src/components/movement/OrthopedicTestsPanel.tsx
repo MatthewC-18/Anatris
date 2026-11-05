@@ -49,6 +49,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { testsForRegion } from '../../data/orthopedicTests';
+import { measuredCluster } from '../../data/testClusters';
 import type {
   OrthopedicTest,
   TestUtility,
@@ -1001,6 +1002,19 @@ export function OrthopedicTestsPanel({
     return { count: selected.size, lr, post: postProb(pretest, lr) };
   }, [selected, byId, pretest]);
 
+  // CUANDO EL CONJUNTO SE HA MEDIDO, se usa la cifra del estudio y no el
+  // producto de razones de verosimilitud. Multiplicarlas supone que las pruebas
+  // son independientes, y en la sacroiliaca las cinco provocan la MISMA
+  // articulacion: el producto disparia la probabilidad hasta un numero que
+  // ningun estudio respalda. Ver src/data/testClusters.ts.
+  const measured = useMemo(() => {
+    if (!region) return null;
+    const c = measuredCluster(region, selected);
+    if (!c) return null;
+    const lr = c.specificity >= 100 ? Infinity : c.sensitivity / (100 - c.specificity);
+    return { cluster: c, lr, post: postProb(pretest, lr) };
+  }, [region, selected, pretest]);
+
   const startDemo = (t: OrthopedicTest) => {
     if (t.demo) demoChannel.start(DEMO_NS + t.id);
   };
@@ -1329,8 +1343,38 @@ export function OrthopedicTestsPanel({
         </div>
       </div>
 
+      {/* Conjunto MEDIDO: gana al estimado siempre que exista. */}
+      {clusterMode && measured && (
+        <div className="border-t border-slate-800/70 px-4 py-3">
+          <div className="flex items-baseline justify-between">
+            <Kicker>{measured.cluster.name}</Kicker>
+            <span className="flex items-baseline gap-1.5 font-mono tabular-nums">
+              <span className="text-[11px] text-slate-500">{Math.round(pretest)}%</span>
+              <span className="text-[11px] text-slate-600">→</span>
+              <span className="text-lg font-semibold leading-none text-emerald-300">
+                {Math.round(measured.post)}%
+              </span>
+            </span>
+          </div>
+          <span className="mt-2 flex h-1 w-full overflow-hidden rounded-full bg-slate-800">
+            <span
+              className="h-full rounded-full bg-emerald-400"
+              style={{ width: `${measured.post}%` }}
+            />
+          </span>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
+            Sensibilidad {measured.cluster.sensitivity}% y especificidad{' '}
+            {measured.cluster.specificity}% con {measured.cluster.minPositive} o más
+            positivas. Cifra de estudio, no estimada.
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+            {measured.cluster.note}
+          </p>
+        </div>
+      )}
+
       {/* Combined result (only when combining with a selection). */}
-      {clusterMode && cluster && (
+      {clusterMode && !measured && cluster && (
         <div className="border-t border-slate-800/70 px-4 py-3">
           <div className="flex items-baseline justify-between">
             <Kicker>
