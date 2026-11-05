@@ -693,7 +693,36 @@ export const REFERENCES: Record<string, Reference> = {
     year: 2010,
     sample: '50 pacientes derivados para infiltración intraarticular de cadera',
     standard: 'Mejoría ≥80% en la escala visual analógica tras bloqueo anestésico intraarticular guiado por fluoroscopia',
-    note: 'Maniobra de Stinchfield (flexión resistida): la MÁS específica de las cuatro estudiadas, y aun así sólo 0,32 (IC 95% 0,14-0,55). FABER: sensibilidad 0,82 (IC 95% 0,57-0,96).',
+    note: 'Maniobra de Stinchfield (flexión resistida): la MÁS específica de las cuatro estudiadas, y aun así sólo 0,32 (IC 95% 0,14-0,55). FABER: sensibilidad 0,82 (IC 95% 0,57-0,96). El resumen público no publica cifra para el scour: TODA especificidad de cadera por encima de 0,32 contradice este estudio.',
+  },
+  'palsson-2020': {
+    id: 'palsson-2020',
+    pmid: '32335699',
+    doi: '10.1007/s00167-020-06005-5',
+    authors: 'Pålsson A, Kostogiannis I, Ageberg E',
+    title:
+      'Combining results from hip impingement and range of motion tests can increase diagnostic accuracy in patients with FAI syndrome',
+    edition: '',
+    publisher: 'Knee Surg Sports Traumatol Arthrosc',
+    year: 2020,
+    sample: '81 pacientes (49% mujeres), dos exploradores experimentados',
+    standard:
+      'Tres criterios a la vez: síntomas, morfología CAM o pincer en imagen, y respuesta al bloqueo anestésico intraarticular',
+    note: 'FADIR: sensibilidad 80%, especificidad 25%. Prueba de pinzamiento anterior (AIMT): 80% / 26%. Y el hallazgo que da la vuelta al razonamiento: la rotación interna PASIVA en posición neutra, 29% de sensibilidad y 94% de especificidad, es la única de la serie que sirve para confirmar. Nivel de evidencia II.',
+  },
+  'wong-2022': {
+    id: 'wong-2022',
+    pmid: '35171468',
+    doi: '10.1007/s12178-022-09745-8',
+    authors: 'Wong SE, Cogan CJ, Zhang AL',
+    title:
+      'Physical Examination of the Hip: Assessment of Femoroacetabular Impingement, Labral Pathology, and Microinstability',
+    edition: '',
+    publisher: 'Curr Rev Musculoskelet Med',
+    year: 2022,
+    sample: 'Revisión narrativa; recopila los rangos publicados de otros estudios, no mide pacientes propios',
+    standard: 'Variable y en su mayoría NO declarado por la revisión (es su propia advertencia)',
+    note: 'Texto completo abierto. Da RANGOS, no cifras únicas: scour sensibilidad 50-100% y especificidad 29%; FABER 41-97% / 18-100%; FADIR 59-100% / 10-100%. Del log roll dice que se describe como una de las pruebas más específicas pero NO publica cifras. La propia revisión advierte que los números de cita de su tabla no siempre coinciden con el texto.',
   },
 };
 

@@ -14,15 +14,30 @@
 //   hip-trendelenburg   Bird 2001       72,7% / 76,9%   (las DOS cifras)
 //   hip-fadir           Reiman 2015     sensibilidad agrupada 0,94
 //   hip-resisted-flexion Maslowski 2010 especificidad 0,32
-//   hip-faber           Maslowski 2010  contraste: sensibilidad 0,82
+//   hip-faber           Maslowski 2010  sensibilidad 0,82 (sin especificidad)
+//   hip-scour           Wong 2022       rangos 50-100% / 29%, SIN cifra unica
+//   hip-log-roll        Wong 2022       no existe cifra publicada
 //
 // Cuando una fuente respalda solo UNA de las dos cifras, el `locator` lo dice y
 // la otra se queda citando el manual sin verificar: el aviso del bloque de
 // probabilidad post-test salta si CUALQUIERA de las fuentes esta sin comprobar,
 // no solo si lo estan todas.
 //
-// Siguen sin fuente primaria: scour, log roll, Thomas y Ober (estas dos ultimas
-// son pruebas de longitud muscular y no llevan cifras).
+// Y tres pruebas DEJARON DE ENSENAR NUMEROS (2026-11-04), porque los que
+// mostraban no los dice ninguna fuente que se pueda abrir:
+//
+//   hip-scour      62% / 75%  ->  nota con el rango publicado 50-100% / 29%
+//   hip-log-roll   30% / 85%  ->  nota: no existe estudio que lo mida
+//   hip-faber      ... / 18%  ->  se queda la sensibilidad 0,82, verificada
+//
+// El dato que lo decide: en el unico estudio primario de la cadera con bloqueo
+// intraarticular como patron de referencia (Maslowski, 50 pacientes), la prueba
+// MAS especifica de las cuatro llegaba a 0,32. Una especificidad del 75% o del
+// 85% no es una estimacion dispar, es una cifra que contradice la unica medida
+// que hay.
+//
+// Siguen sin fuente primaria Thomas y Ober, que son pruebas de longitud
+// muscular y no llevan cifras.
 //
 // DEMO: each test maps to a driveable hip movementId (from hipRom.ts) plus a
 // note documenting the parts of the composite maneuver the single-axis rig can
@@ -46,7 +61,7 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     metrics: {
       sensitivity: 94,
       specificity: 25,
-      note: 'Sensibilidad agrupada 0,94 (IC 95% 0,90-0,97) en el metanálisis de Reiman. La especificidad es baja y dispar entre estudios: el positivo aislado no confirma nada.',
+      note: 'Dos estudios distintos, y conviene saberlo: la sensibilidad 0,94 (IC 95% 0,90-0,97) es la agrupada del metanálisis de Reiman; la especificidad 25% es la de Pålsson (81 pacientes, bloqueo + imagen), donde la sensibilidad fue del 80%. El positivo aislado no confirma nada.',
     },
     utility: 'rule-out',
     interpretation:
@@ -66,7 +81,47 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
         verified: true,
         locator: 'Sensibilidad agrupada 0,94 (IC 95% 0,90-0,97), en el resumen',
       },
-      { ref: 'magee', verified: false, locator: 'Especificidad (tablas del texto completo)' },
+      {
+        ref: 'palsson-2020',
+        verified: true,
+        locator: 'Especificidad 25% (sensibilidad 80%), frente a bloqueo + imagen',
+      },
+    ],
+  },
+  {
+    id: 'hip-ir-neutral',
+    name: 'Rotación interna pasiva en neutro',
+    aka: ['Passive hip internal rotation', 'IR in neutral hip position'],
+    region: 'hip',
+    category: 'Pinzamiento / labrum',
+    target: 'Síndrome de pinzamiento femoroacetabular (FAI)',
+    purpose:
+      'CONFIRMAR el pinzamiento midiendo el rango, no provocando dolor: es la única maniobra de la cadera con especificidad alta publicada.',
+    maneuver:
+      'En decúbito prono o supino con la cadera en posición NEUTRA (sin flexión), se rota el muslo pasivamente hacia dentro y se mide el rango alcanzado, comparándolo con el lado sano.',
+    positive: 'Rotación interna restringida respecto al lado sano.',
+    metrics: {
+      sensitivity: 29,
+      specificity: 94,
+      note: 'Las dos cifras del mismo estudio (Pålsson, 81 pacientes), con tres criterios simultáneos como patrón de referencia: síntomas, morfología CAM o pincer en imagen, y respuesta al bloqueo intraarticular. Es el espejo exacto del FADIR: donde aquél sólo sirve para descartar, ésta sirve para confirmar.',
+    },
+    utility: 'rule-in',
+    interpretation:
+      'Una rotación interna restringida en neutro apoya con fuerza el pinzamiento (SpPin). Un rango normal NO lo descarta: la sensibilidad es del 29%.',
+    pearl:
+      'Se mide, no se provoca. Emparejada con el FADIR cubre las dos direcciones: FADIR negativo descarta, rotación interna restringida confirma.',
+    demo: {
+      movementId: 'hip-internal-rotation',
+      angleDeg: 35,
+      side: 'R',
+      note: 'El rig muestra la rotación interna pasiva con la cadera en neutro, que es la posición de la prueba.',
+    },
+    cite: [
+      {
+        ref: 'palsson-2020',
+        verified: true,
+        locator: 'Rotación interna en neutro: sensibilidad 29%, especificidad 94%',
+      },
     ],
   },
   {
@@ -82,9 +137,8 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     positive:
       'Dolor inguinal (origen coxofemoral) o dolor glúteo/posterior (sacroilíaca); rigidez que impide descender la rodilla indica restricción de cadera.',
     metrics: {
-      sensitivity: 60,
-      specificity: 18,
-      note: 'Especificidad baja; localizar el dolor (inguinal vs posterior) aporta más que el sí/no. La sensibilidad varía mucho con el patrón de referencia: 0,82 (IC 95% 0,57-0,96) frente a bloqueo intraarticular en Maslowski.',
+      sensitivity: 82,
+      note: 'Sensibilidad 0,82 (IC 95% 0,57-0,96) frente a bloqueo intraarticular (Maslowski, 50 pacientes). SIN cifra de especificidad: ese estudio no la publica para el FABER, y dice que la MÁS específica de sus cuatro maniobras llegaba sólo a 0,32. Las revisiones dan un rango de 18-100%, demasiado ancho para enseñar un número. Localizar el dolor (inguinal vs posterior) aporta más que el sí/no.',
     },
     utility: 'balanced',
     interpretation:
@@ -96,12 +150,12 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       note: 'El rig muestra la rotación externa; la posición real combina flexión + abducción + rotación externa.',
     },
     cite: [
-      { ref: 'magee', verified: false, locator: 'Cifras mostradas (sensibilidad y especificidad)' },
       {
         ref: 'maslowski-2010',
         verified: true,
         locator: 'Sensibilidad 0,82 (IC 95% 0,57-0,96) frente a bloqueo intraarticular',
       },
+      { ref: 'wong-2022', verified: true, locator: 'Rango publicado: 41-97% / 18-100%' },
     ],
   },
   {
@@ -116,9 +170,7 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       'En supino, cadera y rodilla en flexión; se aplica carga axial por el fémur mientras se describe un arco de aducción-abducción con rotación.',
     positive: 'Dolor, resalte o crepitación reproducibles durante el arco.',
     metrics: {
-      sensitivity: 62,
-      specificity: 75,
-      note: 'Estimaciones dispares; interpretar dentro del cuadro clínico.',
+      note: 'SIN cifras. Las que circulan (62% / 75%) no las publica ninguna fuente que se pueda abrir. Lo que sí está publicado son rangos: sensibilidad 50-100% y especificidad en torno al 29% (Wong 2022, texto completo abierto). Una especificidad del 75% además contradice el único estudio primario con bloqueo intraarticular, donde la prueba MÁS específica de la cadera llegaba a 0,32.',
     },
     utility: 'balanced',
     interpretation:
@@ -129,7 +181,10 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       side: 'R',
       note: 'El rig aproxima la flexión de partida; la maniobra añade carga axial y un arco de rotación.',
     },
-    cite: [{ ref: 'magee', verified: false }],
+    cite: [
+      { ref: 'wong-2022', verified: true, locator: 'Scour: sensibilidad 50-100%, especificidad 29%' },
+      { ref: 'maslowski-2010', verified: true, locator: 'Techo de especificidad en la cadera: 0,32' },
+    ],
   },
   {
     id: 'hip-log-roll',
@@ -144,9 +199,7 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       'En supino con la pierna extendida y relajada, se rota pasivamente el muslo hacia dentro y hacia fuera ("rodando" el fémur).',
     positive: 'Dolor, chasquido o asimetría del rango de rotación respecto al lado sano.',
     metrics: {
-      sensitivity: 30,
-      specificity: 85,
-      note: 'Poco sensible pero relativamente específica de origen intraarticular.',
+      note: 'SIN cifras: no hay estudio que publique sensibilidad ni especificidad del log roll. La fama de prueba "muy específica" viene de su MECÁNICA -- es la única que mueve el fémur bajo el acetábulo sin tensar partes blandas -- y así la recoge la revisión de Wong 2022, que lo dice con palabras y no con números. Las cifras que circulan (30% / 85%) no tienen fuente localizable.',
     },
     utility: 'rule-in',
     interpretation:
@@ -157,7 +210,13 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       side: 'R',
       note: 'El rig muestra la rotación externa pasiva; la prueba alterna interna/externa con la pierna extendida.',
     },
-    cite: [{ ref: 'magee', verified: false }],
+    cite: [
+      {
+        ref: 'wong-2022',
+        verified: true,
+        locator: 'Descrita como una de las más específicas, SIN cifras publicadas',
+      },
+    ],
   },
   /* ======================= Muscle length ======================= */
   {
@@ -261,9 +320,8 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       'En supino, el paciente eleva la pierna extendida a ~30° y mantiene contra la resistencia del explorador.',
     positive: 'Dolor inguinal o debilidad durante la flexión resistida.',
     metrics: {
-      sensitivity: 59,
       specificity: 32,
-      note: 'Fue la MÁS específica de las cuatro maniobras comparadas frente a bloqueo intraarticular, y aun así sólo 0,32 (IC 95% 0,14-0,55): en la cadera ninguna prueba aislada confirma nada.',
+      note: 'Fue la MÁS específica de las cuatro maniobras comparadas frente a bloqueo intraarticular, y aun así sólo 0,32 (IC 95% 0,14-0,55): en la cadera ninguna prueba aislada confirma nada. SIN cifra de sensibilidad: el estudio no la publica para esta maniobra y las revisiones la dan entre el 6% y el 75%.',
     },
     utility: 'weak',
     interpretation:
@@ -282,7 +340,7 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
         verified: true,
         locator: 'Especificidad 0,32 (IC 95% 0,14-0,55), en el resumen',
       },
-      { ref: 'magee', verified: false, locator: 'Sensibilidad' },
+      { ref: 'wong-2022', verified: true, locator: 'Sensibilidad publicada: rango 6-75%' },
     ],
   },
 ];
