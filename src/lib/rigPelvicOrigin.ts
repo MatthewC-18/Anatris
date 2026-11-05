@@ -40,6 +40,12 @@
 // mueve ni un pixel. Si el injerto fallara, el peor caso es que el vertice se
 // quede donde estaba.
 
+// NADA DE `process.env` EN ESTE FICHERO. Lo carga el navegador a traves de
+// RigModel, donde `process` no existe: leerlo aqui lanza un ReferenceError que
+// tumba la vista 3D entera. `npm run build` no lo caza, porque compila y
+// empaqueta sin ejecutar. Si hace falta barrer un valor, se barre a mano en el
+// banco de render y se deja aqui el numero que gano.
+
 import * as THREE from 'three';
 
 /** Huesos que sostienen el muslo. Lo que cuelgue de ellos es pierna. */
@@ -54,7 +60,7 @@ const PELVIS = 'vert_sacrum';
  * Es la del propio hueso del femur en el GLB, 0,865: el centro de la cadera. Lo
  * que esta por debajo gira con el muslo, y asi se queda.
  */
-const Y_LO = Number(process.env?.PELVIS_LO ?? 0.865);
+const Y_LO = 0.865;
 
 /**
  * Altura por encima de la cual el vertice es pelvis entera.
@@ -62,7 +68,7 @@ const Y_LO = Number(process.env?.PELVIS_LO ?? 0.865);
  * El sacro esta a 0,926 y la cresta iliaca por encima. A 0,95 ya no queda nada
  * que pertenezca al muslo.
  */
-const Y_HI = Number(process.env?.PELVIS_HI ?? 0.95);
+const Y_HI = 0.95;
 
 /**
  * Ademas de la rampa por altura absoluta, cada malla entrega su PROPIO extremo
@@ -81,7 +87,7 @@ const Y_HI = Number(process.env?.PELVIS_HI ?? 0.95);
  * Seis centimetros es el OPTIMO MEDIDO con el contador de roturas sobre la
  * flexion de cadera a 120 grados y la rotacion externa a 45.
  */
-const BAND_M = Number(process.env?.PELVIS_BAND ?? 0.06);
+const BAND_M = 0.06;
 
 /** Lo que hizo `blendPelvicOrigins`. */
 export interface PelvicOriginReport {
