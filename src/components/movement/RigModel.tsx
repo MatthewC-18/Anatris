@@ -307,7 +307,37 @@ const SHOULDER_SPINE_ANCHOR = 'vert_T3';
 // the skin layer by hand. It eases back to solid when nothing is highlighted.
 // The distal hand/foot caps keep their own solid material (they'd look hollow if
 // faded, since their internals are intentionally hidden). See the fade useFrame.
-const BODY_SKIN_GHOST_OPACITY = 0.16; // opacity while muscles are active
+//
+// EL VELO GRIS, Y POR QUE NO SE ARREGLA BAJANDO LA OPACIDAD.
+//
+// El sobre de piel es DoubleSide, y en una vista frontal la mirada atraviesa
+// seis capas suyas antes de salir: cara externa e interna del pecho, las dos
+// del brazo, las dos del muslo. Con una opacidad plana de 0,16 esas capas se
+// suman (1 - 0,84^6 = 0,65) y lo que se ve no es piel translucida sino un
+// trapecio gris que cuelga del hombro hasta la mano. Era justo lo que se veia
+// en el laboratorio de hombro: los brazos envueltos en una capa.
+//
+// Bajar mas la opacidad no lo arregla, lo cambia de sitio: el contorno del
+// cuerpo se pierde antes de que el velo desaparezca.
+//
+// Asi que la piel fantasma se apaga POR ANGULO (Fresnel), no por un numero
+// plano: donde mira de frente a la camara -- que son justo las capas que se
+// apilan -- se vuelve casi invisible, y donde roza el contorno se queda. El
+// resultado es un cuerpo dibujado por su silueta, con el musculo limpio
+// dentro. Medido en el laboratorio de hombro: desaparece el trapecio gris de
+// los dos brazos y el borde de la piel sigue leyendose.
+const BODY_SKIN_GHOST_OPACITY = 0.85; // opacidad BASE del fantasma; el angulo hace el resto
+/**
+ * Dureza del Fresnel del fantasma. 1 = lineal (demasiado velo en el centro);
+ * cuanto mas alto, mas se concentra la piel en el contorno. 2,2 deja el
+ * abdomen limpio sin comerse el hombro.
+ */
+const BODY_SKIN_GHOST_FRESNEL_POW = 2.2;
+/**
+ * Lo que queda de piel mirando de frente a la camara. No es cero a proposito:
+ * sin este suelo el pecho se queda sin piel y los musculos parecen flotar.
+ */
+const BODY_SKIN_GHOST_FRESNEL_FLOOR = 0.1;
 // Faint cool emissive lift applied ONLY as the skin ghosts, so the translucent
 // shell reads as luminous edge-lit GLASS (paired with the material's Fresnel
 // sheen) instead of a muddy gray film over the muscles. Scaled by the ghost
@@ -1279,6 +1309,32 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       const bodySkinMat = skinMat.clone();
       bodySkinMat.transparent = true;
       bodySkinMat.depthWrite = true;
+      // Fresnel del fantasma (ver BODY_SKIN_GHOST_OPACITY). El uniforme vive en
+      // `userData` porque `onBeforeCompile` solo corre al compilar el programa,
+      // y la transicion piel<->fantasma tiene que poder moverlo cada fotograma
+      // sin recompilar. `uGhost` 0 = piel solida (modo paciente): entonces el
+      // termino se anula del todo y el material se comporta como antes.
+      const ghostU = { value: 0 };
+      bodySkinMat.userData.uGhost = ghostU;
+      bodySkinMat.onBeforeCompile = (sh) => {
+        sh.uniforms.uGhost = ghostU;
+        sh.uniforms.uGhostPow = { value: BODY_SKIN_GHOST_FRESNEL_POW };
+        sh.uniforms.uGhostFloor = { value: BODY_SKIN_GHOST_FRESNEL_FLOOR };
+        sh.fragmentShader =
+          'uniform float uGhost;\nuniform float uGhostPow;\nuniform float uGhostFloor;\n' +
+          sh.fragmentShader.replace(
+            '#include <dithering_fragment>',
+            // `normal` ya viene volteada por three en las caras traseras, asi
+            // que la cara interna del sobre se apaga igual que la externa, que
+            // es la mitad del apilamiento.
+            [
+              'float ghostFres = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));',
+              'float ghostK = mix(uGhostFloor, 1.0, pow(ghostFres, uGhostPow));',
+              'gl_FragColor.a *= mix(1.0, ghostK, uGhost);',
+              '#include <dithering_fragment>',
+            ].join('\n'),
+          );
+      };
       bodySkinMatRef.current = bodySkinMat;
       const swap = (mesh: THREE.Mesh, next: THREE.Material): void => {
         const old = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
@@ -2796,6 +2852,9 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
     // translucent envelope glows softly (edge-lit by its Fresnel sheen) instead of
     // reading as a dull veil over the muscles. Rides back to 0 as it re-solidifies.
     mat.emissiveIntensity = next * BODY_SKIN_GHOST_EMISSIVE;
+    // Cuanto Fresnel se aplica: 0 con la piel solida, 1 con el fantasma puesto.
+    const gu = mat.userData.uGhost as { value: number } | undefined;
+    if (gu) gu.value = next;
     // Stop writing depth once translucent so the muscles behind are not occluded.
     mat.depthWrite = opacity > 0.92;
   });

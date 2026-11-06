@@ -249,8 +249,21 @@ function reportBreaks(): void {
 }
 
 const tiles: { buffer: Uint8Array; width: number; height: number }[] = [];
+// LA SEPARACION COSMETICA DEL BRAZO, que la aplicacion aplica y el banco no.
+// Sin ella una hoja de revision NO es el fotograma que ve el usuario: la
+// aplicacion gira el humero activo 35 grados hacia delante para que el brazo no
+// se meta dentro del torax, y ese giro es justo el que deforma la piel del
+// brazo. `CLEAR=<grados>` lo reproduce aqui. Ver ARM_CLEARANCE_DEG en
+// RigModel.tsx.
+const CLEAR = Number(process.env.CLEAR ?? 0);
+const clearHum = poser.shoulderBones.get('humerus_gh');
+
 for (const deg of DEGS) {
   poser.pose(deg);
+  if (CLEAR && clearHum) {
+    clearHum.rotateOnAxis(new THREE.Vector3(1, 0, 0), (-CLEAR * Math.PI) / 180);
+    scene.updateMatrixWorld(true);
+  }
   const r = rasterize(scene, {
     view: VIEW,
     box: BOX,
