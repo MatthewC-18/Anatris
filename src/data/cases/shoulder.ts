@@ -37,15 +37,16 @@ export const SHOULDER_CASES: ClinicalCase[] = [
       {
         id: 'q2',
         showsTest: 'empty-can',
-        prompt: '¿Qué prueba ayuda a aislar el supraespinoso?',
+        prompt:
+          'Las cuatro son pruebas de hombro. ¿Cuál aísla el SUPRAESPINOSO y no otro tendón del manguito?',
         options: [
           { id: 'a', text: 'Maniobra de Jobe (lata vacía)', correct: true },
-          { id: 'b', text: 'Test de Lachman', correct: false },
-          { id: 'c', text: 'Signo de Froment', correct: false },
-          { id: 'd', text: 'Test de Thomas', correct: false },
+          { id: 'b', text: 'Test de Neer', correct: false },
+          { id: 'c', text: 'Press abdominal (belly-press)', correct: false },
+          { id: 'd', text: 'Signo de retardo en rotación externa', correct: false },
         ],
         explanation:
-          'La maniobra de Jobe (lata vacía) carga selectivamente al supraespinoso: abducción a 90° en el plano de la escápula, rotación interna y resistencia descendente. Lachman es de rodilla, Froment de nervio cubital y Thomas de flexores de cadera.',
+          'Jobe carga selectivamente al supraespinoso: abducción a 90° en el plano de la escápula, rotación interna y resistencia descendente. Las otras tres son del hombro y todas dicen algo, pero no esto: Neer provoca el espacio subacromial completo (dice que hay pinzamiento, no qué tendón), el press abdominal explora el subescapular y el retardo en rotación externa, el infraespinoso. Aislar un tendón es elegir la posición en la que ese músculo es el único que puede resistir.',
       },
       {
         id: 'q3',

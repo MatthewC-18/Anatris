@@ -36,15 +36,16 @@ export const LUMBAR_CASES: ClinicalCase[] = [
       {
         id: 'q2',
         showsTest: 'slr-lasegue',
-        prompt: '¿Qué prueba neural tensa la raíz y reproduce el dolor irradiado?',
+        prompt:
+          'Las cuatro son pruebas lumbopélvicas. ¿Cuál tensa la raíz afectada y reproduce ESTE dolor?',
         options: [
           { id: 'a', text: 'Elevación de la pierna recta (Lasègue / SLR)', correct: true },
-          { id: 'b', text: 'Test de Spurling', correct: false },
-          { id: 'c', text: 'Test de Lachman', correct: false },
-          { id: 'd', text: 'Signo de Froment', correct: false },
+          { id: 'b', text: 'Tensión del nervio femoral (Lasègue invertido)', correct: false },
+          { id: 'c', text: 'Elevación cruzada de la pierna recta', correct: false },
+          { id: 'd', text: 'Maniobra de Gaenslen', correct: false },
         ],
         explanation:
-          'La elevación de la pierna recta (SLR/Lasègue) tensa el nervio ciático y sus raíces lumbosacras, reproduciendo el dolor radicular. Spurling es cervical, Lachman de rodilla y Froment de nervio cubital.',
+          'El SLR tensa el ciático y con él las raíces L4–S1, que es donde está el problema: sensible, poco específico, sirve para descartar. El Lasègue invertido tensa el FEMORAL (L2–L4): es la misma idea un nivel más arriba y aquí no tocaría la raíz afectada. La elevación cruzada sí es de estas raíces, pero se levanta la pierna SANA y reproduce el dolor en la enferma: muy específica y poco sensible, de modo que confirma cuando sale positiva y no sustituye al SLR. Y Gaenslen provoca la sacroilíaca, no el nervio: se usa cuando la hipótesis es articular.',
       },
     ],
     takeaway:

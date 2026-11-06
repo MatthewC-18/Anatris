@@ -36,15 +36,16 @@ export const KNEE_CASES: ClinicalCase[] = [
       {
         id: 'q2',
         showsTest: 'lachman',
-        prompt: '¿Qué prueba clínica explora la integridad del LCA?',
+        prompt:
+          'Las cuatro son pruebas de rodilla. ¿Cuál explora el LCA y es la que mejor rinde en una rodilla recién lesionada?',
         options: [
           { id: 'a', text: 'Test de Lachman', correct: true },
-          { id: 'b', text: 'Maniobra de Jobe', correct: false },
-          { id: 'c', text: 'Test de McMurray como prueba ligamentaria', correct: false },
-          { id: 'd', text: 'Signo de Tinel', correct: false },
+          { id: 'b', text: 'Cajón anterior', correct: false },
+          { id: 'c', text: 'Pivot shift', correct: false },
+          { id: 'd', text: 'Cajón posterior', correct: false },
         ],
         explanation:
-          'El test de Lachman (traslación anterior de la tibia a ~20–30° de flexión) es el más sensible para el LCA. McMurray evalúa meniscos, Jobe el supraespinoso y Tinel la irritabilidad de un nervio.',
+          'Las tres primeras exploran el LCA y no dan lo mismo. Lachman tracciona la tibia a 20–30° de flexión, donde el isquiotibial no puede frenar el movimiento: es la más sensible y la que sigue sirviendo con la rodilla hinchada y defendida. El cajón anterior pide 90° de flexión, una posición que el paciente agudo no tolera y en la que los isquiotibiales enmascaran la traslación. El pivot shift es casi diagnóstico cuando sale positivo, pero necesita una rodilla relajada que una lesión de horas no da. Y el cajón posterior no es del LCA: explora el cruzado posterior, el ligamento de enfrente.',
       },
       {
         id: 'q3',

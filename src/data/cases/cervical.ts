@@ -36,15 +36,16 @@ export const CERVICAL_CASES: ClinicalCase[] = [
       {
         id: 'q2',
         showsTest: 'spurling',
-        prompt: '¿Qué prueba reproduce el dolor radicular al cerrar el foramen?',
+        prompt:
+          'Las cuatro son pruebas cervicales. ¿Cuál reproduce el dolor radicular CERRANDO el foramen?',
         options: [
           { id: 'a', text: 'Test de Spurling', correct: true },
-          { id: 'b', text: 'Test de Thomas', correct: false },
-          { id: 'c', text: 'Test de McMurray', correct: false },
-          { id: 'd', text: 'Maniobra de Jobe', correct: false },
+          { id: 'b', text: 'Distracción cervical', correct: false },
+          { id: 'c', text: 'Test de tensión neural del MMSS, sesgo mediano', correct: false },
+          { id: 'd', text: 'Test de Sharp-Purser', correct: false },
         ],
         explanation:
-          'El test de Spurling (extensión + inclinación homolateral + compresión axial) estrecha el foramen y reproduce el dolor radicular. Thomas es de cadera, McMurray de menisco y Jobe de hombro.',
+          'Spurling cierra el foramen (extensión + inclinación homolateral + compresión axial) y por eso REPRODUCE el dolor radicular: es muy específico, así que un Spurling positivo pesa. La distracción cervical hace lo contrario — abre el foramen y ALIVIA —, de modo que también apoya el origen radicular, pero no es la prueba que lo provoca. El ULNT mediano explora la mecanosensibilidad a lo largo del nervio y es sensible más que específico: sirve para descartar, no para confirmar un nivel. Y el Sharp-Purser no es una prueba radicular: busca inestabilidad atlantoaxial, otra pregunta y otra urgencia.',
       },
     ],
     takeaway:
