@@ -35,9 +35,22 @@ export function CitationRow({ cites }: { cites: Citation[] }) {
           >
             {label}
             {locator ? `, ${locator}` : ''}
-            {!c.pageVerified && (
-              <span title="Pagina por confirmar" className="text-amber-400/80">
-                {String.fromCharCode(0x26a0)}
+            {/* EL TRIANGULO AMARILLO ESTABA EN TODAS LAS CITAS, Y NO DECIA NADA.
+                `pageVerified` es falso por defecto, asi que la ficha de un
+                musculo salia con tres o cuatro avisos de peligro seguidos y la
+                pagina leia "esto no es de fiar" cuando lo unico sin confirmar
+                era el NUMERO DE PAGINA. Peor: la mayoria de esas citas no
+                llevan pagina, asi que el aviso no se referia a nada.
+                Ahora se marca solo cuando hay localizador que dudar, y con un
+                interrogante discreto en vez de una alarma. Lo que de verdad no
+                esta cotejado se dice con palabras donde toca (ver el pie del
+                panel de neuro). */}
+            {locator && !c.pageVerified && (
+              <span
+                title="Localizador por confirmar contra la edición citada"
+                className="text-slate-500"
+              >
+                ?
               </span>
             )}
           </span>

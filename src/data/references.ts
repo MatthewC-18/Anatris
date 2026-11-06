@@ -279,7 +279,7 @@ export const REFERENCES: Record<string, Reference> = {
     publisher: 'Acta Orthopaedica Scandinavica',
     year: 1982,
     note:
-      'Movilidad PASIVA medida con goniometro por la tecnica de la AAOS en una muestra aleatoria de varones sanos de Goteborg (210 caderas, 180 rodillas, 192 tobillos). Su Tabla 1 imprime ademas la columna de la AAOS, lo que permite ver la diferencia entre el valor de referencia y el medido.',
+      'Movilidad PASIVA medida con goniómetro por la técnica de la AAOS en una muestra aleatoria de varones sanos de Gotemburgo (210 caderas, 180 rodillas, 192 tobillos). Su Tabla 1 imprime ademas la columna de la AAOS, lo que permite ver la diferencia entre el valor de referencia y el medido.',
   },
   'apti-2023': {
     id: 'apti-2023',
@@ -290,7 +290,7 @@ export const REFERENCES: Record<string, Reference> = {
     publisher: 'Journal of Turkish Spinal Surgery 2023;34(3):113-117',
     year: 2023,
     note:
-      'Movilidad ACTIVA cervical y lumbar con goniometro digital de dos brazos por la tecnica de la AAOS, en 300 voluntarios sanos (198 mujeres, 102 varones; media 21,4 anos, rango 18-29), Estambul. Su Tabla 2 da media, DE, mediana y rango de los 12 movimientos, y la discusion imprime al lado el valor de la AAOS. Acceso abierto (CC BY-NC-ND). Tabla 2 leida aqui.',
+      'Movilidad ACTIVA cervical y lumbar con goniómetro digital de dos brazos por la técnica de la AAOS, en 300 voluntarios sanos (198 mujeres, 102 varones; media 21,4 anos, rango 18-29), Estambul. Su Tabla 2 da media, DE, mediana y rango de los 12 movimientos, y la discusion imprime al lado el valor de la AAOS. Acceso abierto (CC BY-NC-ND). Tabla 2 leida aqui.',
   },
   'gill-2020': {
     id: 'gill-2020',
@@ -303,7 +303,7 @@ export const REFERENCES: Record<string, Reference> = {
     publisher: 'BMC Musculoskeletal Disorders 2020;21:676',
     year: 2020,
     note:
-      'Movilidad ACTIVA de hombro en una cohorte poblacional de Adelaida: 2404 adultos sin dolor ni rigidez de hombro (51,5% varones; media 45,8 anos, DE 17,3; rango 20-91). Flexion y abduccion con inclinometro Plurimeter V; la rotacion externa se estimo visualmente al multiplo de 5 grados mas cercano, asi que su precision es menor que la de los otros dos. Acceso abierto. Tabla leida aqui.',
+      'Movilidad ACTIVA de hombro en una cohorte poblacional de Adelaida: 2404 adultos sin dolor ni rigidez de hombro (51,5% varones; media 45,8 años, DE 17,3; rango 20-91). Flexion y abduccion con inclinometro Plurimeter V; la rotacion externa se estimo visualmente al multiplo de 5 grados mas cercano, asi que su precision es menor que la de los otros dos. Acceso abierto. Tabla leida aqui.',
   },
   'zwerus-2017': {
     id: 'zwerus-2017',
@@ -316,7 +316,7 @@ export const REFERENCES: Record<string, Reference> = {
     publisher: 'Shoulder & Elbow 2019;11(3):215-224',
     year: 2017,
     note:
-      'Movilidad ACTIVA y PASIVA de codo con goniometro universal, bilateral, en 352 adultos sanos (166 varones, 186 mujeres) de 18 a 79 anos, Amsterdam. Publica media e intervalo de confianza al 95%, NO desviacion tipica, por eso aqui las cifras van sin DE. Las mujeres tienen mas recorrido que los varones en todos los movimientos, y lo pasivo supera a lo activo en 3-5 grados. Acceso abierto. Tabla 2 leida aqui.',
+      'Movilidad ACTIVA y PASIVA de codo con goniómetro universal, bilateral, en 352 adultos sanos (166 varones, 186 mujeres) de 18 a 79 años, Amsterdam. Publica media e intervalo de confianza al 95%, NO desviacion tipica, por eso aqui las cifras van sin DE. Las mujeres tienen mas recorrido que los varones en todos los movimientos, y lo pasivo supera a lo activo en 3-5 grados. Acceso abierto. Tabla 2 leida aqui.',
   },
   'esteban-2022': {
     id: 'esteban-2022',
@@ -521,7 +521,7 @@ export const REFERENCES: Record<string, Reference> = {
       '57 pacientes con dolor radicular de menos de 12 semanas; se excluyeron los 103 que ya tenían la RM disponible, para que el explorador estuviera CIEGO al patrón de referencia',
     standard:
       'Compresión radicular en resonancia magnética, por región (L2-L4 frente a L5-S1) y por nivel concreto',
-    note: 'Texto completo abierto (PMC2978791); las cifras están en las Tablas 3 y 4. Compresión MEDIA (L2-L4): tensión femoral 50% / 100% (LR+ infinito), tensión femoral cruzada 5% / 100%, Lasègue 16% / 31%, Lasègue cruzado 4% / 93%. Compresión BAJA (L5-S1): Lasègue 69% / 84% (LR+ 4,3), cruzado 7% / 96%. Por nivel: tensión femoral en L3, 70% / 88% (LR+ 5,7). Lo que ensena este estudio es que la cifra de una prueba cambia por completo segun QUE se busque: el mismo Lasègue vale 16% de sensibilidad para la raíz alta y 69% para la baja.',
+    note: 'Texto completo abierto (PMC2978791); las cifras están en las Tablas 3 y 4. Compresión MEDIA (L2-L4): tensión femoral 50% / 100% (LR+ infinito), tensión femoral cruzada 5% / 100%, Lasègue 16% / 31%, Lasègue cruzado 4% / 93%. Compresión BAJA (L5-S1): Lasègue 69% / 84% (LR+ 4,3), cruzado 7% / 96%. Por nivel: tensión femoral en L3, 70% / 88% (LR+ 5,7). Lo que enseña este estudio es que la cifra de una prueba cambia por completo segun QUE se busque: el mismo Lasègue vale 16% de sensibilidad para la raíz alta y 69% para la baja.',
   },
   'kasai-2006': {
     id: 'kasai-2006',

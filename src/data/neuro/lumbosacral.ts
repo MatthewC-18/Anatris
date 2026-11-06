@@ -162,7 +162,7 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
         note: 'El modelo muestra la flexión de rodilla (isquiotibiales, S1); la flexión plantar no se puede reproducir aquí.',
       },
       mimic: {
-        nerve: 'Ciático troncular (incluido el sindrome piriforme)',
+        nerve: 'Ciático troncular (incluido el síndrome piriforme)',
         discriminator:
           'Una lesión del tronco del ciático mezcla territorios de L4 a S2 a la vez; una radiculopatía S1 se queda dentro de un solo dermatoma y un solo miotoma.',
       },

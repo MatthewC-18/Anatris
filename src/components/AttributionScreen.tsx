@@ -39,7 +39,7 @@ const MODEL_CREDITS: CreditEntry[] = [
     license: 'CC BY-SA 4.0',
     licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
     sourceUrl: 'https://www.z-anatomy.com/',
-    note: 'El modelo 3D utilizado en esta aplicacion deriva de Z-Anatomy. Se han modificado colores, visibilidad y recortes de regiones para fines didacticos.',
+    note: 'El modelo 3D utilizado en esta aplicación deriva de Z-Anatomy. Se han modificado colores, visibilidad y recortes de regiones para fines didácticos.',
   },
 ];
 

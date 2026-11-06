@@ -269,7 +269,7 @@ const INTERNAL_ROTATION_GUIDE: GestureGuide = {
     },
     {
       id: 'clinical-relevance-ir',
-      title: 'Relevancia clinica',
+      title: 'Relevancia clínica',
       rangeLabel: 'Sintesis',
       caption: {
         text: 'El subescapular cumple doble papel: rota internamente y, sobre todo, frena la traslación anterior de la cabeza humeral, por lo que es un estabilizador clave en la inestabilidad anterior. El predominio de los rotadores internos potentes (pectoral, dorsal) sobre los externos del manguito favorece la rotación interna en reposo y se asocia al conflicto subacromial: por eso, en el tratamiento, equilibrar ambos grupos es más importante que solo ganar fuerza interna.',
@@ -331,7 +331,7 @@ const EXTERNAL_ROTATION_GUIDE: GestureGuide = {
     },
     {
       id: 'clinical-relevance-er',
-      title: 'Relevancia clinica',
+      title: 'Relevancia clínica',
       rangeLabel: 'Sintesis',
       caption: {
         text: 'Como solo dos músculos pequeños generan la rotación externa, su debilidad limita de inmediato el gesto y desplaza el equilibrio hacia los rotadores internos, más potentes. Esto importa especialmente en deportes de lanzamiento, donde la rotación externa controlada en abducción es decisiva, y en la prevención del conflicto: unos rotadores externos competentes ayudan a reorientar el troquíter y a mantener el espacio subacromial durante la elevación.',

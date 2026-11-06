@@ -168,7 +168,7 @@ export function AbductionSchematic(): JSX.Element {
         className="w-full rounded-xl"
         style={{ background: '#0d1320' }}
         role="img"
-        aria-label="Esquema de abduccion de hombro derecho, vista frontal"
+        aria-label="Esquema de abducción de hombro derecho, vista frontal"
       >
         <text x={20} y={30} fill={COLOR_TITLE} fontSize={14} fontFamily="ui-sans-serif, system-ui">
           Abduccion de hombro {String.fromCharCode(0x2014)} vista frontal (lado derecho)

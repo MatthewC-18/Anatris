@@ -64,7 +64,7 @@ const tests: OrthopedicTest[] = [
     metrics: {
       sensitivity: 92,
       specificity: 91,
-      note: 'ATENCIÓN A LA CONDICIÓN. Benjaminse 2006 publica 92% (IC 95% 88-95) y 91% (87-94), pero SOLO en lesiones CRÓNICAS: literalmente, el cajón anterior rinde bien en crónico "pero no en agudo". Esta aplicación mostraba antes 62/88, una cifra que no está en esa fuente y que ademas contradecía su propia nota. En el esguince agudo el dolor, el espasmo y el hemartros hunden la sensibilidad, y por eso el test de elección en agudo es el Lachman.'
+      note: 'ATENCIÓN A LA CONDICIÓN. Benjaminse 2006 publica 92% (IC 95% 88-95) y 91% (87-94), pero SOLO en lesiones CRÓNICAS: literalmente, el cajón anterior rinde bien en crónico "pero no en agudo". Esta aplicación mostraba antes 62/88, una cifra que no está en esa fuente y que además contradecía su propia nota. En el esguince agudo el dolor, el espasmo y el hemartros hunden la sensibilidad, y por eso el test de elección en agudo es el Lachman.'
     },
     utility: 'rule-in',
     interpretation:
