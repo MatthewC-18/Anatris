@@ -72,6 +72,7 @@ import {
   vertebraHeights,
 } from '../../lib/rigSpineSkin';
 import { blendPelvicOrigins } from '../../lib/rigPelvicOrigin';
+import { redistributeSkinRootWeight } from '../../lib/rigSkinRootWeight';
 import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../lib/biomech/scapulaWrap';
 import { muscleDepthLevel, type MuscleDepthLevel } from '../../lib/muscleDepth';
 import { parseMeshName, structureKey, type ParsedSide } from '../../lib/parseMeshName';
@@ -1633,6 +1634,18 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
       const layer = layerForMaterial((first as THREE.Material | undefined)?.name ?? null);
       return layer === 'muscle' ? 'muscle' : layer === 'connective' ? 'connective' : 'other';
+    });
+    // Y EL PESO QUE EL HUESO RAIZ TENIA SOBRE LA PIEL
+    // (src/lib/rigSkinRootWeight.ts). La tesela de la nalga lleva 87% de un
+    // hueso que no gira y la del muslo, pegada a ella, 77% del femur: al
+    // flexionar la cadera no se estiraban, se separaban en placas planas.
+    // Va DESPUES de blendPelvicOrigins, porque la piel hereda del musculo.
+    redistributeSkinRootWeight(scene, (mesh) => {
+      const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      const layer = layerForMaterial((first as THREE.Material | undefined)?.name ?? null);
+      return layer === 'skin' || layer === 'muscle' || layer === 'connective'
+        ? layer
+        : 'other';
     });
     relaxSkinSeams(scene);
       if (muscleGrade.skipped.length > 0) {

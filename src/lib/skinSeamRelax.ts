@@ -57,14 +57,97 @@ import { layerForMaterial, materialIsSkin } from './materialColors';
 /** Strip the `_12` disambiguator three.js appends to duplicate node names. */
 const baseName = (n: string): string => n.replace(/_\d+$/, '');
 
-/** Height band this pass touches: shoulder girdle, axilla and upper arm. */
-const Y_LO = 0.95;
-const Y_HI = 1.70;
+/**
+ * Franja de altura que repasa esta pasada: EL CUERPO ENTERO.
+ *
+ * Nacio acotada al hombro, la axila y el brazo (0,95 a 1,70), que era donde se
+ * habia medido el problema. Pero coser costuras no es cosa del hombro: es como
+ * esta construido el modelo entero, unas 250 teselas de piel independientes que
+ * comparten vertices en sus bordes. Fuera de esa franja no las cosia nadie, y
+ * ahi se abria la peor rotura del cuerpo: en la flexion de cadera a 120 grados
+ * la piel se rasgaba de lado a lado y el muslo salia entero por el hueco.
+ *
+ * ESTE CAMBIO SOLO FUNCIONA DESPUES DEL OTRO. Bajar la franja por si sola
+ * EMPEORABA la cadera (2,141% -> 2,888% de pixeles rotos), porque soldar dos
+ * teselas obliga a las dos a la misma mezcla de huesos, y ahi las mezclas eran
+ * las dos falsas: la nalga llevaba 87% de un hueso raiz que no gira nunca. Con
+ * `rigSkinRootWeight` repartiendo antes ese peso, la misma franja ancha cierra
+ * la cadera del todo:
+ *
+ *   flexion de cadera 120 deg   2,141%  ->  2,022%  (solo el reparto de la raiz)
+ *                                       ->  0,424%  (reparto + esta franja)
+ *
+ * Por debajo del fondo de reposo, que es 0,464%.
+ *
+ * La pasada no toca nada que ya estuviera bien: solo reparte los pesos de las
+ * soldaduras cuyos miembros NO coinciden, que son justo las que se abririan.
+ */
+const Y_LO = 0;
+const Y_HI = 2.5;
 /**
  * Nodes closer to the midline than this are left alone. The two sides share bone
  * NAMES, so a weld spanning the midline could not say which scapula it meant.
+ *
+ * Se usa para el tejido de referencia. La SOLDADURA ya no necesita una franja,
+ * porque distingue el lado punto por punto: ver `SIDE_EPS`.
  */
 const MIDLINE_M = 0.02;
+
+/**
+ * LA SOLDADURA NO CRUZA LA LINEA MEDIA, PERO TAMPOCO ABANDONA SUS CERCANIAS.
+ *
+ * Con la franja estrecha original (0,95 a 1,70 m) el perine quedaba fuera de
+ * la pasada y daba igual. Al abrir la franja a todo el cuerpo aparecio el
+ * fallo: la piel de la cara interna de un muslo se soldaba con la del otro a
+ * traves del perine, y aducir la cadera 20 grados tiraba de una pierna contra
+ * la piel de la contraria. Medido, 0,637% -> 2,611%, con el aductor largo, el
+ * pectineo, el gracil y el sartorio a la vista.
+ *
+ * La primera reparacion fue ensanchar la franja prohibida a 5 cm. Arreglaba la
+ * aduccion (0,562%) pero cobraba peaje en los movimientos que SI necesitan esa
+ * piel cosida: abduccion de cadera 0,773% -> 1,184% y rotacion externa 0,985%
+ * -> 1,704%, porque 5 cm de piel sin coser a cada lado del perine es mucha
+ * piel.
+ *
+ * Lo que hace falta no es una franja mas ancha sino una regla mas fina: dos
+ * puntos solo se sueldan si estan DEL MISMO LADO. Asi un punto a 3 cm de la
+ * linea media sigue soldandose con su vecino a 2,8 cm -- que es lo que sostiene
+ * la abduccion -- y no con su reflejo al otro lado, que es lo que rompia la
+ * aduccion. La franja se queda en los 4 mm en los que decir "izquierda" o
+ * "derecha" ya no significa nada.
+ */
+const SIDE_EPS = 0.004;
+
+/**
+ * LA INGLE SE DEJA SIN COSER, Y ES UNA CONCESION, NO UNA SOLUCION.
+ *
+ * Queda un caso que la regla de lado no arregla. La piel de la cara interna
+ * del muslo, en los cuatro centimetros pegados al perine, no puede estar bien
+ * a la vez para la aduccion y para la abduccion:
+ *
+ *                       aduccion 20   abduccion 45   rot. externa 45
+ *   cosida                  2,611%        0,694%          1,010%
+ *   sin coser (esto)        0,562%        1,177%          1,668%
+ *
+ * El motivo es que ahi debajo estan los origenes pubicos -- aductor largo,
+ * pectineo, gracil -- que `rigPelvicOrigin` devolvio a la pelvis, con razon.
+ * La piel que se cose sobre ellos hereda ese anclaje pelvico y deja de seguir
+ * al femur; al aducir, el vientre del aductor se mueve hacia dentro y la
+ * atraviesa. Al abducir pasa lo contrario: esa misma piel necesita estar
+ * cosida para no abrirse.
+ *
+ * Se elige dejarla sin coser porque quita el peor defecto de los cuatro (un
+ * boquete en la ingle con el aductor largo, el pectineo y el gracil a la
+ * vista) a cambio de empeorar dos que siguen por debajo del 1,7%. No es una
+ * reparacion: es la mejor de dos malas, y la buena pasa por repartir de verdad
+ * los pesos del pliegue inguinal entre pelvis y femur, en vez de decidirlo a
+ * nivel de costura.
+ *
+ * Los dos valores estan barridos: con 3 cm la aduccion vuelve a romperse
+ * (2,573%), con 5 cm la abduccion empeora un poco mas (1,184%).
+ */
+const GROIN_Y = 0.9;
+const GROIN_X = 0.04;
 /** Vertices this close at rest are the same point of skin. */
 const WELD_M = 0.0025;
 /** Weight difference (L1/2, i.e. 0..1) above which a weld counts as disagreeing. */
@@ -211,29 +294,31 @@ export function relaxSkinSeams(scene: THREE.Object3D): SeamRelaxResult {
   // Quantised hash plus an exact distance check, so two vertices land in one node
   // only when they really are the same point of skin.
   const CELL = WELD_M * 2;
-  const cells = new Map<string, { node: number; p: THREE.Vector3 }[]>();
+  const cells = new Map<string, { node: number; p: THREE.Vector3; side: number }[]>();
   const nodePos: THREE.Vector3[] = [];
   const nodeMembers: { mi: number; vi: number }[][] = [];
   for (let mi = 0; mi < meshes.length; mi++) {
     const M = meshes[mi];
     for (let vi = 0; vi < M.rest.length; vi++) {
       const p = M.rest[vi];
-      if (p.y < Y_LO || p.y > Y_HI || Math.abs(p.x) < MIDLINE_M) continue;
+      if (p.y < Y_LO || p.y > Y_HI || Math.abs(p.x) < SIDE_EPS) continue;
+      if (p.y < GROIN_Y && Math.abs(p.x) < GROIN_X) continue;
+      const side = p.x > 0 ? 1 : -1;
       const cx = Math.floor(p.x / CELL), cy = Math.floor(p.y / CELL), cz = Math.floor(p.z / CELL);
       let found = -1;
       for (let i = -1; i <= 1 && found < 0; i++)
         for (let j = -1; j <= 1 && found < 0; j++)
           for (let k = -1; k <= 1 && found < 0; k++)
             for (const e of cells.get(`${cx + i}|${cy + j}|${cz + k}`) ?? [])
-              if (e.p.distanceTo(p) <= WELD_M) { found = e.node; break; }
+              if (e.side === side && e.p.distanceTo(p) <= WELD_M) { found = e.node; break; }
       if (found < 0) {
         found = nodePos.length;
         nodePos.push(p.clone());
         nodeMembers.push([]);
         const key = `${cx}|${cy}|${cz}`;
         const bucket = cells.get(key);
-        if (bucket) bucket.push({ node: found, p: p.clone() });
-        else cells.set(key, [{ node: found, p: p.clone() }]);
+        if (bucket) bucket.push({ node: found, p: p.clone(), side });
+        else cells.set(key, [{ node: found, p: p.clone(), side }]);
       }
       M.node[vi] = found;
       nodeMembers[found].push({ mi, vi });

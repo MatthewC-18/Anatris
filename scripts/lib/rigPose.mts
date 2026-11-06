@@ -42,6 +42,7 @@ import {
   vertebraHeights,
 } from '../../src/lib/rigSpineSkin.ts';
 import { blendPelvicOrigins } from '../../src/lib/rigPelvicOrigin.ts';
+import { redistributeSkinRootWeight } from '../../src/lib/rigSkinRootWeight.ts';
 import {
   dominantBoneName,
   rebindArmBellies,
@@ -208,6 +209,18 @@ export function createRigPoser(
     const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
     const layer = layerForMaterial((first as THREE.Material | undefined)?.name ?? null);
     return layer === 'muscle' ? 'muscle' : layer === 'connective' ? 'connective' : 'other';
+  });
+  // Y EL PESO QUE EL HUESO RAIZ TENIA SOBRE LA PIEL
+  // (src/lib/rigSkinRootWeight.ts). La tesela de la nalga lleva 87% de un
+  // hueso que no gira y la del muslo, pegada a ella, 77% del femur: al
+  // flexionar la cadera no se estiraban, se separaban en placas planas.
+  // Va DESPUES de blendPelvicOrigins, porque la piel hereda del musculo.
+  redistributeSkinRootWeight(scene, (mesh) => {
+    const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    const layer = layerForMaterial((first as THREE.Material | undefined)?.name ?? null);
+    return layer === 'skin' || layer === 'muscle' || layer === 'connective'
+      ? layer
+      : 'other';
   });
   relaxSkinSeams(scene);
   // Y los religados del brazo, que hasta ahora SOLO hacia la aplicacion.
