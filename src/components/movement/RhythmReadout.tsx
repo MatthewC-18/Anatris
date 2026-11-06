@@ -297,7 +297,11 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
   // Why the model is not standing at anatomical zero. Shoulder rotation opens
   // with the elbow at 90 because that is the position it is READ in, and a user
   // who is not told that just sees a bent elbow they did not ask for.
-  const examPosture = control?.kind === 'joint' ? control.posture?.[0] : undefined;
+  //
+  // ALL of them, not just the first. Pronosupination holds two -- the elbow at
+  // 90 and the forearm in neutral -- and showing only the first left the more
+  // surprising half unexplained: a hand opening on edge rather than palm up.
+  const examPostures = control?.kind === 'joint' ? (control.posture ?? []) : [];
   const arc = useMemo(() => (movement ? buildLabArc(movement) : null), [movement]);
   const muscleRegion = movement?.region ?? region ?? 'shoulder';
   const angle = cmd.angleDeg;
@@ -528,14 +532,16 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
       )}
 
       {/* Examination position: why the model does not start at anatomical zero. */}
-      {examPosture && (
+      {examPostures.length > 0 && (
         <div className={`shrink-0 border-l-2 border-sky-400/60 bg-sky-500/[0.07] px-4 ${padY}`}>
           <div className="flex items-center gap-2">
             <span className="kicker text-sky-300/80">Posición de exploración</span>
           </div>
-          <p className="mt-1.5 text-[10.5px] leading-snug text-sky-100/85">
-            {examPosture.reason}
-          </p>
+          {examPostures.map((p) => (
+            <p key={p.bone} className="mt-1.5 text-[10.5px] leading-snug text-sky-100/85">
+              {p.reason}
+            </p>
+          ))}
         </div>
       )}
 

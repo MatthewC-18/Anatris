@@ -95,10 +95,10 @@ describe('cross-body adduction borrows the flexion that makes it possible', () =
     if (!cross) return;
 
     const D = Math.PI / 180;
-    expect(cross.follow(0), 'nothing at neutral').toBe(0);
+    expect(cross.follow(0, 'R'), 'nothing at neutral').toBe(0);
     // Ramps, leads, and tops out inside a sane flexion for a cross-over step.
-    const half = Math.abs(cross.follow(10 * D * hip.sign.R));
-    const full = Math.abs(cross.follow(20 * D * hip.sign.R));
+    const half = Math.abs(cross.follow(10 * D * hip.sign.R, 'R'));
+    const full = Math.abs(cross.follow(20 * D * hip.sign.R, 'R'));
     expect(full / D).toBeGreaterThan(15);
     expect(full / D).toBeLessThanOrEqual(30);
     expect(half / full).toBeGreaterThan(0.6);
@@ -116,12 +116,15 @@ describe('cross-body adduction borrows the flexion that makes it possible', () =
     if (flexion?.kind !== 'joint') return;
     expect(flexion.bone, 'same bone').toBe('femur_base');
     expect(flexion.axis, 'same axis').toBe('x');
+    // And the coupling is TOLD the side rather than reading it off the sign of
+    // the adduction. Inferring it was the bug: it only worked while every sign
+    // map mirrored, and `femur_base` local X does not (see movementDirection).
     expect(
-      Math.sign(cross.follow(20 * D * hip.sign.R)),
+      Math.sign(cross.follow(20 * D * hip.sign.R, 'R')),
       'the right limb must fold FORWARD',
     ).toBe(flexion.sign.R);
     expect(
-      Math.sign(cross.follow(20 * D * hip.sign.L)),
+      Math.sign(cross.follow(20 * D * hip.sign.L, 'L')),
       'the left limb must fold FORWARD',
     ).toBe(flexion.sign.L);
   });

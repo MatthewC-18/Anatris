@@ -43,7 +43,18 @@ export type LimbArmatureBase = 'Shoulder_Armature' | 'Leg_Armature';
 export interface BoneCoupling {
   bone: string;
   axis: RigAxis;
-  follow: (primaryRad: number) => number;
+  /**
+   * The follower's local angle, from the primary bone's applied local angle.
+   *
+   * IT TAKES THE SIDE, and that is not decoration. A coupling used to read the
+   * side off the SIGN of `primaryRad`, which only worked while every sign map
+   * was mirrored -- and the rig's bones are not: `femur_base` local X drives
+   * both femurs the SAME way (measured: the left hip flexed 40,9 cm BACKWARDS
+   * while the right flexed forwards, on opposite signs), while `shin_flex`
+   * local X is mirrored. A coupling that guesses from the sign folds one limb
+   * the wrong way, so it is told instead.
+   */
+  follow: (primaryRad: number, side: Side) => number;
 }
 
 /**
@@ -225,6 +236,35 @@ const KNEE_AT_90: ExamPosture = {
     'propio eje y no se aprecia nada.',
 };
 
+/**
+ * THE FOREARM IN NEUTRAL, which is where pronosupination is measured from.
+ *
+ * The rest pose of this rig has the arm hanging SUPINATED -- palm facing the
+ * way the body faces (measured: on the limb at +x the first metacarpal sits at
+ * x 0,304 against the fifth at 0,243, and the radius at 0,258 against the ulna
+ * at 0,227, so the thumb and the radius are both lateral). Bending the elbow to
+ * 90 keeps that, so the hand used to open PALM UP.
+ *
+ * From there both arcs were wrong, and neither was a sign error:
+ *   - "pronacion 0 -> 85" was really full supination -> neutral. The palm never
+ *     turned downwards, which is the one thing pronation is.
+ *   - "supinacion 0 -> 90" started from a hand that was already fully supinated
+ *     and kept going, into a rotation no forearm has.
+ * Both ranges are measured from NEUTRAL (thumb up) in every source the app
+ * cites, so neutral is where the model has to open.
+ */
+const FOREARM_NEUTRAL: ExamPosture = {
+  bone: 'forearm_rot',
+  axis: 'y',
+  deg: 80,
+  // Same convention as elbow-pronation, which is the direction this travels in.
+  sign: { R: 1, L: -1 },
+  reason:
+    'La pronosupinación se mide desde la posición neutra, con el pulgar hacia ' +
+    'arriba: 0° es la mano de canto, no la palma hacia arriba. El modelo abre ' +
+    'ahí para que los 85° de pronación lleguen de verdad a palma abajo.',
+};
+
 /** Patellar glide: patella tracks the knee. patella.x = shin_flex.x * 0.5 */
 const patellarGlide: BoneCoupling = {
   bone: 'patella',
@@ -260,20 +300,29 @@ const patellarGlide: BoneCoupling = {
 // forward. Read it from the control so the two can never drift apart again.
 const HIP_CROSS_OVER_END = (20 * Math.PI) / 180;
 const HIP_CROSS_OVER_FLEX_MAX = (25 * Math.PI) / 180;
-/** Local-X sign that flexes the RIGHT femur forward. Mirrors on the left. */
-const HIP_FLEXION_SIGN_R = -1;
+/**
+ * Local-X sign that folds each femur FORWARD. The same on both sides, which is
+ * the opposite of what this file assumed for months: `femur_base` local X is
+ * NOT mirrored between `Leg_Armature_R` and `Leg_Armature_L`. Measured with
+ * `npm run audit-direction`, which now drives both sides -- on the old mirrored
+ * map the left knee travelled 40,9 cm POSTERIORLY at 90 deg of "flexion".
+ */
+const HIP_FLEXION_SIGN: Record<Side, 1 | -1> = { R: -1, L: -1 };
 
 const hipCrossOverFlexion: BoneCoupling = {
   bone: 'femur_base',
   axis: 'x',
-  follow: (primaryRad) => {
+  follow: (primaryRad, side) => {
     const t = Math.min(Math.abs(primaryRad) / HIP_CROSS_OVER_END, 1);
     if (primaryRad === 0) return 0; // exactly 0, never -0
     const magnitude = Math.sin(t * (Math.PI / 2)) * HIP_CROSS_OVER_FLEX_MAX;
-    // `primaryRad` is the signed ADDUCTION. Its sign tells us WHICH leg (R
-    // positive, L negative); multiplying by the flexion convention turns that
-    // into a FORWARD fold on both sides, which is the point of the coupling.
-    return Math.sign(primaryRad) * magnitude * HIP_FLEXION_SIGN_R;
+    // FORWARD on the side being driven, read from the flexion convention rather
+    // than from the sign of the adduction. Deriving it from that sign is what
+    // used to make this work: the maps happened to mirror, so
+    // `Math.sign(primaryRad)` happened to supply the right per-side flip.
+    // `femur_base` local X does not mirror, so the trick folded one limb BEHIND
+    // the stance leg.
+    return magnitude * HIP_FLEXION_SIGN[side];
   },
 };
 
@@ -295,17 +344,23 @@ const HIP_DEEP_FLEX_START = (90 * Math.PI) / 180;
 const HIP_DEEP_FLEX_END = (120 * Math.PI) / 180;
 /** Knee flexion held at the end of the arc. Well inside the 105 deg mesh limit. */
 const HIP_DEEP_FLEX_KNEE_MAX = (60 * Math.PI) / 180;
-/** Local-X sign that folds the RIGHT knee. Same convention as the femur. */
-const KNEE_FLEXION_SIGN_R = -1;
+/**
+ * Local-X sign that folds each knee. Unlike the femur's, this one DOES mirror
+ * (`shin_flex` local X is mirrored between the two leg armatures) -- which is
+ * exactly why neither convention can be inferred from the other, and why both
+ * are written down from the measurement that `knee-flexion`'s own sign map
+ * records.
+ */
+const KNEE_FLEXION_SIGN: Record<Side, 1 | -1> = { R: -1, L: 1 };
 
 /** 0 below 90 deg of hip flexion, ramping to a 60 deg knee at 120. */
-function hipDeepFlexionKnee(primaryRad: number): number {
+function hipDeepFlexionKnee(primaryRad: number, side: Side): number {
   const a = Math.abs(primaryRad);
   if (a <= HIP_DEEP_FLEX_START) return 0;
   const t = Math.min((a - HIP_DEEP_FLEX_START) / (HIP_DEEP_FLEX_END - HIP_DEEP_FLEX_START), 1);
   // Starts gently so the knee does not snap the instant the slider passes 90.
   const magnitude = Math.sin((t * Math.PI) / 2) * HIP_DEEP_FLEX_KNEE_MAX;
-  return Math.sign(primaryRad) * magnitude * KNEE_FLEXION_SIGN_R * HIP_FLEXION_SIGN_R;
+  return magnitude * KNEE_FLEXION_SIGN[side];
 }
 
 const hipDeepFlexionKneeCoupling: BoneCoupling = {
@@ -318,7 +373,7 @@ const hipDeepFlexionKneeCoupling: BoneCoupling = {
 const hipDeepFlexionPatella: BoneCoupling = {
   bone: 'patella',
   axis: 'x',
-  follow: (primaryRad) => hipDeepFlexionKnee(primaryRad) * 0.5,
+  follow: (primaryRad, side) => hipDeepFlexionKnee(primaryRad, side) * 0.5,
 };
 
 // ---------------------------------------------------------------------------
@@ -532,7 +587,7 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'y',
     sign: { R: -1, L: 1 },
     clinicalRange: { min: 0, max: 80 },
-    posture: [ELBOW_AT_90],
+    posture: [ELBOW_AT_90, FOREARM_NEUTRAL],
   },
   'glenohumeral-internal-rotation': {
     kind: 'joint',
@@ -547,7 +602,7 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // driving to 100 sweeps the forearm straight through the abdomen. The larger
     // true range stays taught in shoulderRom.ts.
     clinicalRange: { min: 0, max: 70 },
-    posture: [ELBOW_AT_90],
+    posture: [ELBOW_AT_90, FOREARM_NEUTRAL],
   },
 
   // --- ELBOW (forearm_flex flexion; forearm_rot pronosupination)
@@ -591,7 +646,7 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'y',
     sign: { R: 1, L: -1 },
     clinicalRange: { min: 0, max: 85 },
-    posture: [ELBOW_AT_90],
+    posture: [ELBOW_AT_90, FOREARM_NEUTRAL],
   },
   'elbow-supination': {
     kind: 'joint',
@@ -600,7 +655,7 @@ export const BONE_MAP: Record<string, BoneControl> = {
     axis: 'y',
     sign: { R: -1, L: 1 },
     clinicalRange: { min: 0, max: 90 },
-    posture: [ELBOW_AT_90],
+    posture: [ELBOW_AT_90, FOREARM_NEUTRAL],
   },
 
   // --- WRIST (hand_flex, the child of forearm_rot, so it follows pronosupination)
@@ -615,12 +670,17 @@ export const BONE_MAP: Record<string, BoneControl> = {
   // so the palm faces local +Z; rotating +40 deg on X carries the fingertips 5 cm
   // toward the dorsum, which is extension. Unsigned between sides -- unlike the
   // deviations, the sagittal hinge comes out the same way on both hands.
+  // SIGNS SWAPPED 2026-11-06, measured. The rest forearm is supinated (palm
+  // facing the way the body faces, see FOREARM_NEUTRAL for the measurement), so
+  // flexion has to carry the hand FORWARD. It carried it 5,4 cm backwards: the
+  // two entries were each other's. Same sign on both sides -- `hand_flex` local
+  // X, like `femur_base`'s, is not mirrored, and that part was already right.
   'wrist-extension': {
     kind: 'joint',
     armatureBase: 'Shoulder_Armature',
     bone: 'hand_flex',
     axis: 'x',
-    sign: { R: 1, L: 1 },
+    sign: { R: -1, L: -1 },
     clinicalRange: { min: 0, max: 70 },
   },
   'wrist-flexion': {
@@ -628,7 +688,7 @@ export const BONE_MAP: Record<string, BoneControl> = {
     armatureBase: 'Shoulder_Armature',
     bone: 'hand_flex',
     axis: 'x',
-    sign: { R: -1, L: -1 },
+    sign: { R: 1, L: 1 },
     clinicalRange: { min: 0, max: 80 },
   },
 
@@ -741,7 +801,14 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // It survived this long because a side render does not settle it: the two
     // legs overlap in that projection and it is easy to read the standing limb
     // as the moving one.
-    sign: { R: -1, L: 1 },
+    // The SAME sign on both sides: `femur_base` local X is not mirrored.
+    // LEFT SIDE CORRECTED 2026-11-06. The 2026-11-03 fix flipped both entries
+    // at once, on the assumption that the left mirrors the right, and so moved
+    // the defect across instead of removing it: the audit now drives both sides
+    // and measured the LEFT knee travelling 40,9 cm POSTERIORLY at 90 deg while
+    // the right travelled 42,2 cm forwards. One rig, five armatures, and no
+    // guarantee that two of them agree about an axis.
+    sign: { R: -1, L: -1 },
     // RANGE = 120, the full active maximum, because the knee now folds for the
     // last third of it (hipDeepFlexionKneeCoupling). It used to stop at 90 --
     // the straight-leg limit -- precisely because posing a STRAIGHT rig at 120
@@ -760,7 +827,8 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // returns toward 0): the thigh travels posteriorly, so the sign is the
     // opposite of hip flexion. Flipped with it (see the note there): measured
     // at 20 deg the knee was travelling 14,3 cm ANTERIORLY, which is flexion.
-    sign: { R: 1, L: -1 },
+    // Left corrected with flexion's, and for the same measured reason.
+    sign: { R: 1, L: 1 },
     clinicalRange: { min: 0, max: 20 },
   },
   'hip-abduction': {

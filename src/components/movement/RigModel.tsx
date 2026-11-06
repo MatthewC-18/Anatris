@@ -2576,9 +2576,22 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
             // riding the knee, and the femoral flexion that carries an adducting
             // leg in FRONT of the stance leg instead of into it.
             if (ctrl.couplings) {
+              // A coupling on the SAME bone as the primary has to COMPOSE, not
+              // restart. It used to call the same reset-then-rotate helper, so the
+              // cross-over flexion of hip adduction wiped the adduction it was there
+              // to assist: measured, 20 deg of "aduccion" moved the knee 0,9 cm
+              // sideways and 16 cm forwards -- it was a pure hip flexion wearing
+              // another name. Different-bone couplings (the patella, the shin) still
+              // restart from their own base, which is where they were anyway.
               for (const cp of ctrl.couplings) {
                 const cb = bones?.get(cp.bone);
-                if (cb) rotate(cb, cp.axis, cp.follow(rad));
+                if (!cb) continue;
+                if (cb === bone) {
+                  cb.rotateOnAxis(AXIS_VEC[cp.axis], cp.follow(rad, cmd.side));
+                  touchedRef.current.add(cb);
+                } else {
+                  rotate(cb, cp.axis, cp.follow(rad, cmd.side));
+                }
               }
             }
           } else {

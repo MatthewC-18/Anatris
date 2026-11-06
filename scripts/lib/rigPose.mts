@@ -396,11 +396,18 @@ export function createRigPoser(
         // was measured with half of itself missing.
         bone.quaternion.copy(baseOf(bone));
         bone.rotateOnAxis(AX[j.axis], rad);
+        // A coupling on the SAME bone as the primary has to COMPOSE, not
+        // restart. It used to call the same reset-then-rotate helper, so the
+        // cross-over flexion of hip adduction wiped the adduction it was there
+        // to assist: measured, 20 deg of "aduccion" moved the knee 0,9 cm
+        // sideways and 16 cm forwards -- it was a pure hip flexion wearing
+        // another name. Different-bone couplings (the patella, the shin) still
+        // restart from their own base, which is where they were anyway.
         for (const cp of (j.couplings ?? []) as any[]) {
           const cb = jointBones.get(cp.bone);
           if (!cb) continue;
-          cb.quaternion.copy(baseOf(cb));
-          cb.rotateOnAxis(AX[cp.axis], cp.follow(rad));
+          if (cb !== bone) cb.quaternion.copy(baseOf(cb));
+          cb.rotateOnAxis(AX[cp.axis], cp.follow(rad, side));
         }
       }
       scene.updateMatrixWorld(true);

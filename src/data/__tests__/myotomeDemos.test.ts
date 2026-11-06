@@ -78,12 +78,20 @@ describe('cervical myotome demos', () => {
     expect(ctrl?.kind).toBe('joint');
     if (ctrl?.kind === 'joint') {
       expect(ctrl.bone).toBe('hand_flex');
-      // MEASURED on the shipped GLB: the palm faces hand-local +Z (palmar
-      // structures at z=+1.8 cm, dorsal at 0), and +40 deg on X carries the
-      // fingertips 5 cm toward the dorsum. Unsigned between sides.
+      // SIGN CORRECTED 2026-11-06, and the old measurement here is why it
+      // lasted: it was taken in HAND-LOCAL space ("the palm faces local +Z, so
+      // +40 on X carries the fingertips toward the dorsum") and the local frame
+      // was read backwards. Measured in WORLD space, which is the space the
+      // user sees:
+      //   - the palm faces the way the body faces (+z): palmar aponeurosis at
+      //     z=+5,9 cm, flexor retinaculum at +2,6 against the extensor
+      //     retinaculum at +0,6, lumbricals at +5,4;
+      //   - driving this bone with sign +1 carries the hand 4,4 cm FORWARD,
+      //     which is flexion, so extension is -1.
+      // Unsigned between sides: hand_flex local X is not mirrored.
       expect(ctrl.axis).toBe('x');
-      expect(ctrl.sign.R).toBe(1);
-      expect(ctrl.sign.L).toBe(1);
+      expect(ctrl.sign.R).toBe(-1);
+      expect(ctrl.sign.L).toBe(-1);
     }
   });
 
