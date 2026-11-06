@@ -165,7 +165,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '46(14):964-78',
     publisher: 'Br J Sports Med',
     year: 2012,
-    note: 'Metaanálisis de tests de hombro. Su propia conclusión: ningún test aislado permite un diagnóstico patognomónico; los clústeres rinden mejor.',
+    sample:
+      'Revisión sistemática y metaanálisis; 32 estudios nuevos sobre la revisión de 2008, evaluados con QUADAS-2',
+    standard:
+      'El de cada estudio incluido (artroscopia, resonancia o cirugía, según el caso)',
+    note:
+      'Pinzamiento subacromial, cifras agrupadas: Neer 72% / 60%, Hawkins-Kennedy 79% / 59%, arco doloroso 53% / 76%. Para las lesiones SLAP, la prueba más sensible fue la recolocación (52%), la más específica la de Yergason (95%) y la de mejor razón de verosimilitud positiva la de compresión-rotación (2,81). Su conclusión, que es la que importa: NO se puede recomendar ninguna prueba aislada para hacer un diagnóstico, y combinarlas mejora la precisión solo de forma marginal.',
   },
   'park-2005': {
     id: 'park-2005',
@@ -176,7 +181,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'J Bone Joint Surg Am',
     year: 2005,
-    note: 'Arco doloroso, drop-arm y combinaciones para pinzamiento subacromial.',
+    sample:
+      '913 hombros valorados con ocho pruebas, clasificados en tres grados de enfermedad del manguito: bursitis, rotura parcial y rotura de espesor completo',
+    standard:
+      'Hallazgos quirúrgicos / artroscópicos',
+    note:
+      'Su aportación no son las cifras sueltas, que varían mucho, sino que la precisión de cada prueba DEPENDE DEL GRADO de la lesión. Las combinaciones son lo que rinde: Hawkins-Kennedy + arco doloroso + infraespinoso da una probabilidad posprueba del 95% para cualquier grado de pinzamiento, y arco doloroso + brazo caído + infraespinoso, del 91% para la rotura de espesor completo.',
   },
   'lo-2004': {
     id: 'lo-2004',
@@ -226,7 +236,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'J Shoulder Elbow Surg',
     year: 1996,
-    note: 'Signos de retardo (lag signs) del manguito rotador.',
+    sample:
+      '100 hombros dolorosos consecutivos con síndrome de pinzamiento en estadios 1 a 3, estudio prospectivo',
+    standard:
+      'Hallazgo quirúrgico',
+    note:
+      'Comparó los signos de retardo (lag signs) con los de Jobe y de lift-off. Para el supraespinoso y el infraespinoso, el signo de retardo en rotación externa fue MENOS sensible y MÁS específico que el de Jobe; el signo de la caída (drop sign) fue el menos sensible y tan específico como aquel. Y la salvedad que hay que decirle al alumno: las roturas PARCIALES del supraespinoso se le escapan al signo de retardo. Las cifras por prueba están en las tablas del texto completo, no en el resumen.',
   },
   'chronopoulos-2004': {
     id: 'chronopoulos-2004',
@@ -325,8 +340,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'British Journal of Sports Medicine 2015;49(5):323-329',
     year: 2015,
+    sample:
+      '87 pacientes (78% varones) con esguince de tobillo atendidos en nueve consultas de dos ciudades australianas, en las dos semanas siguientes a la lesión',
+    standard:
+      'Resonancia magnética leída por un radiólogo cegado',
     note:
-      'Estudio transversal de precision diagnostica: 87 pacientes con esguince de tobillo de menos de dos semanas, en 9 clinicas de dos ciudades australianas, contra RESONANCIA leida por un radiologo cegado. Tabla 3 leida aqui: rotacion externa con dorsiflexion S 0,71 (0,55-0,83) / E 0,63 (0,49-0,75), LR+ 1,93, LR- 0,46; squeeze S 0,26 (0,15-0,42) / E 0,88 (0,76-0,94), LR+ 2,15 (0,86-5,39); dolor a la palpacion de los ligamentos sindesmales S 0,92 / E 0,29; lunge con compresion S 0,69 / E 0,41. La conclusion de los autores es que ninguna prueba aislada basta.',
+      'Ninguna prueba aislada basta. Lo más sensible fue la incapacidad de saltar a la pata coja (89%) y la hipersensibilidad del ligamento sindesmótico a la palpación (92%, razón de verosimilitud negativa 0,28); lo más específico, el dolor desproporcionado respecto a la lesión aparente (79%) y la prueba de compresión o squeeze (88%). La sindesmosis fue cuatro veces más probable con palpación dolorosa (OR 4,04) o con la prueba de rotación externa en dorsiflexión positiva (OR 3,9). La recomendación es combinar un par de signos sensibles con un par de específicos.',
   },
 
   'wainner-2003': {
@@ -338,7 +357,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Spine',
     year: 2003,
-    note: 'Clúster de exploración para radiculopatía cervical (Spurling, distracción, ULTT, rotación <60°).',
+    sample:
+      '82 pacientes con sospecha de radiculopatía cervical o síndrome del túnel carpiano; estudio prospectivo y cegado',
+    standard:
+      'Examen electrofisiológico estandarizado del miembro superior sintomático (criterio de deterioro neural), con los fisioterapeutas exploradores ciegos al diagnóstico',
+    note:
+      'De 34 elementos de la exploración, más de dos tercios tuvieron fiabilidad al menos aceptable y 13 dieron razones de verosimilitud por encima de 2 o por debajo de 0,50. El clúster de CUATRO variables alcanzó una razón de verosimilitud positiva de 30,3, muy superior a cualquier prueba suelta. La prueba de tensión neural del miembro superior A (ULTT A) fue la más útil para DESCARTAR. Los intervalos de confianza de todas las razones fueron amplios, y los propios autores piden validar el clúster.',
   },
   'rubinstein-2007': {
     id: 'rubinstein-2007',
@@ -349,7 +373,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Eur Spine J',
     year: 2007,
-    note: 'Revisión sistemática de los tests provocativos cervicales.',
+    sample:
+      'Revisión sistemática: de todas las candidatas, solo SEIS estudios cumplían los criterios (identificar la prueba, un patrón de referencia cualquiera, y sensibilidad y especificidad publicadas o recalculables)',
+    standard:
+      'El de cada estudio incluido',
+    note:
+      'Las pruebas de provocación cervical se usan a diario y su precisión no se había revisado nunca de forma sistemática. Con seis estudios, lo que se puede decir es poco y con intervalos amplios.',
   },
   'tong-2002': {
     id: 'tong-2002',
@@ -359,7 +388,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Spine',
     year: 2002,
-    note: 'Precisión diagnóstica del test de Spurling (muy específico, poco sensible).',
+    sample:
+      '255 pacientes consecutivos derivados para electrodiagnóstico de trastornos nerviosos del miembro superior (1988-1993); diseño transversal',
+    standard:
+      'Electromiografía',
+    note:
+      'Sensibilidad 30% (6 de 20) y especificidad 93% (160 de 172). La prueba salió positiva en el 16,6% de los normales y en el 40% de los que tenían radiculopatía segura. Conclusión de los autores: no sirve como cribado, sirve para CONFIRMAR.',
   },
   'cook-2010': {
     id: 'cook-2010',
@@ -369,7 +403,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'J Man Manip Ther',
     year: 2010,
-    note: 'Agrupación de signos de mielopatía cervical (Hoffmann, supinador invertido, Babinski, marcha, edad).',
+    sample:
+      '249 pacientes con distintas alteraciones de la columna cervical',
+    standard:
+      'Diagnóstico clínico con confirmación por imagen de mielopatía cervical',
+    note:
+      'Las pruebas sueltas de mielopatía son específicas pero poco sensibles, y hasta este trabajo ningún clúster había demostrado ser mejor que ellas por separado. El estudio construye, por regresión multivariante, la combinación de hallazgos con mejor capacidad predictiva.',
   },
   'uitvlugt-1988': {
     id: 'uitvlugt-1988',
@@ -379,7 +418,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Arthritis Rheum',
     year: 1988,
-    note: 'Test de Sharp-Purser para inestabilidad atlantoaxial (serie en artritis reumatoide).',
+    sample:
+      '123 pacientes ambulatorios con artritis reumatoide',
+    standard:
+      'Radiografía: subluxación atloaxoidea anterior',
+    note:
+      'Valor predictivo 85% y especificidad 96%; la sensibilidad fue del 88% CUANDO la subluxación superaba los 4 mm, un matiz que casi nunca se cita y que cambia lo que significa un negativo en una subluxación pequeña.',
   },
   'hutting-2013': {
     id: 'hutting-2013',
@@ -390,7 +434,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Man Ther',
     year: 2013,
-    note: 'Revisión de las pruebas premanipulativas de insuficiencia vertebrobasilar (escaso valor diagnóstico; sens 0-57%, esp 67-100%).',
+    sample:
+      'Revisión sistemática: de 1677 referencias solo 4 estudios cumplían los criterios, y los cuatro de calidad cuestionable (QUADAS)',
+    standard:
+      'El de cada estudio incluido',
+    note:
+      'Sensibilidad entre 0 y 57%, especificidad entre 67 y 100%, valor predictivo positivo entre 0 y 100%, razón de verosimilitud positiva entre 0,22 y 83,25. Con esa dispersión no se puede concluir nada firme, y los autores lo dicen con todas las letras: las pruebas premanipulativas NO parecen válidas como cribado antes de manipular, y es improbable que aporten valor.',
   },
   'hutting-2013b': {
     id: 'hutting-2013b',
@@ -400,7 +449,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Phys Ther',
     year: 2013,
-    note: 'Revisión de las pruebas de inestabilidad cervical alta (Sharp-Purser, estrés del transverso, alares).',
+    sample:
+      'Revisión sistemática de cinco estudios sobre pruebas de inestabilidad cervical alta, en pacientes y en personas sanas; calidad evaluada con QUADAS-2',
+    standard:
+      'El de cada estudio incluido',
+    note:
+      'No se pudo agrupar estadísticamente por heterogeneidad clínica y estadística. La especificidad de siete pruebas fue suficiente, pero la sensibilidad varió mucho y los intervalos de confianza fueron amplios en casi todos los casos. Las pruebas de MEMBRANAS fueron las de mejor precisión. La salvedad que condiciona su uso: NINGUNO de los estudios evaluó estas pruebas en pacientes de atención primaria.',
   },
   'jiang-2024': {
     id: 'jiang-2024',
@@ -411,7 +465,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Global Spine J',
     year: 2024,
-    note: 'Metaanálisis de signos de mielopatía cervical (Hoffmann, Babinski, clonus, supinador invertido).',
+    sample:
+      'Revisión sistemática y metaanálisis: 11 estudios con grupo control para la precisión diagnóstica, más 61 que describen la frecuencia de los signos en cohortes de mielopatía cervical degenerativa; riesgo de sesgo con QUADAS-2',
+    standard:
+      'Diagnóstico de mielopatía cervical degenerativa establecido clínicamente y confirmado por imagen',
+    note:
+      'Los signos más SENSIBLES fueron el de Trömner y la hiperreflexia; los más ESPECÍFICOS, el de Babinski, el de Trömner, el clonus y el signo del supinador invertido. Cinco estudios miraron si la presencia del signo se relaciona con la gravedad: no encontraron relación definida para Hoffmann, Babinski ni hiperreflexia, de modo que un signo presente indica que hay que pedir imagen, no cuán avanzada está la enfermedad.',
   },
 
   // ---- LUMBAR: radiculopatía/hernia, inestabilidad y dolor sacroilíaco.
@@ -423,7 +482,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Spine',
     year: 2000,
-    note: 'Metaanálisis de la elevación de la pierna recta (SLR/Lasègue) y su versión cruzada.',
+    sample:
+      'Revisión sistemática con metaanálisis: 17 publicaciones localizadas y 11 agrupadas, TODAS series quirúrgicas fuera de atención primaria',
+    standard:
+      'Hallazgo quirúrgico (hernia discal confirmada en cirugía)',
+    note:
+      'Elevación de la pierna recta: sensibilidad agrupada 0,91 (IC 95% 0,82-0,94) y especificidad 0,26 (0,16-0,38). Cruzada: 0,29 (0,24-0,34) y 0,88 (0,86-0,90). El poder discriminativo BAJÓ en los estudios más recientes, en los que incluían solo hernias primarias y en los que cegaron tanto la prueba como el patrón de referencia, que es la señal clásica de que las cifras altas venían del diseño. Los autores advierten de que estas series no permiten una evaluación válida de la precisión.',
   },
   'majlesi-2008': {
     id: 'majlesi-2008',
@@ -434,7 +498,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'J Clin Rheumatol',
     year: 2008,
-    note: 'Compara el test de Slump con el SLR en hernia discal lumbar.',
+    sample:
+      '75 pacientes de consulta externa de neurocirugía con dolor lumbar o de pierna: 38 con hernia demostrada por resonancia y 37 controles sin hernia ni protrusión',
+    standard:
+      'Resonancia magnética lumbar, leída por un autor distinto del que exploraba',
+    note:
+      'Slump 0,84 de sensibilidad y 0,83 de especificidad; elevación de la pierna recta 0,52 y 0,89. Es decir: el Slump ve bastantes más hernias, y la elevación de la pierna recta identifica mejor a los que tienen compresión radicular que podría acabar en quirófano. Es un diseño de casos y controles, que tiende a separar mejor los grupos de lo que ocurre en consulta.',
   },
   'suri-2011': {
     id: 'suri-2011',
@@ -460,7 +529,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Phys Ther',
     year: 2006,
-    note: 'Descripción y precisión del test de extensión lumbar pasiva para inestabilidad.',
+    sample:
+      '122 sujetos con enfermedad degenerativa lumbar, divididos en inestables y estables',
+    standard:
+      'Radiografías dinámicas en flexión y extensión de la columna lumbar',
+    note:
+      'La prueba de extensión lumbar pasiva dio 84,2% de sensibilidad y 90,4% de especificidad, con una razón de verosimilitud positiva de 8,84 (IC 95% 4,51-17,33), por encima del resto de signos comparados (instability catch, painful catch y aprensión).',
   },
   'hicks-2005': {
     id: 'hicks-2005',
@@ -503,7 +577,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Ann R Coll Surg Engl',
     year: 2010,
-    note: 'Describe el signo de percusión con puño cerrado y el signo del supino para la fractura vertebral por compresión.',
+    sample:
+      '83 pacientes con sospecha de fractura vertebral osteoporótica aguda, estudio prospectivo',
+    standard:
+      'Resonancia magnética (la radiografía simple no distingue una fractura aguda de una antigua consolidada)',
+    note:
+      'Percusión con el puño cerrado: sensibilidad 87,5% y especificidad 90%. Signo en supino: 81,25% y 93,33%. Las dos son maniobras de consulta, sin coste, para decidir a quién se le pide la resonancia.',
   },
   'cote-1998': {
     id: 'cote-1998',
@@ -572,7 +651,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'J Orthop Sports Phys Ther',
     year: 2006,
-    note: 'Metaanálisis de Lachman, cajón anterior y pivot shift para rotura del LCA.',
+    sample:
+      'Metaanálisis de 28 estudios (MEDLINE, EMBASE y CINAHL hasta abril de 2005) sobre la exploración del ligamento cruzado anterior',
+    standard:
+      'Artroscopia, artrotomía o resonancia magnética',
+    note:
+      'Cifras agrupadas: Lachman 85% (IC 95% 83-87) y 94% (92-95); pivot shift 24% (21-27) y 98% (96-99); cajón anterior 92% (88-95) y 91% (87-94) EN LESIÓN CRÓNICA, y expresamente no en la aguda. Los resultados entre estudios fueron heterogéneos. La recomendación es hacer el Lachman siempre y añadir el pivot shift por lo específico que es.',
   },
   'hegedus-2007': {
     id: 'hegedus-2007',
@@ -583,7 +667,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'J Orthop Sports Phys Ther',
     year: 2007,
-    note: 'Metaanálisis de McMurray, dolor en interlínea y otros tests meniscales.',
+    sample:
+      'Revisión sistemática y metaanálisis de 18 estudios (MEDLINE, CINAHL y SPORTDiscus, 1966 a agosto de 2006), evaluados con QUADAS',
+    standard:
+      'El de cada estudio incluido (artroscopia o cirugía en la mayoría)',
+    note:
+      'Cifras agrupadas: McMurray 70% / 71%, Apley 60% / 70%, dolor en la interlínea 63% / 77%. Los resultados fueron heterogéneos y esa heterogeneidad NO se explicó por la prevalencia, por la calidad del estudio ni por lo bien descrita que estuviera la prueba, lo que apunta a diferencias locales en cómo se hace y cómo se interpreta cada maniobra. Conclusión: ninguna prueba aislada diagnostica con precisión una rotura meniscal.',
   },
   'karachalios-2005': {
     id: 'karachalios-2005',
@@ -594,7 +683,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'J Bone Joint Surg Am',
     year: 2005,
-    note: 'Descripción original del test de Thessaly (cifras altas no reproducidas después).',
+    sample:
+      '213 pacientes sintomáticos con lesión de rodilla (exploración clínica, resonancia y artroscopia) y 197 voluntarios asintomáticos con rodillas normales',
+    standard:
+      'Artroscopia en los sintomáticos; resonancia en los controles',
+    note:
+      'La prueba de Thessaly a 20° de flexión alcanzó una EXACTITUD del 94% para el menisco medial y del 96% para el lateral, con pocos falsos positivos y negativos; el resto de pruebas tradicionales rindió peor, salvo el dolor en la interlínea para el menisco lateral (89% de exactitud). Dos cosas importan al usarla: las cifras son del grupo original de sus autores y los estudios posteriores en atención primaria NO las han reproducido; y la exactitud no es lo mismo que la sensibilidad o la especificidad, que están en las tablas del texto completo.',
   },
   'malanga-2003': {
     id: 'malanga-2003',
@@ -675,7 +769,12 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Br J Sports Med',
     year: 2018,
-    note: 'Revisión sistemática de la evidencia de los tests de exploración del codo (escasa para varios).',
+    sample:
+      'Revisión sistemática PRISMA: de 1144 referencias se incluyeron 10 artículos (6 de rotura distal del bíceps, 1 de insuficiencia del ligamento colateral medial, 2 de inestabilidad rotatoria posterolateral y 1 de epicondilalgia lateral); nueve de los diez con riesgo de sesgo alto o poco claro según QUADAS-2',
+    standard:
+      'El de cada estudio incluido',
+    note:
+      'Se describieron 24 procedimientos de exploración del codo y solo 14 traían datos de precisión diagnóstica. No se encontró NINGÚN artículo sobre rotura del tríceps, pinzamiento posteromedial ni epicondilalgia medial. La conclusión es la que gobierna todo el panel del codo: ninguna de las pruebas descritas ofrece certeza suficiente para confirmar ni para descartar.',
   },
 
   // ---- HOMBRO: cuadros patologicos del laboratorio (P1 "normal vs patologico").

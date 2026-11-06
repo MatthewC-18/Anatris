@@ -34,9 +34,9 @@ const tests: OrthopedicTest[] = [
       'Rodilla a 20-30° de flexión; el explorador estabiliza el fémur y traslada la tibia hacia anterior valorando el desplazamiento y la calidad del tope final.',
     positive: 'Traslación anterior aumentada con tope final blando o ausente respecto al lado sano.',
     metrics: {
-      sensitivity: 86,
-      specificity: 91,
-      note: 'Benjaminse 2006 (metaanálisis): 86/91. El test aislado más preciso para el LCA.',
+      sensitivity: 85,
+      specificity: 94,
+      note: 'Benjaminse 2006, metaanálisis de 28 estudios con artroscopia, artrotomía o resonancia como patrón de referencia: sensibilidad agrupada 85% (IC 95% 83-87) y especificidad 94% (92-95). Es el test aislado más preciso para el LCA y el único que la revisión recomienda hacer siempre.'
     },
     utility: 'rule-in',
     interpretation:
@@ -48,7 +48,7 @@ const tests: OrthopedicTest[] = [
       angleDeg: 25,
       note: 'A 20-30° de flexión se traslada la tibia hacia anterior (translación, que el modelo no reproduce).',
     },
-    cite: [{ ref: 'benjaminse-2006', verified: true, locator: 'Lachman 86/91' }],
+    cite: [{ ref: 'benjaminse-2006', verified: true, locator: 'Resumen: Lachman 85% (83-87) / 94% (92-95), 28 estudios' }],
   },
   {
     id: 'anterior-drawer-knee',
@@ -62,19 +62,19 @@ const tests: OrthopedicTest[] = [
       'Rodilla a 90° de flexión y pie fijo; el explorador traslada la tibia hacia anterior.',
     positive: 'Traslación anterior aumentada respecto al lado sano.',
     metrics: {
-      sensitivity: 62,
-      specificity: 88,
-      note: 'Benjaminse 2006: 62/88 (más sensible en lesiones crónicas). Menos fiable en agudo que Lachman.',
+      sensitivity: 92,
+      specificity: 91,
+      note: 'ATENCIÓN A LA CONDICIÓN. Benjaminse 2006 publica 92% (IC 95% 88-95) y 91% (87-94), pero SOLO en lesiones CRÓNICAS: literalmente, el cajón anterior rinde bien en crónico "pero no en agudo". Esta aplicación mostraba antes 62/88, una cifra que no está en esa fuente y que ademas contradecía su propia nota. En el esguince agudo el dolor, el espasmo y el hemartros hunden la sensibilidad, y por eso el test de elección en agudo es el Lachman.'
     },
     utility: 'rule-in',
     interpretation:
-      'Específico pero poco sensible en agudo (dolor/espasmo lo limitan): un positivo apoya la rotura; un negativo no la descarta. Rinde mejor en lesiones crónicas.',
+      'En lesión CRÓNICA es tan bueno como el Lachman (92/91). En agudo no: el dolor y el hemartros lo limitan y un negativo no descarta nada. La cifra que ves solo vale para el paciente crónico.',
     demo: {
       movementId: 'knee-flexion',
       angleDeg: 90,
       note: 'A 90° de flexión se traslada la tibia hacia anterior (translación, que el modelo no reproduce).',
     },
-    cite: [{ ref: 'benjaminse-2006', verified: true, locator: 'cajón anterior 62/88' }],
+    cite: [{ ref: 'benjaminse-2006', verified: true, locator: 'Resumen: cajón anterior en CRÓNICO 92% (88-95) / 91% (87-94); en agudo no' }],
   },
   {
     id: 'pivot-shift',
@@ -88,19 +88,19 @@ const tests: OrthopedicTest[] = [
       'Desde la extensión, el explorador aplica valgo y rotación interna mientras flexiona la rodilla, buscando la reducción brusca de la subluxación tibial hacia los 30-40°.',
     positive: 'Resalte (clunk) de reducción de la subluxación anterolateral al flexionar.',
     metrics: {
-      sensitivity: 32,
+      sensitivity: 24,
       specificity: 98,
-      note: 'Benjaminse 2006: 32/98. Muy específico, poco sensible en el paciente despierto (guarding).',
+      note: 'Benjaminse 2006, sensibilidad agrupada 24% (IC 95% 21-27) y especificidad 98% (96-99). Esta aplicación mostraba un 32% que no está en esa fuente. La revisión lo recomienda precisamente por lo especifico que es, tanto en agudo como en crónico: tres de cada cuatro roturas se le escapan, pero un resalte positivo no deja dudas.'
     },
     utility: 'rule-in',
     interpretation:
-      'Muy específico (SpPin): un positivo confirma la insuficiencia del LCA. Muy poco sensible con el paciente despierto; su rendimiento sube bajo anestesia.',
+      'Muy específico (SpPin): un positivo confirma la insuficiencia del LCA. Solo ve una de cada cuatro roturas con el paciente despierto; su rendimiento sube bajo anestesia.',
     demo: {
       movementId: 'knee-flexion',
       angleDeg: 30,
       note: 'El resalte se busca hacia los 30-40° de flexión; el modelo muestra esa flexión (el valgo y la rotación interna tibial no se reproducen).',
     },
-    cite: [{ ref: 'benjaminse-2006', verified: true, locator: 'pivot shift 32/98' }],
+    cite: [{ ref: 'benjaminse-2006', verified: true, locator: 'Resumen: pivot shift 24% (21-27) / 98% (96-99)' }],
   },
 
   // ==================== LIGAMENTO CRUZADO POSTERIOR (LCP) ====================
