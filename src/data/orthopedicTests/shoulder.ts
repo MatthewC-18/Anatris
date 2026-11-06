@@ -372,6 +372,8 @@ const tests: OrthopedicTest[] = [
       note: 'Chronopoulos 2004 (35 pacientes operados de resección de clavícula distal, casos y controles) publica la sensibilidad del 77%, la más alta de las tres pruebas acromioclaviculares. El 79% que suele acompañarla NO es la especificidad: es la EXACTITUD global de la prueba, y son cosas distintas. La especificidad de esta prueba no consta en esa fuente. Lo que sí consta cambia cómo se usa: el valor predictivo positivo fue MENOR del 30% en las tres pruebas y el negativo mayor del 94%. Es decir, sirve para descartar, no para confirmar; y como es un diseño de casos y controles, esos valores predictivos dependen de una prevalencia artificial.',
     },
     utility: 'rule-out',
+    utilityBasis:
+      'La etiqueta no viene de la sensibilidad (77%, que no llega al umbral de una prueba de descarte) sino del valor predictivo negativo de la misma fuente, por encima del 94%. Chronopoulos no publica la especificidad de esta prueba.',
     interpretation:
       'Un negativo deja la articulación acromioclavicular prácticamente fuera (VPN > 94%). Un positivo NO la confirma: con un VPP por debajo del 30%, el dolor a la aducción cruzada es frecuente sin lesión acromioclavicular. La localización del dolor en la propia AC, y no en el subacromial, es lo que aporta valor.',
     cite: [

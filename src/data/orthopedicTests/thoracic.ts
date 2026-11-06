@@ -186,6 +186,8 @@ const tests: OrthopedicTest[] = [
       note: 'ATENCIÓN: 72/53 es la MEDIA de TODOS los tests provocativos de Gillard 2001, no la cifra propia de este test; el resumen no publica cifras por test y las revisiones que las dan se contradicen. Lo que sí está medido por test es el comportamiento en SANOS (Plewa 1998, 53 voluntarios): el EAST altera el pulso en el 62%, da parestesias en el 36% y dolor en el 21%. Solo el criterio "tiene que interrumpir la prueba" se sostiene, con un límite superior de falsos positivos del 16%.',
     },
     utility: 'rule-out',
+    utilityBasis:
+      'El 72/53 que figura arriba NO es de esta prueba: es la media de todos los tests provocativos de Gillard, así que la etiqueta no puede apoyarse en esa cifra. Se usa como prueba de descarte por el razonamiento clínico, no por un número propio: lo que está medido por prueba es su comportamiento en sanos, y de los tres criterios posibles solo "tiene que interrumpir" se sostiene.',
     interpretation:
       'Sensible pero poco específico (SnNout): tolerar los tres minutos sin síntomas hace improbable el desfiladero neurógeno. Un positivo aislado no lo confirma. Y define ANTES qué cuentas como positivo: en voluntarios sanos, el pulso se altera en seis de cada diez y aparecen parestesias en uno de cada tres, así que esos dos criterios no sirven; el que se sostiene es tener que interrumpir la prueba.',
     pearl:

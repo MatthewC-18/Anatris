@@ -781,6 +781,13 @@ function TestRow({
             </div>
           )}
 
+          {/* POR QUE la etiqueta dice lo que dice, cuando la cifra de arriba no
+              lo respalda por si sola. Solo lo llevan las dos pruebas en las que
+              eso pasa, y es justo la pregunta que hace un alumno despierto:
+              "si la sensibilidad es 77%, por que lo llamais SnNout?". */}
+          {!hideMetrics && test.utilityBasis && (
+            <Detail label="Por qué ese uso">{test.utilityBasis}</Detail>
+          )}
           {/* Interpretacion reveals the intended use (the exam answer); hold it
               until the prediction is revealed. */}
           {!hideMetrics && <Detail label="Interpretación">{test.interpretation}</Detail>}

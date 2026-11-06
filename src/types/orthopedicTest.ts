@@ -136,6 +136,28 @@ export interface OrthopedicTest {
   metrics: DiagnosticMetrics;
   /** Derived clinical use of the test (drives the SnNout/SpPin badge). */
   utility: TestUtility;
+  /**
+   * POR QUE el uso es ese, cuando NO se deduce de la sensibilidad o la
+   * especificidad que figuran arriba.
+   *
+   * La regla normal es la obvia: se descarta con una prueba sensible y se
+   * confirma con una específica, y la auditoría avisa cuando la etiqueta y la
+   * cifra no concuerdan. Pero hay dos casos reales en los que concuerdan mal
+   * por un buen motivo, y callarlo convertía el aviso en ruido permanente:
+   *
+   *   - la aducción cruzada tiene una sensibilidad del 77%, y lo que la hace
+   *     una prueba de descarte es el VALOR PREDICTIVO NEGATIVO por encima del
+   *     94% que publica la misma fuente;
+   *   - la prueba de Roos lleva un 72% que no es suyo, sino la MEDIA de todos
+   *     los tests provocativos del estudio, de modo que la etiqueta no puede
+   *     apoyarse en esa cifra.
+   *
+   * Así que la excepción se DECLARA aquí, con su evidencia, en vez de vivir en
+   * una lista de perdones dentro del auditor. Si la cifra deja de contradecir
+   * a la etiqueta, este campo sobra; mientras la contradiga, la explicación
+   * tiene que estar escrita y el usuario tiene que poder leerla.
+   */
+  utilityBasis?: string;
   /** How to read a positive/negative given the metric profile. */
   interpretation: string;
   /** Optional teaching pearl (false positives, confounders, tips). */

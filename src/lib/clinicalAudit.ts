@@ -147,11 +147,31 @@ export function runClinicalAudit(): AuditResult {
           err(at, `demo.highlightMuscleId '${hm}' no existe en ${region}`);
         }
       }
-      if (t.utility === 'rule-out' && m.sensitivity != null && m.sensitivity < 80) {
-        warn(at, `utility 'rule-out' pero sensibilidad ${m.sensitivity} < 80`);
+      // SE DESCARTA CON UNA PRUEBA SENSIBLE Y SE CONFIRMA CON UNA ESPECIFICA,
+      // y cuando la etiqueta no concuerda con la cifra hay que explicarlo.
+      //
+      // Dos pruebas reales no concuerdan por un buen motivo: la aduccion
+      // cruzada se usa para descartar por su valor predictivo negativo (> 94%)
+      // y no por su sensibilidad del 77%, y el 72% de la prueba de Roos no es
+      // suyo sino la media de todos los tests provocativos de su estudio. Sin
+      // una via para decirlo, el aviso era permanente y por tanto invisible:
+      // dos avisos que nadie va a quitar ensenan a ignorar la lista entera.
+      //
+      // Asi que la excepcion se declara en el dato (`utilityBasis`), donde el
+      // usuario tambien la lee, y aqui solo se comprueba que exista.
+      if (t.utility === 'rule-out' && m.sensitivity != null && m.sensitivity < 80 && !t.utilityBasis) {
+        warn(at, `utility 'rule-out' pero sensibilidad ${m.sensitivity} < 80 y sin utilityBasis que lo explique`);
       }
-      if (t.utility === 'rule-in' && m.specificity != null && m.specificity < 80) {
-        warn(at, `utility 'rule-in' pero especificidad ${m.specificity} < 80`);
+      if (t.utility === 'rule-in' && m.specificity != null && m.specificity < 80 && !t.utilityBasis) {
+        warn(at, `utility 'rule-in' pero especificidad ${m.specificity} < 80 y sin utilityBasis que lo explique`);
+      }
+      // Y al contrario: una base declarada cuando la cifra YA concuerda sobra,
+      // porque entonces no explica ninguna excepcion.
+      if (t.utilityBasis) {
+        const concuerda =
+          (t.utility === 'rule-out' && (m.sensitivity ?? 0) >= 80) ||
+          (t.utility === 'rule-in' && (m.specificity ?? 0) >= 80);
+        if (concuerda) warn(at, 'utilityBasis sobra: la cifra ya respalda la etiqueta');
       }
     }
   }
