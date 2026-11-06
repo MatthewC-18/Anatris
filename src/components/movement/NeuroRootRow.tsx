@@ -525,6 +525,24 @@ export function NeuroRootRow({
             what="El movimiento que gobierna. Resístelo y compara."
           >
             {root.myotome.muscles}
+            {/* LAS DOS LECTURAS, SEPARADAS.
+                `action` y `muscles` son el miotoma de la exploracion corriente;
+                ISNCSCI es mas estrecho y la pantalla lo daba por el mismo.
+                Ponerlos juntos y rotulados es lo que deja de mentir: C5 se
+                explora por abduccion de hombro, pero se PUNTUA por los flexores
+                de codo. Ver el comentario de `Myotome.asiaKey`. */}
+            {root.myotome.asiaKey && (
+              <span className="mt-1.5 block text-[11px] leading-snug text-slate-400">
+                <span className="text-slate-500">Músculo clave ISNCSCI. </span>
+                <span className="text-slate-300">{root.myotome.asiaKey}</span>
+              </span>
+            )}
+            {root.myotome.asiaNonKey && (
+              <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">
+                Otros movimientos de esta raíz, que ISNCSCI no usa para puntuar.{' '}
+                {root.myotome.asiaNonKey}
+              </span>
+            )}
             {/* No "En el modelo:" prefix: every one of these notes already opens
                 with it, and the two together read "En el modelo: En el modelo se
                 muestra...". */}

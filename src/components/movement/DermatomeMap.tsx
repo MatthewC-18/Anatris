@@ -169,7 +169,14 @@ export function DermatomeMap({
               // Enlarged, the figure gets the whole rail and a much taller cap;
               // the panel scrolls, which is the trade the compact default exists
               // to avoid but the right one when the plate is what you came for.
-              style={{ maxHeight: enlarged ? 'min(72vh, 34rem)' : 'min(38vh, 19rem)' }}
+              // MEDIDO EN UN PORTATIL (ventana de 900 px): con el tope en 38vh
+              // la lista de raices se quedaba en 178 px de los 1309 que necesita
+              // -- el 14% -- y el panel era cuatro quintas partes de lamina. A
+              // 26vh la lamina sigue entrando entera (su ancho, que es lo que
+              // hacia ilegibles las bandas del antebrazo, lo fija el carril y no
+              // cambia) y la lista recupera mas de cien pixeles. Quien venga a
+              // por la lamina tiene "Ampliar", que es para lo que esta.
+              style={{ maxHeight: enlarged ? 'min(72vh, 34rem)' : 'min(26vh, 14rem)' }}
               // NOT role="img" when the territories are selectable: role="img"
               // makes an element's whole subtree presentational, which would hide
               // every one of the root buttons below from assistive tech.

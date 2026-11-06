@@ -1,8 +1,14 @@
 // src/data/neuro/lumbosacral.ts
 //
 // LOWER-LIMB nerve roots (L2-S1): dermatome key point, key myotome and reflex,
-// with a rig demo of the myotome where the model can reproduce it. Values follow
-// the ASIA/ISNCSCI key points and Magee; verified:false until checked.
+// with a rig demo of the myotome where the model can reproduce it.
+//
+// Cotejado igual que el miembro superior (ver la cabecera de `cervical.ts`):
+// puntos clave y musculos clave leidos en la hoja de trabajo oficial ISNCSCI y
+// contrastados con el capitulo de la ASCIP (Kirshblum, 2023). En el miembro
+// inferior las dos lecturas ya coincidian, asi que aqui el cotejo no corrigio
+// ningun valor: solo anade el musculo clave en las palabras de ISNCSCI y los
+// movimientos que esa misma hoja lista como NO clave.
 //
 // Rig demos available for the lower limb: knee extension, knee flexion. Hip,
 // ankle and toe movements are not riggable, so those roots carry a demoNote.
@@ -10,7 +16,7 @@
 import type { NeuroSegmentSet } from '../../types/neuro';
 
 const CITE = [
-  { ref: 'asia', verified: false },
+  { ref: 'asia', verified: true },
   { ref: 'magee', verified: false },
 ];
 
@@ -25,12 +31,14 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
       label: 'L2',
       dermatome: {
         area: 'Cara anterior y medial del muslo, tercio proximal.',
-        keyPoint: 'Cara anterior del muslo, mitad de la distancia entre pliegue inguinal y cóndilo (punto clave ASIA).',
+        keyPoint: 'Cara anterior del muslo, mitad de la distancia entre el pliegue inguinal y el cóndilo femoral medial (punto clave ASIA).',
         keyPointShort: 'Muslo anterior medio',
       },
       myotome: {
         action: 'Flexión de cadera.',
         muscles: 'Psoas ilíaco.',
+        asiaKey: 'Flexores de cadera (iliopsoas).',
+        asiaNonKey: 'Cadera: aducción.',
       },
       demoNote:
         'El modelo mueve la pierna desde la rodilla, así que la flexión de cadera no se puede reproducir aquí.',
@@ -54,6 +62,8 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
       myotome: {
         action: 'Extensión de rodilla.',
         muscles: 'Cuádriceps femoral.',
+        asiaKey: 'Extensores de rodilla (cuádriceps).',
+        asiaNonKey: 'Cadera: rotación externa.',
       },
       reflex: {
         name: 'Reflejo rotuliano o patelar (L3 y L4)',
@@ -85,6 +95,9 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
       myotome: {
         action: 'Dorsiflexión de tobillo.',
         muscles: 'Tibial anterior.',
+        asiaKey: 'Dorsiflexores de tobillo (tibial anterior).',
+        asiaNonKey:
+          'Cadera: extensión, abducción y rotación interna. Rodilla: flexión. Tobillo: inversión y eversión. Dedos: extensión metatarsofalángica e interfalángica.',
       },
       reflex: {
         name: 'Reflejo rotuliano o patelar (L3 y L4)',
@@ -108,6 +121,9 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
       myotome: {
         action: 'Extensión del dedo gordo.',
         muscles: 'Extensor largo del hallux.',
+        asiaKey: 'Extensores largos de los dedos (extensor largo del hallux).',
+        asiaNonKey:
+          'Hallux y dedos: flexión de las interfalángicas distal y proximal, y abducción.',
       },
       demoNote:
         'La extensión del dedo gordo no se puede reproducir en el modelo.',
@@ -131,6 +147,8 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
       myotome: {
         action: 'Flexión plantar de tobillo (y flexión de rodilla).',
         muscles: 'Tríceps sural; isquiotibiales.',
+        asiaKey: 'Flexores plantares de tobillo (gastrocnemio y sóleo).',
+        asiaNonKey: 'Hallux: aducción.',
       },
       reflex: {
         name: 'Reflejo aquíleo (S1 y S2)',

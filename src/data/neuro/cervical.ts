@@ -1,9 +1,22 @@
 // src/data/neuro/cervical.ts
 //
 // UPPER-LIMB nerve roots (C4-T1): dermatome key point, key myotome and reflex,
-// with a rig demo of the myotome where the model can reproduce it. Values follow
-// the ASIA/ISNCSCI key points and Magee; verified:false until checked against
-// the primary source (dermatome maps vary by author).
+// with a rig demo of the myotome where the model can reproduce it.
+//
+// LO QUE ESTA COTEJADO Y LO QUE NO (2026-11). Los puntos clave sensitivos y los
+// musculos clave motores se leyeron en la hoja de trabajo oficial ISNCSCI (las
+// dos caras: la de delante da los musculos clave, la de detras la tabla de
+// musculos NO clave) y se contrastaron con el capitulo de evaluacion
+// neurologica de la ASCIP (Kirshblum, 2023); coinciden palabra por palabra, asi
+// que la cita de ASIA va verificada. Los miotomas AMPLIADOS (los que anade la
+// exploracion ortopedica corriente) y los niveles de los reflejos siguen a
+// Magee y se quedan sin verificar hasta abrir el libro.
+//
+// Lo que ese cotejo corrigio: la pantalla etiquetaba de "ASIA" cosas que ASIA
+// no dice. C5 llevaba "abduccion del hombro" como musculo clave (ISNCSCI solo
+// pone los flexores de codo, y la abduccion esta en su tabla de NO clave), y T1
+// llevaba "abduccion y aduccion de los dedos" con los interoseos (ISNCSCI pone
+// el abductor del meñique). Ahora cada raiz lleva las dos lecturas separadas.
 //
 // Rig demos available for the upper limb: shoulder abduction, elbow flexion,
 // elbow extension. Wrist/hand movements are not riggable, so those roots carry a
@@ -12,7 +25,7 @@
 import type { NeuroSegmentSet } from '../../types/neuro';
 
 const CITE = [
-  { ref: 'asia', verified: false },
+  { ref: 'asia', verified: true },
   { ref: 'magee', verified: false },
 ];
 
@@ -64,6 +77,9 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
       myotome: {
         action: 'Abducción del hombro y flexión de codo.',
         muscles: 'Deltoides y bíceps braquial.',
+        asiaKey: 'Flexores de codo (bíceps y braquial).',
+        asiaNonKey:
+          'Hombro: flexión, extensión, abducción, aducción, rotación interna y externa. Codo: supinación.',
       },
       reflex: {
         name: 'Reflejo bicipital (C5 y C6)',
@@ -100,6 +116,8 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
       myotome: {
         action: 'Extensión de muñeca (y flexión de codo).',
         muscles: 'Extensores radiales del carpo; braquiorradial y bíceps.',
+        asiaKey: 'Extensores de muñeca (extensor radial largo y corto del carpo).',
+        asiaNonKey: 'Codo: pronación. Muñeca: flexión.',
       },
       reflex: {
         name: 'Reflejo braquiorradial o estilorradial (C6)',
@@ -138,6 +156,9 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
       myotome: {
         action: 'Extensión de codo (y flexión de muñeca).',
         muscles: 'Tríceps braquial; flexores del carpo.',
+        asiaKey: 'Extensores de codo (tríceps).',
+        asiaNonKey:
+          'Dedos: flexión de la articulación proximal y extensión. Pulgar: flexión, extensión y abducción en el plano del pulgar. La flexión de muñeca, que la exploración clásica pone en C7, ISNCSCI la lista en C6.',
       },
       reflex: {
         name: 'Reflejo tricipital (C7)',
@@ -170,6 +191,9 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
       myotome: {
         action: 'Flexión de los dedos.',
         muscles: 'Flexor profundo de los dedos.',
+        asiaKey: 'Flexores de los dedos (flexor profundo del dedo medio).',
+        asiaNonKey:
+          'Dedos: flexión de la metacarpofalángica. Pulgar: oposición, aducción y abducción perpendicular a la palma.',
       },
       demoNote:
         'El modelo llega hasta la muñeca, así que la flexión de los dedos no se puede reproducir aquí.',
@@ -191,8 +215,10 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
         keyPointShort: 'Fosa antecubital medial',
       },
       myotome: {
-        action: 'Abducción y aducción de los dedos.',
-        muscles: 'Músculos interóseos de la mano.',
+        action: 'Abducción de los dedos.',
+        muscles: 'Abductor del meñique e interóseos dorsales.',
+        asiaKey: 'Abductor del meñique (abductor digiti minimi).',
+        asiaNonKey: 'Abducción del dedo índice.',
       },
       demoNote:
         'La motricidad fina de la mano no se puede reproducir en el modelo.',

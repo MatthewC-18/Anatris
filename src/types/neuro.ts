@@ -11,8 +11,12 @@
 // em-dashes or hyphen-joined word pairs in visible Spanish (middot "·" is fine).
 //
 // HONESTY: dermatome maps and reflex roots vary between sources (Keegan vs.
-// ASIA). Every root carries citations with `verified: false` until checked
-// against the primary source, mirroring the orthopedic-tests convention.
+// ASIA), so every root carries its citations and each one says whether it has
+// been checked against the primary source, mirroring the orthopedic-tests
+// convention. As of 2026-11 the ASIA/ISNCSCI side IS checked: the key sensory
+// points and the key muscle functions were read off the official ISNCSCI
+// worksheet (both sides), so `asia` is verified. The wider myotomes and the
+// reflex levels follow Magee and stay unverified until the book is opened.
 
 import type { StudyCitation } from './orthopedicTest';
 
@@ -38,6 +42,27 @@ export interface Myotome {
   action: string;
   /** Muscles chiefly responsible, Spanish. */
   muscles: string;
+  /**
+   * ASIA NO DICE LO MISMO QUE EL MIOTOMA CLASICO, Y LA PANTALLA LO MEZCLABA.
+   *
+   * `action` es el miotoma de la exploracion ortopedica corriente (Magee): C5
+   * es "abduccion de hombro y flexion de codo". La hoja de trabajo ISNCSCI es
+   * mas estrecha y mas exigente: para C5 el UNICO musculo clave son los
+   * flexores de codo. Las dos cosas son ciertas y se usan para cosas distintas
+   * -- una para tamizar en consulta, otra para clasificar una lesion medular --
+   * pero la pantalla las daba juntas y le ponia a todo la etiqueta "ASIA".
+   *
+   * Asi que el musculo clave de ISNCSCI va aparte, en sus palabras, para las
+   * raices que lo tienen (C5-T1 y L2-S1; C4 no tiene).
+   */
+  asiaKey?: string;
+  /**
+   * Los movimientos que ISNCSCI asigna a esta raiz como musculos NO clave
+   * (la tabla "When to Test Non-Key Muscles" del reverso de la hoja). Es donde
+   * aparece, por ejemplo, la abduccion de hombro en C5: no es que ASIA la
+   * ignore, es que no la usa para puntuar.
+   */
+  asiaNonKey?: string;
 }
 
 /** A deep tendon reflex tied to a root (not every root has one). */

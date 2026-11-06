@@ -702,6 +702,19 @@ export function NeuroPanel({
             primaria (ASIA/ISNCSCI y Magee).
           </p>
         )}
+        {/* QUE ESTA COTEJADO Y QUE NO, EN UNA LINEA.
+            Antes esto decia que la pantalla entera estaba sin cotejar, lo cual
+            dejaba al lector sin saber de que fiarse. Ahora los puntos clave y
+            los musculos clave vienen leidos de la hoja ISNCSCI, y lo que sigue
+            sin cotejar (los miotomas ampliados y los niveles de los reflejos,
+            que son de Magee) se dice con ese nombre. */}
+        {!allPending && (
+          <p className="px-4 pt-3 text-[11px] leading-snug text-slate-500">
+            <span className="text-slate-400">Puntos clave sensitivos y músculos clave</span>{' '}
+            cotejados contra la hoja de trabajo oficial ISNCSCI. Los miotomas ampliados
+            y los niveles de los reflejos siguen a Magee y están pendientes de cotejo.
+          </p>
+        )}
         <p className="px-4 py-3 text-[11px] leading-snug text-slate-600">
           Los mapas dermatómicos y las raíces de los reflejos varían entre autores
           (ASIA, Keegan). Úsalo como guía de razonamiento segmentario, no como

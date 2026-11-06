@@ -137,13 +137,15 @@ export const REFERENCES: Record<string, Reference> = {
   },
   asia: {
     id: 'asia',
-    authors: 'American Spinal Injury Association',
+    authors: 'American Spinal Injury Association / ISCoS',
     title:
-      'International Standards for Neurological Classification of Spinal Cord Injury (ISNCSCI)',
-    edition: 'Revisión 2019',
+      'International Standards for Neurological Classification of Spinal Cord Injury (ISNCSCI). Hoja de trabajo oficial',
+    edition: 'Hoja de trabajo, rev. 11/15',
     publisher: 'American Spinal Injury Association',
     year: 2019,
-    note: 'Estándar de puntos clave dermatómicos y músculos clave miotómicos (C5-T1, L2-S1).',
+    sample:
+      'Estándar de consenso internacional, no un estudio: no tiene muestra ni patrón de referencia.',
+    note: 'Leída la hoja de trabajo por las dos caras: la de delante da los músculos clave (C5 flexores de codo, C6 extensores de muñeca, C7 extensores de codo, C8 flexores de los dedos, T1 abductor del meñique; L2 flexores de cadera, L3 extensores de rodilla, L4 dorsiflexores de tobillo, L5 extensores largos de los dedos, S1 flexores plantares) y la de detrás la tabla de músculos NO clave, que es donde aparece la abducción de hombro como C5. Los puntos clave sensitivos se contrastaron además con el capítulo de evaluación neurológica de la ASCIP (Kirshblum, 2023), que los da con las mismas palabras.',
   },
 
   // -------------------------------------------------------------------------
