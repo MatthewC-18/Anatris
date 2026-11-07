@@ -80,8 +80,8 @@ const FLEXION_GUIDE: GestureGuide = {
         cite: [{ ref: 'kapandji', pageVerified: false }],
       },
       muscles: [
-        { id: 'longissimus-thoracis', role: 'prime-mover' },
-        { id: 'iliocostalis-thoracis', role: 'assistant' },
+        { id: 'longissimus-thoracis', role: 'eccentric-control' },
+        { id: 'iliocostalis-thoracis', role: 'eccentric-control' },
         { id: 'multifidus-thoracis', role: 'stabilizer' },
       ],
       view: 'lateral-right',

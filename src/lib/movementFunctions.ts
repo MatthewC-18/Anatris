@@ -30,6 +30,147 @@ export interface MovementLike {
   region: string;
   reverseArc?: { name: string; phases: { muscles: MuscleRefLike[] }[] };
   phases: { label: string; muscles: MuscleRefLike[] }[];
+  /**
+   * Las envolventes de reclutamiento, que llevan SU PROPIO rol. El panel muestra
+   * ESTE y no el de la fase cuando existe (`activeMusclesAt`), asi que un
+   * desacuerdo entre los dos no es academico: lo que el usuario lee es este.
+   */
+  activations?: {
+    muscleId: string;
+    role: MuscleRefLike['role'];
+    /** El papel en el tramo negativo del arco, si cambia al cruzar el cero. */
+    roleWhenNegative?: MuscleRefLike['role'];
+    note?: string;
+  }[];
+}
+
+/** Un musculo al que la fase y la envolvente le dan papeles distintos. */
+export interface RoleDisagreement {
+  movementId: string;
+  muscleId: string;
+  phaseRoles: MuscleRefLike['role'][];
+  activationRole: MuscleRefLike['role'];
+}
+
+/**
+ * DOS SITIOS PARA EL MISMO PAPEL, Y PUEDEN DECIR COSAS DISTINTAS.
+ *
+ * El rol de un musculo esta escrito dos veces: en la fase (`phases[].muscles`) y
+ * en su envolvente de reclutamiento (`activations[]`). El panel prefiere el de
+ * la envolvente, de modo que corregir solo la fase deja la pantalla igual — fue
+ * exactamente lo que paso al convertir el erector en freno excentrico: el dato
+ * decia "freno" y el panel seguia leyendo "Motor principal".
+ *
+ * Un estabilizador en la fase y asistente en la envolvente es un matiz
+ * defendible; motor en una y FRENO en la otra no, porque son papeles opuestos.
+ * Asi que se reporta todo desacuerdo y el que lo lea decide.
+ */
+export function readRoleDisagreements(movement: MovementLike): RoleDisagreement[] {
+  const acts = movement.activations ?? [];
+  if (acts.length === 0) return [];
+  const byMuscle = new Map<string, Set<MuscleRefLike['role']>>();
+  for (const ph of movement.phases) {
+    for (const m of ph.muscles) {
+      if (!byMuscle.has(m.muscleId)) byMuscle.set(m.muscleId, new Set());
+      byMuscle.get(m.muscleId)!.add(m.role);
+    }
+  }
+  const out: RoleDisagreement[] = [];
+  for (const a of acts) {
+    const roles = byMuscle.get(a.muscleId);
+    // Un musculo que solo esta en la envolvente no es un desacuerdo: es una
+    // ausencia, y la vigila el audit de funciones por su cuenta.
+    if (!roles || roles.size === 0) continue;
+    if (!roles.has(a.role)) {
+      out.push({
+        movementId: movement.id,
+        muscleId: a.muscleId,
+        phaseRoles: [...roles],
+        activationRole: a.role,
+      });
+    }
+  }
+  return out;
+}
+
+/** Un paso de una guia gestual, con los musculos que ilumina. */
+export interface GuideStepLike {
+  id: string;
+  title: string;
+  muscles: { id: string; role: MuscleRefLike['role'] }[];
+}
+
+/** Una guia gestual: pasos encadenados bajo el id de un movimiento ROM. */
+export interface GuideLike {
+  movementId: string;
+  name: string;
+  steps: GuideStepLike[];
+}
+
+/** Un paso de guia que llama motor a lo que el movimiento llama freno. */
+export interface GuideRoleConflict {
+  movementId: string;
+  stepId: string;
+  stepTitle: string;
+  muscleId: string;
+  guideRole: MuscleRefLike['role'];
+  romRoles: MuscleRefLike['role'][];
+}
+
+/** Papeles que no pueden ser el mismo musculo en el mismo tramo. */
+function opposedRoles(a: MuscleRefLike['role'], b: MuscleRefLike['role']): boolean {
+  const motor = (r: MuscleRefLike['role']) => r === 'prime-mover' || r === 'assistant';
+  return (motor(a) && b === 'eccentric-control') || (a === 'eccentric-control' && motor(b));
+}
+
+/**
+ * EL CUARTO SITIO DONDE VIVE EL PAPEL DE UN MUSCULO.
+ *
+ * Las guias gestuales de la fase de biomecanica (`GestureGuide.steps[].muscles`)
+ * llevan SU PROPIO rol, que es el que colorea el chip y el musculo mientras el
+ * alumno avanza paso a paso. Un paso puede legitimamente subrayar a un musculo
+ * que el movimiento llama asistente (el braquiorradial con el antebrazo en
+ * neutro es el ejemplo bueno), asi que un rol distinto no es por si un defecto.
+ *
+ * Lo que NO puede ser es un paso titulado «el erector frena» que acredite al
+ * erector como MOTOR: motor y freno excentrico son funciones opuestas. Eso es lo
+ * que se reporta.
+ */
+export function readGuideRoleConflicts(
+  guides: readonly GuideLike[],
+  movements: readonly MovementLike[],
+): GuideRoleConflict[] {
+  const byId = new Map(movements.map((m) => [m.id, m]));
+  const out: GuideRoleConflict[] = [];
+  for (const g of guides) {
+    const mv = byId.get(g.movementId);
+    if (!mv) continue;
+    const roles = new Map<string, Set<MuscleRefLike['role']>>();
+    const add = (id: string, role: MuscleRefLike['role']): void => {
+      if (!roles.has(id)) roles.set(id, new Set());
+      roles.get(id)!.add(role);
+    };
+    for (const ph of mv.phases) for (const r of ph.muscles) add(r.muscleId, r.role);
+    for (const a of mv.activations ?? []) add(a.muscleId, a.role);
+    for (const st of g.steps) {
+      for (const mu of st.muscles) {
+        const rs = roles.get(mu.id);
+        if (!rs || rs.size === 0) continue;
+        // Si ALGUN tramo del movimiento le da ese papel, el paso es defendible.
+        if (rs.has(mu.role)) continue;
+        if (![...rs].every((r) => opposedRoles(mu.role, r))) continue;
+        out.push({
+          movementId: g.movementId,
+          stepId: st.id,
+          stepTitle: st.title,
+          muscleId: mu.id,
+          guideRole: mu.role,
+          romRoles: [...rs],
+        });
+      }
+    }
+  }
+  return out;
 }
 
 export interface MuscleRefLike {
@@ -226,6 +367,31 @@ export function readMovementFunctions(
   if (movement.reverseArc) {
     const rev = gesturesIn(movement.reverseArc.name);
     for (const ph of movement.reverseArc.phases) blocks.push({ gestures: rev, refs: ph.muscles });
+  }
+
+  // LAS ENVOLVENTES SON LA TERCERA ACREDITACION, Y LA QUE SE VE. El panel
+  // prefiere `activations[].role` al de la fase, asi que una envolvente sin
+  // revisar es un rotulo equivocado en pantalla aunque la fase este bien. Y el
+  // TRAMO NEGATIVO de un arco bidireccional es el gesto CONTRARIO: ahi se juzga
+  // contra el opuesto, que es lo que `roleWhenNegative` dice.
+  const acts = movement.activations ?? [];
+  if (acts.length > 0) {
+    blocks.push({
+      gestures: own,
+      refs: acts.map((a) => ({ muscleId: a.muscleId, role: a.role, note: a.note })),
+    });
+    const opp = own.map((g) => BY_KEY.get(g)?.opposite).filter((g): g is string => !!g);
+    const neg = acts.filter((a) => !!a.roleWhenNegative);
+    if (opp.length > 0 && neg.length > 0) {
+      blocks.push({
+        gestures: opp,
+        refs: neg.map((a) => ({
+          muscleId: a.muscleId,
+          role: a.roleWhenNegative!,
+          note: a.note,
+        })),
+      });
+    }
   }
 
   const seen = new Set<string>();

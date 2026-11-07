@@ -115,8 +115,8 @@ const flexion: RomMovement = {
     },
     {
       muscleId: 'longissimus-thoracis',
-      role: 'prime-mover',
-      note: 'Superado el equilibrio (~20°), frena excéntricamente el descenso: domina el tramo final.',
+      role: 'eccentric-control',
+      note: 'Superado el equilibrio (~20°), frena excéntricamente el descenso: domina el tramo final. No flexiona, sostiene.',
       curve: [
         { deg: 0, level: 0.25 },
         { deg: 20, level: 0.5 },
@@ -125,7 +125,7 @@ const flexion: RomMovement = {
     },
     {
       muscleId: 'iliocostalis-thoracis',
-      role: 'assistant',
+      role: 'eccentric-control',
       note: 'Frena excéntricamente la flexión junto al longísimo.',
       curve: [
         { deg: 20, level: 0.3 },
@@ -302,8 +302,8 @@ const lateralFlexion: RomMovement = {
     },
     {
       muscleId: 'multifidus-thoracis',
-      role: 'assistant',
-      note: 'Inclinación y estabilización segmentaria en el rango final.',
+      role: 'stabilizer',
+      note: 'Estabilización segmentaria en el rango final: sostiene el segmento, no lo inclina.',
       curve: [
         { deg: 15, level: 0.3 },
         { deg: 30, level: 0.6 },

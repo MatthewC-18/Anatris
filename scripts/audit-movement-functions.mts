@@ -30,9 +30,20 @@ import { kneeMuscles } from '../src/data/muscles/knee.ts';
 import { hipMuscles } from '../src/data/muscles/hip.ts';
 import { ankleMuscles } from '../src/data/muscles/ankle.ts';
 import { spineMuscles } from '../src/data/muscles/spine.ts';
+import { SHOULDER_TRACK } from '../src/data/shoulderPhases.ts';
+import { ELBOW_TRACK } from '../src/data/elbowPhases.ts';
+import { KNEE_TRACK } from '../src/data/kneePhases.ts';
+import { HIP_TRACK } from '../src/data/hipPhases.ts';
+import { ANKLE_TRACK } from '../src/data/anklePhases.ts';
+import { CERVICAL_TRACK } from '../src/data/cervicalPhases.ts';
+import { THORACIC_TRACK } from '../src/data/thoracicPhases.ts';
+import { LUMBAR_TRACK } from '../src/data/lumbarPhases.ts';
 import {
   isFunctionDefect,
+  readGuideRoleConflicts,
   readMovementFunctions,
+  readRoleDisagreements,
+  type GuideLike,
   type MovementLike,
   type MuscleLike,
 } from '../src/lib/movementFunctions.ts';
@@ -125,3 +136,80 @@ console.log(
 );
 
 if (defects > 0) process.exitCode = 1;
+
+// ---------------------------------------------------------------------------
+// EL MISMO PAPEL, ESCRITO DOS VECES.
+//
+// El rol de un musculo vive en la fase Y en su envolvente de reclutamiento, y el
+// panel prefiere la segunda. Corregir solo la fase deja la pantalla igual: paso
+// al convertir el erector lumbar en freno excentrico — el dato decia "freno" y
+// el panel seguia mostrando "Motor principal: Iliocostal lumbar 76%".
+// ---------------------------------------------------------------------------
+console.log('===== EL MISMO PAPEL, ESCRITO DOS VECES =====');
+console.log('La fase dice un rol y la envolvente de reclutamiento dice otro.');
+console.log('El panel muestra el de la ENVOLVENTE, asi que ese es el que se lee.');
+console.log('');
+let disagreements = 0;
+for (const reg of REGIONS) {
+  for (const mv of reg.movements as MovementLike[]) {
+    const bad = readRoleDisagreements(mv);
+    if (bad.length === 0) continue;
+    disagreements += bad.length;
+    console.log(`  MAL ${mv.id}`);
+    for (const d of bad) {
+      console.log(
+        `        ${d.muscleId.padEnd(26)} la fase dice ${d.phaseRoles.join('/')}, ` +
+        `la envolvente dice ${d.activationRole} (y es la que se ve)`,
+      );
+    }
+  }
+}
+console.log('');
+console.log(
+  disagreements === 0
+    ? '  Los dos sitios donde vive el papel de un musculo dicen lo mismo.'
+    : `  ${disagreements} musculo(s) con dos papeles distintos en el mismo movimiento.`,
+);
+
+if (disagreements > 0) process.exitCode = 1;
+
+// ---------------------------------------------------------------------------
+// Y EL CUARTO SITIO: LAS GUIAS GESTUALES.
+//
+// Los pasos de la fase de biomecanica llevan su propio rol, y colorean el chip
+// y el musculo mientras el alumno avanza. Un paso puede subrayar a un asistente
+// como protagonista de SU tramo y eso es ensenanza, no defecto; lo que no puede
+// es titularse «el erector frena» y acreditar al erector como MOTOR.
+// ---------------------------------------------------------------------------
+const TRACKS = [
+  SHOULDER_TRACK, ELBOW_TRACK, KNEE_TRACK, HIP_TRACK,
+  ANKLE_TRACK, CERVICAL_TRACK, THORACIC_TRACK, LUMBAR_TRACK,
+];
+const GUIDES = TRACKS.flatMap(
+  (t) => Object.values(t.phases).flatMap(
+    (ph) => ((ph as { guides?: unknown[] }).guides ?? []) as GuideLike[],
+  ),
+);
+const ALL_MOVES = REGIONS.flatMap((r) => r.movements) as MovementLike[];
+
+console.log('');
+console.log('===== LAS GUIAS GESTUALES, PASO A PASO =====');
+console.log(`${GUIDES.length} guias con ${GUIDES.reduce((n, g) => n + g.steps.length, 0)} pasos.`);
+console.log('Un paso no puede llamar motor a lo que el movimiento llama freno.');
+console.log('');
+const conflicts = readGuideRoleConflicts(GUIDES, ALL_MOVES);
+for (const c of conflicts) {
+  console.log(`  MAL ${c.movementId} / paso "${c.stepTitle}"`);
+  console.log(
+    `        ${c.muscleId.padEnd(26)} la guia dice ${c.guideRole}, ` +
+    `el movimiento dice ${c.romRoles.join('/')}`,
+  );
+}
+console.log('');
+console.log(
+  conflicts.length === 0
+    ? '  Ningun paso de guia contradice la funcion del movimiento.'
+    : `  ${conflicts.length} paso(s) de guia con la funcion al reves.`,
+);
+
+if (conflicts.length > 0) process.exitCode = 1;

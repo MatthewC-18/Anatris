@@ -320,7 +320,8 @@ const abduction: RomMovement = {
     },
     {
       muscleId: 'pectoralis-major',
-      role: 'prime-mover',
+      role: 'eccentric-control',
+      roleWhenNegative: 'prime-mover',
       note: 'Solo en el tramo de ADUCCIÓN (bajo 0°): aductor potente al cruzar la línea media.',
       curve: [
         { deg: -30, level: 1 },
@@ -330,7 +331,8 @@ const abduction: RomMovement = {
     },
     {
       muscleId: 'latissimus-dorsi',
-      role: 'prime-mover',
+      role: 'eccentric-control',
+      roleWhenNegative: 'prime-mover',
       note: 'Aductor-extensor en el tramo de aducción; desciende y aproxima el húmero.',
       curve: [
         { deg: -30, level: 0.9 },
@@ -340,7 +342,8 @@ const abduction: RomMovement = {
     },
     {
       muscleId: 'teres-major',
-      role: 'assistant',
+      role: 'eccentric-control',
+      roleWhenNegative: 'assistant',
       note: 'Asiste la aducción contra resistencia en el tramo negativo.',
       curve: [
         { deg: -30, level: 0.7 },
@@ -577,7 +580,8 @@ const flexion: RomMovement = {
     },
     {
       muscleId: 'latissimus-dorsi',
-      role: 'prime-mover',
+      role: 'eccentric-control',
+      roleWhenNegative: 'prime-mover',
       note: 'Solo en el tramo de EXTENSIÓN (bajo 0°): principal extensor del hombro.',
       curve: [
         { deg: -60, level: 1 },
@@ -587,7 +591,8 @@ const flexion: RomMovement = {
     },
     {
       muscleId: 'teres-major',
-      role: 'assistant',
+      role: 'eccentric-control',
+      roleWhenNegative: 'assistant',
       note: 'Asiste la extensión en el tramo negativo.',
       curve: [
         { deg: -60, level: 0.7 },
@@ -597,7 +602,8 @@ const flexion: RomMovement = {
     },
     {
       muscleId: 'triceps-brachii',
-      role: 'assistant',
+      role: 'eccentric-control',
+      roleWhenNegative: 'assistant',
       note: 'Porción larga: cruza el hombro y asiste la extensión en el tramo negativo.',
       curve: [
         { deg: -60, level: 0.5 },
@@ -725,7 +731,8 @@ const externalRotation: RomMovement = {
     },
     {
       muscleId: 'subscapularis',
-      role: 'prime-mover',
+      role: 'eccentric-control',
+      roleWhenNegative: 'prime-mover',
       note: 'Motor de la ROTACIÓN INTERNA (tramo negativo) y freno de la traslación anterior.',
       curve: [
         { deg: -100, level: 1 },
@@ -736,7 +743,8 @@ const externalRotation: RomMovement = {
     },
     {
       muscleId: 'pectoralis-major',
-      role: 'assistant',
+      role: 'eccentric-control',
+      roleWhenNegative: 'assistant',
       note: 'Rotador interno potente en el tramo negativo.',
       curve: [
         { deg: -100, level: 0.75 },
@@ -747,7 +755,8 @@ const externalRotation: RomMovement = {
     },
     {
       muscleId: 'latissimus-dorsi',
-      role: 'assistant',
+      role: 'eccentric-control',
+      roleWhenNegative: 'assistant',
       note: 'Rotador interno en el tramo negativo.',
       curve: [
         { deg: -100, level: 0.6 },
@@ -757,7 +766,8 @@ const externalRotation: RomMovement = {
     },
     {
       muscleId: 'teres-major',
-      role: 'assistant',
+      role: 'eccentric-control',
+      roleWhenNegative: 'assistant',
       note: 'Rotador interno contra resistencia en el tramo negativo.',
       curve: [
         { deg: -100, level: 0.55 },
@@ -834,6 +844,7 @@ const internalRotation: RomMovement = {
     {
       muscleId: 'subscapularis',
       role: 'prime-mover',
+      roleWhenNegative: 'eccentric-control',
       note: 'Principal rotador interno del manguito; crece en todo el arco.',
       curve: [
         { deg: -80, level: 0.35 },
@@ -874,7 +885,8 @@ const internalRotation: RomMovement = {
     },
     {
       muscleId: 'infraspinatus',
-      role: 'prime-mover',
+      role: 'eccentric-control',
+      roleWhenNegative: 'prime-mover',
       note: 'Motor de la ROTACIÓN EXTERNA (tramo negativo).',
       curve: [
         { deg: -80, level: 1 },
@@ -884,7 +896,8 @@ const internalRotation: RomMovement = {
     },
     {
       muscleId: 'teres-minor',
-      role: 'prime-mover',
+      role: 'eccentric-control',
+      roleWhenNegative: 'prime-mover',
       note: 'Rotador externo en el tramo negativo.',
       curve: [
         { deg: -80, level: 0.9 },
@@ -894,7 +907,8 @@ const internalRotation: RomMovement = {
     },
     {
       muscleId: 'deltoid',
-      role: 'assistant',
+      role: 'eccentric-control',
+      roleWhenNegative: 'assistant',
       note: 'Fibras posteriores: asisten la rotación externa en el tramo negativo.',
       curve: [
         { deg: -80, level: 0.5 },

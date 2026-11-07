@@ -12,7 +12,9 @@ import { describe, it, expect } from 'vitest';
 import {
   gesturesIn,
   isFunctionDefect,
+  readGuideRoleConflicts,
   readMovementFunctions,
+  type GuideLike,
   type MovementLike,
   type MuscleLike,
 } from '../movementFunctions';
@@ -24,6 +26,15 @@ import { ANKLE_ROM_LIST } from '../../data/ankleRom';
 import { CERVICAL_ROM_LIST } from '../../data/cervicalRom';
 import { THORACIC_ROM_LIST } from '../../data/thoracicRom';
 import { LUMBAR_ROM_LIST } from '../../data/lumbarRom';
+import { activeMusclesAt } from '../romActivation';
+import { SHOULDER_TRACK } from '../../data/shoulderPhases';
+import { ELBOW_TRACK } from '../../data/elbowPhases';
+import { KNEE_TRACK } from '../../data/kneePhases';
+import { HIP_TRACK } from '../../data/hipPhases';
+import { ANKLE_TRACK } from '../../data/anklePhases';
+import { CERVICAL_TRACK } from '../../data/cervicalPhases';
+import { THORACIC_TRACK } from '../../data/thoracicPhases';
+import { LUMBAR_TRACK } from '../../data/lumbarPhases';
 import { shoulderMuscles } from '../../data/muscles/shoulder';
 import { elbowMuscles } from '../../data/muscles/elbow';
 import { kneeMuscles } from '../../data/muscles/knee';
@@ -171,5 +182,80 @@ describe('la cintura escapular cuenta en una elevacion del brazo', () => {
         for (const r of rs) expect(isFunctionDefect(r), `${id}/${girdle}`).toBe(false);
       }
     }
+  });
+});
+
+describe('el tramo negativo de un arco bidireccional', () => {
+  // El negativo de la rotacion externa ES la rotacion interna. Los mismos
+  // cuatro musculos del manguito aparecen a los dos lados del cero con
+  // funciones OPUESTAS, y el rol era un solo valor constante: el panel llamaba
+  // «Motor principal» al subescapular con el brazo rotando hacia FUERA, que es
+  // justo cuando el subescapular se alarga y frena.
+  const byId = (id: string) =>
+    MOVEMENTS.find((m) => m.id === id) as unknown as Parameters<typeof activeMusclesAt>[0];
+
+  it('el subescapular frena la rotacion externa y la mueve en el tramo interno', () => {
+    const er = byId('glenohumeral-external-rotation');
+    const at = (deg: number, muscle: string) =>
+      activeMusclesAt(er, deg).find((m) => m.muscleId === muscle);
+    expect(at(60, 'subscapularis')?.role).toBe('eccentric-control');
+    expect(at(-60, 'subscapularis')?.role).toBe('prime-mover');
+  });
+
+  it('los rotadores externos frenan la rotacion interna', () => {
+    const ir = byId('glenohumeral-internal-rotation');
+    const at = (deg: number, muscle: string) =>
+      activeMusclesAt(ir, deg).find((m) => m.muscleId === muscle);
+    expect(at(60, 'infraspinatus')?.role).toBe('eccentric-control');
+    expect(at(60, 'teres-minor')?.role).toBe('eccentric-control');
+    expect(at(-60, 'infraspinatus')?.role).toBe('prime-mover');
+    expect(at(60, 'subscapularis')?.role).toBe('prime-mover');
+    expect(at(-60, 'subscapularis')?.role).toBe('eccentric-control');
+  });
+
+  it('ningun antagonista figura como motor en el arco que no es el suyo', () => {
+    // La regla general, no solo los cuatro casos de arriba: si el musculo esta
+    // activo al otro lado del cero, su papel ahi no puede ser el de motor del
+    // gesto contrario.
+    const bad: string[] = [];
+    for (const mv of MOVEMENTS) {
+      const acts = (mv as { activations?: { roleWhenNegative?: string }[] }).activations ?? [];
+      if (acts.length === 0) continue;
+      const live = activeMusclesAt(mv as never, -45);
+      for (const m of live) {
+        const a = acts.find(
+          (x) => (x as unknown as { muscleId: string }).muscleId === m.muscleId,
+        ) as { role: string; roleWhenNegative?: string } | undefined;
+        if (!a) continue;
+        if (a.roleWhenNegative && m.role !== a.roleWhenNegative) {
+          bad.push(`${mv.id}/${m.muscleId}: a -45 deberia ser ${a.roleWhenNegative}, es ${m.role}`);
+        }
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+});
+
+describe('las guias gestuales paso a paso', () => {
+  const GUIDES = [
+    SHOULDER_TRACK, ELBOW_TRACK, KNEE_TRACK, HIP_TRACK,
+    ANKLE_TRACK, CERVICAL_TRACK, THORACIC_TRACK, LUMBAR_TRACK,
+  ].flatMap((t) => Object.values(t.phases).flatMap(
+    (ph) => ((ph as { guides?: unknown[] }).guides ?? []) as GuideLike[],
+  ));
+
+  it('revisa de verdad todas las guias', () => {
+    expect(GUIDES.length).toBeGreaterThanOrEqual(26);
+  });
+
+  it('ningun paso llama motor a lo que el movimiento llama freno', () => {
+    // El paso se titulaba «El erector lumbar frena» y acreditaba al erector
+    // como MOTOR PRINCIPAL. Es el cuarto sitio donde vive el papel de un
+    // musculo (fase, envolvente, ficha y guia) y ninguno lo comprobaba.
+    const bad = readGuideRoleConflicts(GUIDES, MOVEMENTS).map(
+      (c) => `${c.movementId}/${c.stepId}/${c.muscleId}: ` +
+        `guia ${c.guideRole}, movimiento ${c.romRoles.join('/')}`,
+    );
+    expect(bad).toEqual([]);
   });
 });

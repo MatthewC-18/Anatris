@@ -71,7 +71,12 @@ export function activeMusclesAt(
   for (const a of acts) {
     const level = levelAt(a.curve, deg);
     if (level > eps) {
-      out.push({ muscleId: a.muscleId, role: a.role, level, note: a.note });
+      // EL PAPEL DEPENDE DEL SIGNO en un arco bidireccional: el tramo negativo
+      // de la rotacion externa ES la rotacion interna, y ahi el subescapular
+      // pasa de freno a motor. Sin esto el panel llamaba «Motor principal» al
+      // antagonista durante todo el arco positivo.
+      const role = deg < 0 && a.roleWhenNegative ? a.roleWhenNegative : a.role;
+      out.push({ muscleId: a.muscleId, role, level, note: a.note });
     }
   }
   // Strongest first; stable enough for a short list (the muscle set is small).

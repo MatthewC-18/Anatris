@@ -83,8 +83,8 @@ const FLEXION_GUIDE: GestureGuide = {
         cite: [{ ref: 'kapandji', pageVerified: false }],
       },
       muscles: [
-        { id: 'iliocostalis-lumborum', role: 'prime-mover' },
-        { id: 'multifidus-lumborum', role: 'assistant' },
+        { id: 'iliocostalis-lumborum', role: 'eccentric-control' },
+        { id: 'multifidus-lumborum', role: 'eccentric-control' },
         { id: 'quadratus-lumborum', role: 'stabilizer' },
       ],
       view: 'lateral-right',

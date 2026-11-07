@@ -156,8 +156,23 @@ export interface ActivationKnot {
 export interface RomMuscleActivation {
   /** Muscle id, kebab-case — matches the ids used in this movement's phases. */
   muscleId: string;
-  /** Dominant role across the arc; sets the glow/label color. */
+  /** Role in the POSITIVE tramo of the arc; sets the glow/label color. */
   role: RomMuscleRole;
+  /**
+   * EL PAPEL CAMBIA AL CRUZAR EL CERO.
+   *
+   * Varios arcos son bidireccionales: el negativo de la rotacion externa es la
+   * rotacion interna, y el de la abduccion es la aduccion. Los mismos musculos
+   * aparecen a los dos lados del cero, pero con funciones OPUESTAS, y `role`
+   * era un solo valor constante: el subescapular figuraba como «Motor
+   * principal» mientras el brazo rotaba hacia FUERA, que es justo cuando el
+   * subescapular se esta alargando y frenando. Las notas del dato ya decian
+   * «tramo negativo»; no habia donde escribirlo.
+   *
+   * Aqui va el papel del tramo negativo. Si falta, `role` vale para todo el
+   * arco (lo normal: un musculo que solo trabaja a un lado del cero).
+   */
+  roleWhenNegative?: RomMuscleRole;
   /** Activation envelope, ascending by `deg`, at least one knot. */
   curve: ActivationKnot[];
   /** Optional one-line nuance about this muscle's recruitment, Spanish. */

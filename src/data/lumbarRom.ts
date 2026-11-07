@@ -109,8 +109,8 @@ const flexion: RomMovement = {
     },
     {
       muscleId: 'iliocostalis-lumborum',
-      role: 'prime-mover',
-      note: 'Superado el equilibrio, frena excéntricamente el descenso: domina el tramo final.',
+      role: 'eccentric-control',
+      note: 'Superado el equilibrio, frena excéntricamente el descenso: domina el tramo final. No flexiona, sostiene.',
       curve: [
         { deg: 0, level: 0.2 },
         { deg: 25, level: 0.5 },
@@ -347,8 +347,8 @@ const lateralFlexion: RomMovement = {
     },
     {
       muscleId: 'multifidus-lumborum',
-      role: 'assistant',
-      note: 'Inclinación y estabilización segmentaria en el rango final.',
+      role: 'stabilizer',
+      note: 'Estabilización segmentaria en el rango final: sostiene el segmento, no lo inclina.',
       curve: [
         { deg: 12, level: 0.3 },
         { deg: 25, level: 0.6 },
