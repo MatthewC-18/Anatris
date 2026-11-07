@@ -232,6 +232,11 @@ const deepPosterior: Muscle[] = [
     actions: [
       { joint: 'Dedo gordo', movement: 'Flexión' },
       { joint: 'Tobillo', movement: 'Flexión plantar', note: 'Impulso final del despegue (push-off); sostiene el arco medial.' },
+      {
+        joint: 'Subastragalina',
+        movement: 'Inversión',
+        note: 'Su tendón pasa por DETRÁS del maléolo medial, así que asiste la inversión: es uno de los tres tendones del túnel tarsiano con esa función.',
+      },
     ],
     clinicalNote: 'Tendinopatía del bailarín (pinzamiento posterior); pasa entre los tubérculos del astrágalo.',
   },

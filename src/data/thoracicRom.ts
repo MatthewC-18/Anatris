@@ -63,7 +63,7 @@ const flexion: RomMovement = {
         { muscleId: 'rectus-abdominis', role: 'prime-mover', note: 'Flexor principal del tronco; vive en la región lumbar pero flexiona todo el raquis.' },
         { muscleId: 'external-oblique', role: 'assistant', note: 'Pared abdominal: colabora en la flexión del tronco.' },
         { muscleId: 'internal-oblique', role: 'assistant', note: 'Pared abdominal: colabora en la flexión del tronco.' },
-        { muscleId: 'longissimus-thoracis', role: 'stabilizer', note: 'Control excéntrico inicial del descenso.' },
+        { muscleId: 'longissimus-thoracis', role: 'eccentric-control', note: 'Frena el descenso ya desde los primeros grados: la gravedad flexiona y el erector sostiene.' },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'oatis', pageVerified: false }],
     },
@@ -74,8 +74,8 @@ const flexion: RomMovement = {
       description:
         'Superado el equilibrio, la gravedad mueve el tronco hacia delante y el erector torácico y el transversoespinoso frenan excéntricamente el descenso, controlando la velocidad de la flexión hasta el tope de la caja torácica.',
       muscles: [
-        { muscleId: 'longissimus-thoracis', role: 'prime-mover', note: 'Control excéntrico del descenso del tronco en flexión.' },
-        { muscleId: 'iliocostalis-thoracis', role: 'assistant', note: 'Frena excéntricamente la flexión.' },
+        { muscleId: 'longissimus-thoracis', role: 'eccentric-control', note: 'Frena excéntricamente el descenso del tronco: la flexión de pie la hace la gravedad, y el erector la contiene. No flexiona, sostiene.' },
+        { muscleId: 'iliocostalis-thoracis', role: 'eccentric-control', note: 'Frena excéntricamente la flexión junto al longísimo.' },
         { muscleId: 'multifidus-thoracis', role: 'stabilizer', note: 'Estabilización segmentaria durante la flexión.' },
         { muscleId: 'rectus-abdominis', role: 'assistant', note: 'Mantiene la tracción del tronco hacia la flexión.' },
       ],
@@ -264,7 +264,7 @@ const lateralFlexion: RomMovement = {
       description:
         'El transversoespinoso ipsilateral completa la inclinación; el cuadrado lumbar fija la base lumbopélvica y el erector contralateral controla excéntricamente el final del rango.',
       muscles: [
-        { muscleId: 'multifidus-thoracis', role: 'assistant', note: 'Inclinación y estabilización segmentaria.' },
+        { muscleId: 'multifidus-thoracis', role: 'stabilizer', note: 'Estabilización segmentaria durante la inclinación: sostiene el segmento, no lo inclina.' },
         { muscleId: 'iliocostalis-thoracis', role: 'prime-mover', note: 'Completa la inclinación ipsilateral.' },
         { muscleId: 'quadratus-lumborum', role: 'stabilizer', note: 'Fija la base lumbopélvica durante la inclinación del tronco.' },
       ],

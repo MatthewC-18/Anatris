@@ -49,6 +49,7 @@ const VIEW_H = 480;
 const ROLE_COLOR: Record<RomMuscleRole, string> = {
   'prime-mover': '#ffa51e',
   assistant: '#38bdf8',
+  'eccentric-control': '#2dd4bf',
   stabilizer: '#a78bfa',
 };
 const COLOR_BONE = '#e8e2d0';

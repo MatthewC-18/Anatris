@@ -48,17 +48,20 @@ import { dissectChannel, type DissectState } from './dissectChannel';
 const ROLE_TEXT: Record<RomMuscleRole, string> = {
   'prime-mover': 'text-amber-300',
   assistant: 'text-sky-300',
+  'eccentric-control': 'text-teal-300',
   stabilizer: 'text-violet-300',
 };
 const ROLE_CHIP: Record<RomMuscleRole, string> = {
   'prime-mover': 'text-amber-300/90',
   assistant: 'text-sky-300/90',
+  'eccentric-control': 'text-teal-300/90',
   stabilizer: 'text-violet-300/90',
 };
 /** Left edge of the protagonist section: the role, as a color, without a box. */
 const ROLE_CARD: Record<RomMuscleRole, string> = {
   'prime-mover': 'border-amber-400/70',
   assistant: 'border-sky-400/70',
+  'eccentric-control': 'border-teal-400/70',
   stabilizer: 'border-violet-400/70',
 };
 
@@ -319,8 +322,11 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
     const phase = arc ? phaseAtAngleIn(arc.phases, angle) : null;
     const rank: Record<RomMuscleRole, number> = {
       'prime-mover': 0,
-      assistant: 1,
-      stabilizer: 2,
+      // El freno va junto al motor: en una flexion de tronco es EL protagonista,
+      // y enterrarlo detras de los asistentes seria contar la fase al reves.
+      'eccentric-control': 1,
+      assistant: 2,
+      stabilizer: 3,
     };
     return (phase?.phase.muscles ?? [])
       .map((m) => ({ muscleId: m.muscleId, role: m.role, level: 1, note: m.note }))

@@ -58,8 +58,8 @@ const flexion: RomMovement = {
       description:
         'Superado el punto de equilibrio, la gravedad tira el tronco y el erector lumbar frena excéntricamente el descenso. El psoas actúa como estabilizador de la columna lumbar e influye en la lordosis.',
       muscles: [
-        { muscleId: 'iliocostalis-lumborum', role: 'prime-mover', note: 'Control excéntrico del descenso del tronco en flexión; frena la cifosis lumbar progresiva.' },
-        { muscleId: 'multifidus-lumborum', role: 'assistant', note: 'Estabilización y control excéntrico segmentario en el rango final.' },
+        { muscleId: 'iliocostalis-lumborum', role: 'eccentric-control', note: 'Frena excéntricamente el descenso del tronco y la cifosis lumbar progresiva: la flexión de pie la hace la gravedad. No flexiona, sostiene.' },
+        { muscleId: 'multifidus-lumborum', role: 'eccentric-control', note: 'Freno excéntrico segmentario en el rango final.' },
         { muscleId: 'psoas-major', role: 'stabilizer', note: 'Comprime la columna lumbar; su tensión afecta la lordosis durante la flexión.' },
         { muscleId: 'quadratus-lumborum', role: 'stabilizer', note: 'Fija la base lumbopélvica y estabiliza L4-L5 durante la flexión.' },
       ],
@@ -308,9 +308,9 @@ const lateralFlexion: RomMovement = {
       description:
         'Los multífidos ipsilaterales y el oblicuo interno completan la inclinación. Los músculos contralaterales frenan excéntricamente el movimiento.',
       muscles: [
-        { muscleId: 'multifidus-lumborum', role: 'assistant', note: 'Inclinación y estabilización segmentaria en el rango final.' },
+        { muscleId: 'multifidus-lumborum', role: 'stabilizer', note: 'Estabilización segmentaria en el rango final: sostiene el segmento, no lo inclina.' },
         { muscleId: 'internal-oblique', role: 'assistant', note: 'Colabora en la inclinación ipsilateral.' },
-        { muscleId: 'quadratus-lumborum', role: 'stabilizer', note: 'Contralateral: frena excéntricamente la inclinación.' },
+        { muscleId: 'quadratus-lumborum', role: 'eccentric-control', note: 'El del lado CONTRARIO: frena excéntricamente la inclinación para que el tronco no se vaya de lado.' },
         { muscleId: 'transversus-abdominis', role: 'stabilizer', note: 'Estabilización del núcleo durante la inclinación.' },
       ],
       cite: [{ ref: 'kapandji', pageVerified: false }, { ref: 'oatis', pageVerified: false }],

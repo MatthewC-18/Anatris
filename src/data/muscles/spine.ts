@@ -184,6 +184,11 @@ export const cervicalMuscles: Muscle[] = [
     actions: [
       { joint: 'Cervical', movement: 'Extensión', note: 'Bilateralmente extiende el cuello.' },
       { joint: 'Cervical', movement: 'Rotación ipsilateral' },
+      {
+        joint: 'Cervical',
+        movement: 'Inclinación ipsilateral',
+        note: 'Unilateralmente, además de girar, inclina el cuello a su propio lado.',
+      },
     ],
     clinicalNote: 'Junto al esplenio de la cabeza forma la capa esplenica que envuelve el cuello posterior.',
   },
@@ -271,6 +276,11 @@ export const cervicalMuscles: Muscle[] = [
     roots: ['C4', 'C5', 'C6'],
     actions: [
       { joint: 'Cervical', movement: 'Inclinación ipsilateral', note: 'Inclina el cuello al mismo lado.' },
+      {
+        joint: 'Cervical',
+        movement: 'Flexión',
+        note: 'Con los dos lados a la vez, flexor accesorio del cuello: tira de las cervicales hacia delante desde la primera costilla.',
+      },
       { joint: 'Costilla', movement: 'Elevación', note: 'Eleva la primera costilla en la inspiracion (músculo accesorio).' },
     ],
     clinicalNote: 'Limita el desfiladero de los escalenos: entre el escaleno anterior y medio pasan el plexo braquial y la arteria subclavia (síndrome del desfiladero torácico).',
@@ -326,6 +336,11 @@ export const cervicalMuscles: Muscle[] = [
     actions: [
       { joint: 'Cervical', movement: 'Extensión', note: 'Bilateralmente extiende cabeza y cuello.' },
       { joint: 'Cervical', movement: 'Rotación ipsilateral' },
+      {
+        joint: 'Cervical',
+        movement: 'Inclinación ipsilateral',
+        note: 'Unilateralmente inclina cabeza y cuello a su lado, como toda la columna del longísimo.',
+      },
     ],
     clinicalNote: 'Columna intermedia del erector espinal a nivel craneal.',
   },
@@ -761,6 +776,11 @@ export const lumbarMuscles: Muscle[] = [
     actions: [
       { joint: 'Tronco', movement: 'Flexión' },
       { joint: 'Tronco', movement: 'Rotación ipsilateral', note: 'Unilateralmente gira el tronco al mismo lado (opuesto al externo).' },
+      {
+        joint: 'Tronco',
+        movement: 'Inclinación ipsilateral',
+        note: 'Unilateralmente también inclina el tronco a su lado, igual que el oblicuo externo del mismo costado.',
+      },
     ],
     clinicalNote: 'Sus fibras son perpendiculares a las del oblicuo externo; juntos forman un cinturon rotador cruzado del tronco.',
   },

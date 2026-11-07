@@ -116,6 +116,12 @@ const ROLE_STYLE: Record<
     ring: 'ring-sky-400/40',
     badge: 'bg-sky-400 text-ink-950',
   },
+  'eccentric-control': {
+    dot: 'bg-teal-400',
+    text: 'text-teal-300',
+    ring: 'ring-teal-400/40',
+    badge: 'bg-teal-400 text-ink-950',
+  },
   stabilizer: {
     dot: 'bg-violet-400',
     text: 'text-violet-300',
@@ -177,7 +183,7 @@ export function RomPanel({ resolution }: RomPanelProps) {
 function RoleLegend() {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-slate-900/40 px-2.5 py-2">
-      {(['prime-mover', 'assistant', 'stabilizer'] as RomMuscleRole[]).map(
+      {(['prime-mover', 'eccentric-control', 'assistant', 'stabilizer'] as RomMuscleRole[]).map(
         (role) => (
           <span key={role} className="flex items-center gap-1.5">
             <span className={`h-2 w-2 rounded-full ${ROLE_STYLE[role].dot}`} />
@@ -684,7 +690,8 @@ function MuscleChip({
 
 function bestRole(parts: RomParticipation[]): RomMuscleRole {
   const order: Record<RomMuscleRole, number> = {
-    'prime-mover': 3,
+    'prime-mover': 4,
+    'eccentric-control': 3,
     assistant: 2,
     stabilizer: 1,
   };

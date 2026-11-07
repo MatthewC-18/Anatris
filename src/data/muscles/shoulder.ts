@@ -201,6 +201,11 @@ const glenohumeralSuperficial: Muscle[] = [
         movement: 'Extensión',
         note: 'A cargo de la parte espinal (posterior).',
       },
+      {
+        joint: 'Glenohumeral',
+        movement: 'Rotación externa',
+        note: 'La parte espinal (posterior) asiste la rotación externa: es el refuerzo superficial de los rotadores cortos del manguito.',
+      },
     ],
     clinicalNote:
       'Su atrofia o parálisis (lesión del nervio axilar, p. ej. tras luxación glenohumeral o fractura del cuello quirúrgico) produce el signo de la "charretera" y debilidad marcada de la abducción.',

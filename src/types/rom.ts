@@ -22,16 +22,32 @@
 
 import type { Citation } from './muscleContent';
 
-/** The role a muscle plays within a single ROM phase. */
+/**
+ * The role a muscle plays within a single ROM phase.
+ *
+ * `eccentric-control` NO ESTABA, y su falta era un error de fondo. El erector
+ * del raquis figuraba como MOTOR PRINCIPAL de la flexion del tronco, y la nota
+ * explicaba muy bien que lo que hace es frenar el descenso — porque flexionar
+ * el tronco de pie no lo hace un musculo, lo hace la gravedad, y el erector la
+ * contiene. Con tres roles no habia forma de decirlo: el dato se veia obligado a
+ * llamar "motor" a un freno, y el alumno leia que el extensor flexiona.
+ *
+ * Lo encontro `npm run audit-functions` comparando lo que la fase acredita con
+ * las acciones que el propio musculo declara: cuatro acreditaciones en las que
+ * la ficha atribuia EXACTAMENTE EL GESTO CONTRARIO. Que la ficha diga el
+ * contrario no es un fallo en este rol — es la prueba de que es un freno.
+ */
 export type RomMuscleRole =
   | 'prime-mover' // the main engine of the movement in this phase
   | 'assistant' // helps, but isn't the principal driver
+  | 'eccentric-control' // brakes the movement that gravity (or the antagonist) drives
   | 'stabilizer'; // centers/controls the joint so the movement is clean
 
 /** Spanish display labels for the muscle roles. */
 export const ROM_ROLE_LABEL: Record<RomMuscleRole, string> = {
   'prime-mover': 'Motor principal',
   assistant: 'Asistente',
+  'eccentric-control': 'Freno excéntrico',
   stabilizer: 'Estabilizador',
 };
 

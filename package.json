@@ -12,6 +12,7 @@
     "audit-direction": "tsx --tsconfig tsconfig.scripts.json scripts/audit-movement-direction.mts",
     "audit-cases": "tsx --tsconfig tsconfig.scripts.json scripts/audit-case-distractors.mts",
     "audit-angles": "tsx --tsconfig tsconfig.scripts.json scripts/audit-movement-angles.mts",
+    "audit-functions": "tsx --tsconfig tsconfig.scripts.json scripts/audit-movement-functions.mts",
     "neuro-plate": "tsx --tsconfig tsconfig.scripts.json scripts/render-neuro-plate.mts",
     "neuro-plate-box": "tsx --tsconfig tsconfig.scripts.json scripts/measure-neuro-plate.mts",
     "gen-pwa-icons": "node scripts/gen-pwa-icons.mjs",

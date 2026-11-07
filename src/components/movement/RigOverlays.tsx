@@ -50,6 +50,7 @@ import type { RomMuscleRole } from '../../types/rom';
 const ROLE_GLOW: Record<RomMuscleRole, number> = {
   'prime-mover': 0xffa51e,
   assistant: 0x38bdf8,
+  'eccentric-control': 0x2dd4bf, // teal-400 — el freno, no el motor
   stabilizer: 0xa78bfa,
 };
 // Same role hues as THREE.Color, reused to tint the muscle's own diffuse color so
@@ -57,6 +58,7 @@ const ROLE_GLOW: Record<RomMuscleRole, number> = {
 const ROLE_COLOR3: Record<RomMuscleRole, THREE.Color> = {
   'prime-mover': new THREE.Color(ROLE_GLOW['prime-mover']),
   assistant: new THREE.Color(ROLE_GLOW.assistant),
+  'eccentric-control': new THREE.Color(ROLE_GLOW['eccentric-control']),
   stabilizer: new THREE.Color(ROLE_GLOW.stabilizer),
 };
 // Peak emissive intensity per role (reached at activation level 1). The live glow
@@ -68,6 +70,10 @@ const ROLE_COLOR3: Record<RomMuscleRole, THREE.Color> = {
 // muscle's dimensional shading -- see paintGlow.
 const ROLE_GLOW_MAX: Record<RomMuscleRole, number> = {
   'prime-mover': 0.72,
+  // Un freno trabaja DURO: en una flexion de tronco el erector es el musculo que
+  // mas tension soporta de la fase, asi que brilla como un motor, no como un
+  // asistente. Lo que cambia es el color, no la intensidad.
+  'eccentric-control': 0.68,
   assistant: 0.48,
   stabilizer: 0.34,
 };

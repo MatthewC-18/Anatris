@@ -91,6 +91,7 @@ const HIGHLIGHT_INTENSITY_HOVER = 0.4;
 const ROM_ROLE_COLOR: Record<RomMuscleRole, number> = {
   'prime-mover': 0xffa51e, // amber (same as HIGHLIGHT)
   assistant: 0x38bdf8, // sky-400
+  'eccentric-control': 0x2dd4bf, // teal-400 — el freno, no el motor
   stabilizer: 0xa78bfa, // violet-400
 };
 // ROM-highlighted muscles glow a touch less hot than a single hard selection,

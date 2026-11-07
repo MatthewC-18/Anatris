@@ -162,6 +162,11 @@ const flexors: Muscle[] = [
     actions: [
       { joint: 'Cadera', movement: 'Flexión', note: 'Flexiona, abduce y rota internamente la cadera.' },
       { joint: 'Cadera', movement: 'Abducción' },
+      {
+        joint: 'Cadera',
+        movement: 'Rotación interna',
+        note: 'Rotador interno con la cadera flexionada; su tensión en la banda iliotibial es lo que lo hace eficaz ahí.',
+      },
     ],
     clinicalNote:
       'Tensa la banda iliotibial; implicado en el síndrome de la banda iliotibial y en la marcha antiálgica.',
@@ -211,6 +216,11 @@ const glutealGroup: Muscle[] = [
         note: 'Extensor más potente, sobre todo desde flexión (subir escaleras, levantarse, correr).',
       },
       { joint: 'Cadera', movement: 'Rotación externa' },
+      {
+        joint: 'Cadera',
+        movement: 'Abducción',
+        note: 'Solo las fibras SUPERIORES, que pasan por encima del eje: abducen y sostienen la pelvis en apoyo monopodal. Las inferiores hacen lo contrario (aducen).',
+      },
     ],
     clinicalNote:
       'Su debilidad altera la extensión de cadera y sobrecarga los isquiotibiales/lumbares; clave en RTP y readaptación.',

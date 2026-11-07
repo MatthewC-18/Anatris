@@ -46,6 +46,7 @@ import type { RomMuscleRole } from '../types/rom';
 const ROLE_COLOR: Record<RomMuscleRole, number> = {
   'prime-mover': 0xffa51e, // amber
   assistant: 0x38bdf8, // sky-400
+  'eccentric-control': 0x2dd4bf, // teal-400
   stabilizer: 0xa78bfa, // violet-400
 };
 

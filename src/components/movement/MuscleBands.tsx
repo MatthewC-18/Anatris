@@ -39,6 +39,7 @@ const ABDUCTION = SHOULDER_ROM['glenohumeral-abduction'];
 const ROLE_COLOR: Record<RomMuscleRole, number> = {
   'prime-mover': 0xffa51e,
   assistant: 0x38bdf8,
+  'eccentric-control': 0x2dd4bf,
   stabilizer: 0xa78bfa,
 };
 const INACTIVE_COLOR = 0x64748b;
