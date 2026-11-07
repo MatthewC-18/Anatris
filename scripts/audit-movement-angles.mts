@@ -40,6 +40,14 @@ import { shoulderChain } from '../src/lib/biomech/shoulderChain.ts';
 import { kneeScrewHome } from '../src/lib/biomech/kneeCoupling.ts';
 import { cervicalRotationSplit } from '../src/lib/biomech/cervicalCoupling.ts';
 import { lumbopelvicRhythm, LUMBOPELVIC_PELVIS_POSED } from '../src/lib/biomech/lumbarCoupling.ts';
+import { SHOULDER_ROM_LIST } from '../src/data/shoulderRom.ts';
+import { ELBOW_ROM_LIST } from '../src/data/elbowRom.ts';
+import { KNEE_ROM_LIST } from '../src/data/kneeRom.ts';
+import { HIP_ROM_LIST } from '../src/data/hipRom.ts';
+import { ANKLE_ROM_LIST } from '../src/data/ankleRom.ts';
+import { CERVICAL_ROM_LIST } from '../src/data/cervicalRom.ts';
+import { THORACIC_ROM_LIST } from '../src/data/thoracicRom.ts';
+import { LUMBAR_ROM_LIST } from '../src/data/lumbarRom.ts';
 
 /** Un hueso, o el TORAX (que en este rig no se mueve solo). */
 type Ref = string | 'world';
@@ -236,6 +244,23 @@ interface Row {
 const rows: Row[] = [];
 let failures = 0;
 
+// LA CIFRA QUE SE COMPRUEBA ES LA QUE EL USUARIO LEE.
+//
+// El banco tomaba los grados de `BONE_MAP.clinicalRange.max`, o sea del MISMO
+// sitio que conduce el rig: preguntarle al control si el control llega adonde
+// el control dice es una comprobacion circular, y pasa siempre. La cifra que
+// aparece en pantalla es la de la ficha ROM (`totalRangeDeg`), que es otro dato
+// escrito aparte. Cuando los dos discrepan, el banco daba verde y la pantalla
+// mentia: `glenohumeral-internal-rotation` publica 100 grados y el control
+// documentaba 70.
+const FICHAS = new Map<string, { totalRangeDeg: { min: number; max: number } }>(
+  [
+    ...SHOULDER_ROM_LIST, ...ELBOW_ROM_LIST, ...KNEE_ROM_LIST, ...HIP_ROM_LIST,
+    ...ANKLE_ROM_LIST, ...CERVICAL_ROM_LIST, ...THORACIC_ROM_LIST, ...LUMBAR_ROM_LIST,
+  ].map((m) => [m.id, m as unknown as { totalRangeDeg: { min: number; max: number } }]),
+);
+const mismatches: string[] = [];
+
 for (const c of CHECKS) {
   const ctrl = BONE_MAP[c.move] as {
     kind: string;
@@ -243,7 +268,16 @@ for (const c of CHECKS) {
     arcFrom?: 'max';
   };
   if (!ctrl) { console.log(`  ?   ${c.move} no esta en el mapa de huesos`); continue; }
-  const deg = ctrl.clinicalRange.max;
+  const ficha = FICHAS.get(c.move);
+  if (!ficha) { console.log(`  ?   ${c.move} no tiene ficha ROM`); continue; }
+  // Se acciona hasta donde PUBLICA LA FICHA, no hasta donde dice el control.
+  const deg = ficha.totalRangeDeg.max;
+  if (ctrl.clinicalRange.max !== deg) {
+    mismatches.push(
+      `${c.move}: la ficha publica ${deg} y el control documenta ` +
+      `${ctrl.clinicalRange.max}`,
+    );
+  }
   // `arcFrom: 'max'` comparte un arco con su flexion: 0 es la articulacion
   // estirada y el movimiento es el REGRESO, asi que el giro se mide igual (de 0
   // al maximo) y lo que cambia es solo cual de los dos extremos se llama fin.
@@ -317,6 +351,12 @@ console.log(
     ? '  Todos los movimientos alcanzan los grados que su ficha publica.'
     : `  ${failures} movimiento(s) no llegan a los grados que publican.`,
 );
+if (mismatches.length > 0) {
+  console.log('');
+  console.log('  LA FICHA Y EL CONTROL NO DICEN EL MISMO TOPE:');
+  for (const m of mismatches) console.log(`    ${m}`);
+  console.log('    (se acciona hasta la ficha, que es la cifra que se lee en pantalla)');
+}
 console.log('');
 
 // ---------------------------------------------------------------------------
@@ -604,4 +644,149 @@ console.log(
 );
 console.log('');
 
-if (failures + rhythmFail + coupFail > 0) process.exitCode = 1;
+// ---------------------------------------------------------------------------
+// LA OTRA MITAD DEL ARCO, QUE NADIE HABIA MEDIDO.
+//
+// Cuatro movimientos del hombro no empiezan en cero: su barra cruza el neutro y
+// sigue hacia el gesto contrario (`labReverse`), porque asi se explora un hombro
+// -- la abduccion continua en aduccion cruzando el cuerpo, y la rotacion externa
+// continua en interna. Esa mitad negativa tiene sus propias fases, sus propios
+// musculos y su propio extremo publicado, y ni `audit-direction` ni la seccion
+// de grados de arriba la tocaban: las dos miden de 0 al MAXIMO.
+//
+// Asi que medio laboratorio del hombro no estaba comprobado, y un defecto ahi se
+// ve igual que en la mitad positiva. Lo que se mide es lo mismo que arriba,
+// dos cosas:
+//
+//   1. QUE LLEGUE. El extremo negativo publicado (`labReverse.minDeg`) tiene que
+//      recorrerse, con la misma regla de goniometro: EN EL PLANO del movimiento
+//      para las elevaciones, y como giro sobre el eje del propio humero para las
+//      rotaciones, que es lo que significa "rotacion" ahi.
+//   2. QUE VAYA AL OTRO LADO. Un extremo negativo que recorre los grados
+//      correctos PERO EN EL MISMO SENTIDO que el positivo es el fallo silencioso
+//      de siempre: la cifra encaja y el brazo hace dos veces el mismo gesto. Por
+//      eso se exige el SIGNO CONTRARIO, medido, no supuesto, y en los dos lados.
+// ---------------------------------------------------------------------------
+console.log('===== EL ARCO INVERSO: LA MITAD NEGATIVA DE LA BARRA =====');
+console.log('Cuatro movimientos del hombro cruzan el neutro y siguen hacia el gesto');
+console.log('contrario. Se exige que lleguen a su extremo Y que vayan al otro lado.');
+console.log('');
+let revFail = 0;
+for (const mv of SHOULDER_ROM_LIST as unknown as {
+  id: string;
+  name: string;
+  labReverse?: { name: string; minDeg: number };
+}[]) {
+  const rev = mv.labReverse;
+  if (!rev) continue;
+  const ctrl = BONE_MAP[mv.id] as { aimPlane?: 'x' | 'z' };
+  if (!ctrl) continue;
+  const fwdDeg = (BONE_MAP[mv.id] as { clinicalRange: { max: number } }).clinicalRange.max;
+  const revDeg = rev.minDeg;
+  // EL SIGNO SE MUESTREA EN MEDIO DEL ARCO, NO EN EL EXTREMO. A 180 grados el
+  // angulo en el plano da la vuelta (atan2 envuelve) y sale con el signo
+  // cambiado: medido asi, la abduccion "iba" al mismo lado que la aduccion.
+  const signProbe = Math.min(fwdDeg, 45);
+  console.log(`  ${mv.id}  "${mv.name}" ${fwdDeg} / "${rev.name}" ${revDeg}`);
+  for (const side of ['R', 'L'] as const) {
+    restoreRest();
+    let poser;
+    try { poser = createRigPoser(scene, mv.id, side); }
+    catch (e) { console.log(`    ?   ${side} no accionable (${(e as Error).message})`); continue; }
+    const arm = `Shoulder_Armature_${side}`;
+    const hum = boneOf(arm, 'humerus_gh')!;
+    const fore = boneOf(arm, 'forearm_flex')!;
+    const scap = boneOf(arm, 'scapula');
+    poser.pose(0);
+    scene.updateMatrixWorld(true);
+    const shaft = (): THREE.Vector3 =>
+      fore.getWorldPosition(new THREE.Vector3())
+        .sub(hum.getWorldPosition(new THREE.Vector3())).normalize();
+    const restShaft = shaft();
+    const restQ = relQuat(hum, scap);
+    const plane = ctrl.aimPlane;
+
+    let fwdSign: number;
+    let back: number;
+    let want: number;
+    let why = '';
+    if (plane) {
+      // ELEVACION: goniometro EN EL PLANO del movimiento, igual que arriba.
+      const inPlane = (v: THREE.Vector3): number =>
+        plane === 'z' ? Math.atan2(v.x, -v.y) : Math.atan2(v.z, -v.y);
+      const planeTravel = (deg: number): number => {
+        poser.pose(deg);
+        scene.updateMatrixWorld(true);
+        let d = inPlane(shaft()) - inPlane(restShaft);
+        while (d > Math.PI) d -= 2 * Math.PI;
+        while (d < -Math.PI) d += 2 * Math.PI;
+        return (d * 180) / Math.PI;
+      };
+      fwdSign = Math.sign(planeTravel(signProbe));
+      back = planeTravel(revDeg);
+      // LA ADUCCION NO EXISTE SOLA. Kapandji: desde la posicion de referencia es
+      // mecanicamente imposible en el plano frontal, y solo se hace llevando el
+      // brazo por DELANTE del tronco. El modelo lo hace (`crossBodyFlex`), asi
+      // que el brazo no acaba en el plano frontal y su angulo medido ahi es el
+      // de la COMPOSICION, no el de la aduccion sola. Es la misma correccion que
+      // ya lleva `hip-adduction` en la seccion de grados.
+      // SOLO EL ARCO FRONTAL. `crossBodyFlex` modela la aduccion que cruza el
+      // cuerpo, que es la mitad negativa de la ABDUCCION. La mitad negativa de
+      // la flexion es una extension y no lleva nada acoplado: pedirle la misma
+      // composicion la suspendia por 7,8 grados que el rig hace bien en no
+      // hacer.
+      const coupled =
+        plane === 'z' ? (shoulderChain(revDeg).crossBodyFlex * 180) / Math.PI : 0;
+      if (Math.abs(coupled) > 1) {
+        const a = (Math.abs(revDeg) * Math.PI) / 180;
+        const f = (Math.abs(coupled) * Math.PI) / 180;
+        // El angulo frontal de un vector aducido `a` y flexionado `f`.
+        want = (Math.atan2(Math.sin(a), Math.cos(a) * Math.cos(f)) * 180) / Math.PI;
+        why = `compone ${Math.abs(revDeg)} de aduccion con ${coupled.toFixed(0)} de flexion (no existe sola)`;
+      } else {
+        want = Math.abs(revDeg);
+      }
+    } else {
+      // ROTACION: el giro del hueso respecto a la escapula, que es lo que mide
+      // la seccion de grados. Proyectarlo sobre el eje del brazo perdia 26 de
+      // cada 80, porque el eje del giro no es la recta hombro-codo.
+      const rotTravel = (deg: number): { deg: number; axis: THREE.Vector3 } => {
+        poser.pose(deg);
+        scene.updateMatrixWorld(true);
+        return axisAngle(restQ, relQuat(hum, scap));
+      };
+      const f = rotTravel(signProbe);
+      const r = rotTravel(revDeg);
+      // El signo sale de comparar los EJES de los dos giros: opuestos = giros
+      // contrarios. No hay que suponer que eje local es cual.
+      fwdSign = 1;
+      back = r.deg * Math.sign(r.axis.dot(f.axis) || 1) * -1 * -1;
+      back = r.deg * (r.axis.dot(f.axis) < 0 ? -1 : 1);
+      want = Math.abs(revDeg);
+    }
+    poser.pose(0);
+    scene.updateMatrixWorld(true);
+
+    const reaches = Math.abs(Math.abs(back) - want) <= 3;
+    // EL SIGNO ES LA MITAD DE LA PRUEBA: el inverso tiene que ir al otro lado.
+    const opposite = plane ? fwdSign * back < 0 : back < 0;
+    const ok = reaches && opposite;
+    if (!ok) revFail++;
+    console.log(
+      `    ${ok ? 'OK ' : 'MAL'} ${side}  "${rev.name}" recorre ${back.toFixed(1).padStart(6)} deg  ` +
+      `(pide ${want.toFixed(1)})` +
+      (opposite ? '' : '   <- VA AL MISMO LADO QUE EL GESTO DIRECTO') +
+      (reaches ? '' : '   <- no llega a su extremo') +
+      (why ? `   ${why}` : ''),
+    );
+  }
+}
+console.log('');
+console.log(
+  revFail === 0
+    ? '  La mitad negativa de cada barra llega a su extremo y va al otro lado.'
+    : `  ${revFail} lectura(s) del arco inverso que el rig no ejecuta.`,
+);
+console.log('');
+
+if (failures + rhythmFail + coupFail + revFail > 0) process.exitCode = 1;
