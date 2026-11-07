@@ -27,6 +27,13 @@
 // and scapular upward rotation ~60 deg (Inman/Oatis/Ludewig), i.e. an overall
 // ~2:1 that is GH-dominant early (setting phase) and scapula-dominant late.
 //
+// Esos ~60 grados son la rotacion ascendente EN EL PLANO DE LA PALETA, que esta
+// inclinado 32,8 grados respecto al plano en que se mide el brazo (medido en el
+// GLB; ver SCAPULAR_PLANE_OBLIQUITY). Asi que el reparto que se publica no es
+// `gh = E - escapula` sino `gh = E - escapula x cos(32,8)`: la cuenta vieja
+// atribuia a la cintura grados de elevacion que no entregaba, y el 3D los hacia
+// con la glenohumeral. `npm run audit-angles` lo mide hueso por hueso.
+//
 // Humeral external rotation engages after 90 deg (rolls the greater tuberosity
 // clear of the acromion). The RAQUIS -- thoracic T12..T1 and lumbar L5..L1 --
 // laterally flexes CONTRALATERALLY after 150 deg, weighted per region so the
@@ -228,13 +235,48 @@ const G_CLAV_RETRACTION = 20 / 180;
 // same front-loaded ramp as the flexion.
 const CLAV_PROTRACTION_MAX = 12 * DEG;
 
+// --- LA PALETA NO GIRA EN EL PLANO EN QUE SE MIDE EL BRAZO ------------------
+//
+// El reparto se escribia como una resta: la glenohumeral aporta los grados de
+// elevacion que no aporta la escapula, `gh = E - escapula`. Eso da por hecho que
+// cada grado de rotacion ascendente de la paleta sube el brazo un grado, y NO ES
+// ASI, porque la paleta no gira sobre el eje en que se mide la abduccion: gira
+// sobre la perpendicular a SU PROPIO plano, que esta inclinado hacia delante.
+//
+// MEDIDO EN EL GLB (eje local X del hueso `scapula` contra el eje de la
+// elevacion del brazo, los dos tomados del propio escenario en reposo): 32,8
+// grados, cos = 0,841. Y contra el eje anteroposterior puro: 34,3 grados. Eso no
+// es un defecto del rig, es el PLANO ESCAPULAR, que la literatura sitúa entre 30
+// y 45 grados por delante del frontal — y es exactamente la razon por la que la
+// elevacion se explora en el plano escapular y no en el frontal: ahi los dos
+// planos coinciden y las aportaciones si se suman grado a grado.
+//
+// La consecuencia la vio el banco de medida (`npm run audit-angles`): el brazo
+// llegaba a su angulo exacto en todo el arco, pero la articulacion glenohumeral
+// giraba mas de lo que el panel publicaba — a 90 grados el rig hacia 71,7 y el
+// panel decia 66,6; a 150, 110,6 contra 97,8. La cintura entregaba el 75-84% de
+// los grados que se le atribuian. El panel ensenaba un ritmo que el 3D no hacia,
+// que es la peor clase de error en una aplicacion que se vende para aprender.
+//
+// Asi que el reparto QUE SE PUBLICA proyecta la aportacion de la cintura sobre
+// el plano en que se mide el angulo. La rotacion ascendente en su propio plano
+// (los ~60 grados de los libros) se sigue publicando aparte, porque es la cifra
+// clinica, y es la que conduce el rig: lo que cambia es solo la contabilidad.
+//
+// Comprobado contra el hueso despues del cambio: 2,9 / 9,9 / 18,2 / 30,5 / 39,3
+// medidos contra 3,0 / 11,3 / 19,7 / 32,8 / 43,9 del modelo, de 30 a 150 grados.
+const SCAPULAR_PLANE_OBLIQUITY = 32.8 * DEG;
+/** Cuanto de un grado de rotacion ascendente de la paleta eleva el brazo. */
+export const SCAPULAR_PLANE_EFFICIENCY = Math.cos(SCAPULAR_PLANE_OBLIQUITY);
+
 export interface ShoulderChainPose {
   /**
    * Scapular upward rotation AT THE ACROMIOCLAVICULAR JOINT, radians (applied on
    * scapula local X). This is the blade's rotation ON THE CLAVICLE, not against
    * the thorax: the clavicle supplies the rest, and because the scapula bone is a
    * CHILD of the clavicle bone the two add up on the rig by themselves. For the
-   * scapulothoracic total a physio would measure, use `readout.scapulaDeg`.
+   * scapulothoracic total a physio would measure, use `readout.scapulaPlaneDeg`
+   * (`readout.scapulaDeg` es su proyeccion sobre el plano del angulo medido).
    */
   scapulaUpwardRot: number;
   /**
@@ -290,11 +332,44 @@ export interface ShoulderChainPose {
    * intervencion" of humero / escapula / tronco per sector.
    */
   readout: {
+    /**
+     * Grados de la elevacion medida que pone la articulacion glenohumeral. Es el
+     * resto DESPUES de descontar lo que la cintura entrega EN ESE PLANO, no
+     * despues de descontar la rotacion ascendente entera (ver
+     * SCAPULAR_PLANE_OBLIQUITY): la paleta gira en su propio plano, inclinado.
+     */
     ghDeg: number;
+    /** Grados de la elevacion medida que pone la cintura escapular. */
     scapulaDeg: number;
+    /**
+     * Rotacion ascendente de la paleta EN SU PROPIO PLANO: la cifra de los libros
+     * (~60 grados a 180) y la que conduce el rig. Siempre mayor que `scapulaDeg`,
+     * que es su proyeccion sobre el plano en que se mide el brazo.
+     */
+    scapulaPlaneDeg: number;
     trunkDeg: number;
     ratio: string;
   };
+}
+
+/**
+ * EN QUE PLANO SE ELEVA EL BRAZO, para lo poco que depende del plano.
+ *
+ * La descomposicion es la misma en magnitud en los dos planos, pero el TRONCO no:
+ * la abduccion toma prestada una inclinacion contralateral del raquis para acabar
+ * de llevar el brazo a la vertical, y la flexion no — ahi la aportacion del
+ * tronco seria una extension, y anadir la inclinacion frontal sacaria el cuerpo
+ * del plano. El rig ya lo hacia bien (`glenohumeral-flexion` no tiene objetivos
+ * en el raquis), pero el REPARTO QUE SE PUBLICA seguia atribuyendo al tronco sus
+ * 26 grados en la flexion, y se los quitaba a las dos articulaciones.
+ *
+ * Medido en la flexion a 180 (`npm run audit-angles`): la cintura llevaba el
+ * brazo 46,9 grados y el panel anunciaba 70,3, que son los 43,9 de la cintura
+ * mas 26,4 de un tronco que no se mueve.
+ */
+export interface ShoulderChainOpts {
+  /** false en la flexion: el raquis no participa en el plano sagital. */
+  trunkLean?: boolean;
 }
 
 /**
@@ -308,6 +383,7 @@ export function shoulderChain(
   elevationDeg: number,
   side: GeomSide = 'R',
   mod?: ShoulderChainMod,
+  opts?: ShoulderChainOpts,
 ): ShoulderChainPose {
   // Frozen-shoulder ceiling: cap the POSITIVE arc only (adduction is untouched).
   const capped =
@@ -378,15 +454,23 @@ export function shoulderChain(
   // Distributed over the WHOLE raquis (see the gain block above): every thoracic
   // and lumbar level takes a share, so the trunk bends instead of hinging at T6.
   const spineSign = side === 'R' ? -1 : 1;
-  const spineDrive = Math.max(Ep - T_SPINE, 0) * spineSign;
+  const spineDrive =
+    opts?.trunkLean === false ? 0 : Math.max(Ep - T_SPINE, 0) * spineSign;
   const thoracicLatFlexPerVert = spineDrive * G_SPINE_THORACIC_PER_VERT;
   const lumbarLatFlexPerVert = spineDrive * G_SPINE_LUMBAR_PER_VERT;
 
-  // Raw joint split from the scapulohumeral rhythm. These two DRIVE THE RIG
-  // (scapulaUpwardRot / glenohumeralRot above) and are NOT touched — for E > 0
-  // they sum to the full elevation.
-  const ghRaw = ghMagnitude / DEG;
-  const scapulaRaw = scapula / DEG;
+  // El reparto que se PUBLICA, en grados de la elevacion medida. La rotacion
+  // ascendente de la paleta se proyecta sobre el plano del angulo porque la
+  // paleta gira en el suyo, inclinado 32,8 grados (medido; ver el bloque de
+  // SCAPULAR_PLANE_OBLIQUITY). Lo que conduce el rig — scapulaUpwardRot y
+  // glenohumeralRot, mas arriba — NO se toca: lo que cambia es la contabilidad,
+  // para que coincida con lo que el hueso hace.
+  const scapulaPlaneDeg = scapula / DEG;
+  const scapulaRaw = scapulaPlaneDeg * SCAPULAR_PLANE_EFFICIENCY;
+  // Y la glenohumeral es el resto de la elevacion MEDIDA, no el resto de restar
+  // la rotacion ascendente entera. En el arco negativo (aduccion cruzada y
+  // extension) la escapula es 0, asi que esto es exactamente E, como antes.
+  const ghRaw = E / DEG - scapulaRaw;
 
   // Trunk (raquis) contribution to the FUNCTIONAL elevation. Kapandji's phase 3
   // (150-180 deg): the shoulder joint complex is near its ceiling, so the last
@@ -416,6 +500,10 @@ export function shoulderChain(
     scapulaDeg = scapulaRaw * scale;
   }
   const ratio = scapulaDeg > 0.1 ? `${(ghDeg / scapulaDeg).toFixed(1)}:1` : '—';
+  // La proyeccion tambien le toca a la cifra del plano escapular cuando el
+  // tronco se reparte, para que las tres sigan sumando el angulo pedido.
+  const scapulaPlaneOut =
+    scapulaRaw > 0 ? scapulaPlaneDeg * (scapulaDeg / scapulaRaw) : scapulaPlaneDeg;
 
   return {
     scapulaUpwardRot: acromioclavicular,
@@ -429,6 +517,6 @@ export function shoulderChain(
     lumbarLatFlexPerVert,
     thoracicVerts: THORACIC_LEAN_VERTS,
     lumbarVerts: LUMBAR_LEAN_VERTS,
-    readout: { ghDeg, scapulaDeg, trunkDeg, ratio },
+    readout: { ghDeg, scapulaDeg, scapulaPlaneDeg: scapulaPlaneOut, trunkDeg, ratio },
   };
 }

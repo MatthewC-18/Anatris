@@ -331,7 +331,17 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
   // shoulder elevation chain decomposes this, and only above neutral.
   const rhythm = useMemo(() => {
     if (!isChain || angle <= 0) return null;
-    const r = shoulderChain(angle, rigSideFor(cmd.side), pathology?.shoulderMod).readout;
+    // EL TRONCO SOLO PARTICIPA DONDE EL RIG LO MUEVE. La abduccion toma prestada
+    // una inclinacion contralateral del raquis; la flexion no, y su control no
+    // tiene objetivos en el raquis. Se lee del propio mapa en vez de nombrar el
+    // movimiento, para que anadir una elevacion no vuelva a desincronizar el
+    // reparto publicado de lo que el hueso hace.
+    const opts = {
+      trunkLean:
+        (control as { targets?: { target: { armature: string } }[] } | null | undefined)
+          ?.targets?.some((t) => t.target.armature === 'spine') ?? false,
+    };
+    const r = shoulderChain(angle, rigSideFor(cmd.side), pathology?.shoulderMod, opts).readout;
     const gh = Math.max(0, r.ghDeg);
     const sc = Math.max(0, r.scapulaDeg);
     const tr = Math.max(0, r.trunkDeg);
@@ -339,13 +349,15 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
     if (total <= 0) return null;
     // When a pathology is active, keep the NORMAL ratio at this angle as a
     // reference so the alteration reads as "X:1 vs normal Y:1".
-    const normalRatio = pathology ? shoulderChain(angle, rigSideFor(cmd.side)).readout.ratio : null;
+    const normalRatio = pathology
+      ? shoulderChain(angle, rigSideFor(cmd.side), undefined, opts).readout.ratio
+      : null;
     // WHERE THE SCAPULAR SHARE COMES FROM. The blade does not turn on the chest:
     // it turns because the clavicle elevates at the sternoclavicular joint AND the
     // blade turns on the clavicle at the acromioclavicular. Splitting the girdle
     // was what fixed the rig ("no se mueve en conjunto"), and the same two numbers
     // are the biomechanics a physio wants to read while the arm goes up.
-    const chain = shoulderChain(angle, rigSideFor(cmd.side), pathology?.shoulderMod);
+    const chain = shoulderChain(angle, rigSideFor(cmd.side), pathology?.shoulderMod, opts);
     const R2D = 180 / Math.PI;
     const scTotal = chain.scapulothoracicUpwardRot * R2D;
     // The readout's scapular figure is rescaled once the trunk joins in (>150),
@@ -359,6 +371,11 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
     return {
       gh,
       sc,
+      // La rotacion ascendente de la paleta EN SU PROPIO PLANO, que es la cifra
+      // de los libros (~60 grados a 180). `sc` es su proyeccion sobre el plano en
+      // que se mide el brazo, y es siempre menor: sin decirlo, un alumno que ha
+      // leido "60 grados" ve 51 y cree que el modelo esta mal.
+      scPlane: Math.max(0, r.scapulaPlaneDeg),
       tr,
       girdle,
       ratio: r.ratio,
@@ -367,7 +384,7 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
       scPct: (sc / total) * 100,
       trPct: (tr / total) * 100,
     };
-  }, [isChain, angle, cmd.side, pathology]);
+  }, [isChain, angle, cmd.side, pathology, control]);
 
   // Knee screw-home coupling (the knee's "rhythm equivalent"): the automatic tibial
   // rotation locked to sagittal flexion/extension. Only for the knee sagittal
@@ -815,6 +832,26 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
                   {Math.round(rhythm.girdle.acromioclavicularDeg)}°
                 </span>
                 <span className="text-slate-500"> acromioclavicular (la escápula gira sobre ella).</span>
+              </p>
+            )}
+            {/* POR QUE LA CIFRA NO ES LA DEL LIBRO. El plano de la escápula está
+                inclinado unos 34° por delante del frontal, así que su rotación
+                ascendente eleva el brazo cos(34°) de lo que gira: los ~60° que se
+                citan a 180° son en SU plano, y lo que aporta al ángulo medido es
+                menos. Decirlo evita la conclusión de que el modelo está mal, y es
+                además la razón por la que la elevación se explora en el plano
+                escapular. Solo cuando la diferencia ya se nota. */}
+            {showDescription && rhythm.scPlane - rhythm.sc > 2 && (
+              <p className="mt-1 text-[10px] leading-snug text-slate-400">
+                <span className="text-slate-500">Rotación ascendente de la escápula: </span>
+                <span className="tabular-nums text-amber-200/90">
+                  {Math.round(rhythm.scPlane)}°
+                </span>
+                <span className="text-slate-500">
+                  {' '}en su propio plano, inclinado ~34° por delante del frontal; de ahí los{' '}
+                </span>
+                <span className="tabular-nums text-amber-200/90">{Math.round(rhythm.sc)}°</span>
+                <span className="text-slate-500"> que aporta al ángulo que se mide.</span>
               </p>
             )}
             {/* Source: the joint split is Inman's scapulohumeral rhythm; the trunk

@@ -524,7 +524,9 @@ export const BONE_MAP: Record<string, BoneControl> = {
     kind: 'chain',
     clinicalRange: { min: 0, max: 180 },
     decompose: (deg, side, mod) => {
-      const p = shoulderChain(deg, side, mod);
+      // trunkLean: false -- el raquis NO participa en la elevacion sagital (los
+      // objetivos de abajo no lo tocan, y el reparto que se publica tampoco debe).
+      const p = shoulderChain(deg, side, mod, { trunkLean: false });
       // shoulderChain signs the GH rotation for the ABDUCTION axis (local Z:
       // R:-1, L:+1). Recover the unsigned magnitude and re-sign it for the
       // FLEXION axis (local X: -1 both sides, matching the old joint mapping).

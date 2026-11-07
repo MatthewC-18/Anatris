@@ -8,7 +8,7 @@
 // lands on the asked angle, and only the girdle looks wrong.
 
 import { describe, it, expect } from 'vitest';
-import { shoulderChain } from '../biomech/shoulderChain';
+import { shoulderChain, SCAPULAR_PLANE_EFFICIENCY } from '../biomech/shoulderChain';
 import { scapulaWrap, SCAPULA_WRAP_SIGN } from '../biomech/scapulaWrap';
 import { BONE_MAP } from '../boneMap';
 
@@ -98,6 +98,80 @@ describe('shoulder girdle', () => {
       for (const deg of [60, 120, 180]) {
         const p = shoulderChain(deg, 'R');
         expect(p.readout.scapulaDeg, `${deg} deg`).toBeGreaterThan(p.scapulaUpwardRot * R2D);
+      }
+    });
+  });
+
+  // LAS DOS CIFRAS QUE EL PANEL PUBLICABA Y EL HUESO NO HACIA.
+  //
+  // Las encontro `npm run audit-angles`, midiendo hueso por hueso: el brazo
+  // llegaba a su angulo exacto en todo el arco, pero el REPARTO anunciado no era
+  // el que el 3D ejecutaba. Un reparto equivocado no se ve — el brazo sube
+  // igual —, y es justo lo que un alumno lee del panel.
+  describe('el reparto publicado es el que el hueso hace', () => {
+    it('proyecta la aportacion de la cintura sobre el plano en que se mide', () => {
+      // La paleta gira sobre la perpendicular a SU plano, inclinado 32,8 grados
+      // (medido en el GLB). Cada grado de rotacion ascendente eleva el brazo
+      // cos(32,8) = 0,84 grados, no uno. La cuenta vieja (`gh = E - escapula`)
+      // atribuia a la cintura grados que no entregaba y el 3D los hacia con la
+      // glenohumeral: a 90 grados el hueso giraba 71,7 y el panel decia 66,6.
+      for (const deg of [30, 60, 90, 120, 150]) {
+        const p = shoulderChain(deg, 'R');
+        const st = p.scapulothoracicUpwardRot * R2D;
+        expect(p.readout.scapulaDeg, `${deg} deg: proyectada, no entera`).toBeLessThan(st);
+        expect(p.readout.scapulaDeg, `${deg} deg`).toBeCloseTo(st * SCAPULAR_PLANE_EFFICIENCY, 6);
+        // Y la rotacion ascendente en su propio plano se sigue publicando: es la
+        // cifra de los libros y la que conduce el rig.
+        expect(p.readout.scapulaPlaneDeg, `${deg} deg`).toBeCloseTo(st, 6);
+      }
+    });
+
+    it('las tres partes siguen sumando el angulo pedido', () => {
+      for (const deg of [30, 90, 150, 180]) {
+        const p = shoulderChain(deg, 'R');
+        const sum = p.readout.ghDeg + p.readout.scapulaDeg + p.readout.trunkDeg;
+        expect(sum, `${deg} deg`).toBeCloseTo(deg, 6);
+      }
+    });
+
+    it('no atribuye al tronco una inclinacion que la flexion no hace', () => {
+      // El raquis presta una inclinacion contralateral a la ABDUCCION para acabar
+      // de llevar el brazo a la vertical. En la flexion no: ahi seria una
+      // extension, y la inclinacion frontal sacaria el cuerpo del plano — por eso
+      // `glenohumeral-flexion` no tiene objetivos en el raquis. Pero el reparto
+      // publicado le seguia atribuyendo sus 26 grados y se los quitaba a las dos
+      // articulaciones (medido a 180: la cintura llevaba el brazo 46,9 grados y el
+      // panel anunciaba 70,3).
+      const abd = shoulderChain(180, 'R');
+      const flex = shoulderChain(180, 'R', undefined, { trunkLean: false });
+      expect(abd.readout.trunkDeg).toBeGreaterThan(20);
+      expect(flex.readout.trunkDeg).toBe(0);
+      expect(flex.thoracicLatFlexPerVert).toBe(0);
+      expect(flex.lumbarLatFlexPerVert).toBe(0);
+      // Lo que el tronco no pone, lo ponen las articulaciones: el total no cambia.
+      expect(flex.readout.ghDeg + flex.readout.scapulaDeg).toBeCloseTo(180, 6);
+      expect(flex.readout.ghDeg).toBeGreaterThan(abd.readout.ghDeg);
+    });
+
+    it('cada elevacion pide el tronco solo si su control mueve el raquis', () => {
+      // La regla que usan el panel y el banco de medida, leida del mapa en vez de
+      // nombrar el movimiento: anadir una elevacion nueva no puede volver a
+      // desincronizar el reparto publicado de lo que el hueso hace.
+      for (const id of ELEVATION) {
+        const ctrl = BONE_MAP[id];
+        if (ctrl?.kind !== 'chain') continue;
+        const movesSpine = ctrl.targets.some((t) => t.target.armature === 'spine');
+        const p = shoulderChain(180, 'R', undefined, { trunkLean: movesSpine });
+        expect(p.readout.trunkDeg > 0, `${id}: tronco ${movesSpine ? 'si' : 'no'}`).toBe(movesSpine);
+      }
+      // Y de hecho hoy son una de cada.
+      const abd = BONE_MAP['glenohumeral-abduction'];
+      const flex = BONE_MAP['glenohumeral-flexion'];
+      if (abd?.kind === 'chain') {
+        expect(abd.targets.some((t) => t.target.armature === 'spine')).toBe(true);
+      }
+      if (flex?.kind === 'chain') {
+        expect(flex.targets.some((t) => t.target.armature === 'spine')).toBe(false);
       }
     });
   });
