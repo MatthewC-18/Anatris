@@ -60,6 +60,30 @@ function dedupeById(lists: Muscle[][]): Muscle[] {
   return out;
 }
 
+/**
+ * EL UNIVERSO DE MUSCULOS RESOLUBLES: el nivel gratuito, que va en el paquete,
+ * mas cada region premium que ya se haya descargado tras el control de acceso.
+ *
+ * Se publica aparte porque el laboratorio de movimiento lo necesita igual y
+ * tenia su propia copia: `Object.values(MUSCLES_BY_REGION).flat()`, calculada
+ * UNA VEZ al cargar el modulo y sobre el registro ESTATICO, que desde la
+ * division premium solo contiene el hombro. Medido en la app: 18 musculos, y
+ * los 13 de la rodilla fuera. Consecuencia en pantalla: en el laboratorio de
+ * rodilla, cadera, tobillo, codo y raquis el panel anunciaba "Motor principal
+ * / Vasto lateral 92%" y NO SE ENCENDIA NINGUN MUSCULO, porque el resolutor no
+ * tenia ese id. Sin error y sin aviso: el aviso de RigOverlays solo salta
+ * cuando el mapa queda VACIO, y con el hombro dentro nunca lo estaba.
+ */
+export function useAllMuscles(): Muscle[] {
+  const version = useSyncExternalStore(subscribePremium, premiumVersion, premiumVersion);
+  return useMemo(
+    () => dedupeById([shoulderMuscles, allLoadedPremiumMuscles()]),
+    // `version` es la clave de cache, no un dato.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [version],
+  );
+}
+
 const EMPTY: MuscleResolution = {
   muscleByMeshName: new Map(),
   meshNamesByMuscleId: new Map(),
@@ -73,14 +97,11 @@ export function useMuscleResolution(
   // regions is not otherwise observable to a memo, so without this the map
   // would stay frozen at whatever was loaded on first render and a region
   // opened later would resolve to nothing.
-  const version = useSyncExternalStore(subscribePremium, premiumVersion, premiumVersion);
+  const muscles = useAllMuscles();
 
   return useMemo(() => {
     if (!index) return EMPTY;
-    const muscles = dedupeById([shoulderMuscles, allLoadedPremiumMuscles()]);
     const meshNames = index.entries.map((e) => e.meshName);
     return buildMuscleResolution(muscles, meshNames);
-    // `version` is a cache key, not data — see the note above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, version]);
+  }, [index, muscles]);
 }

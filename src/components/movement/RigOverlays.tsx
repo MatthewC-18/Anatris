@@ -33,7 +33,7 @@ import * as THREE from 'three';
 import { rigChannel, type RigCommand } from './RigModel';
 import { buildMuscleResolution, type MuscleResolution } from '../../lib/muscleResolver';
 import { parseMeshName, type ParsedSide } from '../../lib/parseMeshName';
-import { MUSCLES_BY_REGION } from '../../data/musclesByRegion';
+import { useAllMuscles } from '../../hooks/useMuscleResolution';
 import { movementById } from '../../data/romByRegion';
 import { readingAngleFor } from '../../lib/labCamera';
 import {
@@ -140,8 +140,6 @@ function parsedSide(side: Side): 'left' | 'right' {
   return side === 'R' ? 'right' : 'left';
 }
 
-/** Every muscle across all regions, for resolving any movement's muscles. */
-const ALL_MUSCLES = Object.values(MUSCLES_BY_REGION).flat();
 
 // --- Manual-resistance overlay: the therapist's interaction with the patient. ---
 // A physio never just watches the movement -- they RESIST it. Instead of a
@@ -223,6 +221,9 @@ export function RigOverlays(): JSX.Element {
   // current command, makes the glow appear on a cold load without any user input.
   const resolutionRef = useRef<MuscleResolution | null>(null);
   const meshByNameRef = useRef<Map<string, THREE.Mesh>>(new Map());
+  // El universo de musculos resolubles: gratuito + premium ya descargado. Ver
+  // la nota de `useAllMuscles`, que es donde estaba el defecto.
+  const allMuscles = useAllMuscles();
 
   useEffect(() => {
     let cancelled = false;
@@ -239,7 +240,7 @@ export function RigOverlays(): JSX.Element {
           byName.set(m.name, m);
         }
       });
-      const res = buildMuscleResolution(ALL_MUSCLES, names);
+      const res = buildMuscleResolution(allMuscles, names);
       const ready = res.meshNamesByMuscleId.size > 0;
       if (ready || tries > 180) {
         resolutionRef.current = res;
@@ -264,7 +265,11 @@ export function RigOverlays(): JSX.Element {
       cancelled = true;
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [scene]);
+    // `allMuscles` ENTRA EN LAS DEPENDENCIAS a proposito: el contenido premium
+    // de la region llega DESPUES del primer render, asi que una resolucion
+    // construida una sola vez solo conoce el hombro y en el laboratorio de
+    // cualquier otra region no se encenderia nada.
+  }, [scene, allMuscles]);
 
   // Currently glowing meshes -> how to restore them.
   const glowRef = useRef<Map<THREE.Mesh, GlowEntry>>(new Map());
