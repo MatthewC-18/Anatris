@@ -18,6 +18,9 @@
 //          answers "is the envelope torn?", since a hole shows the background.
 //   RAW    off (default) | on -- `on` skips the runtime's wrap/carry/aim, to see
 //          what the chain alone does.
+//   CLEAR  off (default) | on -- `on` anade la separacion cosmetica del brazo
+//          (ARM_CLEARANCE_DEG) que la aplicacion si aplica en reposo. Sin ella
+//          la hoja ensena el brazo pegado al flanco y la aplicacion no.
 import { readFileSync } from 'node:fs';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
@@ -259,7 +262,7 @@ const CLEAR = Number(process.env.CLEAR ?? 0);
 const clearHum = poser.shoulderBones.get('humerus_gh');
 
 for (const deg of DEGS) {
-  poser.pose(deg);
+  poser.pose(deg, { withClearance: process.env.CLEAR === 'on' });
   if (CLEAR && clearHum) {
     clearHum.rotateOnAxis(new THREE.Vector3(1, 0, 0), (-CLEAR * Math.PI) / 180);
     scene.updateMatrixWorld(true);

@@ -36,6 +36,7 @@ import {
   FOREARM_CULLS,
   inArmBand,
   inDistalRegion,
+  inForearmHollow,
   inWristCuff,
   trimForearmOutliers,
 } from '../../lib/rigLimbTrim';
@@ -1378,7 +1379,8 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // --- Arm rebind geometry (elbow-flexion + forearm-pronation fixes). ---
       // Alturas leidas del propio rig (src/lib/rigArmRebind.ts): un re-export
       // del GLB puede mover el codo, y el umbral tiene que moverse con el.
-      const { elbowY: ELBOW_Y, wristY: WRIST_Y, upperArmY: UPPER_ARM_Y } = armHeights(scene);
+      const ARM_H = armHeights(scene);
+      const { elbowY: ELBOW_Y, wristY: WRIST_Y, upperArmY: UPPER_ARM_Y } = ARM_H;
 
       // Knee height, for the knee-skin blend (src/lib/rigSkinRepair.ts). Read
       // off the leg armatures for the same reason as the elbow: a rig
@@ -1863,6 +1865,19 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           // open from 45 deg of flexion. Blend them into one sheet instead.
           else if (Math.abs(center.y - KNEE_Y) < KNEE_SKIN_REACH_M) {
             blendKneeSkin(mesh, KNEE_Y);
+          }
+          // EL TRAMO HUECO DEL ANTEBRAZO LLEVA PIEL SOLIDA (ver inForearmHollow).
+          // El fantasma existe para ensenar el musculo de debajo, y en el ultimo
+          // cuarto del antebrazo no hay musculo que ensenar: el dato trae seis
+          // musculos superficiales tumbados atravesando el miembro y el recorte
+          // medido los oculta. Dejarlo traslucido solo ensena el radio y el
+          // cubito pelados, pegados a una mano opaca. Asi el manguito baja
+          // entero hasta el casquete de la mano.
+          if (inForearmHollow(center, ARM_H)) {
+            swap(mesh, skinMat);
+            mesh.userData.rigLayer = 'skin';
+            mesh.userData.rigDistalCap = true;
+            return;
           }
           swap(mesh, bodySkinMat);
           mesh.userData.rigLayer = 'skin';
