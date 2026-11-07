@@ -30,7 +30,7 @@ import { getBoneControl, rigSideFor, type Side } from '../../lib/boneMap';
 import { shoulderChain } from '../../lib/biomech/shoulderChain';
 import { kneeScrewHome, type ScrewHomeZone } from '../../lib/biomech/kneeCoupling';
 import { cervicalRotationSplit } from '../../lib/biomech/cervicalCoupling';
-import { lumbopelvicRhythm } from '../../lib/biomech/lumbarCoupling';
+import { lumbopelvicRhythm, LUMBOPELVIC_PELVIS_POSED } from '../../lib/biomech/lumbarCoupling';
 import {
   buildLabArc,
   phaseAtAngleIn,
@@ -192,6 +192,7 @@ function SegmentSplitCard({
   note,
   source,
   showNote,
+  notPosed,
 }: {
   title: string;
   ratio?: string;
@@ -199,6 +200,14 @@ function SegmentSplitCard({
   note?: string;
   source: string;
   showNote: boolean;
+  /**
+   * Aviso cuando uno de los dos segmentos NO se mueve en el 3D. Una cifra al
+   * lado de un modelo que no la hace, sin decirlo, hace creer al alumno que ha
+   * visto el gesto completo. Hoy solo lo lleva la pelvis del ritmo lumbopelvico
+   * (ver la cabecera de biomech/lumbarCoupling): el rig no tiene la cadera como
+   * articulacion, asi que la pelvis no puede bascular sin romper la nalga.
+   */
+  notPosed?: string;
 }): JSX.Element {
   return (
     <>
@@ -235,6 +244,9 @@ function SegmentSplitCard({
             </span>
           ))}
         </div>
+        {notPosed && (
+          <p className="mt-2 text-[10px] leading-snug text-amber-200/80">{notPosed}</p>
+        )}
         {showNote && note && (
           <p className="mt-2 text-[10.5px] leading-snug text-slate-400">{note}</p>
         )}
@@ -954,6 +966,11 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
           title="Ritmo lumbopélvico"
           ratio={lumboPelvic.ratio}
           showNote={showDescription}
+          notPosed={
+            LUMBOPELVIC_PELVIS_POSED
+              ? undefined
+              : 'La pelvis no bascula en el 3D: en este modelo la cadera no es una articulación entre pelvis y fémur. Los grados de pelvis son del modelo; lo que ves moverse es el raquis lumbar.'
+          }
           note={
             lumboPelvic.leader === 'lumbar'
               ? 'El raquis lumbar lidera el inicio del gesto (invierte la lordosis); la pelvis aún apenas rota.'

@@ -10,7 +10,43 @@
 // by person and task), same honesty discipline as ./shoulderChain. READOUT only —
 // the lab drives the lumbar segment; the pelvic share is shown, not posed.
 //
+// --- POR QUE LA PELVIS NO SE PUEDE POSAR, Y ESTA MEDIDO ---------------------
+//
+// Los otros dos acoplamientos que el panel publicaba sin que el rig los hiciera
+// ya estan conducidos: el tornillo de la rodilla y el reparto de la rotacion
+// cervical. Este NO SE PUEDE, y la razon no es pereza: en este GLB la PELVIS Y
+// EL FEMUR VIVEN EN ESQUELETOS DISTINTOS y no hay articulacion entre ellos. El
+// sacro es la raiz del Spine_Armature; cada femur es la raiz de su
+// Leg_Armature, que cuelga de la raiz de la escena. La cadera no existe como
+// junta, asi que girar uno no puede articularse contra el otro.
+//
+// Medido alrededor del sacro (316 mallas con vertices a menos de 18 cm): 191 las
+// conduce el Spine_Armature y 121 los Leg_Armature, y la frontera parte la
+// region por la mitad. El PIRIFORME es del raquis y el GLUTEO MAYOR de la
+// pierna, los dos insertados en el mismo hueso y a 4 cm uno del otro: girar
+// `vert_sacrum` se llevaria el piriforme y dejaria el gluteo atras, una costura
+// abierta en plena nalga. Y arrastrar las piernas con la pelvis seria peor,
+// porque en una flexion de tronco de pie las piernas se quedan verticales
+// mientras la pelvis bascula sobre ellas.
+//
+// Asi que la aportacion pelvica se MUESTRA y se AVISA de que no se posa, con la
+// misma disciplina que el resto de la aplicacion usa para un modelo ("modelo de
+// reclutamiento, no medicion EMG"). Una cifra al lado de un modelo que no la
+// hace, sin avisar, es la clase de error que esta auditoria vino a quitar.
+// Conducirla de verdad pide rehacer la jerarquia del rig (una pelvis como padre
+// de los dos femures), que es un cambio de Blender y no de runtime.
+//
+// `npm run audit-angles` vigila las dos mitades del contrato: que el rig NO
+// mueva la pelvis mientras la bandera sea false, y que el panel lo avise.
+//
 // ASCII source; no `any`.
+
+/**
+ * Si el rig POSA de verdad la aportacion pelvica. Hoy es false por la estructura
+ * del GLB (ver la cabecera). El panel lo lee para avisar, y el banco de medida
+ * para exigir coherencia: mientras sea false, la pelvis no se mueve en 3D.
+ */
+export const LUMBOPELVIC_PELVIS_POSED = false;
 
 export type LumbopelvicLeader = 'lumbar' | 'pelvis' | 'balanced';
 

@@ -37,6 +37,9 @@ import { rigGlbPath } from './lib/rigPath.mts';
 import { baseName, createRigPoser } from './lib/rigPose.mts';
 import { BONE_MAP } from '../src/lib/boneMap.ts';
 import { shoulderChain } from '../src/lib/biomech/shoulderChain.ts';
+import { kneeScrewHome } from '../src/lib/biomech/kneeCoupling.ts';
+import { cervicalRotationSplit } from '../src/lib/biomech/cervicalCoupling.ts';
+import { lumbopelvicRhythm, LUMBOPELVIC_PELVIS_POSED } from '../src/lib/biomech/lumbarCoupling.ts';
 
 /** Un hueso, o el TORAX (que en este rig no se mueve solo). */
 type Ref = string | 'world';
@@ -456,4 +459,149 @@ console.log(
 );
 console.log('');
 
-if (failures + rhythmFail > 0) process.exitCode = 1;
+// ---------------------------------------------------------------------------
+// LOS OTROS TRES REPARTOS QUE EL PANEL PUBLICA.
+//
+// El ritmo escapulohumeral no es el unico acoplamiento que el laboratorio
+// anuncia. Hay tres mas, cada uno con su modulo y su lectura en pantalla:
+//
+//   - el MECANISMO DE TORNILLO de la rodilla (la tibia rota externamente ~15
+//     grados en los ultimos 30 de extension y bloquea la articulacion);
+//   - el reparto de la ROTACION CERVICAL entre C1-C2 y el raquis subaxial;
+//   - el RITMO LUMBOPELVICO de la flexion del tronco (la pelvis bascula sobre
+//     las caderas y se lleva la mitad del gesto).
+//
+// Los tres modulos llevan escrito en su cabecera "READOUT only -- it does not
+// drive the rig". Es honesto en el codigo y no lo es en pantalla: el alumno lee
+// una cifra al lado de un modelo que no la hace. Aqui se MIDE cuanto de cada uno
+// ejecuta el rig, que es el mismo defecto que acabo de corregir en el hombro.
+// ---------------------------------------------------------------------------
+console.log('===== LOS OTROS TRES ACOPLAMIENTOS PUBLICADOS =====');
+console.log('');
+let coupFail = 0;
+
+/** Giro de `moving` respecto a `ref`, proyectado sobre un eje del mundo. */
+function twistAbout(
+  moving: THREE.Object3D, ref: THREE.Object3D | null,
+  rest: THREE.Quaternion, axis: THREE.Vector3,
+): number {
+  const now = relQuat(moving, ref);
+  const r = axisAngle(rest, now);
+  return r.deg * r.axis.dot(axis);
+}
+
+// --- 1. EL MECANISMO DE TORNILLO DE LA RODILLA -----------------------------
+{
+  console.log('  Mecanismo de tornillo (rodilla): rotacion tibial acoplada');
+  restoreRest();
+  const poser = createRigPoser(scene, 'knee-flexion', 'R');
+  const arm = 'Leg_Armature_R';
+  const femur = boneOf(arm, 'femur_base')!;
+  const shin = boneOf(arm, 'shin_flex')!;
+  poser.pose(0);
+  scene.updateMatrixWorld(true);
+  // El eje largo de la pierna, del propio hueso: la rotacion axial de la tibia
+  // es el giro alrededor de el. Medirlo asi evita suponer que eje local mira
+  // donde, que en este GLB no se puede suponer.
+  const longAxis = shin.getWorldPosition(new THREE.Vector3())
+    .sub(femur.getWorldPosition(new THREE.Vector3())).normalize();
+  const rest0 = relQuat(shin, femur);
+  for (const f of [0, 10, 20, 30, 60]) {
+    poser.pose(f);
+    scene.updateMatrixWorld(true);
+    const have = twistAbout(shin, femur, rest0, longAxis);
+    // El modelo da la rotacion EXTERNA acoplada a esa flexion; lo que se mide es
+    // el cambio respecto a la flexion 0, que es donde el modelo la pone maxima.
+    const want = kneeScrewHome(f).tibialErDeg - kneeScrewHome(0).tibialErDeg;
+    const ok = Math.abs(Math.abs(have) - Math.abs(want)) <= 3;
+    if (!ok) coupFail++;
+    console.log(
+      `    ${ok ? 'OK ' : 'MAL'} flexion ${String(f).padStart(3)} deg  ` +
+      `tibia gira ${have.toFixed(1).padStart(6)} deg sobre su eje  ` +
+      `(el panel anuncia ${want.toFixed(1)} respecto a la extension completa, ` +
+      `${kneeScrewHome(f).tibialErDeg.toFixed(1)} absolutos, zona "${kneeScrewHome(f).zone}")`,
+    );
+  }
+  poser.pose(0);
+  scene.updateMatrixWorld(true);
+  console.log('');
+}
+
+// --- 2. EL REPARTO DE LA ROTACION CERVICAL ---------------------------------
+{
+  console.log('  Rotacion cervical: C1-C2 contra el raquis subaxial');
+  restoreRest();
+  const poser = createRigPoser(scene, 'cervical-rotation', 'R');
+  const arm = 'Spine_Armature';
+  const c1 = boneOf(arm, 'vert_C1')!;
+  const c2 = boneOf(arm, 'vert_C2')!;
+  const t1 = boneOf(arm, 'vert_T1')!;
+  poser.pose(0);
+  scene.updateMatrixWorld(true);
+  const restAtlas = relQuat(c1, c2);
+  const restSub = relQuat(c2, t1);
+  for (const d of [20, 40, 60, 80]) {
+    poser.pose(d);
+    scene.updateMatrixWorld(true);
+    const atlas = angleBetween(restAtlas, relQuat(c1, c2));
+    const sub = angleBetween(restSub, relQuat(c2, t1));
+    const m = cervicalRotationSplit(d)!;
+    const okA = Math.abs(atlas - m.c1c2Deg) <= Math.max(3, m.c1c2Deg * 0.15);
+    const okS = Math.abs(sub - m.subaxialDeg) <= Math.max(3, m.subaxialDeg * 0.15);
+    if (!okA || !okS) coupFail++;
+    console.log(
+      `    ${okA && okS ? 'OK ' : 'MAL'} ${String(d).padStart(2)} deg  ` +
+      `C1-C2 ${atlas.toFixed(1).padStart(5)} (panel ${m.c1c2Deg.toFixed(1)})  ` +
+      `subaxial ${sub.toFixed(1).padStart(5)} (panel ${m.subaxialDeg.toFixed(1)})  ` +
+      `razon ${sub > 0.1 ? (atlas / sub).toFixed(1) : '—'}:1 (panel ${m.ratio})`,
+    );
+  }
+  poser.pose(0);
+  scene.updateMatrixWorld(true);
+  console.log('');
+}
+
+// --- 3. EL RITMO LUMBOPELVICO ----------------------------------------------
+{
+  console.log(
+    '  Ritmo lumbopelvico (flexion del tronco): la pelvis' +
+    (LUMBOPELVIC_PELVIS_POSED ? '' : '  [NO SE POSA: el rig no tiene la cadera como articulacion; el panel lo avisa]'),
+  );
+  restoreRest();
+  const poser = createRigPoser(scene, 'lumbar-flexion', 'R');
+  const sacrum = boneOf('Spine_Armature', 'vert_sacrum')!;
+  poser.pose(0);
+  scene.updateMatrixWorld(true);
+  const restSacrum = sacrum.getWorldQuaternion(new THREE.Quaternion());
+  for (const d of [15, 30, 45, 60]) {
+    poser.pose(d);
+    scene.updateMatrixWorld(true);
+    const pelvis = angleBetween(restSacrum, sacrum.getWorldQuaternion(new THREE.Quaternion()));
+    const m = lumbopelvicRhythm(d)!;
+    // LAS DOS MITADES DEL CONTRATO. Si la bandera dice que la pelvis se posa, el
+    // rig tiene que moverla; si dice que no, tiene que estarse QUIETA y el panel
+    // avisarlo (lo hace `notPosed` en RhythmReadout). Lo que no vale es la cifra
+    // sin el aviso, que es lo que habia.
+    const ok = LUMBOPELVIC_PELVIS_POSED
+      ? Math.abs(pelvis - m.pelvicDeg) <= Math.max(3, m.pelvicDeg * 0.2)
+      : pelvis <= 0.5;
+    if (!ok) coupFail++;
+    console.log(
+      `    ${ok ? 'OK ' : 'MAL'} lumbar ${String(d).padStart(2)} deg  ` +
+      `la pelvis bascula ${pelvis.toFixed(1).padStart(5)} deg  ` +
+      `(el panel anuncia ${m.pelvicDeg.toFixed(1)}, razon ${m.ratio}, lleva "${m.leader}")`,
+    );
+  }
+  poser.pose(0);
+  scene.updateMatrixWorld(true);
+  console.log('');
+}
+
+console.log(
+  coupFail === 0
+    ? '  Los tres acoplamientos publicados son los que el rig ejecuta.'
+    : `  ${coupFail} lectura(s) de acoplamiento que el rig no ejecuta.`,
+);
+console.log('');
+
+if (failures + rhythmFail + coupFail > 0) process.exitCode = 1;

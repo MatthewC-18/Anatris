@@ -28,6 +28,10 @@
 // is the pure, clinically-modelled function in ./biomech/shoulderChain.
 
 import { shoulderChain, type ShoulderChainMod } from './biomech/shoulderChain';
+// El acoplamiento del tornillo de la rodilla lee EL MISMO modelo que el panel
+// publica, para que no puedan volver a decir cosas distintas.
+import { kneeScrewHome } from './biomech/kneeCoupling';
+import { cervicalRotationSplit } from './biomech/cervicalCoupling';
 
 export type RigAxis = 'x' | 'y' | 'z';
 export type Side = 'R' | 'L';
@@ -122,8 +126,15 @@ export interface SpineControl {
   axis: RigAxis;
   sign: 1 | -1;
   clinicalRange: { min: number; max: number };
-  /** Per-level weights (same order/length as `bones`); omitted = uniform. */
-  weights?: number[];
+  /**
+   * Per-level weights (same order/length as `bones`); omitted = uniform.
+   *
+   * PUEDE DEPENDER DEL ANGULO, y para la rotacion cervical tiene que hacerlo: el
+   * atlas NO se lleva una fraccion fija del giro, la lleva por delante y el
+   * raquis subaxial lo alcanza despues. Un reparto constante dice la media del
+   * arco y miente en los dos extremos.
+   */
+  weights?: number[] | ((clinicalDeg: number) => number[]);
   needsVisualCheck?: boolean;
 }
 
@@ -270,6 +281,68 @@ const patellarGlide: BoneCoupling = {
   bone: 'patella',
   axis: 'x',
   follow: (primaryRad) => primaryRad * 0.5,
+};
+
+// ---------------------------------------------------------------------------
+// EL MECANISMO DE TORNILLO, QUE EL PANEL ANUNCIABA Y EL RIG NO HACIA.
+//
+// En los ultimos ~30 grados de extension la tibia rota externamente unos 15 y
+// BLOQUEA la rodilla: los dos cruzados quedan tensos y estar de pie no cuesta
+// musculo. Para empezar a flexionar, el popliteo la "desbloquea" rotandola
+// internamente. Es el equivalente del ritmo escapulohumeral en la rodilla y una
+// de las cosas mas utiles que se ensenan de ella.
+//
+// `kneeScrewHome` lo modelaba y el panel lo mostraba, pero su cabecera decia
+// "READOUT only -- it does not drive the rig": el alumno leia 15 grados al lado
+// de una tibia que giraba 0,1. Medido con `npm run audit-angles`.
+//
+// SE MIDE DESDE EL REPOSO, que no es libre: la postura de reposo del rig es la
+// de pie, con la rodilla extendida, o sea YA BLOQUEADA. Asi que lo que el rig
+// tiene que mostrar no es anadir la rotacion externa al extender, sino
+// DESENROSCARLA al flexionar: 0 en extension completa y -15 (interna) cuando el
+// mecanismo ya esta libre, a los 30 grados. De ese modo la postura neutra del
+// modelo no cambia en ninguna otra pantalla.
+//
+// El eje y el signo NO se suponen: la rotacion axial de la tibia vive en
+// `shin_flex` eje y, y el signo de la EXTERNA es el de
+// `knee-external-rotation` ({ R: -1, L: 1 }), que `npm run audit-direction`
+// mide en los dos lados. Desenroscar es lo contrario, de ahi el menos.
+const KNEE_EXTERNAL_ROT_SIGN: Record<Side, 1 | -1> = { R: -1, L: 1 };
+// CERVICAL_BONES corre C7..C1, asi que la ULTIMA entrada es el atlas.
+// Movilidad relativa de los seis niveles subaxiales (C7..C2) para repartirse su
+// mitad: la parte alta del raquis cervical gira mas que la baja.
+const CERVICAL_SUBAXIAL_MOBILITY = [0.12, 0.14, 0.17, 0.19, 0.19, 0.19];
+const CERVICAL_SUBAXIAL_TOTAL = CERVICAL_SUBAXIAL_MOBILITY.reduce((a, b) => a + b, 0);
+/**
+ * Reparto de la rotacion cervical a ESE angulo: la fraccion del atlas sale de
+ * `cervicalRotationSplit`, el mismo modelo que el panel publica, y el resto se
+ * distribuye entre C7..C2 segun su movilidad.
+ */
+function cervicalRotationWeights(clinicalDeg: number): number[] {
+  const d = Math.abs(clinicalDeg);
+  const split = cervicalRotationSplit(d);
+  // Por debajo de medio grado el modelo no se pronuncia; el limite de su curva
+  // cuando el angulo tiende a 0 es el 65% de la primera fase.
+  const atlas = split && d > 0 ? split.c1c2Deg / d : 0.65;
+  const sub = Math.max(0, 1 - atlas);
+  return [
+    ...CERVICAL_SUBAXIAL_MOBILITY.map((w) => (w / CERVICAL_SUBAXIAL_TOTAL) * sub),
+    atlas,
+  ];
+}
+
+/** La rotacion externa acoplada en extension completa, segun kneeScrewHome. */
+const KNEE_SCREW_HOME_MAX_DEG = kneeScrewHome(0).tibialErDeg;
+const screwHomeUnwind: BoneCoupling = {
+  bone: 'shin_flex',
+  axis: 'y',
+  follow: (primaryRad, side) => {
+    const flexDeg = (Math.abs(primaryRad) * 180) / Math.PI;
+    // Lo que falta por desenroscar respecto a la extension completa: 0 en
+    // extension y -15 grados cuando el mecanismo ya esta libre.
+    const unwoundDeg = kneeScrewHome(flexDeg).tibialErDeg - KNEE_SCREW_HOME_MAX_DEG;
+    return ((unwoundDeg * Math.PI) / 180) * KNEE_EXTERNAL_ROT_SIGN[side];
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -721,7 +794,7 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // flesh presses together. See scripts/measure-knee-fold.mts and the header
     // of src/data/kneeRom.ts.
     clinicalRange: { min: 0, max: 135 },
-    couplings: [patellarGlide],
+    couplings: [patellarGlide, screwHomeUnwind],
   },
   'knee-extension': {
     kind: 'joint',
@@ -738,7 +811,9 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // interpenetration measurements that allowed the raise.
     sign: { R: -1, L: 1 },
     clinicalRange: { min: 0, max: 135 },
-    couplings: [patellarGlide],
+    // El mismo tornillo, recorrido al reves: la extension lo vuelve a enroscar
+    // en sus ultimos 30 grados, que es justo donde se ensena el bloqueo.
+    couplings: [patellarGlide, screwHomeUnwind],
     // Starts bent and straightens, like elbow extension.
     arcFrom: 'max',
   },
@@ -981,14 +1056,31 @@ export const BONE_MAP: Record<string, BoneControl> = {
     kind: 'spine', armature: 'Spine_Armature', bones: CERVICAL_BONES,
     axis: 'z', sign: 1, clinicalRange: { min: 0, max: 45 },
   },
-  // ~50% of cervical axial rotation happens at the atlanto-axial joint (C1-C2),
-  // not uniformly along the neck (Anatris ROM 3.2: "no animar la rotacion como un
-  // giro uniforme"). CERVICAL_BONES runs C7..C1, so the last two entries (C2, C1)
-  // carry half the total between them and the head leads the twist.
+  // LA MITAD DEL GIRO CERVICAL ES DE UNA SOLA ARTICULACION, Y NO ERA LA QUE EL
+  // RIG CREIA.
+  //
+  // El reparto viejo era `[0.09, 0.09, 0.1, 0.1, 0.12, 0.25, 0.25]` sobre
+  // C7..C1, con la nota «las dos ultimas entradas (C2, C1) se llevan la mitad
+  // entre las dos». Pero la articulacion atlanto-axial es C1 girando SOBRE C2,
+  // o sea la rotacion local de C1 SOLA: el 0,25 de C2 es C2 sobre C3, que es un
+  // nivel subaxial, y cargarle un cuarto del arco entero es cuatro veces lo que
+  // le toca. Medido con `npm run audit-angles`: el atlas giraba 20 grados de los
+  // 80 y el panel anunciaba 40. La mitad de la mitad.
+  //
+  // Y NO ES UNA FRACCION FIJA. El atlas LLEVA el giro por delante (el oblicuo
+  // inferior de la cabeza hace girar el atlas sobre el axis primero) y el raquis
+  // subaxial lo alcanza despues, hasta acabar el arco cerca del 50/50. Un peso
+  // constante da la media y miente en los dos extremos: a 20 grados el atlas
+  // debe llevar 13 y no 10.
+  //
+  // Asi que el reparto se LEE DEL MISMO MODELO QUE PUBLICA EL PANEL
+  // (`cervicalRotationSplit`), que es la unica forma de que no puedan volver a
+  // decir cosas distintas. Los niveles subaxiales se reparten su mitad segun su
+  // movilidad relativa, que es mayor arriba (C2-C3 y C3-C4 son los mas moviles).
   'cervical-rotation': {
     kind: 'spine', armature: 'Spine_Armature', bones: CERVICAL_BONES,
     axis: 'y', sign: 1, clinicalRange: { min: 0, max: 80 },
-    weights: [0.09, 0.09, 0.1, 0.1, 0.12, 0.25, 0.25],
+    weights: cervicalRotationWeights,
   },
 };
 
@@ -1084,9 +1176,12 @@ export function distributeSpineAngle(c: SpineControl, clinicalDeg: number): numb
   const n = c.bones.length;
   if (n === 0) return [];
   const signed = clinicalDeg * c.sign;
-  if (!c.weights || c.weights.length !== n) {
+  // El reparto puede depender del angulo (la rotacion cervical lo necesita: el
+  // atlas lleva el giro por delante), asi que se resuelve aqui.
+  const w = typeof c.weights === 'function' ? c.weights(clinicalDeg) : c.weights;
+  if (!w || w.length !== n) {
     return new Array(n).fill(signed / n);
   }
-  const total = c.weights.reduce((a, b) => a + b, 0) || 1;
-  return c.weights.map((w) => (signed * w) / total);
+  const total = w.reduce((a, b) => a + b, 0) || 1;
+  return w.map((x) => (signed * x) / total);
 }
