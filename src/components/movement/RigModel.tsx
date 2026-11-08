@@ -2017,25 +2017,25 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           mesh.userData.rigLayer = 'hidden';
           return;
         }
-        // EXTRINSIC DIGITAL MUSCLES of the LEG (flexor/extensor digitorum longus,
-        // flexor/extensor hallucis longus + the foot brevis slips). SAME failure as
-        // the forearm's above: their long thin tendons cross the ankle poorly bound
-        // to foot_flex, so on ankle inversion/eversion/dorsi/plantarflexion they
-        // fling OUT of the leg as loose colored "puntas" past the skin (reported on
-        // the ankle). The foot skin-cap (y < 0.12) hides the toe parts, but the
-        // ankle-crossing tendons sit just above it and escape it. Hide these whole
-        // toe muscles in the leg (y < 0.6, so the FOREARM digitorum handled above is
-        // untouched); the meaty ankle movers -- tibialis anterior/posterior, the
-        // fibularis/peroneus group and the triceps surae -- all stay.
-        if (
-          layer === 'muscle' &&
-          center.y < 0.6 &&
-          /(digitorum|hallucis)_?(longus|brevis)/i.test(mesh.name)
-        ) {
-          mesh.visible = false;
-          mesh.userData.rigLayer = 'hidden';
-          return;
-        }
+        // LOS MUSCULOS DIGITALES DE LA PIERNA VUELVEN. Aqui se escondian por
+        // NOMBRE el flexor y el extensor largos de los dedos y los dos del dedo
+        // gordo, porque sus tendones se salian del pie al mover el tobillo.
+        //
+        // El precio era que la region de tobillo acreditaba cuatro musculos que
+        // el modelo no encendia nunca: el panel los nombraba y en pantalla no
+        // pasaba nada. Y el defecto que lo motivaba se midio de nuevo y tenia
+        // dos causas distintas, las dos ya reparadas:
+        //
+        //  1. El reparto de peso del tobillo miraba solo la ALTURA, y el dorso
+        //     del mediopie esta a la altura de la articulacion aunque este 5 cm
+        //     por delante: en flexion plantar se quedaba atras (reparado en
+        //     src/lib/rigAnkleRebind.ts, ver ANKLE_FORWARD_START_M).
+        //  2. Lo que parecian tendones disparados en las hojas de revision era,
+        //     en buena parte, la PIERNA CONTRARIA dibujada detras por un recorte
+        //     de lado defectuoso del banco de render.
+        //
+        // Comprobado despues de las dos reparaciones, con piel y a los extremos
+        // del arco (flexion plantar 50 grados, inversion 30): el pie sale limpio.
         // Drop the few export-corrupted spike meshes outside the distal cap.
         if (HIDE_SPIKES && isCorruptedSpike(mesh)) {
           mesh.visible = false;

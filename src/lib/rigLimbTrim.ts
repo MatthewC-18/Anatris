@@ -267,14 +267,32 @@ function trimMeshToLimb(
 }
 
 /**
- * True when a rest-pose world center lies in the hand/wrist or foot/ankle
- * cluster. Forearm and leg (muscle bellies, proximal skin) sit outside and keep
- * their normal muscle+bone rendering.
+ * True when a rest-pose world center lies in the HAND/WRIST cluster, whose
+ * internal pieces are shattered and are replaced by a clean skin envelope.
+ *
+ * EL PIE YA NO ENTRA AQUI, Y NUNCA DEBIO ENTRAR.
+ *
+ * Esta regla tapaba tambien todo lo que cae por debajo de y=0,12, que es el pie
+ * entero: 45 mallas de hueso, 54 de musculo y 160 de tejido conectivo apagadas
+ * de forma permanente. Entre ellas el ASTRAGALO y el CALCANEO, que son las dos
+ * piezas de la articulacion que la region de tobillo existe para explorar: el
+ * cajon anterior y el bostezo astragalino se demostraban sobre un pie que no
+ * tenia esqueleto, y pelar la piel en el tobillo no dejaba nada debajo.
+ *
+ * El motivo original --"los internos distales estan rotos"-- se comprobo y es
+ * cierto SOLO en la mano. El pie se rasterizo desde el GLB que se publica
+ * (scripts/render-pose.mts con DISTAL=show, 7.221 triangulos): calcaneo,
+ * astragalo, escafoides, cuboides, las tres cunas, los cinco metatarsianos y
+ * las falanges salen articulados y limpios, y la capa muscular ensena los
+ * intrinsecos del pie y los tendones cruzando el tobillo. No habia nada que
+ * tapar.
+ *
+ * La altura NO sirve para separar el retropie de los dedos --el calcaneo
+ * (y=0,037) esta POR DEBAJO del escafoides (y=0,062)--, asi que no se intento
+ * un corte mas fino: simplemente se deja de tapar el pie.
  */
 export function inDistalRegion(c: THREE.Vector3): boolean {
-  const hand = c.y > 0.6 && c.y < 0.86 && Math.abs(c.x) > 0.18;
-  const foot = c.y < 0.12;
-  return hand || foot;
+  return c.y > 0.6 && c.y < 0.86 && Math.abs(c.x) > 0.18;
 }
 
 // ---------------------------------------------------------------------------

@@ -31,6 +31,7 @@ import { pick, rasterize, writePng, type View } from './lib/raster.mts';
 import { rigGlbPath } from './lib/rigPath.mts';
 import { createRigPoser, type Side } from './lib/rigPose.mts';
 import { blendKneeSkin, kneeHeight, KNEE_SKIN_REACH_M } from '../src/lib/rigSkinRepair.ts';
+import { inDistalRegion } from '../src/lib/rigLimbTrim.ts';
 
 const MOVE = process.env.MOVE ?? 'glenohumeral-abduction';
 const DEGS = (process.env.DEG ?? '90').split(',').map(Number);
@@ -38,6 +39,7 @@ const SIDE = (process.env.SIDE ?? 'R') as Side;
 const VIEW = (process.env.VIEW ?? 'front') as View;
 const LAYERS = (process.env.LAYERS ?? 'all') as 'all' | 'bone' | 'muscle' | 'skin';
 const RAW = process.env.RAW === 'on';
+const SHOW_DISTAL = process.env.DISTAL === 'show';
 const OUT = process.env.OUT ?? 'pose.png';
 const BOX = (process.env.BOX ?? '-0.75,0.75,0.75,1.85').split(',').map(Number) as
   [number, number, number, number];
@@ -56,8 +58,11 @@ const matNameOf = (m: THREE.Mesh) => {
   const f = Array.isArray(m.material) ? m.material[0] : m.material;
   return (f as THREE.Material | undefined)?.name ?? '';
 };
-const inDistalRegion = (c: THREE.Vector3) =>
-  (c.y > 0.6 && c.y < 0.86 && Math.abs(c.x) > 0.18) || c.y < 0.12;
+// LA TAPA DISTAL SE IMPORTA, NO SE COPIA. Esto era una segunda definicion de
+// `inDistalRegion` escrita a mano aqui: si la de la aplicacion cambia y esta no,
+// la hoja deja de ser la pantalla y revisar un movimiento con ella no vale nada
+// (es el mismo fallo que ya costo caro con el recorte del antebrazo).
+//   DISTAL=show  la desactiva, para poder MIRAR lo que la tapa esconde.
 
 // The load-time skin repairs the APP applies, applied here too. Without them a
 // frame from this script is not the frame the user sees, and reviewing a
@@ -177,14 +182,31 @@ const wantLayer = (layer: string) =>
 const POSED_X_SIGN = SIDE === 'R' ? 1 : -1;
 const cullFarLimb = VIEW === 'side' && process.env.BOTHSIDES !== 'on';
 const _c = new THREE.Vector3();
+const _box = new THREE.Box3();
 const onPosedSide = (m: THREE.Mesh): boolean => {
   if (!cullFarLimb) return true;
   const g = m.geometry;
-  if (!g.boundingSphere) g.computeBoundingSphere();
-  const bs = g.boundingSphere;
-  if (!bs) return true;
-  _c.copy(bs.center).applyMatrix4(m.matrixWorld);
-  if (Math.abs(_c.x) <= bs.radius) return true; // cruza la linea media
+  if (!g.boundingBox) g.computeBoundingBox();
+  const bb = g.boundingBox;
+  if (!bb) return true;
+  // CRUZAR LA LINEA MEDIA SE MIDE EN X, NO CON EL RADIO DE LA ESFERA.
+  //
+  // Esto comparaba |centro.x| con el RADIO de la esfera envolvente, que en una
+  // malla larga y fina lo fija su LONGITUD: el flexor largo de los dedos mide
+  // 25 cm de largo y 2 de ancho, asi que su radio (~0,15) se tragaba su centro
+  // (x = -0,096) y la pieza del lado NO posado entraba en la hoja como si
+  // cruzara la linea media.
+  //
+  // En una vista lateral eso se ve como tres tendones rectos saliendo disparados
+  // por el empeine del pie posado -- y no es un defecto de la aplicacion, es la
+  // pierna contraria, quieta, dibujada detras. Costo una investigacion entera:
+  // se identificaron por pixel (`Extensor_hallucis_longus_3`,
+  // `Flexor_digitorum_longus_3`, `Flexor_hallucis_longus_3`), se midio que no se
+  // desplazan ni un milimetro al flexionar, y resulto que estan en x negativa y
+  // ligadas a Leg_Armature_L, que es justo lo correcto.
+  _box.copy(bb).applyMatrix4(m.matrixWorld);
+  if (_box.min.x < 0 && _box.max.x > 0) return true; // cruza de verdad
+  _box.getCenter(_c);
   return Math.sign(_c.x) === POSED_X_SIGN;
 };
 
@@ -285,7 +307,7 @@ for (const deg of DEGS) {
       const g = m.geometry;
       if (!g.boundingSphere) g.computeBoundingSphere();
       const c = g.boundingSphere!.center.clone().applyMatrix4(m.matrixWorld);
-      if (inDistalRegion(c) && !materialIsSkin(mat)) return null;
+      if (SHOW_DISTAL ? false : inDistalRegion(c) && !materialIsSkin(mat)) return null;
       if (layer === 'skin' && LAYERS !== 'all' && LAYERS !== 'skin') return null;
       return colorForMaterialMesh(mat, m.name) ?? 0xbfae9a;
     },
