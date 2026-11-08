@@ -31,6 +31,7 @@ import { REFERENCES } from '../../data/references';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { rigChannel, type RigHighlight } from './RigModel';
 import { demoChannel, useActiveDemo } from './demoChannel';
+import { readPose, writePose } from './consolePoseStore';
 import { romForRegion } from '../../data/romByRegion';
 import { useRailFade } from '../../hooks/useRailFade';
 import { useIsCompact } from '../../hooks/useIsCompact';
@@ -137,12 +138,35 @@ export function MovementControls({
 
   const isLockedMovement = (id: string) => allowedIds != null && !allowedIds.has(id);
 
+  /**
+   * LA POSE QUE YA ESTABA PUESTA, si la consola se esta volviendo a montar.
+   *
+   * Esta consola se desmonta en tres situaciones corrientes --cambiar de
+   * pestana en la hoja del movil, entrar o salir del modo paciente, cualquier
+   * cambio de distribucion-- y en las tres el gesto volvia al primero de la
+   * lista y el angulo a 0. Entrar en modo paciente para ensenarle SU posicion y
+   * encontrar el brazo colgando es el caso que mas se nota, porque es
+   * exactamente el momento en que esa pose importa. Ver consolePoseStore.
+   */
+  const saved = readPose(region);
   const [movementId, setMovementId] = useState<string>(() => {
+    if (saved && movements.some((m) => m.id === saved.movementId)) return saved.movementId;
     const drivable = movements.find((m) => isDrivable(m.id));
     return (drivable ?? movements[0])?.id ?? '';
   });
-  const [side, setSide] = useState<Side>('R');
-  const [angle, setAngle] = useState<number>(0);
+  const [side, setSide] = useState<Side>(saved?.side ?? 'R');
+  const [angle, setAngle] = useState<number>(saved?.angleDeg ?? 0);
+  /**
+   * Y el primer efecto de [movementId] NO puede pisarla.
+   *
+   * Ese efecto existe para devolver el angulo al inicio anatomico del gesto
+   * cuando el usuario CAMBIA de gesto, pero en React tambien corre al montar:
+   * restaurar el angulo en el useState y que el efecto lo mandara a startDeg
+   * una decima de segundo despues deja la pose igual de perdida, solo mas
+   * tarde. Asi que el primer disparo se salta cuando venimos de una pose
+   * guardada.
+   */
+  const skipFirstResetRef = useRef(saved != null);
   const [playing, setPlaying] = useState(false);
   const [loop, setLoop] = useState(true);
   const [speedIdx, setSpeedIdx] = useState(1);
@@ -311,6 +335,10 @@ export function MovementControls({
   // changes, stop any playback (and any demo), and clear the pathology back to
   // Normal.
   useEffect(() => {
+    if (skipFirstResetRef.current) {
+      skipFirstResetRef.current = false;
+      return;
+    }
     claimRig();
     setPlaying(false);
     setAngle(arc ? arc.startDeg : 0);
@@ -359,15 +387,19 @@ export function MovementControls({
     // `setFromConsole` limpia de una pieza todo lo que solo un demo pone --la
     // piel de cristal, la mano que resiste, la tarjeta de la maniobra y los
     // COMPONENTES--, que es lo que cada empuje enumeraba a mano dejandose uno.
+    const posed = Math.max(effMin, Math.min(angle, effMax));
     rigChannel.setFromConsole({
       movementId,
       side,
-      angleDeg: Math.max(effMin, Math.min(angle, effMax)),
+      angleDeg: posed,
       highlight,
       showMarkers,
       pathologyId: supportsPathology ? pathologyId : null,
       implicated,
     });
+    // Y se guarda, para que un desmontaje (pestana del movil, modo paciente) la
+    // devuelva tal cual. Ver consolePoseStore.
+    writePose(region, { movementId, side, angleDeg: posed });
   }, [
     movementId,
     side,

@@ -719,7 +719,7 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
               </p>
             )}
 
-            {demo.resisted && (
+            {demo.examinerForce === 'resists' && (
               <div className="mt-2 border-l-2 border-[#ffb877]/70 bg-[#ffb877]/[0.09] py-1.5 pl-2.5">
                 <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#ffb877]">
                   Prueba resistida
@@ -732,6 +732,43 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
                   </li>
                 </ol>
               </div>
+            )}
+
+            {demo.examinerForce === 'applies' && (
+              <div className="mt-2 border-l-2 border-sky-400/70 bg-sky-400/[0.09] py-1.5 pl-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-sky-300">
+                  Prueba pasiva
+                </span>
+                <ol className="mt-1 space-y-1 text-[10.5px] leading-snug text-slate-200">
+                  <li>1. El paciente permanece relajado: no empuja.</li>
+                  <li>
+                    2. La fuerza la aplicas tú donde se apoya la mano del fisio en el
+                    modelo.
+                  </li>
+                </ol>
+              </div>
+            )}
+
+            {/* LO QUE SE ESTA ENCENDIENDO, con su nombre clinico. Hasta ahora
+                el readout decia que se evaluaba una estructura y en la escena no
+                se encendia ninguna: 42 de los 65 demos resaltaban nada. */}
+            {demo.structureLabels && demo.structureLabels.length > 0 && (
+              <p className="mt-1.5 text-[11px] leading-snug text-slate-300">
+                Resaltado:{' '}
+                <span className="font-semibold text-slate-100">
+                  {demo.structureLabels.join(' · ')}
+                </span>
+              </p>
+            )}
+
+            {/* Y LO QUE NO SE PUEDE ENSENAR. Los nervios y los vasos no estan en
+                el sistema de capas de este modelo, asi que una prueba de raiz
+                nerviosa no puede resaltar su estructura. Decirlo es mejor que
+                encender algo parecido y que pase por lo que el libro nombra. */}
+            {demo.cannotShow && (
+              <p className="mt-1.5 text-[10.5px] leading-snug text-slate-500">
+                {demo.cannotShow}
+              </p>
             )}
 
             {showDescription && demo.note && (

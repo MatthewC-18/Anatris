@@ -34,6 +34,7 @@ import { rigChannel, type RigCommand } from './RigModel';
 import { buildMuscleResolution, type MuscleResolution } from '../../lib/muscleResolver';
 import { baseMaterialOf, cloneOverlayMaterial } from '../../lib/rigMaterialStack';
 import { parseMeshName, type ParsedSide } from '../../lib/parseMeshName';
+import { meshIsStructure } from '../../lib/clinicalStructures';
 import { useAllMuscles } from '../../hooks/useMuscleResolution';
 import { movementById } from '../../data/romByRegion';
 import { readingAngleFor } from '../../lib/labCamera';
@@ -279,6 +280,11 @@ export function RigOverlays(): JSX.Element {
 
   // Currently glowing meshes -> how to restore them.
   const glowRef = useRef<Map<THREE.Mesh, GlowEntry>>(new Map());
+  // Mallas que un demo encendio A LA FUERZA porque su capa estaba apagada (la
+  // conectiva lo esta por defecto), con la visibilidad que tenian antes. Se
+  // devuelven tal cual al terminar el demo: encender un ligamento no puede
+  // dejar la capa conectiva puesta a medias cuando el usuario la tenia quitada.
+  const forcedVisibleRef = useRef<Map<THREE.Mesh, boolean>>(new Map());
   // Phase accumulator for the implicated-structure pulse (see useFrame).
   const pulseRef = useRef(0);
   // Didactic marker group (added to the scene, removed on unmount).
@@ -608,6 +614,45 @@ export function RigOverlays(): JSX.Element {
           if (!targets.has(mesh)) targets.set(mesh, { role: h.role, level, implicated: false });
         });
       }
+      // LAS ESTRUCTURAS NO MUSCULARES (ligamento, menisco, capsula, labrum).
+      //
+      // No pasan por `resolution`, que es un indice de MUSCULOS: se resuelven
+      // por patron contra el nombre de malla (CLINICAL_STRUCTURES). Y hay que
+      // FORZARLAS VISIBLES, porque la capa conectiva esta apagada por defecto
+      // en el laboratorio: sin esto el resalte se aplicaba a mallas invisibles
+      // y el boton Demostrar seguia sin encender nada, que es el sintoma que se
+      // venia arreglando.
+      const structureIds = cmd.structures ?? [];
+      const forced = forcedVisibleRef.current;
+      const wantedStructureMeshes = new Set<THREE.Mesh>();
+      if (structureIds.length) {
+        for (const [name, mesh] of meshByName) {
+          let hit = false;
+          for (const id of structureIds) {
+            if (meshIsStructure(id, name)) {
+              hit = true;
+              break;
+            }
+          }
+          if (!hit) continue;
+          // El lado se decide por geometria, igual que en los musculos: los
+          // sufijos l/r del GLB no son de fiar (ver la nota de sideOfMesh).
+          const side = sideOfMesh(name, mesh);
+          if (side !== wantSide && side !== 'center') continue;
+          wantedStructureMeshes.add(mesh);
+          if (!forced.has(mesh)) forced.set(mesh, mesh.visible);
+          mesh.visible = true;
+          mesh.userData.demoStructure = true;
+        }
+      }
+      // Devolver las que ya no hacen falta a como estaban.
+      for (const [mesh, was] of forced) {
+        if (wantedStructureMeshes.has(mesh)) continue;
+        delete mesh.userData.demoStructure;
+        mesh.visible = was;
+        forced.delete(mesh);
+      }
+
       const implicatedIds = resolution ? cmd.implicated ?? [] : [];
       for (const id of implicatedIds) {
         forMuscleMeshes(id, (mesh) => {
@@ -615,6 +660,14 @@ export function RigOverlays(): JSX.Element {
           if (t) t.implicated = true;
           else targets.set(mesh, { role: 'prime-mover', level: 1, implicated: true });
         });
+      }
+      // La estructura bajo examen lleva el enfasis de "implicada" (el pulso
+      // calido), no el brillo de motor: un cruzado anterior no mueve nada, se
+      // esta valorando.
+      for (const mesh of wantedStructureMeshes) {
+        const t = targets.get(mesh);
+        if (t) t.implicated = true;
+        else targets.set(mesh, { role: 'prime-mover', level: 1, implicated: true });
       }
 
       // Remove glow from meshes no longer targeted. Only put the original back if
@@ -738,6 +791,11 @@ export function RigOverlays(): JSX.Element {
       markerRef.current = null;
       disposeGroup(resistanceRef.current);
       resistanceRef.current = null;
+      for (const [mesh, was] of forcedVisibleRef.current) {
+        delete mesh.userData.demoStructure;
+        mesh.visible = was;
+      }
+      forcedVisibleRef.current.clear();
     };
     // resolution/meshByName are read from refs (populated post-load), so they are
     // intentionally not deps; the retry effect rebroadcasts once they are ready.

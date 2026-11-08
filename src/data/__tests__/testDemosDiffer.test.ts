@@ -57,9 +57,10 @@ const SHARED_POSITION: ReadonlySet<string> = new Set(
 /**
  * The demo's full recipe, as a comparable signature.
  *
- * Incluye el LADO y si la maniobra es resistida: son dos cosas que el usuario
- * VE --que pierna se eleva, si hay una mano del explorador en escena-- y que
- * separan maniobras que de otro modo serian el mismo clip.
+ * Incluye el LADO y QUIEN HACE LA FUERZA: son dos cosas que el usuario VE --que
+ * pierna se eleva, si hay una mano del explorador en escena y si el paciente
+ * empuja o esta relajado-- y que separan maniobras que de otro modo serian el
+ * mismo clip.
  */
 function signature(t: OrthopedicTest): string {
   const d = t.demo!;
@@ -68,7 +69,7 @@ function signature(t: OrthopedicTest): string {
     .sort()
     .join(',');
   const side = d.side ?? 'R';
-  const res = d.resisted ? 1 : 0;
+  const res = d.examinerForce ?? 'none';
   return `${d.movementId}@${d.angleDeg}|${comps}|side=${side}|res=${res}`;
 }
 

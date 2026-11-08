@@ -74,7 +74,7 @@ const tests: OrthopedicTest[] = [
       // el mismo clip. Cozen resiste la EXTENSION DE MUNECA con el puno cerrado;
       // Maudsley resiste la del tercer dedo, que el rig no tiene.
       components: [{ movementId: 'wrist-extension', angleDeg: 40 }],
-      resisted: true,
+      examinerForce: 'resists',
       note: 'Con el codo en extensión y antebrazo pronado se resiste la extensión de la muñeca con el puño cerrado.',
     },
     cite: [
@@ -141,7 +141,7 @@ const tests: OrthopedicTest[] = [
       movementId: 'elbow-extension',
       angleDeg: 10,
       highlightMuscleId: 'common-extensor-origin',
-      resisted: true,
+      examinerForce: 'resists',
       note: 'Con el codo en extensión se resiste la extensión del tercer dedo. El rig no tiene dedos, así que comparte posición con Cozen salvo por la muñeca: lo que cambia es DÓNDE resiste el explorador.',
     },
     cite: [
@@ -177,7 +177,7 @@ const tests: OrthopedicTest[] = [
       angleDeg: 80,
       highlightMuscleId: 'common-flexor-pronator-origin',
       components: [{ movementId: 'wrist-flexion', angleDeg: 35 }],
-      resisted: true,
+      examinerForce: 'resists',
       note: 'Con el codo extendido se RESISTE la flexión de muñeca y la pronación; el modelo resalta el origen flexor-pronador de la epitróclea.',
     },
     cite: [{ ref: 'zwerus-2018', verified: false }],
@@ -207,7 +207,7 @@ const tests: OrthopedicTest[] = [
     demo: {
       movementId: 'elbow-flexion',
       angleDeg: 90,
-      resisted: true,
+      examinerForce: 'applies',
       note: 'Se aplica un valgo constante mientras se flexiona-extiende el codo por el arco 70-120°; el modelo muestra la flexión con la mano del explorador aplicando el valgo.',
     },
     cite: [

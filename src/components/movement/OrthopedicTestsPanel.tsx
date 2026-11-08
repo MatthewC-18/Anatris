@@ -59,6 +59,7 @@ import { getReference, formatReference, type ReferenceId } from '../../data/refe
 import { rigChannel } from './RigModel';
 import { demoChannel, useActiveDemo } from './demoChannel';
 import { EVENTS, track } from '../../lib/analytics';
+import { structureLabel } from '../../lib/clinicalStructures';
 import { SaveButton } from '../SaveButton';
 import {
   CheckIcon,
@@ -613,10 +614,18 @@ function HelpCard({ onDismiss }: { onDismiss: () => void }) {
           <span className="text-slate-100">Combinar</span> suma varias pruebas y calcula
           la certeza si todas resultan positivas.
         </HelpStep>
+        {/* LA PROMESA, AJUSTADA A LO QUE EL MODELO PUEDE HACER. Decia "resalta
+            la estructura evaluada" sin matiz, y medido eran 23 de 65 demos los
+            que encendian algo. Ahora se encienden los ligamentos, los meniscos,
+            la capsula y el labrum; los nervios y las arterias no estan en el
+            sistema de capas de este modelo y cada prueba lo dice en su ficha en
+            vez de dejar que el usuario crea que no se enciende por un fallo. */}
         <HelpStep n={5}>
           <span className="text-accent">Demostrar</span> reproduce la maniobra sobre el
-          modelo 3D y resalta la estructura evaluada. Cada prueba tiene la suya: la
-          posición, la rotación y la resistencia que la definen.
+          modelo 3D: la posición, la rotación y la resistencia que la definen. Resalta
+          además la estructura evaluada cuando el modelo la tiene (músculo, ligamento,
+          menisco, cápsula); cuando no —nervios y arterias no están en sus capas— la
+          ficha lo dice en lugar de encender algo parecido.
         </HelpStep>
         <HelpStep n={6}>
           <span className="text-slate-100">Examen</span> oculta los números y te pide
@@ -676,7 +685,11 @@ function TestRow({
     <div
       // Lo usa el enlace profundo de un caso clinico para traer la fila a la vista.
       id={testRowDomId(test.id)}
-      className={`border-l-2 transition-colors ${u.bar} ${
+      // EL FILO DE COLOR NO PUEDE DAR LA RESPUESTA. Es verde en las pruebas que
+      // confirman y azul en las que descartan, que es exactamente lo que el modo
+      // examen pide predecir: se veia el color antes de contestar, asi que la
+      // pregunta no medía nada. Mientras la cifra esta oculta, el filo es gris.
+      className={`border-l-2 transition-colors ${hideMetrics ? 'border-slate-700/70' : u.bar} ${
         selected ? 'bg-accent/[0.06]' : expanded ? 'bg-slate-800/20' : 'hover:bg-slate-800/20'
       }`}
     >
@@ -718,8 +731,11 @@ function TestRow({
 
           <span className="mt-1 flex items-center gap-2 truncate text-[11px] text-slate-500">
             <span className="truncate">{test.target}</span>
-            {test.demo?.resisted && (
+            {test.demo?.examinerForce === 'resists' && (
               <span className="shrink-0 text-amber-400/90">Resistido</span>
+            )}
+            {test.demo?.examinerForce === 'applies' && (
+              <span className="shrink-0 text-sky-400/90">Pasivo</span>
             )}
           </span>
 
@@ -823,7 +839,7 @@ function TestRow({
               that actually calls for it, rather than as a switch on the free
               movement. Pressing Demostrar shows the same thing on the model:
               the physio's hand opposing the gesture. */}
-          {test.demo?.resisted && (
+          {test.demo?.examinerForce === 'resists' && (
             <div className="border-l-2 border-amber-400/60 pl-3">
               <Kicker>Prueba resistida</Kicker>
               <ol className="mt-1 space-y-1 text-[13px] leading-relaxed text-slate-300">
@@ -832,6 +848,26 @@ function TestRow({
               </ol>
               <p className="mt-1 text-[11px] text-slate-500">
                 En Demostrar verás la mano del fisio resistiendo sobre el modelo.
+              </p>
+            </div>
+          )}
+
+          {/* PRUEBA PASIVA. Lo contrario de la anterior, y hasta ahora imprimia
+              el mismo texto: siete pruebas de rodilla pedian al paciente que
+              empujara cuando la contraccion es justo lo que invalida un cajon
+              anterior o un estres en valgo. La mano sigue en escena --el
+              explorador SI apoya en el segmento distal-- pero la fuerza es
+              suya. */}
+          {test.demo?.examinerForce === 'applies' && (
+            <div className="border-l-2 border-sky-400/60 pl-3">
+              <Kicker>Prueba pasiva</Kicker>
+              <ol className="mt-1 space-y-1 text-[13px] leading-relaxed text-slate-300">
+                <li>1. El paciente permanece relajado: no empuja.</li>
+                <li>2. La fuerza la aplicas tú sobre el segmento distal.</li>
+              </ol>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Una contracción del paciente enmascara el hallazgo. En Demostrar verás
+                dónde se apoya la mano del fisio.
               </p>
             </div>
           )}
@@ -860,7 +896,9 @@ function TestRow({
           {!hideMetrics && test.metrics.note && (
             <p className="text-[11px] leading-relaxed text-slate-400">{test.metrics.note}</p>
           )}
-          {test.pearl && (
+          {/* La perla se guarda hasta revelar: varias dicen literalmente "muy
+              especifico" o "poco sensible", que es la respuesta. */}
+          {!hideMetrics && test.pearl && (
             <p className="border-l-2 border-slate-700 pl-3 text-[13px] leading-relaxed text-slate-400">
               {test.pearl}
             </p>
@@ -892,7 +930,14 @@ function TestRow({
                       </span>
                     )}
                   </p>
-                  {c.locator && <p className="text-slate-400">{c.locator}</p>}
+                  {/* El localizador es literalmente la cifra: "Cozen:
+                      sensibilidad 84%, especificidad 0%". Con las metricas
+                      ocultas, imprimirlo era regalar la respuesta dos lineas
+                      mas abajo de la pregunta. La cita --autor y ano-- se queda:
+                      saber de donde sale el dato no lo adelanta. */}
+                  {!hideMetrics && c.locator && (
+                    <p className="text-slate-400">{c.locator}</p>
+                  )}
                   {(ref.sample || ref.standard) && (
                     <p className="text-slate-600">
                       {ref.sample}
@@ -1015,6 +1060,39 @@ export function OrthopedicTestsPanel({
       const p = cur[testId] ?? EMPTY_PREDICTION;
       return { ...cur, [testId]: { ...p, revealed: true } };
     });
+  /**
+   * BORRAR LO CONTESTADO, para poder repasar.
+   *
+   * Una prediccion revelada no se podia deshacer: la unica forma de volver a
+   * intentarlo era recargar la pagina, y eso en una region premium vuelve a
+   * descargar el contenido. Un modo examen que solo se puede hacer una vez por
+   * sesion no sirve para estudiar, que es para lo que esta.
+   */
+  const resetPredictions = () => setPredictions({});
+
+  /**
+   * EL MARCADOR DEL EXAMEN: cuantas ha contestado y cuantas acerto.
+   *
+   * El modo examen corregia prueba por prueba y no decia nada del conjunto, que
+   * es justo lo que se quiere saber al repasar ("de las doce de rodilla, cuantas
+   * tengo claras"). Se puntua con la misma regla que la ficha (ALTA_THRESHOLD, y
+   * un eje sin dato publicado no cuenta ni a favor ni en contra).
+   */
+  const { answered, correct } = useMemo(() => {
+    let a = 0;
+    let c = 0;
+    for (const t of tests) {
+      const pr = predictions[t.id];
+      if (!pr?.revealed) continue;
+      a += 1;
+      const sensActual = levelOf(t.metrics.sensitivity);
+      const especActual = levelOf(t.metrics.specificity);
+      const sensOk = sensActual === undefined || pr.sens === sensActual;
+      const especOk = especActual === undefined || pr.espec === especActual;
+      if (sensOk && especOk) c += 1;
+    }
+    return { answered: a, correct: c };
+  }, [tests, predictions]);
 
   // Name, alias and target all match, because a physio looking for "Neer" and a
   // student looking for "supraespinoso" are both looking for the same row.
@@ -1118,7 +1196,13 @@ export function OrthopedicTestsPanel({
       label: test.name,
       targetDeg: target,
       structure: test.target,
-      resisted: d.resisted === true,
+      examinerForce: d.examinerForce,
+      // Lo que se enciende, y lo que no se puede encender: el readout tiene que
+      // poder decir las dos cosas mientras el demo corre.
+      structureLabels: (d.highlightStructureIds ?? [])
+        .map((id) => structureLabel(id))
+        .filter((x): x is string => x != null),
+      cannotShow: d.cannotShow,
       note: d.note,
     };
     // ghostSkin: true forces the translucent glass skin for the WHOLE demo, even
@@ -1132,9 +1216,16 @@ export function OrthopedicTestsPanel({
         highlight,
         showMarkers: false,
         ghostSkin: true,
-        // Resisted tests (Jobe, Speed, O'Brien...) show the therapist's hand
-        // resisting the movement -- the two-person interaction they really are.
-        resistance: d.resisted === true,
+        // La mano del explorador se dibuja en las dos clases de maniobra con
+        // contacto: la resistida (Jobe, Speed, O'Brien) y la pasiva (cajon
+        // anterior, estres en valgo). Quien hace la fuerza lo dice
+        // `examinerForce`, y de eso depende el TEXTO, no la mano.
+        resistance: d.examinerForce != null,
+        // La estructura que la prueba VALORA (ligamento, menisco, capsula,
+        // labrum). RigOverlays la fuerza visible: la capa conectiva esta
+        // apagada por defecto, asi que sin eso el resalte caia en mallas
+        // invisibles y el boton seguia sin encender nada.
+        structures: d.highlightStructureIds,
         // The joints that make this maneuver itself, held while the base
         // movement sweeps.
         components: d.components,
@@ -1244,12 +1335,28 @@ export function OrthopedicTestsPanel({
               never appears on a touch screen and never appears at a glance --
               "Examen y guía no sé para qué es". */}
           {examMode && (
-            <p className="mt-1.5 border-l-2 border-sky-400/60 pl-2 text-[11px] leading-snug text-sky-100/80">
-              Los números están ocultos a propósito. Lee qué hace cada prueba, predice
-              si es <span className="text-sky-200">sensible</span> (un negativo descarta)
-              o <span className="text-sky-200">específica</span> (un positivo confirma),
-              y compáralo con la cifra real.
-            </p>
+            <div className="mt-1.5 border-l-2 border-sky-400/60 pl-2">
+              <p className="text-[11px] leading-snug text-sky-100/80">
+                Los números están ocultos a propósito. Lee qué hace cada prueba, predice
+                si es <span className="text-sky-200">sensible</span> (un negativo
+                descarta) o <span className="text-sky-200">específica</span> (un positivo
+                confirma), y compáralo con la cifra real.
+              </p>
+              {answered > 0 && (
+                <p className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
+                  <span className="tabular-nums">
+                    {correct}/{answered} acertadas
+                  </span>
+                  <button
+                    type="button"
+                    onClick={resetPredictions}
+                    className="rounded px-1.5 py-0.5 text-sky-300/90 underline decoration-sky-400/40 underline-offset-2 transition-colors hover:text-sky-200"
+                  >
+                    Empezar de nuevo
+                  </button>
+                </p>
+              )}
+            </div>
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1">

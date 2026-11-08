@@ -331,7 +331,7 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       angleDeg: 30,
       side: 'R',
       highlightMuscleId: 'psoas-major',
-      resisted: true,
+      examinerForce: 'resists',
       note: 'El rig muestra la flexión resistida (mano del terapeuta oponiéndose).',
     },
     cite: [

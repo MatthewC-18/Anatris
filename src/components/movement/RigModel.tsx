@@ -803,6 +803,13 @@ export interface RigCommand {
    */
   pathologyId?: string | null;
   /**
+   * Estructuras NO MUSCULARES a encender (ligamento, menisco, capsula, labrum):
+   * ids de CLINICAL_STRUCTURES. RigOverlays las resuelve a mallas, las fuerza
+   * visibles --la capa conectiva esta apagada por defecto-- y les pone el
+   * resalte de estructura evaluada. Ver TestDemo.highlightStructureIds.
+   */
+  structures?: string[];
+  /**
    * Muscle/structure ids IMPLICATED by the active pathology. RigOverlays gives
    * these a distinct pulsing "injured" emphasis in the scene (on top of the normal
    * activation glow), so the user sees WHERE the problem is, not just reads it in
@@ -845,8 +852,18 @@ export interface RigDemoInfo {
   targetDeg: number;
   /** Structure under test, e.g. "Supraespinoso". */
   structure?: string;
-  /** True when the examiner opposes the patient's effort. */
-  resisted?: boolean;
+  /**
+   * Quien hace la fuerza: el paciente empuja y el explorador se opone
+   * ('resists'), o el paciente esta relajado y la fuerza la aplica el explorador
+   * ('applies'). Sin valor, la maniobra no lleva mano. Ver
+   * OrthopedicTest.demo.examinerForce: el panel imprime instrucciones distintas
+   * --y opuestas-- segun cual sea.
+   */
+  examinerForce?: 'resists' | 'applies';
+  /** Nombres clinicos de lo que se esta encendiendo, ya resueltos. */
+  structureLabels?: string[];
+  /** Lo que esta prueba NO puede ensenar en este modelo, en una frase. */
+  cannotShow?: string;
   /** What the rig approximation leaves out. */
   note?: string;
 }
@@ -1083,6 +1100,16 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // parches de casquete), y las demas perdian la mayor parte (C8 conservaba
       // 4 de 16, C6 7 de 25).
       if (lm.mesh.userData.neuroPainted) {
+        lm.mesh.visible = true;
+        continue;
+      }
+      // Y LA ESTRUCTURA QUE UNA PRUEBA ESTA VALORANDO, por el mismo motivo que
+      // el dermatoma: pedir el demo del cajon anterior es pedir ver el cruzado
+      // anterior, y la capa conectiva esta APAGADA por defecto en el
+      // laboratorio. RigOverlays marca estas mallas mientras el demo corre y
+      // quita la marca al terminar; sin esta rama, el primer cambio de capa o
+      // de diseccion volvia a esconder el ligamento que se acababa de encender.
+      if (lm.mesh.userData.demoStructure) {
         lm.mesh.visible = true;
         continue;
       }

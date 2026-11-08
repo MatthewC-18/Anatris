@@ -92,6 +92,15 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   // change so switching joints always returns to the clinician view.
   const [patientMode, setPatientMode] = useState(false);
   useEffect(() => setPatientMode(false), [region]);
+  // Y SE DESHACE LA DISECCION AL ENTRAR. El modo paciente esconde la tarjeta de
+  // diseccion junto con el resto de los mandos clinicos, pero el pelado seguia
+  // aplicado al modelo: se giraba la pantalla hacia el paciente para ensenarle
+  // su hombro y el paciente veia un cuerpo al que le falta un musculo, sin que
+  // el fisio tuviera ya ningun control para devolverlo. El modo paciente es una
+  // vista limpia; eso incluye el cuerpo entero.
+  useEffect(() => {
+    if (patientMode) dissectChannel.reset();
+  }, [patientMode]);
 
   // ---------------------------------------------------------------------------
   // COMPACT LAYOUT
@@ -345,9 +354,31 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
           (tests / neuro / layer peel). All hidden in patient mode. */}
       {!patientMode && (
         <>
-          {/* Raised on phones so the dissection card clears the collapsed
-              controls bar at the bottom and stays visible. */}
-          <div className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 sm:bottom-3">
+          {/* LA TARJETA DE DISECCION VA EN EL HUECO, no en el centro de la
+              ventana.
+
+              Estaba centrada con `left-1/2 -translate-x-1/2` y mide hasta 30rem
+              (480 px). Medido sobre las anchuras reales: la columna izquierda
+              ocupa hasta 356 px (left-3 + 21.5rem) y la hoja de tests abierta
+              arranca en ancho menos 400 px (right-4 + 24rem). A 1024 px de
+              ventana la tarjeta llegaba a 752 px y la hoja empezaba en 624: 128
+              px de solape, y con z-30 contra z-20 la tarjeta quedaba ENCIMA de
+              la hoja de tests. Por el otro lado pasaba lo mismo con la consola
+              (84 px). El solape desaparecia a los 1280 px, asi que en un
+              portatil de 13 pulgadas la diseccion tapaba justo el panel que se
+              estaba usando.
+
+              Ahora el contenedor abarca el hueco libre --desde el borde de la
+              columna izquierda hasta el de la pila derecha, que es mas ancha
+              cuando hay una hoja abierta-- y la tarjeta se centra ahi dentro,
+              encogiendose con `max-w-full` cuando el hueco es menor que ella.
+              Por debajo de `sm` no hay columnas flotantes y sigue centrada y
+              elevada para librar la barra de mandos. */}
+          <div
+            className={`pointer-events-none absolute bottom-24 left-1/2 z-30 flex -translate-x-1/2 justify-center sm:bottom-3 lg:left-[22.25rem] lg:translate-x-0 ${
+              rightPanel === 'none' ? 'lg:right-4' : 'lg:right-[25rem]'
+            }`}
+          >
             <DissectionPanel />
           </div>
           <div className="pointer-events-none absolute top-4 right-4 bottom-4 z-20 flex flex-col items-end gap-3">

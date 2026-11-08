@@ -72,7 +72,7 @@ const tests: OrthopedicTest[] = [
     demo: {
       movementId: 'knee-flexion',
       angleDeg: 90,
-      resisted: true,
+      examinerForce: 'applies',
       note: 'A 90° de flexión el explorador tira de la tibia hacia ANTERIOR. Comparte posición con el cajón posterior: lo único que cambia es la dirección del tirón, que es una traslación y el rig no la tiene.',
     },
     cite: [{ ref: 'benjaminse-2006', verified: true, locator: 'Resumen: cajón anterior en CRÓNICO 92% (88-95) / 91% (87-94); en agudo no' }],
@@ -100,7 +100,7 @@ const tests: OrthopedicTest[] = [
       movementId: 'knee-flexion',
       angleDeg: 30,
       components: [{ movementId: 'knee-internal-rotation', angleDeg: 25 }],
-      resisted: true,
+      examinerForce: 'applies',
       note: 'El resalte se busca hacia los 30-40° de flexión con la tibia en rotación INTERNA y valgo; el modelo muestra la flexión con esa rotación. El valgo no se reproduce.',
     },
     cite: [{ ref: 'benjaminse-2006', verified: true, locator: 'Resumen: pivot shift 24% (21-27) / 98% (96-99)' }],
@@ -131,7 +131,7 @@ const tests: OrthopedicTest[] = [
     demo: {
       movementId: 'knee-flexion',
       angleDeg: 90,
-      resisted: true,
+      examinerForce: 'applies',
       note: 'A 90° de flexión el explorador empuja la tibia hacia POSTERIOR. Comparte posición con el cajón anterior: lo único que cambia es la dirección del empuje, que es una traslación y el rig no la tiene.',
     },
     cite: [
@@ -211,7 +211,7 @@ const tests: OrthopedicTest[] = [
       // habilitara, y por culpa de eso las cinco pruebas de 90 grados eran el
       // mismo clip. McMurray medial: flexion + rotacion EXTERNA, y se extiende.
       components: [{ movementId: 'knee-external-rotation', angleDeg: 30 }],
-      resisted: true,
+      examinerForce: 'applies',
       note: 'Se parte de la flexión con la tibia en rotación EXTERNA (variante medial) y se extiende; el valgo/varo añadido no se reproduce.',
     },
     cite: [{ ref: 'hegedus-2007', verified: true, locator: 'McMurray 70/71' }],
@@ -302,7 +302,7 @@ const tests: OrthopedicTest[] = [
       movementId: 'knee-flexion',
       angleDeg: 90,
       components: [{ movementId: 'knee-internal-rotation', angleDeg: 25 }],
-      resisted: true,
+      examinerForce: 'applies',
       note: 'En prono a 90° de flexión se comprime en el eje y se rota la tibia; el modelo muestra la flexión con rotación interna y la mano que comprime. La compresión axial no se reproduce.',
     },
     // Re-attributed 2026-08-04: the entry cited Malanga 2003, whose abstract
@@ -335,7 +335,7 @@ const tests: OrthopedicTest[] = [
     demo: {
       movementId: 'knee-flexion',
       angleDeg: 30,
-      resisted: true,
+      examinerForce: 'applies',
       note: 'Se aplica fuerza en VALGO a 0° y a 30° de flexión. Comparte posición con el estrés en varo: lo único que cambia es hacia dónde empuja el explorador, y el rig no tiene ese eje.',
     },
     cite: [
@@ -366,7 +366,7 @@ const tests: OrthopedicTest[] = [
     demo: {
       movementId: 'knee-flexion',
       angleDeg: 30,
-      resisted: true,
+      examinerForce: 'applies',
       note: 'Se aplica fuerza en VARO a 0° y a 30° de flexión. Comparte posición con el estrés en valgo: lo único que cambia es hacia dónde empuja el explorador, y el rig no tiene ese eje.',
     },
     cite: [

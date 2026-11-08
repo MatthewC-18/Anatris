@@ -128,7 +128,7 @@ const tests: OrthopedicTest[] = [
     // (pulgar menos meñique, en altura): con la pronación, +5,6 cm (pulgar
     // arriba); sin ella, -5,4 cm (pulgar abajo), que es el rasgo que distingue a
     // Jobe de una abducción resistida cualquiera.
-    demo: { components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 70 }], movementId: 'glenohumeral-abduction', angleDeg: 90, highlightMuscleId: 'supraspinatus', resisted: true, note: 'Añade plano escapular (~30° anterior). La rotación interna deja el pulgar hacia abajo y el explorador resiste hacia abajo.' },
+    demo: { components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 70 }], movementId: 'glenohumeral-abduction', angleDeg: 90, highlightMuscleId: 'supraspinatus', examinerForce: 'resists', note: 'Añade plano escapular (~30° anterior). La rotación interna deja el pulgar hacia abajo y el explorador resiste hacia abajo.' },
     cite: [{ ref: 'hegedus-2012', verified: true, locator: 'lata vacía 69/62' }],
   },
   {
@@ -336,7 +336,7 @@ const tests: OrthopedicTest[] = [
     utility: 'weak',
     interpretation:
       'Aislado tiene baja precisión: interprétalo dentro de un clúster de tests labrales, no como prueba única.',
-    demo: { components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 60 }, { movementId: 'elbow-pronation', angleDeg: 80 }], movementId: 'glenohumeral-flexion', angleDeg: 90, resisted: true, note: 'Con 10-15° de aducción; el explorador resiste la flexión (pulgar abajo, luego palma arriba).' },
+    demo: { components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 60 }, { movementId: 'elbow-pronation', angleDeg: 80 }], movementId: 'glenohumeral-flexion', angleDeg: 90, examinerForce: 'resists', note: 'Con 10-15° de aducción; el explorador resiste la flexión (pulgar abajo, luego palma arriba).' },
     cite: [{ ref: 'hegedus-2012', verified: true, locator: 'O’Brien 59/57' }],
   },
   {
@@ -358,7 +358,7 @@ const tests: OrthopedicTest[] = [
     utility: 'weak',
     interpretation:
       'Precisión baja aislado: ni un positivo ni un negativo cambian mucho la probabilidad. Aporta más como parte de un clúster bicipital/labral.',
-    demo: { components: [{ movementId: 'elbow-supination', angleDeg: 80 }], movementId: 'glenohumeral-flexion', angleDeg: 90, resisted: true, note: 'Codo extendido y antebrazo supinado; el explorador resiste la flexión del hombro.' },
+    demo: { components: [{ movementId: 'elbow-supination', angleDeg: 80 }], movementId: 'glenohumeral-flexion', angleDeg: 90, examinerForce: 'resists', note: 'Codo extendido y antebrazo supinado; el explorador resiste la flexión del hombro.' },
     cite: [{ ref: 'hegedus-2012', verified: true, locator: 'Speed 65/61' }],
   },
 

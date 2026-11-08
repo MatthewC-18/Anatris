@@ -161,6 +161,33 @@ export function runClinicalAudit(): AuditResult {
         if (hm && muscleIds.size && !muscleIds.has(hm)) {
           err(at, `demo.highlightMuscleId '${hm}' no existe en ${region}`);
         }
+
+        // QUIEN HACE LA FUERZA, CONTRASTADO CON LA MANIOBRA ESCRITA.
+        //
+        // El panel imprime instrucciones OPUESTAS segun `examinerForce`: en una
+        // resistida pide al paciente que empuje, en una pasiva pide que no lo
+        // haga. Siete pruebas de rodilla llevaban la etiqueta resistida solo
+        // para que se dibujara la mano, y el panel acababa pidiendo una
+        // contraccion en un cajon anterior, donde la contraccion del paciente
+        // es justamente lo que enmascara la traslacion.
+        //
+        // Un booleano no se puede auditar contra nada. Esto si: la maniobra
+        // escrita dice si hay resistencia, y la etiqueta tiene que coincidir con
+        // su propio texto.
+        const says = `${t.maneuver} ${t.positive}`.toLowerCase();
+        const saysResisted = /resist|contra\s+resistencia/.test(says);
+        if (t.demo.examinerForce === 'applies' && saysResisted) {
+          warn(
+            at,
+            `demo.examinerForce='applies' pero la maniobra habla de resistencia: una de las dos miente`,
+          );
+        }
+        if (t.demo.examinerForce === 'resists' && !saysResisted) {
+          warn(
+            at,
+            `demo.examinerForce='resists' pero ni la maniobra ni el positivo mencionan resistencia`,
+          );
+        }
       }
       // SE DESCARTA CON UNA PRUEBA SENSIBLE Y SE CONFIRMA CON UNA ESPECIFICA,
       // y cuando la etiqueta no concuerda con la cifra hay que explicarlo.

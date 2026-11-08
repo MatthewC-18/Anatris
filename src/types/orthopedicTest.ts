@@ -97,14 +97,60 @@ export interface TestDemo {
   /** Muscle/structure to glow while posed (muscleId from the region's muscles). */
   highlightMuscleId?: string;
   /**
-   * True for a RESISTED test (the examiner opposes the patient's effort, e.g.
-   * Jobe/empty-can, Speed, O'Brien). The demo then shows the therapist's hand on
-   * the distal segment resisting the driven movement, so the maneuver reads as the
-   * two-person interaction it is. Only set it where the generic distal-segment
-   * resistance is anatomically right (NOT belly-press/lift-off, whose hand is on
-   * the abdomen/lumbar, nor passive tests where the examiner just moves the limb).
+   * LA ESTRUCTURA QUE LA PRUEBA VALORA, cuando no es un musculo.
+   *
+   * `highlightMuscleId` solo resuelve musculos, y casi ninguna prueba valora
+   * uno: valoran un ligamento, un menisco, la capsula, el labrum. Medido sobre
+   * los 65 demos, 42 no encendian NADA mientras la ayuda del panel prometia que
+   * el modelo "resalta la estructura evaluada" --y la rodilla, que es donde cada
+   * prueba nombra su ligamento en el propio campo `target`, tenia los 11
+   * apagados.
+   *
+   * Ids del registro CLINICAL_STRUCTURES (src/lib/clinicalStructures.ts), en
+   * orden de importancia clinica. El demo enciende la capa que haga falta: la
+   * conectiva esta apagada por defecto en el laboratorio, y pedir una prueba de
+   * ligamento es pedir ver el ligamento.
    */
-  resisted?: boolean;
+  highlightStructureIds?: string[];
+  /**
+   * LO QUE ESTA PRUEBA NO PUEDE ENSENAR, en una frase y en espanol.
+   *
+   * El laboratorio solo muestra cuatro capas (piel, musculo, hueso, conectivo):
+   * `layerForMaterial` devuelve null para los nervios y los vasos, asi que esas
+   * mallas quedan fuera del sistema de capas y no hay forma de encenderlas. Una
+   * prueba cuyo objetivo es una raiz nerviosa, la medula o una arteria no puede
+   * resaltar su estructura, y el ligamento transverso del atlas directamente no
+   * existe como malla en este GLB.
+   *
+   * Eso se DICE. La alternativa que habia era callarlo, y callarlo convertia la
+   * promesa del panel en mentira en dos de cada tres pruebas. Si en su lugar se
+   * resalta algo relacionado (el atlas donde se inserta el ligamento), esta
+   * frase es tambien donde se aclara que es un sustituto.
+   */
+  cannotShow?: string;
+  /**
+   * QUIEN HACE LA FUERZA, cuando en la maniobra hay una mano del explorador.
+   *
+   *   - 'resists': el PACIENTE empuja y el explorador se opone (Jobe, Speed,
+   *     O'Brien, Cozen, Stinchfield). Es una contraccion resistida: si el
+   *     paciente no empuja, no hay prueba.
+   *   - 'applies': el paciente esta RELAJADO y la fuerza la pone el explorador
+   *     (cajon anterior, estres en valgo, McMurray, valgo movil del codo). Es una
+   *     prueba pasiva: si el paciente empuja, la prueba no vale.
+   *
+   * Esto era un solo booleano `resisted`, y siete pruebas pasivas de rodilla lo
+   * llevaban puesto porque lo que se queria era DIBUJAR LA MANO. El panel leia
+   * ese mismo booleano para imprimir "el paciente sostiene la posicion y empuja;
+   * aplica resistencia oponiendote al movimiento" -- instrucciones contrarias a
+   * la maniobra en un cajon anterior, donde la contraccion del paciente es
+   * justamente lo que hay que evitar porque enmascara la traslacion.
+   *
+   * Dejarlo sin valor significa que no se dibuja ninguna mano. Es lo correcto
+   * cuando el contacto generico en el segmento distal seria anatomicamente
+   * falso: belly-press y lift-off apoyan en el abdomen y en la region lumbar, y
+   * las maniobras que solo colocan una postura no tienen mano que ensenar.
+   */
+  examinerForce?: 'resists' | 'applies';
   /**
    * The joints that make this maneuver ITSELF, held while the base movement
    * sweeps. Neer and Hawkins are both flexion; what separates them is that
