@@ -33,6 +33,13 @@ const REGION = process.argv[2] ?? 'shoulder';
 const D2R = Math.PI / 180;
 /** Below this, two maneuvers read as the same pose on screen. */
 const SAME_POSE_CM = 4;
+/**
+ * Y el umbral angular. Dos posturas pueden tener los mismos puntos y verse
+ * distintas: una rotacion gira el segmento sin trasladarlo. 8 grados es la
+ * diferencia a partir de la cual la orientacion de un segmento se aprecia en
+ * pantalla; por debajo de eso Y de los 4 cm, las dos maniobras son la misma.
+ */
+const SAME_POSE_DEG = 8;
 
 const tests = (ALL_TESTS_BY_REGION[REGION] ?? []).filter((t) => t.demo);
 if (!tests.length) {
@@ -105,9 +112,13 @@ const PROBES: THREE.Vector3[] = [
 ];
 
 /** Pose one test's demo and return its landmark positions. */
+interface LimbPose {
+  pts: THREE.Vector3[];
+  quats: THREE.Quaternion[];
+}
 async function poseTest(
   test: (typeof tests)[number],
-): Promise<Record<Limb, THREE.Vector3[]>> {
+): Promise<Record<Limb, LimbPose>> {
   const demo = test.demo!;
   // `demo.side` es el lado CLINICO del dato del test; el poser quiere el lado
   // DEL RIG. Sin este cruce el banco posaba el miembro contrario al que posa la
@@ -152,7 +163,7 @@ async function poseTest(
   // Los huesos se buscan DENTRO de su armadura, no recorriendo la escena: los
   // nombres se repiten entre el lado derecho y el izquierdo y el primero que
   // aparece no es el que se ha movido (ver la nota de LANDMARKS_BY_LIMB).
-  const out = {} as Record<Limb, THREE.Vector3[]>;
+  const out = {} as Record<Limb, LimbPose>;
   for (const limb of LIMBS) {
     const root = scene.getObjectByName(armatureFor(limb, side));
     const byBase = new Map<string, THREE.Object3D>();
@@ -161,60 +172,157 @@ async function poseTest(
       if (!byBase.has(n)) byBase.set(n, o);
     });
     const pts: THREE.Vector3[] = [];
+    const quats: THREE.Quaternion[] = [];
     for (const n of LANDMARKS_BY_LIMB[limb]) {
       const b = byBase.get(n);
       if (!b) throw new Error(`falta el hueso ${n} en ${armatureFor(limb, side)}`);
       for (const probe of PROBES) pts.push(b.localToWorld(probe.clone()));
+      quats.push(b.getWorldQuaternion(new THREE.Quaternion()));
     }
-    out[limb] = pts;
+    out[limb] = { pts, quats };
   }
   return out;
 }
 
-const poses = new Map<string, Record<Limb, THREE.Vector3[]>>();
+const poses = new Map<string, Record<Limb, LimbPose>>();
 for (const t of tests) poses.set(t.id, await poseTest(t));
 
 /**
- * Separacion entre dos maniobras, en cm: la del miembro que MAS se separa.
+ * Separacion entre dos maniobras: cuanto se separan sus puntos (cm) y cuanto
+ * difieren las orientaciones de sus huesos (grados). Se devuelve la del miembro
+ * que MAS se separa.
  *
- * Por miembro se promedian sus 9 puntos; entre miembros se toma el maximo. Si
- * dos pruebas solo se diferencian en la pierna, la cifra es la de la pierna
- * entera y no un tercio de ella.
+ * POR QUE HACEN FALTA LAS DOS CIFRAS. Con solo los puntos, este banco declaraba
+ * "se ven iguales" 15 pares de pruebas cervicales, entre ellos una rotacion de
+ * 60 grados contra una de 80. No lo son en pantalla: lo que pasa es que los
+ * puntos del raquis son vertebras, que en una rotacion del cuello GIRAN pero
+ * casi no se trasladan, y el reparto de la rotacion por la cadena deja a C1 con
+ * una fraccion del angulo. Un banco que llama iguales a dos posturas distintas
+ * empuja a "arreglar" datos que estaban bien, que es el error contrario al que
+ * vino a cazar.
+ *
+ * Asi que un par se considera indistinguible solo si coinciden EN LAS DOS:
+ * los puntos a menos de SAME_POSE_CM y los huesos a menos de SAME_POSE_DEG.
  */
-function separation(a: string, b: string): { cm: number; limb: Limb } {
+function separation(a: string, b: string): { cm: number; deg: number; limb: Limb } {
   const pa = poses.get(a)!;
   const pb = poses.get(b)!;
-  let best = { cm: -1, limb: 'arm' as Limb };
+  let best = { cm: -1, deg: 0, limb: 'arm' as Limb };
   for (const limb of LIMBS) {
     const la = pa[limb];
     const lb = pb[limb];
     let sum = 0;
-    for (let i = 0; i < la.length; i++) sum += la[i].distanceTo(lb[i]);
-    const cm = (sum / la.length) * 100;
-    if (cm > best.cm) best = { cm, limb };
+    for (let i = 0; i < la.pts.length; i++) sum += la.pts[i].distanceTo(lb.pts[i]);
+    const cm = (sum / la.pts.length) * 100;
+    let deg = 0;
+    for (let i = 0; i < la.quats.length; i++) {
+      const d = (la.quats[i].angleTo(lb.quats[i]) * 180) / Math.PI;
+      if (d > deg) deg = d;
+    }
+    // El miembro que manda es el que mas se separa en cualquiera de las dos
+    // medidas, normalizadas por su umbral.
+    const score = Math.max(cm / SAME_POSE_CM, deg / SAME_POSE_DEG);
+    const bestScore = Math.max(best.cm / SAME_POSE_CM, best.deg / SAME_POSE_DEG);
+    if (best.cm < 0 || score > bestScore) best = { cm, deg, limb };
   }
   return best;
 }
 
 console.log(`región ${REGION} — ${tests.length} tests con demo\n`);
-const clashes: { a: string; b: string; cm: number }[] = [];
-let worst = { cm: Infinity, a: '', b: '', limb: 'arm' as Limb };
+/**
+ * LO QUE DISTINGUE DOS MANIOBRAS CUANDO LA POSE ES LA MISMA.
+ *
+ * Varios pares comparten pose A PROPOSITO, porque la comparten en la clinica:
+ * la aprension, la recolocacion y la liberacion son tres fases del mismo brazo;
+ * el arco doloroso y el brazo caido son el mismo brazo subiendo o bajando; el
+ * cajon anterior y el posterior son la misma rodilla a 90 grados y lo que cambia
+ * es hacia donde traslada el explorador. En pantalla no se diferencian por la
+ * postura: se diferencian por lo que se ENCIENDE (el colateral medial en el
+ * estres en valgo, nada y un aviso en el varo), por la mano del explorador y por
+ * el texto. Un banco que llame "defecto" a eso obliga a inventar diferencias de
+ * angulo que no existen en la realidad, asi que se separan en dos listas.
+ */
+const marks = (t: (typeof tests)[number]): string =>
+  JSON.stringify([
+    (t.demo!.highlightStructureIds ?? []).slice().sort(),
+    t.demo!.highlightMuscleId ?? null,
+    t.demo!.examinerForce ?? null,
+  ]);
+
+/**
+ * Y CUANDO LA POSE COMPARTIDA ES DELIBERADA, LA NOTA LO DICE.
+ *
+ * Quedan pares que comparten pose y tampoco se distinguen por el resalte,
+ * porque en la clinica son la misma posicion: el arco doloroso y el brazo caido
+ * (el mismo brazo a 90 grados, subiendo o bajando), las tres fases de la
+ * aprension, el cajon anterior y el posterior (la misma rodilla a 90 grados, y
+ * lo que cambia es hacia donde traslada el explorador). Eso no es un defecto
+ * que haya que "arreglar" inventandose angulos: es una limitacion del modelo,
+ * que no traslada.
+ *
+ * Pero tiene que estar DICHO en la nota del demo, porque si no el alumno pulsa
+ * dos botones, ve lo mismo y concluye que la aplicacion esta rota. Asi que un
+ * par indistinguible solo se acepta si LAS DOS notas lo reconocen; si no, falla.
+ */
+const ACK = /(misma|comparte[ns]?)\s+(posici|pose)/i;
+const acknowledges = (t: (typeof tests)[number]): boolean =>
+  ACK.test((t.demo!.note ?? '').normalize('NFC'));
+
+const clashes: { a: string; b: string; cm: number; deg: number }[] = [];
+const sharedButMarked: { a: string; b: string }[] = [];
+const undocumented: string[] = [];
+let worst = { score: Infinity, cm: 0, deg: 0, a: '', b: '', limb: 'arm' as Limb };
 for (let i = 0; i < tests.length; i++)
   for (let j = i + 1; j < tests.length; j++) {
-    const { cm, limb } = separation(tests[i].id, tests[j].id);
-    if (cm < worst.cm) worst = { cm, a: tests[i].id, b: tests[j].id, limb };
-    if (cm < SAME_POSE_CM) clashes.push({ a: tests[i].id, b: tests[j].id, cm });
+    const { cm, deg, limb } = separation(tests[i].id, tests[j].id);
+    const score = Math.max(cm / SAME_POSE_CM, deg / SAME_POSE_DEG);
+    if (score < worst.score) worst = { score, cm, deg, a: tests[i].id, b: tests[j].id, limb };
+    if (cm < SAME_POSE_CM && deg < SAME_POSE_DEG) {
+      if (marks(tests[i]) === marks(tests[j])) {
+        clashes.push({ a: tests[i].id, b: tests[j].id, cm, deg });
+        if (!acknowledges(tests[i]) || !acknowledges(tests[j])) {
+          const quien = [tests[i], tests[j]].filter((t) => !acknowledges(t)).map((t) => t.id);
+          undocumented.push(`${tests[i].id} vs ${tests[j].id} (lo calla: ${quien.join(', ')})`);
+        }
+      } else sharedButMarked.push({ a: tests[i].id, b: tests[j].id });
+    }
   }
 
 if (clashes.length === 0) {
-  console.log(`✅ Ningún par de tests cae por debajo de ${SAME_POSE_CM} cm: todos se distinguen.`);
   console.log(
-    `   El par más parecido: ${worst.a} vs ${worst.b} — ${worst.cm.toFixed(1)} cm (${worst.limb}).`,
+    `✅ Ningún par de tests queda a la vez por debajo de ${SAME_POSE_CM} cm y ` +
+      `${SAME_POSE_DEG}°: todos se distinguen.`,
+  );
+  console.log(
+    `   El par más parecido: ${worst.a} vs ${worst.b} — ${worst.cm.toFixed(1)} cm / ` +
+      `${worst.deg.toFixed(1)}° (${worst.limb}).`,
   );
 } else {
-  console.log(`⚠️  ${clashes.length} pares por debajo de ${SAME_POSE_CM} cm (se ven iguales):\n`);
+  console.log(
+    `⚠️  ${clashes.length} pares por debajo de ${SAME_POSE_CM} cm Y de ${SAME_POSE_DEG}° ` +
+      `(se ven iguales):\n`,
+  );
   for (const c of clashes.sort((x, y) => x.cm - y.cm))
-    console.log(`   ${c.cm.toFixed(1).padStart(5)} cm   ${c.a}  vs  ${c.b}`);
+    console.log(
+      `   ${c.cm.toFixed(1).padStart(5)} cm  ${c.deg.toFixed(1).padStart(5)}°   ${c.a}  vs  ${c.b}`,
+    );
+}
+
+if (undocumented.length) {
+  console.log(
+    `\n❌ ${undocumented.length} pares son indistinguibles Y su nota no lo dice. ` +
+      `El alumno pulsa los dos botones, ve lo mismo y cree que la app esta rota:`,
+  );
+  for (const u of undocumented) console.log(`     ${u}`);
+  process.exitCode = 1;
+}
+
+if (sharedButMarked.length) {
+  console.log(
+    `\n  ${sharedButMarked.length} pares comparten pose pero se distinguen por el ` +
+      `resalte o la mano del explorador:`,
+  );
+  for (const p of sharedButMarked) console.log(`     ${p.a}  vs  ${p.b}`);
 }
 
 // Per-test summary, so a test that moved can be checked against its own note.

@@ -160,6 +160,33 @@ export const CLINICAL_STRUCTURES: Record<string, ClinicalStructure> = {
     include: [/^Calcaneal_tendon[lr]$/],
     expectMeshes: 2,
   },
+  // LAS DOS PUERTAS DEL DESFILADERO TORACICO.
+  //
+  // Lo que se comprime son el plexo braquial y la arteria subclavia, y de eso
+  // el laboratorio no puede encender nada: `layerForMaterial` devuelve null
+  // para los nervios y los vasos. Pero las PAREDES del desfiladero si son
+  // musculo, y son lo que el fisioterapeuta trata:
+  //
+  //   - el triangulo interescalenico, entre el escaleno anterior y el medio,
+  //     que es por donde pasan las raices y la arteria (puerta de Adson y de
+  //     Roos);
+  //   - el espacio retropectoral, bajo el pectoral menor, que es el que cierra
+  //     la hiperabduccion de Wright.
+  //
+  // El escaleno posterior se deja fuera a proposito: no forma la puerta.
+  // Medido sobre el GLB del rig: anterior 8 mallas + medio 8, pectoral menor 10.
+  'interscalene-triangle': {
+    label: 'Triángulo interescalénico (escaleno anterior y medio)',
+    layer: 'muscle',
+    include: [/^Scalenus_(anterior|medius)_muscle(e1|e|o)?[lr]$/],
+    expectMeshes: 16,
+  },
+  'pectoralis-minor': {
+    label: 'Pectoral menor (espacio retropectoral)',
+    layer: 'muscle',
+    include: [/^Pectoralis_minor_muscle(e1|e2|e|o)?[lr]$/],
+    expectMeshes: 10,
+  },
 };
 
 /** ¿Es esta malla parte de la estructura? */

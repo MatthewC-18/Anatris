@@ -19,12 +19,17 @@ import {
   useProgress,
 } from '@react-three/drei';
 import * as THREE from 'three';
-import { RigModel } from './RigModel';
+import { RigModel, rigChannel, type RigCommand } from './RigModel';
 import { RigOverlays } from './RigOverlays';
 import { ShoulderRhythmArc } from './ShoulderRhythmArc';
 import { NeuroSkinLayer } from './NeuroSkinLayer';
 import { useIsCompact } from '../../hooks/useIsCompact';
-import { FRAME_MIN_SIDE, FRAME_PAD_RATIO, regionFrameBones } from '../../lib/labFraming';
+import {
+  FRAME_MIN_SIDE,
+  FRAME_PAD_RATIO,
+  extraFrameBonesFor,
+  regionFrameBones,
+} from '../../lib/labFraming';
 
 // The rig is 1300+ skinned meshes; skinning is vertex-heavy and each mesh is a
 // draw call. Cap DPR low so mid-range physio laptops stay smooth -- geometry,
@@ -66,7 +71,26 @@ function AutoFit({
   // changed: either way the current framing is wrong, so let the one-shot guard
   // fire again. Region is part of the key because picking a joint is exactly
   // when the user expects the camera to go to it.
-  const fitKey = `${refitKey ?? ''}|${region ?? ''}`;
+  // Y EL DEMO QUE SE SALE DE SU REGION. Una prueba puede vivir en el panel de
+  // una region y mover otra parte del cuerpo: el test de tension neural del
+  // miembro superior esta en la lista cervical y mueve el BRAZO. Medido en el
+  // navegador: con el encuadre cervical la mano caia a y = -1,65 en coordenadas
+  // de pantalla, fuera del borde inferior, asi que el boton parecia no hacer
+  // nada. Cuando el comando mueve un miembro que la region no encuadra, se
+  // amplia la caja y se reencuadra; al terminar el demo vuelve a la region.
+  const [demoBones, setDemoBones] = useState<string[]>([]);
+  useEffect(() => {
+    const onCmd = (cmd: RigCommand) => {
+      const extra = extraFrameBonesFor(region, cmd.movementId, cmd.components ?? []);
+      setDemoBones((prev) =>
+        prev.length === extra.length && prev.every((b, i) => b === extra[i]) ? prev : extra,
+      );
+    };
+    onCmd(rigChannel.get());
+    return rigChannel.subscribe(onCmd);
+  }, [region]);
+
+  const fitKey = `${refitKey ?? ''}|${region ?? ''}|${demoBones.join(',')}`;
   if (lastKey.current !== fitKey) {
     lastKey.current = fitKey;
     framed.current = false;
@@ -89,7 +113,7 @@ function AutoFit({
         // for hip flexion), so the limb cannot swing out of frame mid-arc.
         const wanted = regionFrameBones(region);
         if (wanted) {
-          const names = new Set(wanted);
+          const names = new Set([...wanted, ...demoBones]);
           const p = new THREE.Vector3();
           scene.traverse((o) => {
             if (!(o as THREE.Bone).isBone) return;

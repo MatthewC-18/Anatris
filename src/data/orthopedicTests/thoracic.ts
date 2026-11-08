@@ -55,6 +55,8 @@ const tests: OrthopedicTest[] = [
     // Verificado 2026-08-06 contra el registro de PubMed (PMID 19995486):
     // el resumen enuncia 87,5% / 90% para el signo de percusion con puno
     // cerrado. Las cifras redondeadas de la ficha coinciden.
+    noDemo:
+      'Es una percusión sobre las apófisis espinosas: no hay movimiento articular que reproducir.',
     cite: [
       {
         ref: 'langdon-2010',
@@ -88,6 +90,8 @@ const tests: OrthopedicTest[] = [
       'Es un signo de observación, no una maniobra: se recoge mientras colocas al paciente para el resto de la exploración, sin coste de tiempo.',
     // Verificado 2026-08-06 contra el registro de PubMed (PMID 19995486):
     // el resumen enuncia 81,25% / 93,33% para el signo en decubito supino.
+    noDemo:
+      'Lo que se observa es que el paciente NO puede tumbarse plano: el hallazgo es la postura que no se alcanza, no una que se pueda posar.',
     cite: [
       {
         ref: 'langdon-2010',
@@ -159,6 +163,8 @@ const tests: OrthopedicTest[] = [
       'Aporta poco de forma aislada. Su valor está en el CONJUNTO con dolor lumbar inflamatorio (rigidez matutina de más de 30 minutos, mejora con el ejercicio y no con el reposo, despertar nocturno) y con la limitación de Schober.',
     pearl:
       'Mide siempre en el mismo nivel y anota la cifra: el seguimiento longitudinal del mismo paciente informa mucho más que compararlo con un valor de referencia.',
+    noDemo:
+      'Se mide con cinta métrica la diferencia de perímetro entre inspiración y espiración máximas: el modelo no respira ni cambia de volumen.',
     cite: [
       {
         ref: 'vanderlinden-1984',
@@ -194,6 +200,22 @@ const tests: OrthopedicTest[] = [
       'Sensible pero poco específico (SnNout): tolerar los tres minutos sin síntomas hace improbable el desfiladero neurógeno. Un positivo aislado no lo confirma. Y define ANTES qué cuentas como positivo: en voluntarios sanos, el pulso se altera en seis de cada diez y aparecen parestesias en uno de cada tres, así que esos dos criterios no sirven; el que se sostiene es tener que interrumpir la prueba.',
     pearl:
       'Compara SIEMPRE los dos lados en la misma sesión. Lo relevante es la asimetría (un lado que claudica antes), no la aparición de molestias en sí.',
+    demo: {
+      // La posicion de "manos arriba" mantenida: hombros en abduccion de 90,
+      // rotacion externa y codos a 90. Las tres las conduce el rig.
+      movementId: 'glenohumeral-abduction',
+      angleDeg: 90,
+      side: 'R',
+      components: [
+        { movementId: 'glenohumeral-external-rotation', angleDeg: 80 },
+        { movementId: 'elbow-flexion', angleDeg: 90 },
+      ],
+      highlightStructureIds: ['interscalene-triangle'],
+      cannotShow:
+        'Lo que se comprime es el plexo braquial y la arteria subclavia, y el material de los nervios y los vasos los deja en una capa que el laboratorio no muestra nunca. Se enciende la PUERTA: el escaleno anterior y el medio, entre los que pasan.',
+      note:
+        'La prueba es BILATERAL y dura tres minutos abriendo y cerrando las manos; el modelo posa un lado y no mantiene el tiempo, que es justo lo que la hace positiva.',
+    },
     cite: [
       {
         ref: 'gillard-2001',
@@ -231,6 +253,8 @@ const tests: OrthopedicTest[] = [
       'Interprétalo dentro de un conjunto de tests, nunca aislado. Y sobre todo: el criterio de positividad decide el resultado. Uno de cada nueve sanos pierde pulso con esta maniobra, así que el pulso por sí solo no vale; ninguno de los 53 sanos de Plewa refirió DOLOR, de modo que el dolor reproducido sí es un hallazgo con peso.',
     pearl:
       'La variante de Wright-Adson gira la cabeza al lado CONTRARIO. Sea cual sea la variante, deja constancia de cuál usaste: cambian los resultados.',
+    noDemo:
+      'La maniobra suma rotación cervical, extensión del cuello y apnea, y el modelo solo posa una cadena de raquis a la vez; además el hallazgo es la desaparición del pulso radial, que no se ve en el modelo.',
     cite: [
       {
         ref: 'gillard-2001',
@@ -267,6 +291,20 @@ const tests: OrthopedicTest[] = [
       'Poco fiable de forma aislada. Su interés es localizador: cuando es el ÚNICO positivo, orienta al espacio retropectoral (pectoral menor) más que al interescalénico.',
     pearl:
       'Si es positivo, revisa el pectoral menor y la posición escapular: en muchos casos el trabajo terapéutico está ahí y no en los escalenos.',
+    demo: {
+      // La hiperabduccion: el brazo por encima de la cabeza con rotacion
+      // externa. A 150 grados el rig ya ha pasado el arco donde se cierra el
+      // espacio costoclavicular.
+      movementId: 'glenohumeral-abduction',
+      angleDeg: 150,
+      side: 'R',
+      components: [{ movementId: 'glenohumeral-external-rotation', angleDeg: 60 }],
+      highlightStructureIds: ['pectoralis-minor'],
+      cannotShow:
+        'La arteria subclavia, cuyo pulso es el hallazgo, está en una capa que el laboratorio no muestra. Se enciende el pectoral menor: el techo del espacio retropectoral que la hiperabducción cierra.',
+      note:
+        'El explorador palpa el pulso radial mientras mantiene la posición hasta un minuto; el modelo enseña la postura, no el pulso.',
+    },
     cite: [
       {
         ref: 'gillard-2001',
@@ -298,6 +336,8 @@ const tests: OrthopedicTest[] = [
       'Un dolor reproducido a distancia del punto de presión sugiere lesión ósea costal y justifica imagen ante un mecanismo traumático. Un dolor solo local bajo los dedos apunta a origen muscular o de partes blandas.',
     pearl:
       'Aplica la presión de forma LENTA y suspende ante el primer signo de dolor intenso: ante sospecha de fractura, la maniobra no debe repetirse.',
+    noDemo:
+      'Es una compresión anteroposterior y lateral de la caja torácica: el rig gira articulaciones, no comprime.',
     cite: [{ ref: 'magee', verified: false }],
   },
   {

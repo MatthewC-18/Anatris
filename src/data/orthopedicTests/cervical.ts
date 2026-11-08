@@ -85,13 +85,20 @@ const tests: OrthopedicTest[] = [
       'Específico como prueba de alivio: la mejoría con la tracción orienta a compromiso radicular. Baja sensibilidad, por lo que no sirve para descartar.',
     pearl:
       'La tracción reproduce, en manos del explorador, el efecto de la tracción mecánica terapéutica: útil también como prueba pronóstica.',
-    demo: {
-      cannotShow:
-        'Mismo límite que en Spurling: no hay raíces ni médula en el modelo. Lo que se ve es la dirección de la tracción, que es lo que descarga el foramen.',
-      movementId: 'cervical-flexion',
-      angleDeg: 12,
-      note: 'La distracción es una tracción axial manual (occipucio y mentón); el modelo solo insinúa la posición de descarga del foramen.',
-    },
+    // SIN DEMO, Y ESTA ES LA RAZON.
+    //
+    // La maniobra es una TRACCION AXIAL: el explorador toma occipucio y menton
+    // y tira en el eje del cuello. El rig conduce rotaciones de hueso, no
+    // traslaciones, asi que eso no puede posarlo. Lo que tenia era una flexion
+    // cervical de 12 grados, que no forma parte de la maniobra; con el rotulo
+    // "Distraccion cervical" encima, lo que el alumno aprende es que la
+    // distraccion se hace flexionando el cuello. Es justo lo contrario de lo
+    // que la prueba es: una descarga sin movimiento angular.
+    //
+    // La maniobra esta descrita en su texto, con el alivio como criterio.
+
+    noDemo:
+      'El modelo gira articulaciones; no traslada. Una tracción axial del cuello no tiene ángulo que reproducir.',
     cite: [{ ref: 'wainner-2003', verified: true, locator: 'Tabla 5 (frente a EMG)' }],
   },
   {
@@ -114,14 +121,30 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-out',
     interpretation:
       'Muy sensible (SnNout): un negativo hace muy improbable la radiculopatía cervical. Un positivo es inespecífico y debe confirmarse con Spurling/distracción.',
+    // LA PRUEBA ES DEL BRAZO, no del cuello.
+    //
+    // Lo que habia posaba SOLO una inclinacion cervical contralateral de 20
+    // grados, que es el SENSIBILIZADOR, no la prueba: el alumno veia un cuello
+    // inclinandose bajo el rotulo "test de tension neural del MMSS". La
+    // secuencia de verdad --abduccion de hombro, supinacion, extension de
+    // muneca y extension de codo-- el rig si la conduce, y es lo que ahora se
+    // ve. La inclinacion cervical no puede acompanarla porque las cadenas de
+    // raquis no valen como componente (solo las articulaciones de un hueso), y
+    // de todos modos iria al lado contrario que el brazo.
     demo: {
       cannotShow:
         'El nervio mediano sí está en el rig, pero su material lo deja en una capa que el laboratorio no muestra, y las raíces C5-C7 no están. Se demuestra la secuencia de puesta en tensión, no el nervio.',
-      movementId: 'cervical-lateral-flexion',
-      angleDeg: 20,
-      side: 'L',
-      note: 'Prueba de tensión neural del brazo; el componente cervical es la inclinación CONTRALATERAL que la sensibiliza (el modelo muestra solo el cuello).',
+      components: [
+        { movementId: 'elbow-extension', angleDeg: 10 },
+        { movementId: 'elbow-supination', angleDeg: 85 },
+        { movementId: 'wrist-extension', angleDeg: 60 },
+      ],
+      movementId: 'glenohumeral-abduction',
+      angleDeg: 90,
+      side: 'R',
+      note: 'La secuencia con sesgo mediano: hombro en abducción de 90°, antebrazo supinado, muñeca en extensión y codo que se extiende al final. Falta la inclinación cervical CONTRALATERAL que la sensibiliza (va al lado opuesto del brazo, y el modelo solo posa un lado a la vez) y la depresión escapular, que este rig no conduce.',
     },
+
     cite: [{ ref: 'wainner-2003', verified: true, locator: 'Tabla 5 (frente a EMG)' }],
   },
   {
@@ -178,13 +201,16 @@ const tests: OrthopedicTest[] = [
       'Signo de motoneurona superior. Aislado tiene valor moderado; gana potencia dentro del clúster de mielopatía (marcha, supinador invertido, Babinski, edad >45).',
     pearl:
       'Un Hoffmann positivo unilateral y aislado, sin otros signos, puede ser una variante normal. Cobra sentido con déficit funcional o hiperreflexia.',
-    demo: {
-      cannotShow:
-        'La vía corticoespinal y la médula cervical no están en el rig. Es un signo de motoneurona superior: se demuestra el gesto, no el sustrato.',
-      movementId: 'cervical-flexion',
-      angleDeg: 30,
-      note: 'Signo de mielopatía cervical; el modelo muestra la columna cervical (origen de la compresión medular), no el chasquido de la falange distal.',
-    },
+    // SIN DEMO, Y ESTA ES LA RAZON.
+    //
+    // El gesto es un chasquido de la falange distal del tercer dedo, y lo que
+    // se observa es la respuesta refleja del pulgar. Nada de eso lo conduce el
+    // rig. Lo que tenia era una flexion cervical de 30 grados --elegida porque
+    // el cuello es el ORIGEN de la mielopatia, no porque sea la maniobra--, y
+    // bajo el rotulo "Signo de Hoffmann" eso ensena un gesto que no existe.
+
+    noDemo:
+      'Es un reflejo de los dedos: el modelo no conduce las falanges, y la respuesta medular que la prueba busca no es una postura que se pueda posar.',
     cite: [
       { ref: 'cook-2010', verified: true, locator: 'sens 0.39 / esp 0.88' },
       { ref: 'jiang-2024', verified: true, locator: 'rango agrupado entre estudios' },
@@ -237,13 +263,15 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Muy específico (SpPin): un positivo apoya con fuerza la mielopatía a nivel C5-C6. Poco sensible, así que su ausencia no la descarta; interpretar dentro del clúster.',
-    demo: {
-      cannotShow:
-        'La vía corticoespinal y la médula cervical no están en el rig. Es un signo de motoneurona superior: se demuestra el gesto, no el sustrato.',
-      movementId: 'cervical-extension',
-      angleDeg: 20,
-      note: 'Signo de mielopatía a nivel C5-C6; el modelo muestra la columna cervical (origen de la compresión), no la percusión del braquiorradial.',
-    },
+    // SIN DEMO, Y ESTA ES LA RAZON.
+    //
+    // La maniobra es percutir el tendon del braquiorradial y mirar que pasa en
+    // los dedos. Ni la percusion ni el reflejo se pueden representar. Lo que
+    // tenia era una extension cervical de 20 grados, que no es parte de la
+    // prueba: el cuello es donde esta la compresion, no donde se explora.
+
+    noDemo:
+      'Es un reflejo por percusión del tendón braquiorradial: el modelo no simula percusión ni respuestas reflejas.',
     cite: [
       { ref: 'cook-2010', verified: true, locator: 'sens 0.19 / esp 0.99' },
       { ref: 'jiang-2024', verified: true, locator: 'rango agrupado entre estudios' },
@@ -269,13 +297,15 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Alta especificidad (SpPin): un positivo confirma afectación de motoneurona superior. Su ausencia no descarta mielopatía incipiente.',
-    demo: {
-      cannotShow:
-        'La vía corticoespinal no está en el modelo. Lo que se muestra es la respuesta del dedo gordo, que es el signo.',
-      movementId: 'cervical-flexion',
-      angleDeg: 25,
-      note: 'Signo de motoneurona superior; el modelo muestra la columna cervical (origen de la mielopatía), no la respuesta plantar ni el clonus.',
-    },
+    // SIN DEMO, Y ESTA ES LA RAZON.
+    //
+    // Se estimula la planta del pie y se mira el primer dedo. Lo que tenia era
+    // una flexion cervical de 25 grados, es decir: ni la zona que se estimula
+    // ni la que responde. El rotulo decia "Signo de Babinski" sobre un cuello
+    // flexionandose.
+
+    noDemo:
+      'Es un reflejo plantar: el modelo no conduce los dedos del pie ni simula el clonus.',
     cite: [{ ref: 'jiang-2024', verified: true, locator: 'Babinski / clonus (rango agrupado)' }],
   },
 
@@ -334,13 +364,20 @@ const tests: OrthopedicTest[] = [
       'Precisión no establecida con solidez. Úsalo como cribado de seguridad ante sospecha de inestabilidad, nunca como prueba diagnóstica aislada.',
     pearl:
       '⚠️ Prueba de precaución (banderas rojas). Un resultado sugestivo obliga a suspender técnicas de movilización/manipulación y derivar.',
-    demo: {
-      cannotShow:
-        'El ligamento transverso del atlas no está en el rig; de hecho el modelo no trae ni un ligamento de raquis. Se demuestra la maniobra.',
-      movementId: 'cervical-flexion',
-      angleDeg: 15,
-      note: 'En supino se desliza la cabeza y el atlas en sentido anterior; el modelo aproxima la posición en ligera flexión craneocervical.',
-    },
+    // SIN DEMO, Y ESTA ES LA RAZON.
+    //
+    // La maniobra es un DESLIZAMIENTO ANTERIOR de la cabeza y el atlas, mantenido
+    // unos segundos, en supino y desde neutro. El rig no traslada vertebras. Lo
+    // que tenia era una flexion cervical de 15 grados, que no es ni la posicion
+    // de partida (neutro) ni el gesto (traslacion): la flexion craneocervical es
+    // precisamente el movimiento que este ligamento FRENA, asi que posarla
+    // sugiere lo contrario de lo que la prueba busca.
+    //
+    // Sharp-Purser si tiene demo, porque alli la flexion ligera SI es la
+    // posicion de partida de la maniobra.
+
+    noDemo:
+      'Son dos imposibles a la vez: el deslizamiento anterior de la cabeza es una traslación, que el rig no hace, y el ligamento transverso del atlas no existe como malla en este modelo.',
     cite: [{ ref: 'hutting-2013b', verified: true, locator: 'revisión de inestabilidad cervical alta' }],
   },
   {
@@ -396,10 +433,16 @@ const tests: OrthopedicTest[] = [
     demo: {
       cannotShow:
         'La arteria vertebral no está en el rig, y las arterias que sí trae vienen en una capa que el laboratorio no muestra. Se demuestra la posición sostenida.',
+      // RANGO FINAL, que es lo que pide la maniobra: 80 grados, el tope del
+      // control. A 70 la pose quedaba a 0,2 cm de la del limite de rotacion
+      // cervical --otra prueba de esta misma lista-- y el boton de una
+      // reproducia la otra (`npm run measure-test-poses`). La extension que la
+      // maniobra suma no puede acompanarla: las cadenas de raquis no valen como
+      // componente, solo las articulaciones de un hueso.
       movementId: 'cervical-rotation',
-      angleDeg: 70,
+      angleDeg: 80,
       side: 'R',
-      note: 'Rotación (más extensión) sostenida en rango final; el modelo muestra solo la rotación.',
+      note: 'Rotación sostenida en el RANGO FINAL (80°, el tope del modelo). La maniobra real suma extensión, que este control no puede sostener a la vez.',
     },
     cite: [{ ref: 'hutting-2013', verified: true, locator: 'sens 0-57% / esp 67-100%' }],
   },

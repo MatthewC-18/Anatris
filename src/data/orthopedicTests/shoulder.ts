@@ -226,6 +226,8 @@ const tests: OrthopedicTest[] = [
     // componente. Así que no hay botón: la maniobra está descrita en su texto y
     // la perla ya dice qué hacer cuando el paciente tampoco alcanza la posición
     // lumbar. Mejor ninguna demostración que una que enseña otra prueba.
+    noDemo:
+      'El rig no conduce la extensión del hombro, y sin ella la mano no llega al dorso de la región lumbar: la posición de partida de la prueba no se puede montar.',
     cite: [
       {
         ref: 'barth-2006',
@@ -408,6 +410,8 @@ const tests: OrthopedicTest[] = [
       'La etiqueta no viene de la sensibilidad (77%, que no llega al umbral de una prueba de descarte) sino del valor predictivo negativo de la misma fuente, por encima del 94%. Chronopoulos no publica la especificidad de esta prueba.',
     interpretation:
       'Un negativo deja la articulación acromioclavicular prácticamente fuera (VPN > 94%). Un positivo NO la confirma: con un VPP por debajo del 30%, el dolor a la aducción cruzada es frecuente sin lesión acromioclavicular. La localización del dolor en la propia AC, y no en el subacromial, es lo que aporta valor.',
+    noDemo:
+      'La aducción horizontal cruzando el pecho no existe como movimiento en el rig (solo hay abducción, flexión y las dos rotaciones), y forzarla metería el brazo dentro del tórax.',
     cite: [
       {
         ref: 'chronopoulos-2004',

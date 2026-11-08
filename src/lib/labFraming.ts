@@ -18,6 +18,8 @@
 // pose and pads the result (see RigViewer/AutoFit), so the box follows the rig
 // instead of being a baked number that silently rots when the GLB changes.
 
+import { BONE_MAP } from './boneMap';
+
 /** Region id (store.region) -> bone base names to keep in frame. */
 export const REGION_FRAME_BONES: Record<string, readonly string[]> = {
   // Girdle plus the whole arm: elevation ends with the hand above the head.
@@ -70,4 +72,83 @@ export function hasRegionFrame(region: string | null | undefined): boolean {
 export function regionFrameBones(region: string | null | undefined): readonly string[] | null {
   if (region == null) return null;
   return REGION_FRAME_BONES[region] ?? null;
+}
+
+/**
+ * EL ENCUADRE DE UN DEMO QUE SE SALE DE SU REGIÓN.
+ *
+ * Una prueba no siempre explora la región en cuyo panel vive. El test de
+ * tensión neural del miembro superior está en la lista CERVICAL y lo que mueve
+ * es el BRAZO; el de tensión del nervio femoral está en la LUMBAR y mueve la
+ * rodilla y la cadera. El encuadre por región deja fuera ese segmento, y
+ * medido en el navegador: durante el ULNT la mano caía a y = −1,65 en
+ * coordenadas de pantalla, es decir, por debajo del borde inferior. El botón
+ * parecía no hacer nada, porque lo que hacía no se veía.
+ *
+ * Así que el encuadre se amplía con los huesos del miembro que el comando
+ * mueve de verdad --su movimiento base y sus componentes-- y la cámara se
+ * reajusta al empezar y al terminar el demo.
+ *
+ * Y SE AMPLIA LO JUSTO. Un primer intento añadía el miembro ENTERO del grupo
+ * que el movimiento tocaba, y entonces una inversión de tobillo --dentro de la
+ * región del tobillo-- pedía meter el fémur y la rótula en la caja, alejando la
+ * cámara de lo único que se está mirando. Lo que hay que ver es el hueso que el
+ * movimiento gira y todo lo que arrastra POR DEBAJO, porque eso es lo que se
+ * desplaza: de ahí la cadena ordenada de proximal a distal y el corte en el
+ * hueso movido.
+ */
+const LIMB_CHAIN: Record<string, readonly string[]> = {
+  shoulder: ['clavicle', 'scapula', 'humerus_gh', 'forearm_flex', 'forearm_rot', 'hand_flex'],
+  leg: ['femur_base', 'patella', 'shin_flex', 'foot_flex'],
+};
+
+/**
+ * Los huesos que hay que tener a la vista para ver este movimiento: el que gira
+ * y los que cuelgan de él. Vacío para el raquis (cada región vertebral ya trae
+ * sus vértebras) y para un control no accionable.
+ */
+function framedBonesOfMovement(movementId: string): string[] {
+  const c = BONE_MAP[movementId];
+  if (!c) return [];
+  const suffixFrom = (group: string, bones: string[]): string[] => {
+    const chain = LIMB_CHAIN[group];
+    if (!chain) return [];
+    let first = chain.length;
+    for (const b of bones) {
+      const i = chain.indexOf(b);
+      if (i >= 0 && i < first) first = i;
+    }
+    return first < chain.length ? [...chain.slice(first)] : [];
+  };
+  if (c.kind === 'joint') {
+    return suffixFrom(c.armatureBase === 'Leg_Armature' ? 'leg' : 'shoulder', [c.bone]);
+  }
+  if (c.kind === 'chain') {
+    const out = new Set<string>();
+    for (const t of c.targets) {
+      const group = String(t.target.armature);
+      for (const b of suffixFrom(group, t.target.bones)) out.add(b);
+    }
+    return [...out];
+  }
+  return [];
+}
+
+/**
+ * Los huesos que hay que añadir al encuadre de `region` para que lo que este
+ * comando mueve quepa en pantalla. Vacío cuando la región ya los contiene.
+ */
+export function extraFrameBonesFor(
+  region: string | null | undefined,
+  movementId: string | null | undefined,
+  components: readonly { movementId: string }[] = [],
+): string[] {
+  if (!movementId) return [];
+  const own = new Set(regionFrameBones(region) ?? []);
+  if (!own.size) return [];
+  const out = new Set<string>();
+  for (const id of [movementId, ...components.map((c) => c.movementId)]) {
+    for (const b of framedBonesOfMovement(id)) if (!own.has(b)) out.add(b);
+  }
+  return [...out].sort();
 }

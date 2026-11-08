@@ -773,7 +773,19 @@ function TestRow({
             type="button"
             onClick={onDemo}
             aria-label={demoing ? `Detener ${test.name}` : `Demostrar ${test.name} en el modelo`}
-            title={demoing ? 'Detener la maniobra' : 'Reproducir la maniobra en el modelo 3D'}
+            /* EL BOTON NO PROMETE MAS DE LO QUE HACE.
+               Decia "Reproducir la maniobra" en los 56 demos, y en los que
+               llevan `examinerForce` la maniobra ES la fuerza del explorador:
+               el cajon anterior, el estres en valgo, McMurray. El rig posa la
+               posicion y dibuja la mano, pero no traslada ni empuja, asi que
+               ahi lo que se reproduce es la POSICION. */
+            title={
+              demoing
+                ? 'Detener la demostración'
+                : test.demo?.examinerForce
+                  ? 'Colocar la posición en el modelo 3D (la fuerza del explorador se dibuja, no se simula)'
+                  : 'Reproducir la maniobra en el modelo 3D'
+            }
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors ${
               demoing
                 ? 'border-accent bg-accent/20 text-accent'
@@ -782,6 +794,24 @@ function TestRow({
           >
             {demoing ? <StopIcon size={12} /> : <PlayIcon size={12} />}
           </button>
+        )}
+
+        {/* LA AUSENCIA DEL PLAY, EXPLICADA.
+            24 de las 80 pruebas no tienen demostracion en 3D, y hasta ahora el
+            hueco se veia exactamente igual que un error: la fila venia sin
+            boton y nadie decia por que, asi que la lectura natural era "esto
+            esta sin terminar". Las razones son reales y medidas (el rig gira
+            articulaciones y no traslada; los seis movimientos de cadera mueven
+            un solo hueso; un reflejo o un pulso no son una postura), y van en
+            `noDemo`. Aqui ocupa el sitio del play, en gris y sin pulsar. */}
+        {!test.demo && test.noDemo && (
+          <span
+            title={test.noDemo}
+            aria-label={`Sin demostración en 3D: ${test.noDemo}`}
+            className="flex h-8 w-8 shrink-0 cursor-help items-center justify-center rounded-full border border-dashed border-slate-800 text-[9px] font-semibold tracking-wide text-slate-600"
+          >
+            3D
+          </span>
         )}
 
         <button
@@ -914,6 +944,11 @@ function TestRow({
           {test.demo?.cannotShow && (
             <p className="text-[11px] leading-relaxed text-amber-200/70">
               {test.demo.cannotShow}
+            </p>
+          )}
+          {!test.demo && test.noDemo && (
+            <p className="text-[11px] leading-relaxed text-amber-200/70">
+              Sin demostración en 3D: {test.noDemo}
             </p>
           )}
           {!hideMetrics && test.metrics.note && (

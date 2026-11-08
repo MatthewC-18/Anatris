@@ -179,13 +179,22 @@ const tests: OrthopedicTest[] = [
       'Muy específico y moderadamente sensible: un positivo apoya con fuerza la radiculopatía lumbar alta. Útil cuando el dolor es anterior (muslo) y el SLR es negativo.',
     pearl:
       'Falsos positivos por acortamiento del recto femoral/psoas o patología de cadera: interpreta el dolor por su territorio anterior.',
+    // LA PRUEBA ES DE RODILLA Y CADERA, en prono.
+    //
+    // Lo que habia posaba una extension lumbar de 20 grados, de pie: no es la
+    // maniobra ni la posicion. La maniobra --flexion de rodilla con extension de
+    // cadera-- el rig la conduce entera, y son dos huesos distintos (shin_flex y
+    // femur_base), asi que se sostienen a la vez.
     demo: {
       cannotShow:
         'El nervio femoral y las raíces L2-L4 no están en el rig. Lo que se demuestra es la posición que los pone en tensión.',
-      movementId: 'lumbar-extension',
-      angleDeg: 20,
-      note: 'En prono se flexiona la rodilla y se extiende la cadera; el modelo muestra la extensión lumbar, que también tensa las raíces altas.',
+      components: [{ movementId: 'hip-extension', angleDeg: 15 }],
+      movementId: 'knee-flexion',
+      angleDeg: 90,
+      side: 'R',
+      note: 'La rodilla se flexiona y la cadera se extiende, que es lo que tensa el nervio femoral. La prueba se hace en PRONO: el modelo lo muestra de pie, así que mira los ángulos, no la postura global.',
     },
+
     cite: [
       {
         ref: 'suri-2011',
@@ -242,13 +251,19 @@ const tests: OrthopedicTest[] = [
     utility: 'weak',
     interpretation:
       'Precisión moderada aislado. Su valor real es pronóstico: un positivo predice buena respuesta a un programa de estabilización lumbar.',
-    demo: {
-      cannotShow:
-        'La inestabilidad segmentaria no es una estructura: es un comportamiento del segmento. No hay nada que encender, y el rig tampoco traslada una vértebra sobre otra.',
-      movementId: 'lumbar-extension',
-      angleDeg: 18,
-      note: 'En prono se aplica presión posteroanterior sobre el segmento; el modelo aproxima con una ligera extensión lumbar.',
-    },
+    // SIN DEMO, Y ESTA ES LA RAZON.
+    //
+    // La prueba son dos presiones posteroanteriores sobre el mismo segmento, una
+    // con los pies en el suelo y otra con el paciente sosteniendolos en el aire;
+    // lo que la interpreta es la DIFERENCIA entre las dos. Ni la presion ni la
+    // posicion en camilla con los pies colgando se pueden posar, y lo que tenia
+    // --una extension lumbar de 18 grados, de pie-- no es ninguna de las dos
+    // fases: la extension no forma parte de la maniobra.
+    //
+    // La extension lumbar pasiva, que SI consiste en eso, conserva su demo.
+
+    noDemo:
+      'La prueba compara la presión posteroanterior sobre el segmento con el paciente relajado y luego activando: ni esa presión ni la activación voluntaria se pueden reproducir, y el rig tampoco traslada una vértebra.',
     cite: [
       {
         ref: 'hicks-2005',
@@ -278,6 +293,8 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Test de provocación individual: interpreta dentro del clúster de Laslett, no aislado. Sensible, aporta al cribado sacroilíaco.',
+    noDemo:
+      'La fuerza es una traslación posterior a través del fémur sobre la sacroilíaca: el rig no traslada, y su sacro no tiene articulación sacroilíaca conducida.',
     cite: [{
         ref: 'laslett-2005',
         verified: false,
@@ -306,6 +323,8 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Test de provocación específico. Laslett: si la distracción y el empuje del muslo son ambos positivos, casi no hace falta más exploración sacroilíaca.',
+    noDemo:
+      'Es una fuerza de apertura sobre las dos espinas ilíacas anterosuperiores: no hay ángulo que posar, y la pelvis del modelo es una pieza rígida.',
     cite: [{
         ref: 'laslett-2005',
         verified: false,
@@ -334,6 +353,8 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Provocación individual de valor moderado: úsala como parte del clúster, no de forma aislada.',
+    noDemo:
+      'Es una compresión vertical sobre la cresta ilíaca: el modelo no comprime y la pelvis no se deforma.',
     cite: [{
         ref: 'laslett-2005',
         verified: false,
@@ -362,6 +383,8 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Provocación individual: aporta dentro del clúster. Un clúster con 3 o más pruebas positivas orienta a origen sacroilíaco.',
+    noDemo:
+      'Es un empuje anterior sobre la línea media del sacro: una traslación, que el rig no hace.',
     cite: [{
         ref: 'laslett-2005',
         verified: false,
@@ -392,6 +415,8 @@ const tests: OrthopedicTest[] = [
       'Precisión limitada aislada: interpreta solo dentro del clúster de Laslett. Comparte falsos positivos con la cadera y la columna lumbar.',
     pearl:
       'Clúster de Laslett (distracción, empuje del muslo, compresión, thrust sacro, Gaenslen): con 3 o más positivos, sens ~91% y esp ~78%. Usa el botón "Combinar".',
+    noDemo:
+      'Pide las dos caderas a la vez en direcciones opuestas (una en flexión máxima, la otra colgando en extensión) y los seis movimientos de cadera del rig mueven el mismo hueso: solo se puede posar uno cada vez.',
     cite: [{
         ref: 'laslett-2005',
         verified: false,

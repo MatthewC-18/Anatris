@@ -100,16 +100,26 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Muy específico (SpPin): un positivo confirma la epicondilalgia lateral; un negativo no la descarta. Complementa a Cozen (más sensible).',
+    // LA MANIOBRA EXTIENDE EL CODO; la pronacion y la flexion de muneca se
+    // SOSTIENEN. Estaba al revés: el demo barria la pronacion de 0 a 80 grados
+    // --el antebrazo girando-- mientras el codo se quedaba quieto, que es la
+    // pelicula contraria a la prueba. Ahora barre la extension del codo con la
+    // muneca flexionada y el antebrazo pronado, que es el estiramiento que
+    // provoca el dolor en el epicondilo.
     demo: {
-      movementId: 'elbow-pronation',
-      angleDeg: 80,
+      movementId: 'elbow-extension',
+      angleDeg: 10,
       highlightMuscleId: 'common-extensor-origin',
       // Mill es un estiramiento PASIVO: la muneca va a flexion y el explorador
       // no resiste nada. Eso es justo lo contrario del test de epitroclea, que
       // compartia con el esta misma pose de pronacion.
-      components: [{ movementId: 'wrist-flexion', angleDeg: 60 }],
+      components: [
+        { movementId: 'elbow-pronation', angleDeg: 80 },
+        { movementId: 'wrist-flexion', angleDeg: 60 },
+      ],
       note: 'Con antebrazo pronado y muñeca flexionada se extiende pasivamente el codo: es un estiramiento, no una resistencia. El modelo resalta el origen extensor, que es lo que se estira.',
     },
+
     cite: [
       {
         ref: 'saroja-2014',

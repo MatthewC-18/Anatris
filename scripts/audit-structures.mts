@@ -120,10 +120,31 @@ let lit = 0;
 let declared = 0;
 let silent = 0;
 let inert = 0;
+let noDemoSaid = 0;
+let noDemoMute = 0;
 for (const [region, tests] of Object.entries(ALL_TESTS_BY_REGION)) {
   for (const t of tests) {
     const d = t.demo;
-    if (!d) continue;
+    // EL HUECO DEL PLAY TAMBIEN SE AUDITA.
+    //
+    // Una prueba sin demostracion no es un error --el rig gira articulaciones y
+    // no traslada, los seis movimientos de cadera mueven un solo hueso, un
+    // reflejo no es una postura-- pero CALLARLO si lo es: la fila se ve igual
+    // que una a medio hacer. Asi que o hay demo, o esta escrito por que no.
+    if (!d) {
+      if (t.noDemo) noDemoSaid += 1;
+      else {
+        noDemoMute += 1;
+        err(
+          `${region}/${t.id}: sin demostración en 3D y sin \`noDemo\` ` +
+            `(target: ${t.target}). El hueco del play se lee como un error.`,
+        );
+      }
+      continue;
+    }
+    if (t.noDemo) {
+      err(`${region}/${t.id}: dice que no se puede demostrar Y trae demostración`);
+    }
     const sids = d.highlightStructureIds ?? [];
     for (const sid of sids) {
       if (!(sid in CLINICAL_STRUCTURES)) {
@@ -156,6 +177,10 @@ console.log(`\n  ${lit}/${total} demos resaltan algo`);
 console.log(`  ${declared}/${total} declaran lo que no se puede ver`);
 console.log(`  ${silent}/${total} callan`);
 console.log(`  ${inert === 0 ? 'ninguna' : inert} con estructuras que resuelven a cero en su lado`);
+console.log(
+  `\n  ${noDemoSaid} pruebas sin demostración explican por qué; ` +
+    `${noDemoMute === 0 ? 'ninguna' : noDemoMute} lo calla`,
+);
 
 console.log(`\n===== ${errors} errores, ${warns} avisos =====`);
 if (errors > 0) process.exitCode = 1;

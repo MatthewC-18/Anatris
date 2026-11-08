@@ -207,6 +207,13 @@ export function RigOverlays(): JSX.Element {
   }
   const controls = useThree((s) => s.controls) as CameraControls | null;
   const camera = useThree((s) => s.camera);
+  // Y LA CAMARA, por la misma razon y para una pregunta concreta: si un demo
+  // mueve un segmento que el encuadre de la region no contiene, ese segmento se
+  // sale de pantalla y el boton parece no hacer nada. Con la camara alcanzable
+  // se proyecta el hueso y se mide, en vez de discutirlo.
+  if (import.meta.env.DEV) {
+    (window as unknown as { __camera?: THREE.Camera }).__camera = camera;
+  }
   const cameraRef = useRef(camera);
   cameraRef.current = camera;
 

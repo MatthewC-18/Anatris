@@ -73,8 +73,53 @@ describe('la promesa de cada demo', () => {
     tests.filter((t) => t.demo).map((t) => ({ region, t })),
   );
 
-  it('cubre los demos de las ocho regiones', () => {
-    expect(demos.length).toBeGreaterThanOrEqual(64);
+  // CADA PRUEBA TIENE DEMO, O TIENE ESCRITO POR QUE NO.
+  //
+  // Esto era una cuenta --"al menos 64 demos"-- y la cuenta era lo peor que se
+  // podia vigilar: al borrar ocho demostraciones que posaban la maniobra
+  // equivocada, la prueba se puso roja por haber MEJORADO el contenido. Y al
+  // mismo tiempo no detectaba el agujero de verdad: 24 pruebas sin demo y sin
+  // una palabra de por que, que el alumno lee como "esto esta sin terminar".
+  //
+  // Asi que lo que se vigila es la disyuntiva: o el modelo lo ensena, o esta
+  // dicho que no puede. Nunca las dos, nunca ninguna.
+  it('toda prueba tiene demostración o la razón de no tenerla', () => {
+    const todas = Object.entries(ALL_TESTS_BY_REGION).flatMap(([region, tests]) =>
+      tests.map((t) => ({ region, t })),
+    );
+    expect(todas.length, 'el catálogo de pruebas se ha quedado vacío').toBeGreaterThan(60);
+    const sinNada = todas
+      .filter(({ t }) => !t.demo && !t.noDemo)
+      .map(({ region, t }) => `${region}/${t.id}`);
+    expect(
+      sinNada,
+      'estas pruebas no tienen demostración en 3D y tampoco dicen por qué: el hueco se lee como un error',
+    ).toEqual([]);
+    const ambas = todas
+      .filter(({ t }) => t.demo && t.noDemo)
+      .map(({ region, t }) => `${region}/${t.id}`);
+    expect(ambas, 'estas pruebas dicen que no se pueden demostrar y traen demostración').toEqual(
+      [],
+    );
+  });
+
+  it('la razón de no tener demostración es una frase, no una palabra', () => {
+    for (const [region, tests] of Object.entries(ALL_TESTS_BY_REGION)) {
+      for (const t of tests) {
+        if (t.noDemo == null) continue;
+        expect(t.noDemo.length, `${region}/${t.id}`).toBeGreaterThan(40);
+      }
+    }
+  });
+
+  it('el panel ocupa el sitio del play con la razón', () => {
+    const src = readFileSync('src/components/movement/OrthopedicTestsPanel.tsx', 'utf8');
+    // El hueco del play lleva la razon, y ademas se lee en la ficha abierta.
+    expect(src).toMatch(/!test\.demo && test\.noDemo/);
+    expect(src.match(/!test\.demo && test\.noDemo/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    // Y el titulo del play no promete una maniobra cuando la fuerza es del
+    // explorador y el rig solo coloca la posicion.
+    expect(src).toMatch(/test\.demo\?\.examinerForce\s*\n?\s*\?/);
   });
 
   it('o resalta algo, o dice por qué no puede', () => {

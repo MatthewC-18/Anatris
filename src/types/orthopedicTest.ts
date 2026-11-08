@@ -223,6 +223,33 @@ export interface OrthopedicTest {
   pearl?: string;
   /** How to reproduce the provocative position on the 3D rig (optional). */
   demo?: TestDemo;
+  /**
+   * POR QUE ESTA PRUEBA NO TIENE DEMOSTRACION EN 3D, en una frase y en espanol.
+   *
+   * De las 80 pruebas, 24 no tienen demo, y hasta ahora eso se veia exactamente
+   * igual que un error: la fila no traia boton de play y nadie decia por que.
+   * El alumno no puede distinguir "esta prueba no se puede ensenar con este
+   * modelo" de "esto esta sin terminar", asi que asume lo segundo.
+   *
+   * Y las razones son reales y medidas, no una lista de pendientes:
+   *
+   *   - EL RIG GIRA ARTICULACIONES, NO TRASLADA. Una traccion cervical, un
+   *     cajon, un empuje sacroiliaco o una compresion de la caja toracica no
+   *     tienen angulo que reproducir.
+   *   - LOS SEIS MOVIMIENTOS DE CADERA COMPARTEN UN SOLO HUESO (`femur_base`),
+   *     y los cuatro del tobillo tambien (`foot_flex`). El modelo posa uno a la
+   *     vez, asi que FADIR, FABER, Gaenslen y Kleiger --que suman tres
+   *     direcciones en la misma articulacion-- no se pueden montar.
+   *   - HAY GESTOS QUE EL RIG NO CONDUCE: no existe extension ni aduccion
+   *     horizontal de hombro, ni falanges, ni respiracion.
+   *   - Y HAY HALLAZGOS QUE NO SON UNA POSTURA: un reflejo, un pulso que
+   *     desaparece, un perimetro que no crece.
+   *
+   * Asi que cada una lo DICE, en el sitio donde estaria el boton. La regla la
+   * vigila `clinicalStructures.test.ts`: una prueba tiene demo o tiene esto,
+   * nunca ninguno de los dos y nunca los dos.
+   */
+  noDemo?: string;
   /** Study/studies the metrics come from. */
   cite: StudyCitation[];
 }

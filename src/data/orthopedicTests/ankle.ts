@@ -159,6 +159,8 @@ export const ANKLE_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Es de las dos más sensibles del grupo sindesmal, no una prueba de confirmación: un negativo resta (LR- 0,46), un positivo aporta poco por sí solo (LR+ 1,93). Combínala con la palpación sindesmal y con el squeeze.',
+    noDemo:
+      'Pide dorsiflexión y rotación externa del pie a la vez, y los cuatro movimientos de tobillo del rig mueven el mismo hueso; además la rotación externa del pie no es un eje que el modelo conduzca.',
     cite: [{ ref: 'sman-2015', verified: true, locator: 'Tabla 3' }],
   },
   {
@@ -182,6 +184,8 @@ export const ANKLE_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Un positivo sube la sospecha de esguince alto, pero con un intervalo que incluye el 1 no cierra el diagnóstico. Un negativo no sirve para descartar (LR- 0,84). Úsala DESPUÉS de una prueba sensible (palpación sindesmal, rotación externa con dorsiflexión).',
+    noDemo:
+      'Es una compresión de la tibia y la fíbula en el tercio medio de la pierna: el rig gira articulaciones, no comprime.',
     cite: [{ ref: 'sman-2015', verified: true, locator: 'Tabla 3' }],
   },
 ];

@@ -68,14 +68,21 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       'Un FADIR NEGATIVO hace poco probable el pinzamiento/labrum (SnNout). Un positivo, por su baja especificidad, obliga a confirmar con imagen o cluster.',
     pearl:
       'Muy sensible: su valor está en el resultado negativo. El positivo aislado no confirma FAI.',
-    demo: {
-      cannotShow:
-        'El labrum acetabular no está en el rig, y el pinzamiento es un contacto entre cuello femoral y reborde acetabular que el modelo no calcula. Antes se encendía el ilíaco, que no es lo que la prueba valora: mejor decirlo que enseñar otra cosa.',
-      movementId: 'hip-internal-rotation',
-      angleDeg: 30,
-      side: 'R',
-      note: 'El rig muestra la rotación interna; la maniobra real se hace en 90° de flexión + aducción.',
-    },
+    // SIN DEMO, Y ESTA ES LA RAZON.
+    //
+    // FADIR es flexion de 90 grados MAS aduccion MAS rotacion interna, las tres
+    // a la vez. En este rig los tres movimientos de cadera cuelgan del MISMO
+    // hueso (femur_base) con ejes distintos, y un componente que repite el hueso
+    // de la base lo sobreescribe: solo se puede posar uno. Lo que habia era la
+    // rotacion interna sola, a 30 grados.
+    //
+    // Y medido con `npm run measure-test-poses`: esa pose queda a 1,3 cm de la
+    // de "rotacion interna pasiva en neutro", que es OTRA prueba de esta misma
+    // region. Es decir, el boton de FADIR reproducia la prueba de al lado. La
+    // maniobra esta descrita en su texto.
+
+    noDemo:
+      'Suma flexión, aducción y rotación interna en la misma cadera, y los seis movimientos de cadera del rig mueven el MISMO hueso: el modelo posa uno a la vez, así que la combinación no se puede montar.',
     cite: [
       {
         ref: 'reiman-2015',
@@ -146,14 +153,19 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Úsalo para LOCALIZAR el origen del dolor más que como prueba binaria; combínalo con FADIR y el cuadro clínico.',
-    demo: {
-      cannotShow:
-        'Ni el labrum ni los ligamentos sacroilíacos están en el rig. La posición sí es la de la prueba; dónde duele, que es lo que la interpreta, va en el texto.',
-      movementId: 'hip-external-rotation',
-      angleDeg: 45,
-      side: 'R',
-      note: 'El rig muestra la rotación externa; la posición real combina flexión + abducción + rotación externa.',
-    },
+    // SIN DEMO, Y ESTA ES LA RAZON.
+    //
+    // FABER es la figura de 4: flexion, abduccion y rotacion externa juntas. Los
+    // tres movimientos comparten hueso en este rig (femur_base), asi que solo se
+    // puede posar uno, y lo que habia era la rotacion externa sola a 45 grados
+    // --que es la pose del log roll, otra prueba de esta lista, a 1,3 cm
+    // (`npm run measure-test-poses`)-.
+    //
+    // Una pierna en rotacion externa no es la figura de 4; y con el rotulo
+    // "FABER (Patrick)" encima, lo que ensena es la prueba equivocada.
+
+    noDemo:
+      'Suma flexión, abducción y rotación externa en la misma cadera, y los seis movimientos de cadera del rig comparten hueso: el modelo posa uno a la vez.',
     cite: [
       {
         ref: 'maslowski-2010',
