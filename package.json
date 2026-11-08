@@ -29,7 +29,8 @@
     "audit-laterality": "tsx --tsconfig tsconfig.scripts.json scripts/audit-laterality.mts",
     "render-movements": "tsx --tsconfig tsconfig.scripts.json scripts/render-all-movements.mts",
     "audit-glow": "tsx --tsconfig tsconfig.scripts.json scripts/audit-muscle-glow.mts",
-    "audit-forearm-fill": "tsx --tsconfig tsconfig.scripts.json scripts/audit-forearm-fill.mts"
+    "audit-forearm-fill": "tsx --tsconfig tsconfig.scripts.json scripts/audit-forearm-fill.mts",
+    "build-forearm-unmangle": "tsx --tsconfig tsconfig.scripts.json scripts/build-forearm-unmangle.mts"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

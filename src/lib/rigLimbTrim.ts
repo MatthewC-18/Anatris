@@ -327,60 +327,23 @@ export function inWristCuff(c: THREE.Vector3): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// EL HUECO DEL ANTEBRAZO.
+// EL HUECO DEL ANTEBRAZO, Y POR QUE YA NO HAY.
 //
-// El ultimo cuarto del antebrazo SE QUEDA SIN CARNE, y no por una decision de
-// este proyecto: seis musculos superficiales por brazo -- extensor de los dedos,
-// extensor del meñique, flexor profundo de los dedos, flexor largo del pulgar,
-// palmar largo y sus mitades tendinosas -- vienen del GLB TUMBADOS ATRAVESANDO
-// el miembro. Medido en el rig servido: ocupan 1,4-2,7 cm del largo del
-// antebrazo y se abren 11,8-14,9 cm en radio; su caja envolvente mide 23-39 cm
-// en z, es decir que asoman un palmo por delante y por detras del cuerpo. Son
-// justamente las barras que `isCrosswise` describe, y como estan rotos en los
-// DOS brazos no hay gemelo bueno del que copiar: el recorte medido los oculta,
-// con razon.
+// Este recorte dejaba el cuarto distal del antebrazo HUECO -- 22% y 32% de su
+// musculo en pantalla, medido -- porque treinta y cuatro mallas de musculo y
+// tendon venian del GLB ATRAVESANDO el miembro (discos de 1,4-2,7 cm de largo
+// y 11,8-14,9 cm de radio) y `isCrosswise` las ocultaba, con razon. Con el radio
+// y el cubito dentro y la piel en modo fantasma, ese tramo ensenaba hueso
+// pelado pegado a una mano opaca.
 //
-// Lo que queda, medido del codo (t=0) a la muneca (t=1), es esto:
-//
-//     t 0,0-0,7   100% del musculo en pantalla
-//     t 0,7-0,8    72%
-//     t 0,8-0,9    32%
-//     t 0,9-1,0    22%
-//
-// Es decir: los primeros tres cuartos estan intactos y el ultimo esta hueco.
-// Y ahi dentro siguen el radio y el cubito. Con la piel en modo fantasma -- que
-// existe para ENSENAR EL MUSCULO de debajo -- ese tramo no ensena musculo
-// ninguno: ensena hueso pelado al lado de una mano opaca. Es el
-// "deja descubierto el hueso del antebrazo" que se reporto.
-//
-// Mientras el dato no se arregle en Blender, el tramo hueco lleva piel SOLIDA,
-// como la mano: el manguito baja entero hasta el casquete de la mano y el
-// antebrazo se lee como un antebrazo. No se oculta ni el hueso ni el musculo,
-// de modo que apagando la capa de piel el radio y el cubito siguen ahi para
-// estudiarlos.
-//
-// El limite se saca del propio rig (no es una altura escrita a mano): el cuarto
-// distal del segmento codo-muneca. En el rig servido cae en y = 0,923.
+// Hubo aqui un parche: dar piel SOLIDA a ese tramo. Ya no hace falta y se ha
+// quitado, porque la enfermedad esta curada en vez de tapada:
+// `src/lib/rigForearmUnmangle.ts` endereza esas mallas con el giro medido
+// contra el GLB de Explorar, que las trae bien colocadas. Despues de eso el
+// antebrazo esta al 100% en toda su longitud, en los dos brazos
+// (`npm run audit-forearm-fill`, que ahora falla si vuelve a vaciarse).
 // ---------------------------------------------------------------------------
-/** Fraccion distal del antebrazo que el recorte deja sin musculo. */
-const FOREARM_HOLLOW_FRACTION = 0.25;
 
-/** Altura por debajo de la cual el antebrazo ya no tiene carne que ensenar. */
-export function forearmHollowTop(heights: ArmHeights): number {
-  return heights.wristY + FOREARM_HOLLOW_FRACTION * (heights.elbowY - heights.wristY);
-}
-
-/**
- * True cuando un centro de malla en reposo cae en el tramo hueco del antebrazo
- * (por encima del casquete de la mano, por debajo de donde acaba el musculo).
- */
-export function inForearmHollow(c: THREE.Vector3, heights: ArmHeights): boolean {
-  return (
-    Math.abs(c.x) > ARM_COLUMN_X &&
-    c.y >= heights.wristY - 0.02 &&
-    c.y < forearmHollowTop(heights)
-  );
-}
 /**
  * Recorta del antebrazo lo que se sale del miembro, y devuelve lo que no tiene
  * arreglo.

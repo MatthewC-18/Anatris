@@ -36,7 +36,6 @@ import {
   FOREARM_CULLS,
   inArmBand,
   inDistalRegion,
-  inForearmHollow,
   inWristCuff,
   trimForearmOutliers,
 } from '../../lib/rigLimbTrim';
@@ -63,6 +62,7 @@ import { bridgeShoulderSkin } from '../../lib/shoulderSkinBridge';
 import { gradeShoulderMuscleBinding } from '../../lib/shoulderMuscleBinding';
 import { relaxSkinSeams } from '../../lib/skinSeamRelax';
 import { inflateSkinShell } from '../../lib/skinShellInflate';
+import { unmangleForearmMeshes } from '../../lib/rigForearmUnmangle';
 import { blendHipSkin } from '../../lib/rigHipSkin';
 import { regradeAnkleCrossers } from '../../lib/rigAnkleRebind';
 import {
@@ -1379,8 +1379,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // --- Arm rebind geometry (elbow-flexion + forearm-pronation fixes). ---
       // Alturas leidas del propio rig (src/lib/rigArmRebind.ts): un re-export
       // del GLB puede mover el codo, y el umbral tiene que moverse con el.
-      const ARM_H = armHeights(scene);
-      const { elbowY: ELBOW_Y, wristY: WRIST_Y, upperArmY: UPPER_ARM_Y } = ARM_H;
+      const { elbowY: ELBOW_Y, wristY: WRIST_Y, upperArmY: UPPER_ARM_Y } = armHeights(scene);
 
       // Knee height, for the knee-skin blend (src/lib/rigSkinRepair.ts). Read
       // off the leg armatures for the same reason as the elbow: a rig
@@ -1580,6 +1579,29 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         // the count should stay at 4 unless a re-export changes what is mangled.
         // eslint-disable-next-line no-console
         console.info(`[RigModel] rebuilt ${repairedCount} mirror-mangled meshes from their twins`);
+      }
+
+      // EL ANTEBRAZO, ENDEREZADO (src/lib/rigForearmUnmangle.ts). Treinta y
+      // cuatro mallas de musculo y tendon vienen del GLB ATRAVESANDO el
+      // antebrazo en vez de recorrerlo, y el recorte medido las ocultaba: el
+      // cuarto distal se quedaba hueco con el radio y el cubito al aire bajo la
+      // piel fantasma. El sitio bueno no se inventa, se copia del GLB de
+      // Explorar, que trae esas mismas mallas bien colocadas. Va ANTES del
+      // recorte y antes de capturar el reposo.
+      const unmangled = unmangleForearmMeshes(scene);
+      if (unmangled.missing.length > 0) {
+        // Una reexportacion que renombre o arregle estas mallas deja filas
+        // huerfanas en la tabla: hay que volver a generarla
+        // (`npm run build-forearm-unmangle`).
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[RigModel] ${unmangled.missing.length} filas de rigForearmUnmangle sin malla: ` +
+            unmangled.missing.slice(0, 5).join(', '),
+        );
+      }
+      if (unmangled.meshes > 0) {
+        // eslint-disable-next-line no-console
+        console.info(`[RigModel] enderezadas ${unmangled.meshes} mallas tumbadas del antebrazo`);
       }
 
       // EL SOBRE DE LA PIEL, ENGORDADO 2 mm (src/lib/skinShellInflate.ts).
@@ -1865,19 +1887,6 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           // open from 45 deg of flexion. Blend them into one sheet instead.
           else if (Math.abs(center.y - KNEE_Y) < KNEE_SKIN_REACH_M) {
             blendKneeSkin(mesh, KNEE_Y);
-          }
-          // EL TRAMO HUECO DEL ANTEBRAZO LLEVA PIEL SOLIDA (ver inForearmHollow).
-          // El fantasma existe para ensenar el musculo de debajo, y en el ultimo
-          // cuarto del antebrazo no hay musculo que ensenar: el dato trae seis
-          // musculos superficiales tumbados atravesando el miembro y el recorte
-          // medido los oculta. Dejarlo traslucido solo ensena el radio y el
-          // cubito pelados, pegados a una mano opaca. Asi el manguito baja
-          // entero hasta el casquete de la mano.
-          if (inForearmHollow(center, ARM_H)) {
-            swap(mesh, skinMat);
-            mesh.userData.rigLayer = 'skin';
-            mesh.userData.rigDistalCap = true;
-            return;
           }
           swap(mesh, bodySkinMat);
           mesh.userData.rigLayer = 'skin';

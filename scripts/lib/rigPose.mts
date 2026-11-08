@@ -32,6 +32,7 @@ import { bridgeShoulderSkin } from '../../src/lib/shoulderSkinBridge.ts';
 import { gradeShoulderMuscleBinding } from '../../src/lib/shoulderMuscleBinding.ts';
 import { relaxSkinSeams } from '../../src/lib/skinSeamRelax.ts';
 import { inflateSkinShell } from '../../src/lib/skinShellInflate.ts';
+import { unmangleForearmMeshes } from '../../src/lib/rigForearmUnmangle.ts';
 import { blendHipSkin } from '../../src/lib/rigHipSkin.ts';
 import { regradeAnkleCrossers } from '../../src/lib/rigAnkleRebind.ts';
 import {
@@ -145,6 +146,11 @@ export function createRigPoser(
   // facetas de la piel son enormes y planas, y su cuerda se hunde bajo el
   // musculo que tapan: de ahi el moteado rosa de todas las hojas. Va primero
   // porque es el unico pase que mueve POSICIONES.
+  // EL ANTEBRAZO, ENDEREZADO (src/lib/rigForearmUnmangle.ts): 34 mallas que el
+  // GLB trae atravesando el miembro y que el recorte ocultaba, dejando el
+  // cuarto distal hueco. Va aqui por el mismo motivo que en la aplicacion, y
+  // compartido para que la hoja de revision ensene el mismo antebrazo.
+  unmangleForearmMeshes(scene);
   inflateSkinShell(scene);
   repairFaceWinding(scene);
   bindClaviclesToShoulderGirdle(scene);
