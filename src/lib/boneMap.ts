@@ -79,6 +79,30 @@ export interface ExamPosture {
   sign: Record<Side, 1 | -1>;
   /** Spanish, user-facing: why the model starts here rather than at anatomical zero. */
   reason: string;
+  /**
+   * DOS COSAS DISTINTAS VIAJABAN EN LA MISMA LISTA.
+   *
+   * Hay posturas que son el CERO CLINICO del propio movimiento --el antebrazo
+   * abre en neutra porque los grados de pronosupinacion se miden desde ahi-- y
+   * otras que son la POSICION DE LECTURA --el codo a 90 para mirar la rotacion
+   * del hombro--. Mientras un movimiento es la base de la escena da igual: se
+   * aplican las dos. Pero cuando ese mismo movimiento va de COMPONENTE dentro de
+   * la maniobra de otra prueba, no da igual en absoluto.
+   *
+   * Medido: la lata vacia (Jobe) lleva `elbow-pronation 80` de componente para
+   * poner el PULGAR HACIA ABAJO, que es lo unico que la distingue de una
+   * abduccion resistida. Como la base de ese demo es una cadena, el bloque de
+   * postura no corria y la pronacion partia del reposo del GLB, que ya esta en
+   * supinacion completa: 80 grados desde ahi llegan justo a NEUTRA. En pantalla
+   * el pulgar quedaba ARRIBA. El mismo mecanismo al reves en Speed, donde
+   * `elbow-supination 80` partia de una supinacion completa y giraba 80 mas,
+   * una hipersupinacion que ningun antebrazo tiene.
+   *
+   * Asi que el cero clinico se marca y se aplica SIEMPRE, tambien de
+   * componente; la posicion de lectura solo cuando el movimiento es la base
+   * (anadir el codo a 90 dentro de Jobe seria inventarse la maniobra).
+   */
+  zeroPoint?: true;
 }
 
 /** A single-bone (limb) joint movement. */
@@ -274,6 +298,9 @@ const FOREARM_NEUTRAL: ExamPosture = {
     'La pronosupinación se mide desde la posición neutra, con el pulgar hacia ' +
     'arriba: 0° es la mano de canto, no la palma hacia arriba. El modelo abre ' +
     'ahí para que los 85° de pronación lleguen de verdad a palma abajo.',
+  // Es el cero del propio arco, no una posicion de lectura: tiene que aplicarse
+  // tambien cuando la pronosupinacion va de componente (ver ExamPosture).
+  zeroPoint: true,
 };
 
 /** Patellar glide: patella tracks the knee. patella.x = shin_flex.x * 0.5 */

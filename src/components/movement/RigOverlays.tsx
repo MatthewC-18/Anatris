@@ -168,6 +168,11 @@ const DISTAL_OF: Record<string, string> = {
   forearm_flex: 'hand_flex',
   forearm_rot: 'hand_flex',
   shin_flex: 'foot_flex',
+  // LA CADERA FALTABA, y sin entrada se cae al descendiente MAS LEJANO, que
+  // bajando por el fémur es el pie: en la flexión de cadera resistida la mano
+  // del explorador aparecía en el TOBILLO. Se resiste en el muslo distal, justo
+  // por encima de la rodilla, que es donde cae `shin_flex`.
+  femur_base: 'shin_flex',
 };
 
 /** The therapist-hand material: a nitrile glove, clearly not the patient. */

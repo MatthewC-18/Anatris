@@ -128,12 +128,24 @@ async function poseTest(
       continue;
     }
     const armature = scene.getObjectByName(resolveArmatureName(cc.armatureBase, side));
-    let bone: THREE.Object3D | null = null;
-    armature?.traverse((o) => {
-      if (!bone && baseName(o.name) === cc.bone) bone = o;
-    });
+    const find = (n: string): THREE.Object3D | null => {
+      let hit: THREE.Object3D | null = null;
+      armature?.traverse((o) => {
+        if (!hit && baseName(o.name) === n) hit = o;
+      });
+      return hit;
+    };
+    // El CERO CLINICO del componente, igual que RigModel (ver ExamPosture):
+    // sin el, la pronacion de la lata vacia se mide desde el reposo supinado
+    // del GLB y la hoja dice que el pulgar esta abajo cuando esta arriba.
+    for (const p of cc.posture ?? []) {
+      if (!p.zeroPoint) continue;
+      const pb = find(p.bone);
+      if (pb) pb.rotateOnAxis(AX[p.axis], p.sign[side] * p.deg * D2R);
+    }
+    const bone = find(cc.bone);
     if (!bone) continue;
-    (bone as THREE.Object3D).rotateOnAxis(AX[cc.axis], cc.sign[side] * comp.angleDeg * D2R);
+    bone.rotateOnAxis(AX[cc.axis], cc.sign[side] * comp.angleDeg * D2R);
     scene.updateMatrixWorld(true);
   }
 

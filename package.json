@@ -30,6 +30,7 @@
     "render-movements": "tsx --tsconfig tsconfig.scripts.json scripts/render-all-movements.mts",
     "audit-glow": "tsx --tsconfig tsconfig.scripts.json scripts/audit-muscle-glow.mts",
     "audit-forearm-fill": "tsx --tsconfig tsconfig.scripts.json scripts/audit-forearm-fill.mts",
+    "audit-demo-hand": "tsx --tsconfig tsconfig.scripts.json scripts/audit-demo-hand.mts",
     "build-forearm-unmangle": "tsx --tsconfig tsconfig.scripts.json scripts/build-forearm-unmangle.mts"
   },
   "dependencies": {

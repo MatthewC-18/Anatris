@@ -121,7 +121,14 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Rendimiento moderado. Distingue el criterio de positividad: la debilidad orienta a rotura, el dolor a tendinopatía/pinzamiento.',
-    demo: { components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 70 }, { movementId: 'elbow-pronation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, highlightMuscleId: 'supraspinatus', resisted: true, note: 'Añade plano escapular (~30° anterior) y rotación interna. El explorador resiste hacia abajo.' },
+    // EL PULGAR, MEDIDO. Esto llevaba además `elbow-pronation 80`, y con el
+    // brazo en abducción eso NO es la maniobra: la rotación interna del hombro
+    // ya pone la palma hacia abajo, y 80° más de pronación seguían girando la
+    // mano hasta devolver el pulgar ARRIBA. Medido con `npm run audit-demo-hand`
+    // (pulgar menos meñique, en altura): con la pronación, +5,6 cm (pulgar
+    // arriba); sin ella, -5,4 cm (pulgar abajo), que es el rasgo que distingue a
+    // Jobe de una abducción resistida cualquiera.
+    demo: { components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 70 }], movementId: 'glenohumeral-abduction', angleDeg: 90, highlightMuscleId: 'supraspinatus', resisted: true, note: 'Añade plano escapular (~30° anterior). La rotación interna deja el pulgar hacia abajo y el explorador resiste hacia abajo.' },
     cite: [{ ref: 'hegedus-2012', verified: true, locator: 'lata vacía 69/62' }],
   },
   {

@@ -2626,6 +2626,9 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // pose rather than reset it.
       const applyComponents = () => {
         if (!cmd.components?.length) return;
+        // Un mismo cero clínico no se aplica dos veces aunque dos componentes lo
+        // declaren (la pronación y la supinación comparten FOREARM_NEUTRAL).
+        const zeroed = new Set<THREE.Object3D>();
         for (const comp of cmd.components) {
           const cc = getBoneControl(comp.movementId);
           if (!cc || cc.kind !== 'joint') {
@@ -2641,6 +2644,26 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
             if (rq) cBone.quaternion.copy(rq);
             else cBone.quaternion.identity();
             touchedRef.current.add(cBone);
+          }
+          // EL CERO CLINICO DEL COMPONENTE, antes de girarlo. Sin esto la
+          // pronación de la lata vacía partía del reposo del GLB, que ya está en
+          // supinación completa, y sus 80° llegaban sólo a neutra: el pulgar
+          // quedaba ARRIBA en la única prueba cuyo rasgo es el pulgar abajo.
+          // Sólo las posturas marcadas como cero del arco (ver ExamPosture):
+          // la posición de lectura --el codo a 90-- no se le añade a la maniobra
+          // de otra prueba.
+          for (const p of cc.posture ?? []) {
+            if (!p.zeroPoint) continue;
+            const pb = cBones?.get(p.bone);
+            if (!pb || zeroed.has(pb)) continue;
+            zeroed.add(pb);
+            if (!touchedRef.current.has(pb)) {
+              const rq = restQuat.get(pb);
+              if (rq) pb.quaternion.copy(rq);
+              else pb.quaternion.identity();
+              touchedRef.current.add(pb);
+            }
+            pb.rotateOnAxis(AXIS_VEC[p.axis], p.sign[cmd.side] * p.deg * DEG2RAD);
           }
           cBone.rotateOnAxis(AXIS_VEC[cc.axis], cc.sign[cmd.side] * comp.angleDeg * DEG2RAD);
         }
