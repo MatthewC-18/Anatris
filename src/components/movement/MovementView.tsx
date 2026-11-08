@@ -67,7 +67,12 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   // region change so switching joints starts collapsed.
   const [rightPanel, setRightPanel] = useState<'none' | 'tests' | 'neuro'>('none');
   useEffect(() => setRightPanel('none'), [region]);
-  const showLayers = rightPanel === 'none';
+  // Las capas NO desaparecen al abrir una hoja: con la columna ocupada pasan a
+  // una TIRA horizontal encima de ella. Desmontarlas dejaba al fisio sin los
+  // cuatro interruptores justo durante la demostracion de un test o de un
+  // miotoma, que es cuando mas falta hacen, y sin forma de volver a encender la
+  // piel si la habia apagado antes.
+  const layersAsStrip = rightPanel !== 'none';
 
   // Reset any click-to-dissect peel when the studied region changes or the lab
   // unmounts, so a new joint always opens with the full model. Releasing the
@@ -346,6 +351,7 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
             <DissectionPanel />
           </div>
           <div className="pointer-events-none absolute top-4 right-4 bottom-4 z-20 flex flex-col items-end gap-3">
+            {layersAsStrip && <LayerControls strip />}
             {rightPanel !== 'neuro' &&
               (testsGate.unlocked ? (
                 <OrthopedicTestsPanel
@@ -393,7 +399,7 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
                   ]}
                 />
               ))}
-            {showLayers && <LayerControls />}
+            {!layersAsStrip && <LayerControls />}
           </div>
         </>
       )}

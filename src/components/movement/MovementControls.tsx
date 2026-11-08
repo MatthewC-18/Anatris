@@ -342,15 +342,12 @@ export function MovementControls({
     // flips to null and this effect re-pushes the console's state.
     if (activeDemo) return;
     if (!drivable || !arc) {
-      rigChannel.set({
+      rigChannel.setFromConsole({
         movementId: null,
         angleDeg: 0,
         highlight: [],
         showMarkers,
         implicated: [],
-        ghostSkin: false,
-        resistance: false,
-        demo: null,
       });
       return;
     }
@@ -359,7 +356,10 @@ export function MovementControls({
       role: m.role,
       level: Math.min(1, m.level ?? 1),
     }));
-    rigChannel.set({
+    // `setFromConsole` limpia de una pieza todo lo que solo un demo pone --la
+    // piel de cristal, la mano que resiste, la tarjeta de la maniobra y los
+    // COMPONENTES--, que es lo que cada empuje enumeraba a mano dejandose uno.
+    rigChannel.setFromConsole({
       movementId,
       side,
       angleDeg: Math.max(effMin, Math.min(angle, effMax)),
@@ -367,11 +367,6 @@ export function MovementControls({
       showMarkers,
       pathologyId: supportsPathology ? pathologyId : null,
       implicated,
-      // rigChannel patches state, so explicitly clear everything only a demo
-      // sets (glass skin, the therapist's resisting hand, the maneuver card).
-      ghostSkin: false,
-      resistance: false,
-      demo: null,
     });
   }, [
     movementId,
@@ -394,14 +389,11 @@ export function MovementControls({
   // skin and the resisting hand stuck on the model).
   useEffect(() => {
     return () =>
-      rigChannel.set({
+      rigChannel.setFromConsole({
         movementId: null,
         angleDeg: 0,
         highlight: [],
         implicated: [],
-        ghostSkin: false,
-        resistance: false,
-        demo: null,
       });
   }, []);
 

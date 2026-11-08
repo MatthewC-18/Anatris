@@ -30,7 +30,15 @@ const LAYERS: ReadonlyArray<{ key: keyof LayerState; label: string; swatch: stri
   { key: 'skin', label: 'Piel', swatch: '#d7a88f' },
   { key: 'muscle', label: 'Músculo', swatch: '#c23b3b' },
   { key: 'bone', label: 'Hueso', swatch: '#eae3d2' },
-  { key: 'connective', label: 'Tendones', swatch: '#e6e9ee' },
+  // "Tendones" NO era lo que este interruptor enciende. La capa `connective`
+  // se define en CONNECTIVE_BASE_COLORS como tendon + ligamento + capsula
+  // articular + CARTILAGO. Medido sobre el rig preparado, de las 280 mallas que
+  // puede encender: 159 llevan material `Tendon` (57%), 77 `Cartilage`, 36
+  // `Ligament` y 8 `Articular capsule`. El 43% no es tendon, y en la rodilla lo
+  // que mas aparece al encenderlo es justamente el cartilago azulado de las
+  // superficies articulares, los colaterales y los cruzados. La muestra de
+  // color tambien se corre hacia el cartilago, que es lo que mas se ve.
+  { key: 'connective', label: 'Tendones y ligamentos', swatch: '#d4dde6' },
 ] as const;
 
 /**
@@ -40,7 +48,10 @@ const LAYERS: ReadonlyArray<{ key: keyof LayerState; label: string; swatch: stri
  * switches -- and the fixed 11.5rem width would leave two thirds of a phone
  * empty. The floating desktop variant is unchanged.
  */
-export function LayerControls({ embedded = false }: { embedded?: boolean } = {}) {
+export function LayerControls({
+  embedded = false,
+  strip = false,
+}: { embedded?: boolean; strip?: boolean } = {}) {
   const [state, setState] = useState<LayerState>(() => layerChannel.get());
   // Collapsible so it doesn't cover the model on phones. Default collapsed on
   // small screens (where it otherwise overlaps the bottom control panel), open
@@ -55,6 +66,47 @@ export function LayerControls({ embedded = false }: { embedded?: boolean } = {})
   useEffect(() => layerChannel.subscribe(setState), []);
 
   const toggle = (key: keyof LayerState) => layerChannel.set({ [key]: !state[key] });
+
+  // TIRA HORIZONTAL, para cuando una hoja (tests o neuro) ocupa la columna
+  // derecha entera. Antes el panel de capas simplemente se DESMONTABA al abrir
+  // cualquiera de las dos: el fisio lanzaba la demostracion de un test o de un
+  // miotoma --el momento exacto en que quiere quitar la piel para ver que
+  // musculo trabaja-- y los cuatro interruptores ya no estaban. Y si habia
+  // dejado la piel apagada, el cuerpo seguia sin piel sin ningun sitio donde
+  // volver a encenderla salvo cerrar la hoja.
+  if (strip) {
+    return (
+      <div className="instrument pointer-events-auto flex shrink-0 items-center gap-1 px-2 py-1.5">
+        <LayersIcon size={13} className="mx-1 shrink-0 text-slate-500" aria-hidden="true" />
+        {LAYERS.map(({ key, label, swatch }) => {
+          const on = state[key];
+          return (
+            <button
+              key={key}
+              type="button"
+              role="switch"
+              aria-checked={on}
+              aria-label={label}
+              title={label}
+              onClick={() => toggle(key)}
+              className={`flex min-h-[32px] items-center gap-1.5 rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+                on ? 'text-slate-100' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <span
+                className="h-2 w-2 shrink-0 rounded-full ring-1 ring-black/30 transition-opacity"
+                style={{ backgroundColor: swatch, opacity: on ? 1 : 0.28 }}
+                aria-hidden="true"
+              />
+              {/* El nombre completo no cabe junto a una hoja abierta; la primera
+                  palabra basta para reconocer la fila y el titulo lleva el resto. */}
+              {label.split(' ')[0]}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div

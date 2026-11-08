@@ -74,6 +74,13 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
         movementId: 'knee-extension',
         angleDeg: 90,
         side: 'R',
+        // El miotoma L3 es el cuadriceps entero, no una de sus cabezas.
+        highlightMuscleIds: [
+          'rectus-femoris',
+          'vastus-lateralis',
+          'vastus-medialis',
+          'vastus-intermedius',
+        ],
       },
       mimic: {
         nerve: 'Nervio femoral',
@@ -159,6 +166,7 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
         movementId: 'knee-flexion',
         angleDeg: 90,
         side: 'R',
+        highlightMuscleIds: ['biceps-femoris', 'semitendinosus', 'semimembranosus'],
         note: 'El modelo muestra la flexión de rodilla (isquiotibiales, S1); la flexión plantar no se puede reproducir aquí.',
       },
       mimic: {

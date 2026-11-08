@@ -203,6 +203,10 @@ export function NeuroSkinLayer(): JSX.Element {
     for (const [mesh, prev] of paintedRef.current) {
       mesh.material = prev.material;
       mesh.visible = prev.visible;
+      // La marca que hace que `applyLayers` de RigModel respete este parche
+      // mientras esta pintado. Se quita aqui, al despintar, o el parche se
+      // quedaria inmune a los interruptores de capa para siempre.
+      delete mesh.userData.neuroPainted;
     }
     paintedRef.current.clear();
   };
@@ -223,7 +227,11 @@ export function NeuroSkinLayer(): JSX.Element {
         paintedRef.current.set(patch.ref, { material, visible: patch.ref.visible });
         patch.ref.material = tintFor(cmd.figure, root, confidence, material);
         // Asking for a dermatome is asking to see skin, even with the layer peeled.
+        // La bandera es lo que hace que SIGA siendo verdad: `applyLayers` de
+        // RigModel reescribe `visible` en cada cambio de capa o de diseccion, y
+        // sin ella el territorio pintado desaparecia al quitar la piel.
         patch.ref.visible = true;
+        patch.ref.userData.neuroPainted = true;
       }
     }
   };

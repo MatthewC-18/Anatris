@@ -894,6 +894,29 @@ export const layerChannel = (() => {
   };
 })();
 
+/**
+ * LO QUE SOLO PUEDE PONER UN DEMO, Y QUE HAY QUE QUITAR DE UNA PIEZA.
+ *
+ * `rigChannel.set` es un PATCH: lo que no se nombra, sobrevive. Los demos de
+ * test ortopedico y de miotoma escriben cuatro campos que la consola no escribe
+ * nunca, y cada empuje de la consola los iba limpiando A MANO, enumerandolos.
+ * `components` se quedo fuera de las tres enumeraciones.
+ *
+ * Consecuencia medida: el miotoma C5 lleva `elbow-flexion` a 90 grados; tras
+ * pulsar su play, `applyComponents` seguia aplicandolo EN CADA COMANDO POSTERIOR
+ * --abduccion, flexion, rotaciones, y tambien al cambiar de region-- y la mano
+ * quedaba a 33,2 cm de donde debia, con el codo doblado, hasta recargar la
+ * pagina. Lo mismo con los 11 tests de hombro que traen componentes.
+ *
+ * Por eso ya no se enumera en cada sitio: se limpia aqui, en uno.
+ */
+const DEMO_ONLY_RESET = {
+  components: [] as { movementId: string; angleDeg: number }[],
+  ghostSkin: false,
+  resistance: false,
+  demo: null as RigDemoInfo | null,
+};
+
 export const rigChannel = (() => {
   let state: RigCommand = {
     movementId: null,
@@ -907,6 +930,15 @@ export const rigChannel = (() => {
     get: (): RigCommand => state,
     set: (patch: Partial<RigCommand>): void => {
       state = { ...state, ...patch };
+      listeners.forEach((l) => l(state));
+    },
+    /**
+     * Empuje de la CONSOLA (o de cualquiera que no sea un demo): limpia de un
+     * golpe todo lo que solo un demo puede poner, y luego aplica el parche.
+     * El que llama ya no tiene que acordarse de la lista.
+     */
+    setFromConsole: (patch: Partial<RigCommand>): void => {
+      state = { ...state, ...DEMO_ONLY_RESET, ...patch };
       listeners.forEach((l) => l(state));
     },
     subscribe: (l: Listener): (() => void) => {
@@ -1037,6 +1069,20 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // The distal hand/foot skin cap is ALWAYS shown (its internals are broken
       // and unusable), so the extremities never vanish while peeling body layers.
       if (lm.distalCap) {
+        lm.mesh.visible = true;
+        continue;
+      }
+      // Y EL PARCHE DE DERMATOMA, TAMBIEN SIEMPRE. NeuroSkinLayer fuerza
+      // `visible = true` sobre los parches que pinta --"pedir un dermatoma es
+      // pedir ver piel, aunque la capa este pelada"--, pero solo UNA vez, al
+      // aplicar la seleccion; esta funcion reescribia `visible` en cada cambio
+      // de capa o de diseccion y se los llevaba por delante. El sintoma era que
+      // el territorio pintado desaparecia si quitabas la piel DESPUES de elegir
+      // la raiz, y aparecia si lo hacias al reves. Medido por raiz sobre los 486
+      // parches de piel del rig: C4, C5, T1, L2 y L3 se quedaban en NADA (0
+      // parches de casquete), y las demas perdian la mayor parte (C8 conservaba
+      // 4 de 16, C6 7 de 25).
+      if (lm.mesh.userData.neuroPainted) {
         lm.mesh.visible = true;
         continue;
       }

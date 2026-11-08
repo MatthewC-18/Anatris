@@ -1033,6 +1033,16 @@ export function OrthopedicTestsPanel({
   const rafRef = useRef(0);
   useEffect(() => {
     if (!demoId) return;
+    // CON EL PANEL CERRADO, NO. Cerrar con la X solo pone `rightPanel = 'none'`
+    // y el panel sigue MONTADO, asi que este bucle seguia conduciendo el rig:
+    // la maniobra se repetia en bucle, con la piel de cristal y la mano que
+    // resiste puestas, y ya no quedaba ningun boton para pararla (el play de la
+    // consola no responde mientras el demo posee el canal). En movil no pasa
+    // porque el panel va en modo `bare` y cambiar de pestana lo desmonta.
+    if (!open && !bare) {
+      demoChannel.stop(DEMO_NS + demoId);
+      return;
+    }
     const test = byId.get(demoId);
     const d = test?.demo;
     if (!test || !d) return;
@@ -1129,7 +1139,7 @@ export function OrthopedicTestsPanel({
       cancelAnimationFrame(rafRef.current);
       release();
     };
-  }, [demoId, byId]);
+  }, [demoId, byId, open, bare]);
 
   if (tests.length === 0) return null;
 

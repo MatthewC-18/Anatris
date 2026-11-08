@@ -83,7 +83,22 @@ export interface MyotomeDemo {
   movementId: string;
   angleDeg: number;
   side?: 'R' | 'L';
-  highlightMuscleId?: string;
+  /**
+   * Los musculos que el demo ENCIENDE en el modelo.
+   *
+   * Era un solo id opcional, y solo C5 lo llevaba: C6, C7, L3 y S1 lanzaban su
+   * demo con la lista de resaltado VACIA, asi que el cuerpo se volvia
+   * translucido, la articulacion se movia y no se iluminaba nada --ni el
+   * triceps en C7, ni el cuadriceps en L3, ni los isquiotibiales en S1--.
+   * Encima el lector retiraba la tarjeta "Musculo protagonista" durante todo
+   * demo, dando por hecho que el modelo si lo encendia, asi que el musculo no
+   * se veia NI se nombraba.
+   *
+   * Es una lista porque un miotoma casi nunca es un musculo: C6 son los
+   * extensores radiales del carpo mas el braquiorradial, L3 es el cuadriceps
+   * entero y S1 los isquiotibiales.
+   */
+  highlightMuscleIds?: string[];
   /**
    * Extra joints HELD while the base movement sweeps, so a myotome with more than
    * one key movement can show them together. C5 is shoulder abduction AND elbow

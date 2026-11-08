@@ -423,6 +423,18 @@ export function NeuroPanel({
   const rafRef = useRef(0);
   useEffect(() => {
     if (!demoId) return;
+    // Y SI EL PANEL ESTA CERRADO, NO. Cerrar con la X solo pone
+    // `rightPanel = 'none'`, y la condicion de montaje de MovementView deja el
+    // panel MONTADO, asi que este bucle seguia conduciendo el rig: el modelo
+    // barria la abduccion en bucle, con la piel de cristal y la tarjeta del
+    // miotoma puesta, y ya no habia ningun boton para pararlo (el play de la
+    // consola tampoco responde mientras el demo posee el canal). En movil no
+    // pasaba porque el panel va en modo `bare` y cambiar de pestana lo
+    // desmonta, de ahi la excepcion.
+    if (!open && !bare) {
+      demoChannel.stop(DEMO_NS + demoId);
+      return;
+    }
     const root = byId.get(demoId);
     const d = root?.demo;
     if (!root || !d) return;
@@ -434,9 +446,11 @@ export function NeuroPanel({
     // "extensión de codo" -- the opposite of the movement named.
     const ctrl = getBoneControl(d.movementId);
     const fromMax = ctrl?.kind === 'joint' && ctrl.arcFrom === 'max';
-    const highlight = d.highlightMuscleId
-      ? [{ muscleId: d.highlightMuscleId, role: 'prime-mover' as const, level: 1 }]
-      : [];
+    const highlight = (d.highlightMuscleIds ?? []).map((muscleId) => ({
+      muscleId,
+      role: 'prime-mover' as const,
+      level: 1,
+    }));
     // Built ONCE per demo, not per frame: the readout compares it by identity to
     // decide whether anything changed.
     const demoInfo = {
@@ -469,7 +483,12 @@ export function NeuroPanel({
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) {
-      push(target);
+      // Y AQUI TAMBIEN MANDA `fromMax`. El bucle animado ya lo respetaba y esta
+      // rama no: en C7 ensenaba el codo doblado 120 grados bajo el rotulo
+      // "Extension de codo" (la mano a 40,6 cm del reposo) y en L3 la rodilla
+      // doblada 90 bajo "Extension de rodilla" (el pie a 53,8 cm). Para un arco
+      // compartido, el final del movimiento que se nombra es el 0.
+      push(fromMax ? 0 : target);
       return release;
     }
 
@@ -517,7 +536,7 @@ export function NeuroPanel({
       cancelAnimationFrame(rafRef.current);
       release();
     };
-  }, [demoId, byId]);
+  }, [demoId, byId, open, bare]);
 
   if (!set) return null;
 

@@ -22,12 +22,22 @@
 // las mallas del rig, y el mismo filtro de lado (centro de la esfera envolvente
 // en mundo, umbral 4 cm, y el nombre solo como respaldo en la linea media).
 //
+// Y SOBRE EL RIG PREPARADO, NO SOBRE EL GLB CRUDO. Este banco cargaba el GLB a
+// pelo y solo preguntaba si el id resolvia ALGUNA malla, asi que daba verde
+// mientras la aplicacion no encendia nada: la preparacion (recortes por eje,
+// culls por nombre, casquetes) oculta mallas DESPUES, y una malla oculta no se
+// enciende. Medido en ese estado: decia "0 musculos no encienden nada" con el
+// tensor de la fascia lata al 0% en pantalla y los cuatro digitales de la
+// pierna tambien. Ahora corre `createRigPoser`, la misma cadena que RigModel, y
+// cuenta solo mallas VISIBLES y de capa viva.
+//
 // Run: npm run audit-glow
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { rigGlbPath } from './lib/rigPath.mts';
+import { createRigPoser } from './lib/rigPose.mts';
 import { buildMuscleResolution } from '../src/lib/muscleResolver.ts';
 import { parseMeshName } from '../src/lib/parseMeshName.ts';
 import { shoulderMuscles } from '../src/data/muscles/shoulder.ts';
@@ -138,6 +148,9 @@ const gltf = await loader.parseAsync(
   '',
 );
 const scene = gltf.scene;
+// LA MISMA PREPARACION QUE LA APLICACION. Sin esto el banco mide un modelo que
+// nadie ve: la mitad de lo que falla en pantalla falla DESPUES de cargar.
+createRigPoser(scene, 'glenohumeral-abduction', 'R');
 scene.updateMatrixWorld(true);
 
 const meshes: THREE.Mesh[] = [];
@@ -169,6 +182,25 @@ function sideOfMesh(name: string, mesh: THREE.Mesh): string | null {
   return parseMeshName(name).side;
 }
 
+/**
+ * ¿Esta malla llega a pintarse?
+ *
+ * La preparacion oculta mallas de dos maneras: apagando `visible` (recortes por
+ * eje) y marcandolas `rigLayer = 'hidden'`, que las deja fuera de TODOS los
+ * interruptores de capa. Una malla en cualquiera de los dos estados no se
+ * enciende nunca, por mucho que el id resuelva.
+ */
+function isOnScreen(mesh: THREE.Mesh): boolean {
+  if (!mesh.visible) return false;
+  if (mesh.userData.rigLayer === 'hidden') return false;
+  let p: THREE.Object3D | null = mesh.parent;
+  while (p) {
+    if (!p.visible) return false;
+    p = p.parent;
+  }
+  return true;
+}
+
 /** Cuantas mallas se encenderian para este musculo explorando ese lado. */
 function glowCount(muscleId: string, want: WantSide): number {
   const names = resolution.meshNamesByMuscleId.get(muscleId);
@@ -177,6 +209,7 @@ function glowCount(muscleId: string, want: WantSide): number {
   for (const name of names) {
     const mesh = meshByName.get(name);
     if (!mesh) continue;
+    if (!isOnScreen(mesh)) continue;
     const side = sideOfMesh(name, mesh);
     if (side !== want && side !== 'center') continue;
     n += 1;

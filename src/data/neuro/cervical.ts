@@ -90,7 +90,7 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
         movementId: 'glenohumeral-abduction',
         angleDeg: 100,
         side: 'R',
-        highlightMuscleId: 'deltoid',
+        highlightMuscleIds: ['deltoid', 'biceps-brachii'],
         // "C5 no hay flexión de codo": the myotome is deltoid AND biceps, and the
         // demo only ever abducted. The elbow now holds its flexion through the
         // arc, so both key muscles of the root are on screen at once.
@@ -131,6 +131,10 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
         movementId: 'wrist-extension',
         angleDeg: 60,
         side: 'R',
+        // Los extensores radiales del carpo no tienen ficha propia en el
+        // catalogo; el braquiorradial si, es del mismo grupo radial y es el
+        // musculo del reflejo de esta raiz.
+        highlightMuscleIds: ['brachioradialis'],
         // Elbow at 90 so the hand is in view and the wrist reads as a wrist,
         // rather than a hand turning at the end of a hanging arm.
         components: [{ movementId: 'elbow-flexion', angleDeg: 90 }],
@@ -169,6 +173,7 @@ export const CERVICAL_NEURO: NeuroSegmentSet = {
         movementId: 'elbow-extension',
         angleDeg: 120,
         side: 'R',
+        highlightMuscleIds: ['triceps-brachii'],
         note: 'El modelo parte del codo flexionado y lo estira: la extensión es el recorrido hacia 0°, no una posición doblada. La flexión de muñeca, secundaria en C7, no se muestra aquí.',
       },
       mimic: {

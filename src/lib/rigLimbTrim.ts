@@ -406,6 +406,23 @@ export function trimForearmOutliers(
       if (!layer) return;
       const c = meshWorldCenter(mesh);
       if (c.y > heights.elbowY + 0.02) return; // antebrazo y mano
+      // Y LATERALMENTE, QUE ES LO QUE FALTABA. `belongsTo` pregunta si la malla
+      // comparte ALGUN hueso con la armadura del hombro, no si ese hueso la
+      // mueve: las reparaciones de clavicula, puente de piel y costura empujan
+      // clavicle / scapula / humerus_gh / forearm_flex al esqueleto COMPARTIDO
+      // con peso 0,000%, y desde ahi la pelvis entera pasaba por "del brazo".
+      // Como ademas esta por debajo del codo, acababa midiendose contra la
+      // manga del antebrazo y, claro, no cabia.
+      //
+      // Medido sobre el rig preparado: 20 mallas de cadera y muslo se ocultaban
+      // asi --piriforme (597 tri por lado), tensor de la fascia lata (556+233),
+      // gluteo medio (548), gemelo superior, origen del sartorio, iliaco y
+      // origen del recto femoral--. En pantalla: el panel rotulaba "Musculo
+      // protagonista: Piriforme 50%" en la rotacion externa de cadera y en el
+      // modelo no se encendia nada. Ninguna de las 20 pasa de |x| = 0,133 y el
+      // antebrazo empieza en 0,16, que es el mismo corte que usan todas las
+      // demas bandas de este fichero.
+      if (Math.abs(c.x) <= ARM_COLUMN_X) return;
       inLimb.push({ mesh, layer, p95: reach(mesh), cy: c.y });
     });
     const skinReach = inLimb
