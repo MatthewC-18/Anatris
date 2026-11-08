@@ -51,6 +51,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       'No lo fuerces si aparecen mareo, síntomas bilaterales o signos medulares. Detén la compresión en cuanto se reproduzcan los síntomas.',
     demo: {
+      cannotShow:
+        'La raíz nerviosa no se puede encender: el rig no trae raíces ni médula, y los nervios que sí trae vienen con un material que los deja en una capa que el laboratorio no muestra. Lo que se demuestra es la posición que cierra el foramen.',
       movementId: 'cervical-extension',
       angleDeg: 25,
       side: 'R',
@@ -84,6 +86,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       'La tracción reproduce, en manos del explorador, el efecto de la tracción mecánica terapéutica: útil también como prueba pronóstica.',
     demo: {
+      cannotShow:
+        'Mismo límite que en Spurling: no hay raíces ni médula en el modelo. Lo que se ve es la dirección de la tracción, que es lo que descarga el foramen.',
       movementId: 'cervical-flexion',
       angleDeg: 12,
       note: 'La distracción es una tracción axial manual (occipucio y mentón); el modelo solo insinúa la posición de descarga del foramen.',
@@ -111,6 +115,8 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Muy sensible (SnNout): un negativo hace muy improbable la radiculopatía cervical. Un positivo es inespecífico y debe confirmarse con Spurling/distracción.',
     demo: {
+      cannotShow:
+        'El nervio mediano sí está en el rig, pero su material lo deja en una capa que el laboratorio no muestra, y las raíces C5-C7 no están. Se demuestra la secuencia de puesta en tensión, no el nervio.',
       movementId: 'cervical-lateral-flexion',
       angleDeg: 20,
       side: 'L',
@@ -140,6 +146,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       'Clúster de Wainner (ULTT + distracción + Spurling + rotación <60°): con 3/4 positivos LR+ 6.1 (prob. ~65%); con 4/4 LR+ 30.3 (IC muy amplio, 1.7-538). Usa el botón "Combinar" para verlo.',
     demo: {
+      cannotShow:
+        'Aquí no hay estructura que encender: lo que la prueba mide es una AMPLITUD, la rotación hacia el lado sintomático, y eso es exactamente lo que el modelo está haciendo.',
       movementId: 'cervical-rotation',
       angleDeg: 60,
       side: 'R',
@@ -171,6 +179,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       'Un Hoffmann positivo unilateral y aislado, sin otros signos, puede ser una variante normal. Cobra sentido con déficit funcional o hiperreflexia.',
     demo: {
+      cannotShow:
+        'La vía corticoespinal y la médula cervical no están en el rig. Es un signo de motoneurona superior: se demuestra el gesto, no el sustrato.',
       movementId: 'cervical-flexion',
       angleDeg: 30,
       note: 'Signo de mielopatía cervical; el modelo muestra la columna cervical (origen de la compresión medular), no el chasquido de la falange distal.',
@@ -199,6 +209,8 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Muy específico y poco sensible: un positivo apoya la irritación medular; un negativo no la descarta. Bandera para completar el examen neurológico.',
     demo: {
+      cannotShow:
+        'La médula cervical y los cordones posteriores no están en el modelo. Lo que se reproduce es la flexión que provoca el síntoma.',
       movementId: 'cervical-flexion',
       angleDeg: 45,
       note: 'La flexión cervical pasiva es el gesto que desencadena la descarga eléctrica descendente.',
@@ -226,6 +238,8 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Muy específico (SpPin): un positivo apoya con fuerza la mielopatía a nivel C5-C6. Poco sensible, así que su ausencia no la descarta; interpretar dentro del clúster.',
     demo: {
+      cannotShow:
+        'La vía corticoespinal y la médula cervical no están en el rig. Es un signo de motoneurona superior: se demuestra el gesto, no el sustrato.',
       movementId: 'cervical-extension',
       angleDeg: 20,
       note: 'Signo de mielopatía a nivel C5-C6; el modelo muestra la columna cervical (origen de la compresión), no la percusión del braquiorradial.',
@@ -256,6 +270,8 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Alta especificidad (SpPin): un positivo confirma afectación de motoneurona superior. Su ausencia no descarta mielopatía incipiente.',
     demo: {
+      cannotShow:
+        'La vía corticoespinal no está en el modelo. Lo que se muestra es la respuesta del dedo gordo, que es el signo.',
       movementId: 'cervical-flexion',
       angleDeg: 25,
       note: 'Signo de motoneurona superior; el modelo muestra la columna cervical (origen de la mielopatía), no la respuesta plantar ni el clonus.',
@@ -287,6 +303,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       '⚠️ Prueba de precaución. Sospéchala en artritis reumatoide, síndrome de Down o traumatismo. Ejecútala con suavidad y detente ante mareo o síntomas neurológicos.',
     demo: {
+      cannotShow:
+        'El ligamento transverso del atlas no está en el rig; de hecho el modelo no trae ni un ligamento de raquis. Se demuestra la maniobra.',
       movementId: 'cervical-flexion',
       angleDeg: 20,
       note: 'Desde ligera flexión, se traslada la frente/occipucio en sentido posterior estabilizando C2.',
@@ -317,6 +335,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       '⚠️ Prueba de precaución (banderas rojas). Un resultado sugestivo obliga a suspender técnicas de movilización/manipulación y derivar.',
     demo: {
+      cannotShow:
+        'El ligamento transverso del atlas no está en el rig; de hecho el modelo no trae ni un ligamento de raquis. Se demuestra la maniobra.',
       movementId: 'cervical-flexion',
       angleDeg: 15,
       note: 'En supino se desliza la cabeza y el atlas en sentido anterior; el modelo aproxima la posición en ligera flexión craneocervical.',
@@ -343,6 +363,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       '⚠️ Prueba de precaución. Complementa a Sharp-Purser y al estrés del ligamento transverso en el descarte de inestabilidad alta.',
     demo: {
+      cannotShow:
+        'Los ligamentos alares no están en el rig (el modelo no trae ligamentos de raquis). Se demuestra la maniobra y el tope que se busca.',
       movementId: 'cervical-lateral-flexion',
       angleDeg: 15,
       note: 'Con C2 estabilizado se induce inclinación/rotación de la cabeza; con el ligamento íntegro C2 rota de inmediato con ella.',
@@ -372,6 +394,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       '⚠️ Su utilidad está muy cuestionada. El cribado real es la historia clínica (patrón de cefalea/cuello nuevo, factores de riesgo, síntomas de las 5 D y 3 N), no esta maniobra.',
     demo: {
+      cannotShow:
+        'La arteria vertebral no está en el rig, y las arterias que sí trae vienen en una capa que el laboratorio no muestra. Se demuestra la posición sostenida.',
       movementId: 'cervical-rotation',
       angleDeg: 70,
       side: 'R',

@@ -69,10 +69,11 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     pearl:
       'Muy sensible: su valor está en el resultado negativo. El positivo aislado no confirma FAI.',
     demo: {
+      cannotShow:
+        'El labrum acetabular no está en el rig, y el pinzamiento es un contacto entre cuello femoral y reborde acetabular que el modelo no calcula. Antes se encendía el ilíaco, que no es lo que la prueba valora: mejor decirlo que enseñar otra cosa.',
       movementId: 'hip-internal-rotation',
       angleDeg: 30,
       side: 'R',
-      highlightMuscleId: 'iliacus',
       note: 'El rig muestra la rotación interna; la maniobra real se hace en 90° de flexión + aducción.',
     },
     cite: [
@@ -111,6 +112,8 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     pearl:
       'Se mide, no se provoca. Emparejada con el FADIR cubre las dos direcciones: FADIR negativo descarta, rotación interna restringida confirma.',
     demo: {
+      cannotShow:
+        'El labrum acetabular y el cartílago de la cadera no están en el rig. Lo que la prueba mide es la amplitud de rotación interna, y eso es lo que el modelo hace.',
       movementId: 'hip-internal-rotation',
       angleDeg: 35,
       side: 'R',
@@ -144,6 +147,8 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     interpretation:
       'Úsalo para LOCALIZAR el origen del dolor más que como prueba binaria; combínalo con FADIR y el cuadro clínico.',
     demo: {
+      cannotShow:
+        'Ni el labrum ni los ligamentos sacroilíacos están en el rig. La posición sí es la de la prueba; dónde duele, que es lo que la interpreta, va en el texto.',
       movementId: 'hip-external-rotation',
       angleDeg: 45,
       side: 'R',
@@ -176,6 +181,8 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     interpretation:
       'Un arco doloroso o con resalte apoya patología intraarticular; no descarta por sí solo.',
     demo: {
+      cannotShow:
+        'La superficie articular y el labrum no están como malla propia en el rig. Se demuestra el barrido; el hallazgo va en el texto.',
       movementId: 'hip-flexion',
       angleDeg: 90,
       side: 'R',
@@ -205,6 +212,8 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     interpretation:
       'Al mover SOLO la cadera, un positivo apunta con fuerza al interior de la articulación (SpPin).',
     demo: {
+      cannotShow:
+        'La prueba busca un origen intraarticular, y ni labrum ni cartílago están en el rig. Lo que se demuestra es la rotación pasiva sin mover la pelvis.',
       movementId: 'hip-external-rotation',
       angleDeg: 40,
       side: 'R',
@@ -264,6 +273,7 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     interpretation:
       'Una banda iliotibial retraída se asocia a dolor lateral de rodilla y a compresión de los tendones glúteos.',
     demo: {
+      highlightStructureIds: ['hip-itb'],
       movementId: 'hip-adduction',
       angleDeg: 20,
       side: 'R',
@@ -327,6 +337,8 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     interpretation:
       'Aporta poco de forma aislada; su valor está en el conjunto con FADIR, log roll y el cuadro clínico.',
     demo: {
+      cannotShow:
+        'El labrum no está en el rig. Lo que se enciende es el psoas, que es lo que carga la articulación al resistir la flexión: el mecanismo de la prueba.',
       movementId: 'hip-flexion',
       angleDeg: 30,
       side: 'R',

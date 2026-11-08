@@ -44,7 +44,7 @@ const tests: OrthopedicTest[] = [
       'Sensibilidad moderada (72%) y especificidad baja (60%): aislado no descarta ni confirma. Su valor está en el clúster con Hawkins y arco doloroso.',
     pearl:
       'Comparte falsos positivos con patología acromioclavicular y labral; interprétalo dentro de un clúster.',
-    demo: { components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 60 }], movementId: 'glenohumeral-flexion', angleDeg: 160, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna del hombro.' },
+    demo: { cannotShow: 'La bolsa subacromial, que es lo que se pinza, está en el modelo pero su material la deja en una capa que el laboratorio no muestra nunca. Lo que se enciende es el supraespinoso: el tendón que pasa por debajo del arco.', components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 60 }], movementId: 'glenohumeral-flexion', angleDeg: 160, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna del hombro.' },
     cite: [{ ref: 'hegedus-2012', verified: true, locator: 'Neer 72/60' }],
   },
   {
@@ -70,7 +70,7 @@ const tests: OrthopedicTest[] = [
     utility: 'weak',
     interpretation:
       'El más sensible del grupo (79%), aunque insuficiente para descartar por sí solo, y con especificidad baja (59%). Úsalo dentro del clúster de pinzamiento, no aislado.',
-    demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-internal-rotation', angleDeg: 70 }], movementId: 'glenohumeral-flexion', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna forzada a 90°.' },
+    demo: { cannotShow: 'La bolsa subacromial, que es lo que se pinza, está en el modelo pero su material la deja en una capa que el laboratorio no muestra nunca. Lo que se enciende es el supraespinoso: el tendón que pasa por debajo del arco.', components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-internal-rotation', angleDeg: 70 }], movementId: 'glenohumeral-flexion', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna forzada a 90°.' },
     cite: [
       {
         ref: 'hegedus-2012',
@@ -97,7 +97,7 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Sensibilidad y especificidad equilibradas: aporta tanto al cribado como a la confirmación. Dolor en ~170-180° orienta más a la articulación acromioclavicular.',
-    demo: { movementId: 'glenohumeral-abduction', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'El dolor aparece en el arco medio (~60-120°). Comparte posición con el brazo caído: lo que cambia no es dónde está el brazo, sino que aquí el paciente sube activamente.' },
+    demo: { cannotShow: 'La bolsa subacromial, que es lo que se pinza, está en el modelo pero su material la deja en una capa que el laboratorio no muestra nunca. Lo que se enciende es el supraespinoso: el tendón que pasa por debajo del arco.', movementId: 'glenohumeral-abduction', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'El dolor aparece en el arco medio (~60-120°). Comparte posición con el brazo caído: lo que cambia no es dónde está el brazo, sino que aquí el paciente sube activamente.' },
     cite: [{ ref: 'park-2005', verified: true, locator: 'arco doloroso 74/81' }],
   },
 
@@ -288,7 +288,7 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Con la aprensión como criterio es muy específico: un positivo confirma inestabilidad anterior. Si el criterio es "dolor", pierde especificidad.',
-    demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-external-rotation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Posición de aprensión: 90° de abducción con rotación externa. Recolocación y sorpresa se hacen en ESTA MISMA posición; lo que cambia entre las tres es la mano del explorador, no el brazo del paciente.' },
+    demo: { cannotShow: 'El rig no tiene cápsula glenohumeral ni labrum glenoideo: ninguna de las dos está en el modelo, así que no hay nada honesto que encender. Lo que ves es la posición; qué estructura cede va en el texto.', components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-external-rotation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Posición de aprensión: 90° de abducción con rotación externa. Recolocación y sorpresa se hacen en ESTA MISMA posición; lo que cambia entre las tres es la mano del explorador, no el brazo del paciente.' },
     cite: [{ ref: 'lo-2004', verified: true, locator: 'aprensión 72/96' }],
   },
   {
@@ -308,7 +308,7 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Es el paso intermedio de una secuencia, no una prueba independiente: su utilidad medida está en completar aprensión + recolocación + sorpresa, donde el conjunto positivo es muy específico de inestabilidad anterior traumática.',
-    demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-external-rotation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Misma posición que la aprensión. Lo único que cambia es que el explorador empuja la cabeza humeral hacia atrás — por eso el brazo se ve igual.' },
+    demo: { cannotShow: 'El rig no tiene cápsula glenohumeral ni labrum glenoideo: ninguna de las dos está en el modelo, así que no hay nada honesto que encender. Lo que ves es la posición; qué estructura cede va en el texto.', components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-external-rotation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Misma posición que la aprensión. Lo único que cambia es que el explorador empuja la cabeza humeral hacia atrás — por eso el brazo se ve igual.' },
     cite: [
       {
         ref: 'lo-2004',
@@ -336,7 +336,7 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Especificidad muy alta: un positivo confirma inestabilidad anterior. Suele completar la tríada aprensión → recolocación → sorpresa.',
-    demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-external-rotation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Misma posición que la aprensión y la recolocación. Lo que cambia es que se retira bruscamente la fuerza posterior; el brazo no se mueve.' },
+    demo: { cannotShow: 'El rig no tiene cápsula glenohumeral ni labrum glenoideo: ninguna de las dos está en el modelo, así que no hay nada honesto que encender. Lo que ves es la posición; qué estructura cede va en el texto.', components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-external-rotation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Misma posición que la aprensión y la recolocación. Lo que cambia es que se retira bruscamente la fuerza posterior; el brazo no se mueve.' },
     cite: [{ ref: 'lo-2004', verified: true, locator: 'sorpresa 64/99' }],
   },
 
@@ -361,7 +361,7 @@ const tests: OrthopedicTest[] = [
     utility: 'weak',
     interpretation:
       'Aislado tiene baja precisión: interprétalo dentro de un clúster de tests labrales, no como prueba única.',
-    demo: { components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 60 }, { movementId: 'elbow-pronation', angleDeg: 80 }], movementId: 'glenohumeral-flexion', angleDeg: 90, examinerForce: 'resists', note: 'Con 10-15° de aducción; el explorador resiste la flexión (pulgar abajo, luego palma arriba).' },
+    demo: { cannotShow: 'Ni el labrum superior ni la cápsula acromioclavicular están en el rig. La posición sí es la de la prueba; qué valora cada una de las dos fases va en el texto.', components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 60 }, { movementId: 'elbow-pronation', angleDeg: 80 }], movementId: 'glenohumeral-flexion', angleDeg: 90, examinerForce: 'resists', note: 'Con 10-15° de aducción; el explorador resiste la flexión (pulgar abajo, luego palma arriba).' },
     cite: [{ ref: 'hegedus-2012', verified: true, locator: 'O’Brien 59/57' }],
   },
   {
@@ -383,7 +383,7 @@ const tests: OrthopedicTest[] = [
     utility: 'weak',
     interpretation:
       'Precisión baja aislado: ni un positivo ni un negativo cambian mucho la probabilidad. Aporta más como parte de un clúster bicipital/labral.',
-    demo: { components: [{ movementId: 'elbow-supination', angleDeg: 80 }], movementId: 'glenohumeral-flexion', angleDeg: 90, examinerForce: 'resists', note: 'Codo extendido y antebrazo supinado; el explorador resiste la flexión del hombro.' },
+    demo: { highlightStructureIds: ['biceps-long-head-tendon'], cannotShow: 'Del objetivo doble solo se puede encender la mitad: el tendón de la porción larga del bíceps sí está en el rig, el labrum superior no.', components: [{ movementId: 'elbow-supination', angleDeg: 80 }], movementId: 'glenohumeral-flexion', angleDeg: 90, examinerForce: 'resists', note: 'Codo extendido y antebrazo supinado; el explorador resiste la flexión del hombro.' },
     cite: [{ ref: 'hegedus-2012', verified: true, locator: 'Speed 65/61' }],
   },
 

@@ -18,8 +18,9 @@ import { rigInventory } from './lib/rigInventory.mts';
 
 const argv = process.argv.slice(2);
 const flag = (f: string) => argv.includes(f);
-const pattern = argv.find((a) => !a.startsWith('--'));
-const layerArg = argv[argv.indexOf('--layer') + 1];
+const layerAt = argv.indexOf('--layer');
+const layerArg = layerAt >= 0 ? argv[layerAt + 1] : undefined;
+const pattern = argv.find((a, i) => !a.startsWith('--') && !(layerAt >= 0 && i === layerAt + 1));
 
 const inv = await rigInventory();
 console.log(`${inv.path}\n${inv.meshes.length} mallas\n`);

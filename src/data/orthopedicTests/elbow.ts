@@ -205,6 +205,7 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Muy sensible (SnNout): un negativo hace poco probable la lesión del LCU. La especificidad es menor y la serie original es pequeña: confirma con imagen si procede.',
     demo: {
+      highlightStructureIds: ['elbow-ucl'],
       movementId: 'elbow-flexion',
       angleDeg: 90,
       examinerForce: 'applies',
@@ -236,6 +237,7 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Aporta como valoración estática de la laxitud, pero con poca precisión aislado: el moving valgus stress test es más sensible.',
     demo: {
+      highlightStructureIds: ['elbow-ucl'],
       movementId: 'elbow-flexion',
       angleDeg: 25,
       note: 'Se aplica el valgo con el codo a 20-30° de flexión; el modelo muestra esa flexión de prueba.',
@@ -263,6 +265,8 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Un Tinel positivo apoya la neuropatía cubital, pero con la cautela de que su especificidad no está medida: también aparece en personas sanas. Interprétalo con la clínica y el electrodiagnóstico.',
     demo: {
+      cannotShow:
+        'El nervio cubital sí está en el rig, pero su material lo deja en una capa que el laboratorio no muestra. Lo que se posa es el codo donde se percute, entre epitróclea y olécranon.',
       movementId: 'elbow-flexion',
       angleDeg: 90,
       note: 'Se percute el nervio en el canal epitrócleo-olecraniano con el codo en flexión. Comparte posición con el valgo dinámico: lo que cambia es que aquí el explorador percute y no aplica fuerza.',
@@ -294,6 +298,8 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'La versión combinada (flexión + compresión) es sensible: un negativo hace menos probable la neuropatía cubital. La flexión aislada, poco sensible, no descarta.',
     demo: {
+      cannotShow:
+        'Mismo límite: el nervio cubital no está en una capa que el laboratorio pueda mostrar. Lo que se demuestra es la posición que cierra el túnel.',
       movementId: 'elbow-flexion',
       angleDeg: 120,
       note: 'Codo en flexión máxima con compresión del nervio, sostenido; el modelo muestra la flexión.',

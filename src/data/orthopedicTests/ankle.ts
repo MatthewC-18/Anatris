@@ -52,10 +52,10 @@ export const ANKLE_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     pearl:
       'Lo que más cambia el rendimiento no es la técnica, es la FECHA: a los 4-5 días del esguince la exploración pasa de 71%/33% a 96%/84%, porque el dolor y el edema agudos impiden localizar la palpación y tolerar la maniobra.',
     demo: {
+      highlightStructureIds: ['ankle-atfl'],
       movementId: 'ankle-plantarflexion',
       angleDeg: 15,
       side: 'R',
-      highlightMuscleId: 'fibularis-brevis',
       note: 'El rig posa la ligera flexión plantar de partida; la prueba es una traslación anterior pasiva del astrágalo.',
     },
     cite: [
@@ -84,10 +84,10 @@ export const ANKLE_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     interpretation:
       'Una inclinación aumentada y asimétrica apoya la lesión del calcaneoperoneo, pero sin precisión medida no sostiene una decisión por sí sola: su sitio está junto al cajón anterior y la palpación, a los 4-5 días.',
     demo: {
+      highlightStructureIds: ['ankle-cfl', 'ankle-atfl'],
       movementId: 'ankle-inversion',
       angleDeg: 30,
       side: 'R',
-      highlightMuscleId: 'fibularis-brevis',
       note: 'El rig muestra la inversión del retropié que estresa el complejo lateral.',
     },
     cite: [
@@ -121,6 +121,7 @@ export const ANKLE_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       'Muy sensible: la presencia de flexión plantar al comprimir descarta prácticamente la rotura completa; su ausencia la confirma.',
     pearl: 'La flexión plantar activa puede conservarse por los flexores largos aunque el Aquiles esté roto: por eso se explora con la compresión, no pidiendo el movimiento.',
     demo: {
+      highlightStructureIds: ['achilles-tendon'],
       movementId: 'ankle-plantarflexion',
       angleDeg: 25,
       side: 'R',

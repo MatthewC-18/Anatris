@@ -120,6 +120,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       'La actitud escoliótica funcional (por dismetría o contractura) DESAPARECE en la flexión; la estructural mantiene o acentúa la giba. Ésa es toda la prueba. En la LUMBAR, en cambio, dos exploradores se ponen de acuerdo mal: ahí fíate del escoliómetro, no del ojo.',
     demo: {
+      cannotShow:
+        'La giba costal es una deformidad rotacional del tórax: el rig es simétrico y no la reproduce, así que no hay nada que encender con ese nombre. Lo que se enciende es la musculatura paravertebral que se hace prominente al flexionar.',
       movementId: 'thoracic-flexion',
       angleDeg: 40,
       highlightMuscleId: 'semispinalis-thoracis',
@@ -320,9 +322,11 @@ const tests: OrthopedicTest[] = [
     pearl:
       'Ante un dolor torácico que no se modifica con NINGÚN movimiento ni con la palpación, la causa mecánica es improbable: deriva.',
     demo: {
+      highlightStructureIds: ['thoracic-intercostals'],
+      cannotShow:
+        'De los dos lados del diagnóstico diferencial solo se puede mostrar uno: los intercostales sí están en el rig, la pleura no está en el modelo.',
       movementId: 'thoracic-lateral-flexion',
       angleDeg: 25,
-      highlightMuscleId: 'iliocostalis-thoracis',
       note: 'El modelo muestra la inclinación torácica de la maniobra; la prueba real se hace con los brazos elevados por encima de la cabeza.',
     },
     cite: [{ ref: 'magee', verified: false }],
@@ -351,6 +355,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       'Sentarse a horcajadas es lo que hace válida la prueba: sin bloquear la pelvis estás midiendo rotación de tronco entera, no torácica.',
     demo: {
+      cannotShow:
+        'Las articulaciones costotransversas no tienen malla propia en el rig. Lo que se enciende son los rotadores, que son los que trabajan ese segmento.',
       movementId: 'thoracic-rotation',
       angleDeg: 35,
       highlightMuscleId: 'rotatores',

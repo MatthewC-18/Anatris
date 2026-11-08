@@ -66,6 +66,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       'La sensibilización con dorsiflexión del tobillo (Bragard) o flexión cervical orienta a origen neural frente a tensión muscular.',
     demo: {
+      cannotShow:
+        'El nervio ciático y las raíces L4-S1 no se pueden encender: el rig no trae raíces, y de los nervios del miembro inferior solo tiene las ramas del peroneo, con un material que las deja en una capa que el laboratorio no muestra. Lo que se demuestra es la puesta en tensión.',
       // LA MANIOBRA ES FLEXION DE CADERA CON LA RODILLA EXTENDIDA, no flexion
       // lumbar: el Lasegue pone en tension el ciatico elevando la pierna recta,
       // y el raquis no se mueve. Esto ensenaba `lumbar-flexion@25`, con una
@@ -111,6 +113,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       'Un SLR cruzado positivo se asocia a hernias más grandes y a mejores resultados quirúrgicos: dato relevante para la derivación.',
     demo: {
+      cannotShow:
+        'El nervio ciático y las raíces L4-S1 no se pueden encender: el rig no trae raíces, y de los nervios del miembro inferior solo tiene las ramas del peroneo, con un material que las deja en una capa que el laboratorio no muestra. Lo que se demuestra es la puesta en tensión.',
       // Lo que distingue al cruzado es QUE PIERNA se eleva: la sana. Por eso el
       // lado es el contrario al del Lasegue, y por eso las dos demostraciones
       // ya no son el mismo clip.
@@ -142,6 +146,8 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Sensibilidad y especificidad equilibradas y altas: aporta al cribado y a la confirmación. La modulación con la flexión cervical distingue el origen neural del musculoesquelético.',
     demo: {
+      cannotShow:
+        'Es neurodinamia: el tracto neural no está en ninguna capa que el laboratorio pueda mostrar. Lo que se demuestra es la secuencia con la que se pone en tensión.',
       movementId: 'lumbar-flexion',
       angleDeg: 40,
       note: 'El componente lumbar es la flexión ("slump"); la maniobra añade flexión cervical y extensión de rodilla con dorsiflexión.',
@@ -174,6 +180,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       'Falsos positivos por acortamiento del recto femoral/psoas o patología de cadera: interpreta el dolor por su territorio anterior.',
     demo: {
+      cannotShow:
+        'El nervio femoral y las raíces L2-L4 no están en el rig. Lo que se demuestra es la posición que los pone en tensión.',
       movementId: 'lumbar-extension',
       angleDeg: 20,
       note: 'En prono se flexiona la rodilla y se extiende la cadera; el modelo muestra la extensión lumbar, que también tensa las raíces altas.',
@@ -209,6 +217,8 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Sensibilidad y especificidad altas: de los pocos tests de inestabilidad con buen rendimiento en ambas direcciones. Un positivo apoya con fuerza la inestabilidad.',
     demo: {
+      cannotShow:
+        'La inestabilidad segmentaria no es una estructura: es un comportamiento del segmento. No hay nada que encender, y el rig tampoco traslada una vértebra sobre otra.',
       movementId: 'lumbar-extension',
       angleDeg: 30,
       note: 'La elevación pasiva de las piernas en prono extiende la columna lumbar, que es lo que muestra el modelo.',
@@ -233,6 +243,8 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Precisión moderada aislado. Su valor real es pronóstico: un positivo predice buena respuesta a un programa de estabilización lumbar.',
     demo: {
+      cannotShow:
+        'La inestabilidad segmentaria no es una estructura: es un comportamiento del segmento. No hay nada que encender, y el rig tampoco traslada una vértebra sobre otra.',
       movementId: 'lumbar-extension',
       angleDeg: 18,
       note: 'En prono se aplica presión posteroanterior sobre el segmento; el modelo aproxima con una ligera extensión lumbar.',

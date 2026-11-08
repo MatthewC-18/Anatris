@@ -44,6 +44,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       'Más fiable en agudo que el cajón anterior (menos espasmo/hemartros). La calidad del tope final importa tanto como la cantidad de traslación.',
     demo: {
+      cannotShow:
+        'El ligamento cruzado anterior no está en el rig: el modelo no trae cruzados. Lo que se demuestra es la dirección de la traslación anterior de la tibia, que es lo que el LCA frena.',
       movementId: 'knee-flexion',
       angleDeg: 25,
       note: 'A 20-30° de flexión se traslada la tibia hacia anterior (translación, que el modelo no reproduce).',
@@ -70,6 +72,8 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'En lesión CRÓNICA es tan bueno como el Lachman (92/91). En agudo no: el dolor y el hemartros lo limitan y un negativo no descarta nada. La cifra que ves solo vale para el paciente crónico.',
     demo: {
+      cannotShow:
+        'El ligamento cruzado anterior no está en el rig: el modelo no trae cruzados. Lo que se demuestra es la dirección de la traslación anterior de la tibia, que es lo que el LCA frena.',
       movementId: 'knee-flexion',
       angleDeg: 90,
       examinerForce: 'applies',
@@ -97,6 +101,8 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Muy específico (SpPin): un positivo confirma la insuficiencia del LCA. Solo ve una de cada cuatro roturas con el paciente despierto; su rendimiento sube bajo anestesia.',
     demo: {
+      cannotShow:
+        'El cruzado anterior no está en el modelo. Lo que se demuestra es la combinación de valgo y rotación con la que la tibia se reduce.',
       movementId: 'knee-flexion',
       angleDeg: 30,
       components: [{ movementId: 'knee-internal-rotation', angleDeg: 25 }],
@@ -129,6 +135,8 @@ const tests: OrthopedicTest[] = [
     pearl:
       'Confirma primero la posición de partida con el signo del cajón posterior en reposo (posterior sag): una tibia ya desplazada puede simular un falso cajón anterior.',
     demo: {
+      cannotShow:
+        'El ligamento cruzado posterior no está en el rig. Lo que se demuestra es la dirección de la traslación posterior de la tibia, que es lo que el LCP frena.',
       movementId: 'knee-flexion',
       angleDeg: 90,
       examinerForce: 'applies',
@@ -165,6 +173,8 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Un sag visible orienta a insuficiencia del LCP y, sobre todo, evita malinterpretar la traslación del cajón: si la tibia parte caída, un cajón anterior "normal" puede ser en realidad la reducción de una tibia subluxada. Explóralo SIEMPRE antes del cajón anterior y posterior.',
     demo: {
+      cannotShow:
+        'El ligamento cruzado posterior no está en el rig. Lo que se demuestra es la dirección de la traslación posterior de la tibia, que es lo que el LCP frena.',
       movementId: 'knee-flexion',
       angleDeg: 90,
       note: 'Con cadera y rodilla a 90° la tibia cae hacia posterior por su propio PESO: aquí el explorador no aplica nada, que es lo que lo separa de los dos cajones. La traslación no se reproduce.',
@@ -204,6 +214,9 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Rendimiento moderado y variable: aporta más un clic doloroso reproducible que el dolor aislado. Interprétalo dentro de un clúster meniscal.',
     demo: {
+      highlightStructureIds: ['knee-medial-meniscus'],
+      cannotShow:
+        'Del objetivo doble solo está la mitad: el menisco medial sí está en el rig, el lateral no. Lo que se enciende es el medial.',
       movementId: 'knee-flexion',
       angleDeg: 90,
       // LA ROTACION TIBIAL SI SE CONDUCE (knee-external/internal-rotation,
@@ -241,6 +254,9 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Precisión modesta en ambas direcciones (63/77): ni descarta ni confirma la lesión meniscal por sí solo. Su valor es dentro de un clúster con McMurray y Thessaly.',
     demo: {
+      highlightStructureIds: ['knee-medial-meniscus'],
+      cannotShow:
+        'Del objetivo doble solo está la mitad: el menisco medial sí está en el rig, el lateral no. Lo que se enciende es el medial.',
       movementId: 'knee-flexion',
       angleDeg: 45,
       note: 'Se palpa la interlínea con la rodilla en flexión; el modelo solo muestra la flexión.',
@@ -273,6 +289,9 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Las cifras originales fueron muy altas pero no se han reproducido en atención primaria: interprétalo con cautela dentro de un clúster, no como prueba única.',
     demo: {
+      highlightStructureIds: ['knee-medial-meniscus'],
+      cannotShow:
+        'Del objetivo doble solo está la mitad: el menisco medial sí está en el rig, el lateral no. Lo que se enciende es el medial.',
       movementId: 'knee-flexion',
       angleDeg: 20,
       note: 'La prueba se hace a 20° de flexión en apoyo monopodal; el modelo muestra esa flexión (la carga y la rotación del cuerpo sobre la rodilla no se reproducen).',
@@ -299,6 +318,9 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Precisión baja aislado: aporta sobre todo para diferenciar el origen meniscal (compresión dolorosa) del ligamentario (distracción dolorosa).',
     demo: {
+      highlightStructureIds: ['knee-medial-meniscus'],
+      cannotShow:
+        'Del objetivo doble solo está la mitad: el menisco medial sí está en el rig, el lateral no. Lo que se enciende es el medial.',
       movementId: 'knee-flexion',
       angleDeg: 90,
       components: [{ movementId: 'knee-internal-rotation', angleDeg: 25 }],
@@ -333,6 +355,7 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Sensible para el LCM a 30°. Una apertura clara a 0° de extensión orienta a lesión combinada (cápsula posteromedial o cruzados) y obliga a valorarlos.',
     demo: {
+      highlightStructureIds: ['knee-mcl'],
       movementId: 'knee-flexion',
       angleDeg: 30,
       examinerForce: 'applies',
@@ -364,6 +387,8 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Una apertura lateral a 0° orienta a lesión de la esquina posterolateral y obliga a descartar afectación asociada del LCP.',
     demo: {
+      cannotShow:
+        'El ligamento colateral lateral no está en el rig (el medial sí). Se demuestra la dirección del varo, que es lo que lo tensa.',
       movementId: 'knee-flexion',
       angleDeg: 30,
       examinerForce: 'applies',

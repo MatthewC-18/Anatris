@@ -144,7 +144,7 @@ for (const [region, tests] of Object.entries(ALL_TESTS_BY_REGION)) {
     else if (d.cannotShow) declared += 1;
     else {
       silent += 1;
-      warn(
+      err(
         `${region}/${t.id}: no resalta nada y no dice por qué ` +
           `(target: ${t.target}). El panel promete resaltar la estructura evaluada.`,
       );

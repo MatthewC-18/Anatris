@@ -893,6 +893,29 @@ function TestRow({
           {test.demo?.note && (
             <p className="text-[11px] text-slate-500">En el modelo: {test.demo.note}</p>
           )}
+          {/* LA PROMESA, Y SU LIMITE. La ayuda dice que Demostrar resalta la
+              estructura evaluada, y durante anos 42 de los 64 demos no
+              encendian nada: el unico resalte que habia resolvia MUSCULOS y
+              estas pruebas valoran ligamentos, meniscos, capsulas y nervios.
+              Ahora lo que se puede encender se nombra, y lo que no se puede
+              se dice -- medido contra el rig, no contra el modelo de Explorar
+              (`npm run audit-structures`). Decirlo aqui, y no solo al pulsar
+              play, es lo que evita que el alumno crea que vio una estructura
+              que el modelo no tiene. */}
+          {(test.demo?.highlightStructureIds ?? []).length > 0 && (
+            <p className="text-[11px] text-slate-500">
+              Se resalta:{' '}
+              {(test.demo?.highlightStructureIds ?? [])
+                .map((id) => structureLabel(id))
+                .filter((l): l is string => l != null)
+                .join(' · ')}
+            </p>
+          )}
+          {test.demo?.cannotShow && (
+            <p className="text-[11px] leading-relaxed text-amber-200/70">
+              {test.demo.cannotShow}
+            </p>
+          )}
           {!hideMetrics && test.metrics.note && (
             <p className="text-[11px] leading-relaxed text-slate-400">{test.metrics.note}</p>
           )}

@@ -926,12 +926,22 @@ export const layerChannel = (() => {
  * pagina. Lo mismo con los 11 tests de hombro que traen componentes.
  *
  * Por eso ya no se enumera en cada sitio: se limpia aqui, en uno.
+ *
+ * Y VOLVIO A PASAR con el quinto campo. `structures` --la estructura clinica
+ * que una prueba resalta-- se anadio sin meterla aqui, y medido en el
+ * navegador: tras demostrar McMurray, el menisco medial se quedaba VISIBLE y
+ * pulsando en naranja indefinidamente, porque `set` es un parche y el empuje de
+ * la consola no lo mencionaba. La leccion que este comentario ya daba, repetida
+ * a la primera ocasion. Por eso ahora `rigChannelDemoReset.test.ts` compara las
+ * claves que los paneles de demo empujan contra esta lista, y falla si alguien
+ * anade un campo de demo sin apagarlo aqui.
  */
 const DEMO_ONLY_RESET = {
   components: [] as { movementId: string; angleDeg: number }[],
   ghostSkin: false,
   resistance: false,
   demo: null as RigDemoInfo | null,
+  structures: [] as string[],
 };
 
 export const rigChannel = (() => {
