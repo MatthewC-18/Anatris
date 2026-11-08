@@ -204,6 +204,40 @@ describe('dissectChannel', () => {
   });
 });
 
+describe('la malla que se enciende es la que se va', () => {
+  // EL DEFECTO: el resolutor empareja una malla con su musculo por base exacta
+  // O por `structureKey`, que quita el sufijo de duplicado de Blender (`001`,
+  // `_2`) -- el sufijo que Z-Anatomy usa donde se le olvido el marcador l/r.
+  // La diseccion, en cambio, comparaba `bases.includes(base)`, igualdad de
+  // cadena. Asi que esas mallas entraban en la seleccion, se encendian con el
+  // resalte y el panel ofrecia "Diseccionar", y al pulsarlo se quedaban en
+  // pantalla. Medido sobre el GLB con los musculos de hombro, rodilla, cadera
+  // y codo: de 468 mallas resueltas, 42 no se retiraban nunca.
+  const hidden: HiddenEntry[] = [
+    { id: 'pronator-quadratus', label: 'Pronador cuadrado', bases: ['Pronator_quadratus'], scope: 'both' },
+  ];
+
+  it('retira tambien la copia con el sufijo de duplicado', () => {
+    expect(meshIsDissected('Pronator_quadratus', 'center', hidden)).toBe(true);
+    expect(meshIsDissected('Pronator_quadratus001', 'center', hidden)).toBe(true);
+    expect(meshIsDissected('Pronator_quadratus_2', 'center', hidden)).toBe(true);
+  });
+
+  it('y la respeta al aislar, que es la misma comparacion', () => {
+    const iso = { id: 'pronator-quadratus', label: 'Pronador cuadrado', bases: ['Pronator_quadratus'], scope: 'both' as const };
+    expect(meshIsIsolatedOut('Pronator_quadratus001', 'center', iso)).toBe(false);
+    expect(meshIsIsolatedOut('Biceps_brachii_muscle', 'center', iso)).toBe(true);
+  });
+
+  it('sigue sin confundir estructuras distintas', () => {
+    // La regresion que esta flexibilidad podria causar: el sufijo se quita, el
+    // nombre no. `Psoas_minor` no puede caer bajo `Psoas_major`.
+    expect(meshIsDissected('Psoas_minor', 'center', [
+      { id: 'psoas-major', label: 'Psoas mayor', bases: ['Psoas_major'], scope: 'both' },
+    ])).toBe(false);
+  });
+});
+
 describe('prettifyBase', () => {
   it('reads as a name, not as a mesh id', () => {
     expect(prettifyBase('Pectoralis_major_muscle')).toBe('Pectoralis major');

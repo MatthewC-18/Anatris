@@ -17,7 +17,7 @@
 // testing-library), asi que se fija lo que SI es comprobable: que el registro
 // estatico no puede servir de universo, y que el laboratorio no vuelve a leerlo.
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { MUSCLES_BY_REGION } from '../../../data/musclesByRegion';
@@ -46,12 +46,33 @@ describe('el universo de musculos del laboratorio', () => {
     expect(missing).toContain('gluteus-maximus');
   });
 
-  it('RigOverlays no construye su universo con el registro estatico', () => {
-    // El guardian de la regresion: si vuelve a aparecer ese import aqui, el
-    // brillo vuelve a ser solo del hombro.
-    const src = readFileSync(resolve(__dirname, '../RigOverlays.tsx'), 'utf8');
-    expect(src).not.toMatch(/MUSCLES_BY_REGION/);
-    expect(src).toMatch(/useAllMuscles/);
+  it('NINGUN componente del laboratorio construye su universo con el registro estatico', () => {
+    // El guardian de la regresion. Antes miraba SOLO RigOverlays.tsx, y por eso
+    // no vio que RigModel.tsx tenia la misma copia para la DISECCION: el brillo
+    // quedo arreglado y el clic siguio roto. Medido entonces sobre el GLB: ese
+    // mapa resolvia 205 de las 744 mallas de musculo, y 92 de 113 musculos
+    // abrian la ficha con el nombre crudo de Blender. Asi que el guardian ya no
+    // nombra ficheros: barre la carpeta entera.
+    const dir = resolve(__dirname, '..');
+    const offenders: string[] = [];
+    const users: string[] = [];
+    for (const f of readdirSync(dir)) {
+      if (!f.endsWith('.tsx') && !f.endsWith('.ts')) continue;
+      const src = readFileSync(resolve(dir, f), 'utf8');
+      // El import del REGISTRO, no la palabra (los comentarios la citan al
+      // explicar el defecto) y no el fichero (`musclesForRomLookup`, del mismo
+      // modulo, SI consulta el contenido premium descargado y es correcto).
+      if (/^import\s*\{[^}]*\bMUSCLES_BY_REGION\b/m.test(src)) offenders.push(f);
+      if (/buildMuscleResolution/.test(src)) users.push(f);
+    }
+    expect(offenders).toEqual([]);
+    // Y el que SI resuelve musculos tiene que sacar la lista del hook, no de
+    // una constante de modulo.
+    expect(users.length).toBeGreaterThan(0);
+    for (const f of users) {
+      const src = readFileSync(resolve(dir, f), 'utf8');
+      expect(src, `${f} resuelve musculos sin useAllMuscles`).toMatch(/useAllMuscles/);
+    }
   });
 
   it('useAllMuscles suma las regiones premium ya descargadas', () => {

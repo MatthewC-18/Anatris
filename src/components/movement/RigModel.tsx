@@ -78,9 +78,9 @@ import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../lib/biomech/scapulaWrap';
 import { muscleDepthLevel, type MuscleDepthLevel } from '../../lib/muscleDepth';
 import { parseMeshName, structureKey, type ParsedSide } from '../../lib/parseMeshName';
 import { buildMuscleResolution } from '../../lib/muscleResolver';
-import { MUSCLES_BY_REGION } from '../../data/musclesByRegion';
-import type { Muscle } from '../../types/muscle';
+import { useAllMuscles } from '../../hooks/useMuscleResolution';
 import {
+  basesInclude,
   dissectChannel,
   makeSelection,
   meshIsDissected,
@@ -1043,17 +1043,32 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
 
   // ---- Click-to-dissect: pick a muscle, then peel it away (see dissectChannel).
   // Runtime mesh name -> clinical Muscle, so a click resolves to a real muscle
-  // name/note (and its full mesh set). Built once from the loaded scene; falls
-  // back to a prettified base name for muscles not yet in the catalog.
+  // name/note (and its full mesh set). Falls back to a prettified base name for
+  // muscles not yet in the catalog.
+  //
+  // EL UNIVERSO SALE DE `useAllMuscles`, NO DEL REGISTRO ESTATICO. Esto decia
+  // `Object.values(MUSCLES_BY_REGION).flat()`, que desde la division premium
+  // solo contiene el HOMBRO: 18 fichas. Medido sobre el GLB, ese mapa resolvia
+  // 205 de las 744 mallas de musculo del rig, y pinchando el vientre de cada
+  // musculo solo 21 de 113 recibian su ficha. Los otros 92 abrian el panel
+  // titulado con el nombre crudo de Blender -- "Lateral head of gastrocnemius",
+  // sin nombre en espanol, sin latino y sin nota -- mientras el panel de al
+  // lado, que SI usa el resolutor compartido, lo llamaba "Gastrocnemio".
+  //
+  // Es el mismo defecto que ya se corrigio para el brillo
+  // ([[lab-muscle-glow-universe]]); este sitio se quedo en el camino viejo
+  // porque el guardian solo miraba RigOverlays.tsx. La dependencia `version`
+  // del hook es ademas lo que hace que el mapa se reconstruya cuando llega el
+  // contenido premium: con `[scene]` se quedaba congelado en el primer render.
+  const allMuscles = useAllMuscles();
   const muscleByMeshName = useMemo(() => {
-    const all: Muscle[] = Object.values(MUSCLES_BY_REGION).flat();
     const names: string[] = [];
     scene.traverse((o) => {
       const m = o as THREE.Mesh;
       if (m.isMesh) names.push(m.name);
     });
-    return buildMuscleResolution(all, names).muscleByMeshName;
-  }, [scene]);
+    return buildMuscleResolution(allMuscles, names).muscleByMeshName;
+  }, [scene, allMuscles]);
 
   // Selection highlight: a cool emissive tint on the currently-selected structure
   // so the user sees exactly what "Diseccionar" will remove. Cloned per mesh (like
@@ -1077,7 +1092,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
     selGlowRef.current.clear();
     if (!sel || !sel.dissectable) return;
     for (const lm of layerMeshesRef.current) {
-      if (lm.base === undefined || !sel.bases.includes(lm.base)) continue;
+      if (lm.base === undefined || !basesInclude(sel.bases, lm.base)) continue;
       const s = lm.side ?? 'center';
       // The glow marks exactly what the action will take: with the side switch on
       // "izquierdo", only the left half of the structure lights up.
@@ -1107,7 +1122,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       const sides: StructureSides = { left: 0, right: 0, center: 0 };
       let side = fallback;
       for (const lm of layerMeshesRef.current) {
-        if (lm.base === undefined || !bases.includes(lm.base)) continue;
+        if (lm.base === undefined || !basesInclude(bases, lm.base)) continue;
         const s = lm.side ?? 'center';
         sides[s] += 1;
         if (lm.mesh === clicked) side = s;

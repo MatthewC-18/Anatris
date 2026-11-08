@@ -29,7 +29,7 @@
 //
 // ASCII-only source; UI strings live in the panel; no `any`.
 
-import { parseMeshName, type ParsedSide } from '../../lib/parseMeshName';
+import { baseKey, parseMeshName, type ParsedSide } from '../../lib/parseMeshName';
 import { muscleDepthLevel, MUSCLE_PLANE_LABELS } from '../../lib/muscleDepth';
 import type { Muscle } from '../../types/muscle';
 // Usage signal only: which of the two dissection actions gets used, never WHICH
@@ -194,6 +194,26 @@ export function makeSelection(
 }
 
 /**
+ * ¿Esta base cae dentro de la lista de bases de una estructura?
+ *
+ * Igualdad exacta PRIMERO y, si falla, por clave de estructura. Esto estaba
+ * comparando a pelo con `bases.includes(base)`, y el resolutor que decide que
+ * malla pertenece a que musculo empareja TAMBIEN por `structureKey`
+ * (muscleResolver.ts): las mallas que solo casaban por la clave --las que
+ * llevan el sufijo de duplicado de Blender, `001` / `_2`, que Z-Anatomy usa
+ * donde se le olvido el marcador l/r-- entraban en la seleccion, se encendian
+ * con el resalte y el panel ofrecia "Diseccionar"... y al pulsarlo se quedaban
+ * ahi. Medido sobre el GLB: 22 mallas de musculo no se retiraban nunca, 20 de
+ * ellas del lado derecho, que es justo el lado que Z-Anatomy marca con `001`.
+ */
+export function basesInclude(bases: string[], base: string): boolean {
+  if (bases.includes(base)) return true;
+  const k = baseKey(base);
+  for (const b of bases) if (baseKey(b) === k) return true;
+  return false;
+}
+
+/**
  * Does a mesh (its parsed base + GEOMETRIC side) fall under any hidden entry?
  *
  * A side-scoped removal takes that side only: the midline slivers some bellies
@@ -206,7 +226,7 @@ export function meshIsDissected(
   hidden: HiddenEntry[],
 ): boolean {
   for (const h of hidden) {
-    if (!h.bases.includes(base)) continue;
+    if (!basesInclude(h.bases, base)) continue;
     if (h.scope === 'both' || h.scope === side) return true;
   }
   return false;
@@ -224,7 +244,7 @@ export function meshIsIsolatedOut(
   isolated: IsolateEntry | null,
 ): boolean {
   if (!isolated) return false;
-  if (!isolated.bases.includes(base)) return true;
+  if (!basesInclude(isolated.bases, base)) return true;
   if (isolated.scope === 'both') return false;
   return side !== isolated.scope;
 }

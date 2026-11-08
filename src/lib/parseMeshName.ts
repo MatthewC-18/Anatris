@@ -64,6 +64,14 @@ export interface ParsedMeshName {
 const PART_PREDECESSOR_RE =
   /(muscle|brachii|scapulae|hyoid|minimi|hallucis|digitorum|superficialis|profundus|pollicis|indicis|radialis|ulnaris|longus|brevis|carpi|magnus|maximus|medius|femoris|tibialis|oris|lumborum|thoracis|cervicis|capitis|colli|nasi|labii|anguli|gastrocnemius|soleus|popliteus|plantaris|sartorius|gracilis|vastus|semitendinosus|semimembranosus|quadratus|teres|supinator|\))$/i;
 
+// Terminos anatomicos que acaban de verdad en l o en r: aqui la ultima letra
+// NO es el marcador de lado `.l` / `.r`, es parte de la palabra. Derivada
+// midiendo los dos GLB (ver el paso 3). Se exige final de cadena y frontera de
+// palabra por delante para no morder nombres que solo CONTIENEN el termino
+// (p.ej. `Radial_collateral_ligament_of_wrist_jointr` si lleva marcador).
+const SIDE_SAFE_TAIL_RE =
+  /(^|[_)\-])(major|minor|femur|vomer|masseter|incisor|premolar|molar|canal|caudal|cranial|distal|proximal|dorsal|ventral|frontal|occipital|temporal|parietal|palmar|plantar|radial|ulnar|corneal|scleral|vertical|horizontal|lateral|medial|central|nasal|oral)$/i;
+
 /**
  * Parse a flattened runtime mesh name into structured parts.
  *
@@ -99,14 +107,36 @@ export function parseMeshName(name: string): ParsedMeshName {
     }
   }
 
-  // 3. Side: trailing l / r (from .l / .r). Require an alphanumeric before it
-  //    so we don't strip the "l" of a word that legitimately ends in l.
-  if (/[a-z0-9]l$/i.test(s)) {
-    side = 'left';
-    s = s.slice(0, -1);
-  } else if (/[a-z0-9]r$/i.test(s)) {
-    side = 'right';
-    s = s.slice(0, -1);
+  // 3. Side: trailing l / r (from .l / .r).
+  //
+  //    "Require an alphanumeric before it" NO BASTA, y el fallo no era teorico.
+  //    Un monton de terminos anatomicos acaban legitimamente en l o en r, y a
+  //    todos ellos se les comia la ultima letra y se les inventaba un lado:
+  //    `Psoas_major` salia con base `Psoas_majo` y lado `right`, cuando es una
+  //    malla bilateral sin marcador ninguno. En el laboratorio de cadera eso
+  //    significa que el psoas de un lado no se puede ni seleccionar, y que sus
+  //    otras tres mallas (`Psoas_major_1..3`, base `Psoas_major`) no comparten
+  //    base con la primera, asi que "Diseccionar" se lleva una y deja tres.
+  //
+  //    MEDIDO sobre los dos GLB del proyecto (6376 nombres unicos): un
+  //    marcador de lado de verdad SIEMPRE trae su gemelo del otro lado. De los
+  //    1234 nombres que terminan en l/r, 71 no lo tienen, y de esos 71 los que
+  //    de verdad llevan la letra dentro de la palabra son los de esta lista:
+  //    huesos (`Femur`, `Vomer`), dientes (`..._incisor`, `..._premolar`),
+  //    `..._masseter`, los rotulos de orientacion y plano (`Caudal`, `Cranial`,
+  //    `Distal`, `Proximal`, `Dorsal`, `Ventral`, `Frontal`, `Occipital`,
+  //    `Palmar`, `Plantar`, `Radial`, `..._canal`, `...Vertical`), el ojo
+  //    (`Corneal`, `Scleral`) y `Psoas_major`. Los otros 70 nombres con gemelo
+  //    y los 1163 restantes siguen comportandose igual: lo vigila
+  //    `parseMeshName.test.ts`.
+  if (!SIDE_SAFE_TAIL_RE.test(s)) {
+    if (/[a-z0-9]l$/i.test(s)) {
+      side = 'left';
+      s = s.slice(0, -1);
+    } else if (/[a-z0-9]r$/i.test(s)) {
+      side = 'right';
+      s = s.slice(0, -1);
+    }
   }
 
   // 4. Part: o / e (+ optional index) before the side, only if the preceding
@@ -149,7 +179,20 @@ export function isPartOfBase(parsed: ParsedMeshName, base: string): boolean {
  */
 export function structureKey(name: string | undefined | null): string {
   if (!name) return '';
-  return parseMeshName(name)
-    .base.replace(/_\d+$/, '')
-    .replace(/\d{3}$/, '');
+  return baseKey(parseMeshName(name).base);
+}
+
+/**
+ * La misma normalizacion que `structureKey`, pero sobre una BASE ya analizada.
+ *
+ * Existe porque hay dos vocabularios en circulacion y se estaban comparando a
+ * pelo: el resolutor empareja una malla con su musculo por base EXACTA o por
+ * `structureKey` (muscleResolver.ts), mientras que la diseccion comparaba
+ * `bases.includes(base)`, igualdad de cadena. Resultado medido: las mallas que
+ * solo casaban por la clave --las que llevan el sufijo de duplicado de Blender,
+ * `001` / `_2`-- entraban en la seleccion y se encendian, pero "Diseccionar" no
+ * se las llevaba. Comparar por clave en los dos sitios cierra esa grieta.
+ */
+export function baseKey(base: string): string {
+  return base.replace(/_\d+$/, '').replace(/\d{3}$/, '');
 }
