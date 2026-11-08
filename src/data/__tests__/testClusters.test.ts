@@ -12,12 +12,15 @@
 
 import { describe, expect, it } from 'vitest';
 import { TEST_CLUSTERS, measuredCluster } from '../testClusters';
-import { LUMBAR_ORTHOPEDIC_TESTS } from '../orthopedicTests/lumbar';
+import { ALL_TESTS_BY_REGION } from '../fullContent';
 import { REFERENCES } from '../references';
 
-const BY_REGION: Record<string, { id: string }[]> = {
-  lumbar: LUMBAR_ORTHOPEDIC_TESTS,
-};
+// TODAS LAS REGIONES. Estaba cableado al lumbar porque solo habia un conjunto;
+// el de Wainner es cervical, y una tabla con una sola region habria hecho
+// fallar la propia comprobacion ("region sin tabla") en vez de vigilarla.
+// `fullContent` es el indice de build y de test (el de ejecucion solo trae el
+// nivel gratuito).
+const BY_REGION: Record<string, { id: string }[]> = ALL_TESTS_BY_REGION;
 
 describe('conjuntos de pruebas medidos', () => {
   it('hay alguno (si no, este archivo no vigila nada)', () => {
@@ -40,10 +43,39 @@ describe('conjuntos de pruebas medidos', () => {
     for (const c of TEST_CLUSTERS) {
       expect(c.minPositive).toBeGreaterThan(1);
       expect(c.minPositive).toBeLessThanOrEqual(c.tests.length);
-      expect(c.sensitivity).toBeGreaterThan(0);
-      expect(c.sensitivity).toBeLessThanOrEqual(100);
-      expect(c.specificity).toBeGreaterThan(0);
-      expect(c.specificity).toBeLessThanOrEqual(100);
+      if (c.sensitivity != null) {
+        expect(c.sensitivity).toBeGreaterThan(0);
+        expect(c.sensitivity).toBeLessThanOrEqual(100);
+      }
+      if (c.specificity != null) {
+        expect(c.specificity).toBeGreaterThan(0);
+        expect(c.specificity).toBeLessThanOrEqual(100);
+      }
+      if (c.lrPositive != null) expect(c.lrPositive).toBeGreaterThan(1);
+    }
+  });
+
+  it('todo conjunto trae ALGUNA cifra publicada', () => {
+    // Un conjunto sin cifra no sirve para nada: el panel seguiria estimando
+    // multiplicando razones, que es el error que este fichero evita. Y hay dos
+    // formas legitimas de traerla, porque no todas las fuentes publican lo
+    // mismo: sensibilidad + especificidad (Laslett) o la razon de verosimilitud
+    // a secas (Wainner, cuyo resumen no da las otras dos).
+    for (const c of TEST_CLUSTERS) {
+      const tieneCifra =
+        c.lrPositive != null || (c.sensitivity != null && c.specificity != null);
+      expect(tieneCifra, `${c.id} no publica ninguna cifra`).toBe(true);
+    }
+  });
+
+  it('cada conjunto se aplica al alcanzar SU umbral y no antes', () => {
+    // La version anterior solo probaba TEST_CLUSTERS[0]: anadir un conjunto
+    // roto no habria hecho fallar nada.
+    for (const c of TEST_CLUSTERS) {
+      const justo = c.tests.slice(0, c.minPositive);
+      const pocas = c.tests.slice(0, c.minPositive - 1);
+      expect(measuredCluster(c.region, justo)?.id, c.id).toBe(c.id);
+      expect(measuredCluster(c.region, pocas), c.id).toBeNull();
     }
   });
 

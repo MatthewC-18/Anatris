@@ -40,10 +40,24 @@ export interface TestCluster {
    * situacion y el panel vuelve a su estimacion con su aviso.
    */
   minPositive: number;
-  /** Sensibilidad del conjunto, tal como la publica la fuente. */
-  sensitivity: number;
-  /** Especificidad del conjunto. */
-  specificity: number;
+  /**
+   * Sensibilidad y especificidad del conjunto, TAL COMO LAS PUBLICA LA FUENTE.
+   *
+   * Opcionales porque hay conjuntos reales de los que la fuente no las publica.
+   * El de Wainner para la radiculopatia cervical es el caso: su resumen da la
+   * razon de verosimilitud positiva del conjunto de cuatro variables (30,3) y
+   * nada mas. Obligar a rellenarlas habria exigido inventarlas o dejar el
+   * conjunto fuera, y dejarlo fuera significa que el panel multiplica las cuatro
+   * razones sueltas --que es justo el error que este fichero existe para evitar.
+   */
+  sensitivity?: number;
+  specificity?: number;
+  /**
+   * Razon de verosimilitud positiva del conjunto, cuando la fuente la da
+   * directamente. Tiene PRIORIDAD sobre sensitivity/specificity: es la cifra
+   * publicada y no una derivada.
+   */
+  lrPositive?: number;
   /** Lo que hay que saber para no usarlo mal. */
   note: string;
   /** De donde sale la cifra. */
@@ -73,6 +87,27 @@ export const TEST_CLUSTERS: TestCluster[] = [
         ref: 'laslett-2005',
         verified: true,
         locator: 'Resumen: 3 o más de 6 positivas, 94% / 78%',
+      },
+    ],
+  },
+  {
+    id: 'cervical-wainner',
+    region: 'cervical',
+    name: 'Conjunto de Wainner (radiculopatía cervical)',
+    // Las cuatro variables del clúster, que ya estaban en la aplicación como
+    // pruebas sueltas y las cuatro citando a Wainner.
+    tests: ['spurling', 'cervical-distraction', 'ulnt-median', 'cervical-rotation-limit'],
+    minPositive: 4,
+    // SIN sensibilidad ni especificidad A PROPÓSITO: el resumen de Wainner no
+    // las publica para el clúster. Lo que publica es la razón de verosimilitud,
+    // y es la que se muestra.
+    lrPositive: 30.3,
+    note: 'Cifra MEDIDA del conjunto: con las CUATRO variables positivas, la razón de verosimilitud positiva es 30,3 (Wainner 2003, 82 pacientes, frente a electrodiagnóstico). No se muestran sensibilidad ni especificidad del conjunto porque la fuente no las publica. Aquí multiplicar las razones sueltas sobreestima: las cuatro exploran la misma radiculopatía y no son independientes. Dos advertencias del propio estudio: los intervalos de confianza de todas sus razones son amplios, y los autores piden validar el clúster en otra muestra antes de usarlo como regla.',
+    cite: [
+      {
+        ref: 'wainner-2003',
+        verified: true,
+        locator: 'Resumen: clúster de 4 variables, LR+ 30,3 (sin sens/esp publicadas)',
       },
     ],
   },

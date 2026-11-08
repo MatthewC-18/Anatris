@@ -1156,7 +1156,18 @@ export function OrthopedicTestsPanel({
     if (!region) return null;
     const c = measuredCluster(region, selected);
     if (!c) return null;
-    const lr = c.specificity >= 100 ? Infinity : c.sensitivity / (100 - c.specificity);
+    // LA RAZON PUBLICADA MANDA SOBRE LA DERIVADA. El conjunto de Wainner solo
+    // trae LR+ (su resumen no publica sensibilidad ni especificidad del
+    // cluster), y derivarla de cifras que no existen daba NaN.
+    const lr =
+      c.lrPositive != null
+        ? c.lrPositive
+        : c.sensitivity == null || c.specificity == null
+          ? null
+          : c.specificity >= 100
+            ? Infinity
+            : c.sensitivity / (100 - c.specificity);
+    if (lr == null) return null;
     return { cluster: c, lr, post: postProb(pretest, lr) };
   }, [region, selected, pretest]);
 
@@ -1546,11 +1557,24 @@ export function OrthopedicTestsPanel({
               style={{ width: `${measured.post ?? 0}%` }}
             />
           </span>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
-            Sensibilidad {measured.cluster.sensitivity}% y especificidad{' '}
-            {measured.cluster.specificity}% con {measured.cluster.minPositive} o más
-            positivas. Cifra de estudio, no estimada.
-          </p>
+          {/* LO QUE LA FUENTE PUBLICA, y solo eso. El conjunto de Laslett trae
+              sensibilidad y especificidad; el de Wainner trae unicamente la
+              razon de verosimilitud, porque su resumen no publica las otras dos.
+              Imprimir "Sensibilidad undefined%" era el resultado de suponer que
+              todo conjunto medido las trae. */}
+          {measured.cluster.sensitivity != null && measured.cluster.specificity != null ? (
+            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
+              Sensibilidad {measured.cluster.sensitivity}% y especificidad{' '}
+              {measured.cluster.specificity}% con {measured.cluster.minPositive} o más
+              positivas. Cifra de estudio, no estimada.
+            </p>
+          ) : (
+            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
+              LR+ {lrLabel(measured.lr)} con {measured.cluster.minPositive} o más
+              positivas. Cifra de estudio, no estimada; la fuente no publica
+              sensibilidad ni especificidad del conjunto.
+            </p>
+          )}
           {/* POR QUE LA CIFRA BAJA AL MARCAR UNA PRUEBA MAS.
               Por debajo del minimo del conjunto, el panel ESTIMA multiplicando
               razones de verosimilitud; al alcanzarlo, pasa a la cifra MEDIDA
