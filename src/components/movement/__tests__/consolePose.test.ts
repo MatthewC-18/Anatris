@@ -67,7 +67,23 @@ describe('la pose de la consola', () => {
 });
 
 describe('el modo paciente', () => {
-  it('deshace la disección al entrar', () => {
-    expect(view).toContain('if (patientMode) dissectChannel.reset()');
+  // LA PANTALLA SE GIRA HACIA EL PACIENTE: TIENE QUE VERSE UN CUERPO.
+  //
+  // Son dos canales distintos que esconden lo mismo. La disección quita un
+  // músculo por lados; el panel de capas apaga la piel entera. Con cualquiera
+  // de los dos puesto, el modo paciente le enseña al paciente un cuerpo al que
+  // le falta algo --o un esqueleto-- y en esa vista los mandos que lo
+  // devolverían están escondidos junto con el resto de lo clínico.
+  it('deshace la disección y el pelado de capas al entrar', () => {
+    const bloque = view.slice(view.indexOf('if (patientMode) {'));
+    expect(bloque.slice(0, 200)).toContain('dissectChannel.reset()');
+    expect(bloque.slice(0, 200)).toContain('layerChannel.reset()');
+  });
+
+  it('el canal de capas tiene con qué volver', () => {
+    const rig = readFileSync('src/components/movement/RigModel.tsx', 'utf8');
+    expect(rig).toMatch(/reset: \(\): void => \{\s*state = \{ \.\.\.LAYER_DEFAULTS \}/);
+    // Y el reposo es el cuerpo entero, no lo que hubiera puesto el usuario.
+    expect(rig).toMatch(/LAYER_DEFAULTS: LayerState = \{\s*skin: true,\s*muscle: true,\s*bone: true,/);
   });
 });

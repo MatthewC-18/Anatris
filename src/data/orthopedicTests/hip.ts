@@ -193,6 +193,7 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
     interpretation:
       'Un arco doloroso o con resalte apoya patología intraarticular; no descarta por sí solo.',
     demo: {
+      examinerForce: 'applies',
       cannotShow:
         'La superficie articular y el labrum no están como malla propia en el rig. Se demuestra el barrido; el hallazgo va en el texto.',
       movementId: 'hip-flexion',

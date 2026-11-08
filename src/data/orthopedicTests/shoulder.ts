@@ -44,7 +44,7 @@ const tests: OrthopedicTest[] = [
       'Sensibilidad moderada (72%) y especificidad baja (60%): aislado no descarta ni confirma. Su valor está en el clúster con Hawkins y arco doloroso.',
     pearl:
       'Comparte falsos positivos con patología acromioclavicular y labral; interprétalo dentro de un clúster.',
-    demo: { cannotShow: 'La bolsa subacromial, que es lo que se pinza, está en el modelo pero su material la deja en una capa que el laboratorio no muestra nunca. Lo que se enciende es el supraespinoso: el tendón que pasa por debajo del arco.', components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 60 }], movementId: 'glenohumeral-flexion', angleDeg: 160, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna del hombro.' },
+    demo: { examinerForce: 'applies', cannotShow: 'La bolsa subacromial, que es lo que se pinza, está en el modelo pero su material la deja en una capa que el laboratorio no muestra nunca. Lo que se enciende es el supraespinoso: el tendón que pasa por debajo del arco.', components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 60 }], movementId: 'glenohumeral-flexion', angleDeg: 160, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna del hombro.' },
     cite: [{ ref: 'hegedus-2012', verified: true, locator: 'Neer 72/60' }],
   },
   {
@@ -70,7 +70,7 @@ const tests: OrthopedicTest[] = [
     utility: 'weak',
     interpretation:
       'El más sensible del grupo (79%), aunque insuficiente para descartar por sí solo, y con especificidad baja (59%). Úsalo dentro del clúster de pinzamiento, no aislado.',
-    demo: { cannotShow: 'La bolsa subacromial, que es lo que se pinza, está en el modelo pero su material la deja en una capa que el laboratorio no muestra nunca. Lo que se enciende es el supraespinoso: el tendón que pasa por debajo del arco.', components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-internal-rotation', angleDeg: 70 }], movementId: 'glenohumeral-flexion', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna forzada a 90°.' },
+    demo: { examinerForce: 'applies', cannotShow: 'La bolsa subacromial, que es lo que se pinza, está en el modelo pero su material la deja en una capa que el laboratorio no muestra nunca. Lo que se enciende es el supraespinoso: el tendón que pasa por debajo del arco.', components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-internal-rotation', angleDeg: 70 }], movementId: 'glenohumeral-flexion', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna forzada a 90°.' },
     cite: [
       {
         ref: 'hegedus-2012',
@@ -290,7 +290,7 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Con la aprensión como criterio es muy específico: un positivo confirma inestabilidad anterior. Si el criterio es "dolor", pierde especificidad.',
-    demo: { cannotShow: 'El rig no tiene cápsula glenohumeral ni labrum glenoideo: ninguna de las dos está en el modelo, así que no hay nada honesto que encender. Lo que ves es la posición; qué estructura cede va en el texto.', components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-external-rotation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Posición de aprensión: 90° de abducción con rotación externa. Recolocación y sorpresa se hacen en ESTA MISMA posición; lo que cambia entre las tres es la mano del explorador, no el brazo del paciente.' },
+    demo: { examinerForce: 'applies', cannotShow: 'El rig no tiene cápsula glenohumeral ni labrum glenoideo: ninguna de las dos está en el modelo, así que no hay nada honesto que encender. Lo que ves es la posición; qué estructura cede va en el texto.', components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-external-rotation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Posición de aprensión: 90° de abducción con rotación externa. Recolocación y sorpresa se hacen en ESTA MISMA posición; lo que cambia entre las tres es la mano del explorador, no el brazo del paciente.' },
     cite: [{ ref: 'lo-2004', verified: true, locator: 'aprensión 72/96' }],
   },
   {

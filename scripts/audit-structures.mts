@@ -32,6 +32,13 @@ import {
 } from '../src/lib/clinicalStructures.ts';
 import { ALL_TESTS_BY_REGION } from '../src/data/fullContent.ts';
 import { rigSideFor } from '../src/lib/boneMap.ts';
+import { buildMuscleResolution } from '../src/lib/muscleResolver.ts';
+import { shoulderMuscles } from '../src/data/muscles/shoulder.ts';
+import { elbowMuscles } from '../src/data/muscles/elbow.ts';
+import { kneeMuscles } from '../src/data/muscles/knee.ts';
+import { hipMuscles } from '../src/data/muscles/hip.ts';
+import { ankleMuscles } from '../src/data/muscles/ankle.ts';
+import { spineMuscles } from '../src/data/muscles/spine.ts';
 import { rigInventory } from './lib/rigInventory.mts';
 
 let errors = 0;
@@ -116,6 +123,47 @@ const sideMeshCount = (sid: string, want: 'left' | 'right'): number => {
   return n;
 };
 
+// EL OTRO CAMINO DEL RESALTE, QUE NADIE MEDIA.
+//
+// Un demo puede encender por dos vias: `highlightStructureIds`, que se mide
+// contra el registro, y `highlightMuscleId`, que RigOverlays resuelve contra
+// los nombres de malla del GLB. La segunda contaba como "resalta algo" por el
+// mero hecho de estar escrita: un id que no resuelve ninguna malla daria un
+// demo contado como encendido y una escena a oscuras, que es justo el defecto
+// que este auditor existe para cazar. `audit-glow` hace esta medida para los
+// musculos de las fases de ROM, pero nunca miro los demos de test.
+//
+// Y SE MIDE CON EL RESOLUTOR QUE USA LA ESCENA. El primer intento uso
+// `resolveMuscleId`, que es otra tabla, y declaro muertos tres musculos que se
+// encienden perfectamente (el semiespinoso toracico, los rotadores y el tensor
+// de la fascia lata). Es el mismo error que escribir el registro contra el
+// modelo equivocado: una medida contra la cosa que no es no mide nada.
+// RigOverlays construye `buildMuscleResolution(allMuscles, nombres)`, asi que
+// eso es lo que se construye aqui.
+const LAB_MUSCLES = [
+  ...shoulderMuscles,
+  ...elbowMuscles,
+  ...kneeMuscles,
+  ...hipMuscles,
+  ...ankleMuscles,
+  ...spineMuscles,
+];
+const resolution = buildMuscleResolution(
+  LAB_MUSCLES,
+  inv.meshes.map((m) => m.name),
+);
+const sideByName = new Map(inv.meshes.map((m) => [m.name, m.side] as const));
+const muscleMeshCount = (muscleId: string, want: 'left' | 'right'): number => {
+  const names = resolution.meshNamesByMuscleId.get(muscleId);
+  if (!names) return 0;
+  let n = 0;
+  for (const name of names) {
+    const side = sideByName.get(name);
+    if (side === want || side === 'center') n += 1;
+  }
+  return n;
+};
+
 let lit = 0;
 let declared = 0;
 let silent = 0;
@@ -151,13 +199,23 @@ for (const [region, tests] of Object.entries(ALL_TESTS_BY_REGION)) {
         err(`${region}/${t.id}: highlightStructureIds '${sid}' no está en el registro`);
       }
     }
+    const want = rigSideFor((d.side ?? 'R') as 'R' | 'L') === 'R' ? 'right' : 'left';
     if (sids.length) {
-      const want = rigSideFor((d.side ?? 'R') as 'R' | 'L') === 'R' ? 'right' : 'left';
       let n = 0;
       for (const sid of sids) n += sideMeshCount(sid, want);
       if (n === 0) {
         inert += 1;
         err(`${region}/${t.id}: sus estructuras no tienen ninguna malla en el lado posado`);
+      }
+    }
+    if (d.highlightMuscleId) {
+      const n = muscleMeshCount(d.highlightMuscleId, want);
+      if (n === 0) {
+        inert += 1;
+        err(
+          `${region}/${t.id}: highlightMuscleId '${d.highlightMuscleId}' no resuelve ` +
+            `ninguna malla en el lado posado (el panel lo nombra y la escena no lo enciende)`,
+        );
       }
     }
     const lights = sids.length > 0 || d.highlightMuscleId != null;

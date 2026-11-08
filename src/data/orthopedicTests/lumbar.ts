@@ -66,6 +66,7 @@ const tests: OrthopedicTest[] = [
     pearl:
       'La sensibilización con dorsiflexión del tobillo (Bragard) o flexión cervical orienta a origen neural frente a tensión muscular.',
     demo: {
+      examinerForce: 'applies',
       cannotShow:
         'El nervio ciático y las raíces L4-S1 no se pueden encender: el rig no trae raíces, y de los nervios del miembro inferior solo tiene las ramas del peroneo, con un material que las deja en una capa que el laboratorio no muestra. Lo que se demuestra es la puesta en tensión.',
       // LA MANIOBRA ES FLEXION DE CADERA CON LA RODILLA EXTENDIDA, no flexion
@@ -113,6 +114,7 @@ const tests: OrthopedicTest[] = [
     pearl:
       'Un SLR cruzado positivo se asocia a hernias más grandes y a mejores resultados quirúrgicos: dato relevante para la derivación.',
     demo: {
+      examinerForce: 'applies',
       cannotShow:
         'El nervio ciático y las raíces L4-S1 no se pueden encender: el rig no trae raíces, y de los nervios del miembro inferior solo tiene las ramas del peroneo, con un material que las deja en una capa que el laboratorio no muestra. Lo que se demuestra es la puesta en tensión.',
       // Lo que distingue al cruzado es QUE PIERNA se eleva: la sana. Por eso el

@@ -292,6 +292,7 @@ const tests: OrthopedicTest[] = [
     pearl:
       'Si es positivo, revisa el pectoral menor y la posición escapular: en muchos casos el trabajo terapéutico está ahí y no en los escalenos.',
     demo: {
+      examinerForce: 'applies',
       // La hiperabduccion: el brazo por encima de la cabeza con rotacion
       // externa. A 150 grados el rig ya ha pasado el arco donde se cierra el
       // espacio costoclavicular.

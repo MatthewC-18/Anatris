@@ -19,6 +19,7 @@ import {
   structureLabel,
 } from '../clinicalStructures';
 import { ALL_TESTS_BY_REGION } from '../../data/fullContent';
+import { BONE_MAP } from '../boneMap';
 
 const ids = Object.keys(CLINICAL_STRUCTURES);
 
@@ -110,6 +111,30 @@ describe('la promesa de cada demo', () => {
         expect(t.noDemo.length, `${region}/${t.id}`).toBeGreaterThan(40);
       }
     }
+  });
+
+  // LA MANO DEL EXPLORADOR SOLO SE PROMETE DONDE SALE.
+  //
+  // `examinerForce` hace dos cosas a la vez: cambia el texto de la ficha
+  // ("prueba pasiva" / "prueba resistida") y promete literalmente que "en
+  // Demostrar verás la mano del fisio". Pero `placeResistance` solo dibuja la
+  // mano sobre un MIEMBRO --exige que el control sea `joint` o `chain`--, de
+  // modo que declararlo en una prueba de raquis (Spurling, Lhermitte,
+  // Sharp-Purser) imprimiria la promesa sin que salga ninguna mano. Que es
+  // exactamente el defecto que todo este trabajo persigue.
+  it('solo promete la mano del fisio donde el rig la dibuja', () => {
+    const enRaquis: string[] = [];
+    for (const { region, t } of demos) {
+      if (!t.demo!.examinerForce) continue;
+      const c = BONE_MAP[t.demo!.movementId] as { kind?: string } | undefined;
+      if (c?.kind !== 'joint' && c?.kind !== 'chain') {
+        enRaquis.push(`${region}/${t.id} (${t.demo!.movementId}: ${c?.kind ?? 'sin control'})`);
+      }
+    }
+    expect(
+      enRaquis,
+      'declaran quién hace la fuerza sobre un movimiento donde no se dibuja ninguna mano',
+    ).toEqual([]);
   });
 
   it('el panel ocupa el sitio del play con la razón', () => {

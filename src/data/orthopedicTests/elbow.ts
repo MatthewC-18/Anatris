@@ -247,6 +247,7 @@ const tests: OrthopedicTest[] = [
     interpretation:
       'Aporta como valoración estática de la laxitud, pero con poca precisión aislado: el moving valgus stress test es más sensible.',
     demo: {
+      examinerForce: 'applies',
       highlightStructureIds: ['elbow-ucl'],
       movementId: 'elbow-flexion',
       angleDeg: 25,

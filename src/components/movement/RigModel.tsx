@@ -888,18 +888,42 @@ export interface LayerState {
 
 type LayerListener = (s: LayerState) => void;
 
+/**
+ * El cuerpo entero, con la piel puesta y lo conectivo apagado: como arranca el
+ * laboratorio, y a lo que vuelve `reset()`.
+ */
+const LAYER_DEFAULTS: LayerState = {
+  skin: true,
+  muscle: true,
+  bone: true,
+  connective: false,
+};
+
 export const layerChannel = (() => {
-  let state: LayerState = {
-    skin: true,
-    muscle: true,
-    bone: true,
-    connective: false,
-  };
+  let state: LayerState = { ...LAYER_DEFAULTS };
   const listeners = new Set<LayerListener>();
   return {
     get: (): LayerState => state,
     set: (patch: Partial<LayerState>): void => {
       state = { ...state, ...patch };
+      listeners.forEach((l) => l(state));
+    },
+    /**
+     * DEVUELVE EL CUERPO ENTERO.
+     *
+     * `dissectChannel` tenia esto y el panel de capas no, y son el mismo peligro
+     * con dos nombres: con la piel y el musculo apagados, girar la pantalla
+     * hacia el paciente --que es lo que hace el modo paciente-- le ensena un
+     * ESQUELETO. Y en esa vista los cuatro interruptores estan escondidos junto
+     * con el resto de los mandos clinicos, asi que el fisio tampoco tiene ya
+     * forma de devolver la piel sin salirse.
+     *
+     * No se llama al cambiar de region a proposito: el pelado de capas es una
+     * preferencia de visualizacion que el fisio pone una vez, a diferencia de la
+     * diseccion, que es de la articulacion que esta mirando.
+     */
+    reset: (): void => {
+      state = { ...LAYER_DEFAULTS };
       listeners.forEach((l) => l(state));
     },
     subscribe: (l: LayerListener): (() => void) => {

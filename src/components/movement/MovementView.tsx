@@ -24,6 +24,7 @@ import { RhythmReadout } from './RhythmReadout';
 import { LayerControls } from './LayerControls';
 import { DissectionPanel } from './DissectionPanel';
 import { dissectChannel } from './dissectChannel';
+import { layerChannel } from './RigModel';
 import { demoChannel } from './demoChannel';
 import { OrthopedicTestsPanel } from './OrthopedicTestsPanel';
 import { NeuroPanel } from './NeuroPanel';
@@ -98,8 +99,16 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   // su hombro y el paciente veia un cuerpo al que le falta un musculo, sin que
   // el fisio tuviera ya ningun control para devolverlo. El modo paciente es una
   // vista limpia; eso incluye el cuerpo entero.
+  // Y LAS CAPAS, POR LA MISMA RAZON. El pelado de piel/musculo/hueso vivia en
+  // otro canal y se quedaba puesto: con la piel y el musculo apagados, girar la
+  // pantalla hacia el paciente le ensena un ESQUELETO, y en esa vista los cuatro
+  // interruptores estan escondidos con el resto de los mandos clinicos, asi que
+  // el fisio ya no tiene como devolver la piel sin salir del modo.
   useEffect(() => {
-    if (patientMode) dissectChannel.reset();
+    if (patientMode) {
+      dissectChannel.reset();
+      layerChannel.reset();
+    }
   }, [patientMode]);
 
   // ---------------------------------------------------------------------------
