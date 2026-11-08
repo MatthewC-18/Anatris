@@ -49,3 +49,8 @@ cuerpo_completo.glb
 
 # Local Claude Code tooling / preview config
 .claude/
+
+# Sondas temporales (agentes de auditoria): nunca se versionan.
+_tmp_*
+_scout*
+_probe*
