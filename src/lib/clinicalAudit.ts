@@ -137,10 +137,25 @@ export function runClinicalAudit(): AuditResult {
         if (v != null && (v < 0 || v > 100)) err(at, `${key}=${v} fuera de [0,100]`);
       }
       if (t.demo) {
-        if (!romIds.has(t.demo.movementId)) {
-          err(at, `demo.movementId '${t.demo.movementId}' no está en el ROM de ${region}`);
-        } else if (!(t.demo.movementId in BONE_MAP)) {
-          warn(at, `demo.movementId '${t.demo.movementId}' no es drivable`);
+        // LA MANIOBRA DE UNA REGIÓN PUEDE MOVER OTRA ARTICULACIÓN, y en varias
+        // pruebas reales TIENE que hacerlo: el Lasègue es una prueba lumbar que
+        // se ejecuta flexionando la CADERA, y el Thomas es de cadera y se lee en
+        // la rodilla. Exigir que el movimiento estuviera en el ROM de la propia
+        // región obligaba a posar la articulación equivocada (el Lasègue estaba
+        // puesto como flexión lumbar: el paciente se doblaba hacia delante en
+        // vez de elevar la pierna recta). Lo que sí se exige es que el
+        // movimiento EXISTA: o está en el ROM de la región, o es accionable en
+        // el rig; un id inventado sigue siendo un error.
+        if (!romIds.has(t.demo.movementId) && !(t.demo.movementId in BONE_MAP)) {
+          err(
+            at,
+            `demo.movementId '${t.demo.movementId}' no está en el ROM de ${region} ni es accionable`,
+          );
+        }
+        for (const c of t.demo.components ?? []) {
+          if (!(c.movementId in BONE_MAP)) {
+            err(at, `demo.components: '${c.movementId}' no es accionable en el rig`);
+          }
         }
         const hm = t.demo.highlightMuscleId;
         if (hm && muscleIds.size && !muscleIds.has(hm)) {

@@ -119,8 +119,38 @@ function lrNegNum(m: DiagnosticMetrics): number | null {
   if (m.sensitivity == null || m.specificity == null || m.specificity === 0) return null;
   return (1 - m.sensitivity / 100) / (m.specificity / 100);
 }
-function postProb(prePct: number, lr: number): number {
-  if (!isFinite(lr)) return 100;
+/**
+ * LA RAZON DE VEROSIMILITUD CONSERVADORA, cuando la especificidad es del 100%.
+ *
+ * Una especificidad del 100% no dice que la prueba sea infalible: dice que en
+ * ESA muestra, finita, no hubo ni un falso positivo. Si la fuente publica el
+ * intervalo de confianza, su extremo inferior da una LR+ acotada y honesta:
+ * Suri 2011 da 100% (IC 88-100) para el signo femoral, y con el 88% la LR+
+ * pasa de infinita a 4,2.
+ *
+ * Devuelve null cuando no hay intervalo publicado: entonces no se puede poner
+ * ninguna cifra sin inventarsela, y el panel lo dice en palabras.
+ */
+function lrPosConservative(m: DiagnosticMetrics): number | null {
+  if (m.sensitivity == null || m.specificityCiLow == null) return null;
+  if (m.specificityCiLow >= 100) return null;
+  return (m.sensitivity / 100) / (1 - m.specificityCiLow / 100);
+}
+
+/**
+ * Probabilidad post-test. NULL cuando la razon de verosimilitud no es finita.
+ *
+ * Esto devolvia 100. Tres pruebas del catalogo traen especificidad 100%
+ * --Maudsley (Saroja 2014, 30 sujetos), signo femoral (Suri 2011, 57 pacientes)
+ * y lift-off (Barth 2006, 68 pacientes)-- y con ellas el panel publicaba
+ * "1% -> 100%": que una sospecha previa del 1% se convierte en certeza
+ * absoluta. Ninguna prueba fisica hace eso, y menos una validada en decenas de
+ * pacientes. Ahora el bloque de Fagan lo explica en vez de imprimir un numero
+ * que no existe, y ensena la estimacion conservadora cuando la fuente publica
+ * el intervalo.
+ */
+function postProb(prePct: number, lr: number): number | null {
+  if (!isFinite(lr)) return null;
   const pre = Math.min(99.9, Math.max(0.1, prePct)) / 100;
   const odds = pre / (1 - pre);
   const post = odds * lr;
@@ -231,6 +261,8 @@ function FaganBlock({
   const lrNeg = lrNegNum(metrics);
   const postPos = lrPos != null ? postProb(pretest, lrPos) : null;
   const postNeg = lrNeg != null ? postProb(pretest, lrNeg) : null;
+  const lrCons = lrPosConservative(metrics);
+  const conservative = postPos == null && lrCons != null ? postProb(pretest, lrCons) : null;
   return (
     <div className="border-t border-slate-800/70 pt-2.5">
       <Kicker>Probabilidad post-test</Kicker>
@@ -263,6 +295,29 @@ function FaganBlock({
           tone="sky"
         />
       </div>
+      {/* LA ESPECIFICIDAD DEL 100% NO ES CERTEZA. Aqui la cifra no se puede
+          calcular, asi que se explica por que en vez de imprimir un 100%. */}
+      {postPos == null && lrPos != null && (
+        <p className="mt-2 text-[11px] leading-snug text-slate-400">
+          Con especificidad del 100% la razón de verosimilitud es infinita y la
+          probabilidad post-test no se puede calcular: el estudio no tuvo ni un
+          falso positivo, pero en una muestra finita eso no significa certeza.
+          {conservative != null && (
+            <>
+              {' '}
+              Con el extremo bajo del intervalo publicado, un positivo lleva{' '}
+              <span className="font-mono tabular-nums text-slate-300">
+                {Math.round(pretest)}%
+              </span>{' '}
+              a{' '}
+              <span className="font-mono tabular-nums text-emerald-300">
+                {Math.round(conservative)}%
+              </span>
+              .
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }
@@ -1002,7 +1057,12 @@ export function OrthopedicTestsPanel({
       if (!m) continue;
       const l = lrPosNum(m);
       if (l == null) continue;
-      lr *= isFinite(l) ? l : 1e6;
+      // Una LR+ infinita (especificidad 100% en una muestra finita) arrastraba
+      // el producto a 1e6, es decir al 100%, con el mismo error que la ficha
+      // individual. Si una de las pruebas elegidas la trae, el conjunto no se
+      // puede cifrar y se dice.
+      if (!isFinite(l)) return { count: selected.size, lr: Infinity, post: null };
+      lr *= l;
       known += 1;
     }
     if (known === 0) return null;
@@ -1369,14 +1429,14 @@ export function OrthopedicTestsPanel({
               <span className="text-[11px] text-slate-500">{Math.round(pretest)}%</span>
               <span className="text-[11px] text-slate-600">→</span>
               <span className="text-lg font-semibold leading-none text-emerald-300">
-                {Math.round(measured.post)}%
+                {measured.post != null ? `${Math.round(measured.post)}%` : 's/d'}
               </span>
             </span>
           </div>
           <span className="mt-2 flex h-1 w-full overflow-hidden rounded-full bg-slate-800">
             <span
               className="h-full rounded-full bg-emerald-400"
-              style={{ width: `${measured.post}%` }}
+              style={{ width: `${measured.post ?? 0}%` }}
             />
           </span>
           <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
@@ -1384,6 +1444,21 @@ export function OrthopedicTestsPanel({
             {measured.cluster.specificity}% con {measured.cluster.minPositive} o más
             positivas. Cifra de estudio, no estimada.
           </p>
+          {/* POR QUE LA CIFRA BAJA AL MARCAR UNA PRUEBA MAS.
+              Por debajo del minimo del conjunto, el panel ESTIMA multiplicando
+              razones de verosimilitud; al alcanzarlo, pasa a la cifra MEDIDA
+              del estudio, que es menor porque las pruebas del conjunto provocan
+              la misma articulacion y no son independientes. Sin esta linea, el
+              fisio marca la tercera positiva, ve caer la probabilidad de 79% a
+              65% y da por hecho que la aplicacion se equivoca. */}
+          {cluster?.post != null && measured.post != null && cluster.post > measured.post && (
+            <p className="mt-1.5 text-[11px] leading-snug text-amber-500/90">
+              Con menos positivas el panel ESTIMABA {Math.round(cluster.post)}%
+              multiplicando razones de verosimilitud. Esa estimación era optimista:
+              estas pruebas provocan la misma articulación y no son independientes.
+              Manda la cifra medida.
+            </p>
+          )}
           <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
             {measured.cluster.note}
           </p>
@@ -1402,16 +1477,24 @@ export function OrthopedicTestsPanel({
               <span className="text-[11px] text-slate-500">{Math.round(pretest)}%</span>
               <span className="text-[11px] text-slate-600">→</span>
               <span className="text-lg font-semibold leading-none text-emerald-300">
-                {Math.round(cluster.post)}%
+                {cluster.post != null ? `${Math.round(cluster.post)}%` : 's/d'}
               </span>
             </span>
           </div>
           <span className="mt-2 flex h-1 w-full overflow-hidden rounded-full bg-slate-800">
             <span
               className="h-full rounded-full bg-emerald-400"
-              style={{ width: `${cluster.post}%` }}
+              style={{ width: `${cluster.post ?? 0}%` }}
             />
           </span>
+          {cluster.post == null && (
+            <p className="mt-1.5 text-[11px] leading-snug text-slate-400">
+              Una de las pruebas elegidas tiene especificidad del 100% en su
+              estudio, así que el producto de razones de verosimilitud no se
+              puede cifrar: no hubo falsos positivos en esa muestra, pero eso no
+              es certeza.
+            </p>
+          )}
           <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">
             LR+ combinado {lrLabel(cluster.lr)}. Asume independencia entre pruebas: es
             una aproximación docente, no un valor de estudio.

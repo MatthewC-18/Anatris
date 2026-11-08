@@ -36,6 +36,19 @@ export interface DiagnosticMetrics {
   sensitivity?: number;
   /** Especificidad, 0..100 (%). */
   specificity?: number;
+  /**
+   * Extremo INFERIOR del intervalo de confianza de la especificidad, cuando la
+   * fuente lo publica.
+   *
+   * Existe por las especificidades del 100%. Una especificidad del 100% no
+   * significa que la prueba sea infalible: significa que en ESA muestra, finita,
+   * no hubo ni un falso positivo. Tratarla como certeza daba una razon de
+   * verosimilitud infinita y una probabilidad post-test del 100% desde
+   * cualquier sospecha previa, incluido el 1%, que es una afirmacion clinica
+   * falsa y peligrosa. Con el extremo inferior del intervalo se puede ademas
+   * publicar una estimacion CONSERVADORA junto al aviso (Suri 2011 da 88%).
+   */
+  specificityCiLow?: number;
   /** Razon de verosimilitud positiva (LR+), if the study reported one. */
   lrPositive?: number;
   /** Razon de verosimilitud negativa (LR-), if the study reported one. */

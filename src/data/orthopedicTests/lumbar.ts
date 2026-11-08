@@ -66,9 +66,15 @@ const tests: OrthopedicTest[] = [
     pearl:
       'La sensibilización con dorsiflexión del tobillo (Bragard) o flexión cervical orienta a origen neural frente a tensión muscular.',
     demo: {
-      movementId: 'lumbar-flexion',
-      angleDeg: 25,
-      note: 'La maniobra real eleva la pierna con la rodilla extendida (cadera); el modelo solo muestra el raquis lumbar.',
+      // LA MANIOBRA ES FLEXION DE CADERA CON LA RODILLA EXTENDIDA, no flexion
+      // lumbar: el Lasegue pone en tension el ciatico elevando la pierna recta,
+      // y el raquis no se mueve. Esto ensenaba `lumbar-flexion@25`, con una
+      // nota que admitia que el modelo "solo muestra el raquis lumbar", y
+      // ademas era la MISMA pose que el Lasegue cruzado.
+      movementId: 'hip-flexion',
+      angleDeg: 60,
+      side: 'R',
+      note: 'La rodilla se mantiene extendida: el modelo parte del reposo, que ya lo está. La banda que interesa es 30-70°.',
     },
     cite: [
       { ref: 'deville-2000', verified: true, locator: 'metaanálisis, SLR ipsilateral' },
@@ -105,9 +111,13 @@ const tests: OrthopedicTest[] = [
     pearl:
       'Un SLR cruzado positivo se asocia a hernias más grandes y a mejores resultados quirúrgicos: dato relevante para la derivación.',
     demo: {
-      movementId: 'lumbar-flexion',
-      angleDeg: 25,
-      note: 'Se eleva la pierna SANA; el positivo es el dolor en la pierna sintomática. El modelo solo muestra el raquis lumbar.',
+      // Lo que distingue al cruzado es QUE PIERNA se eleva: la sana. Por eso el
+      // lado es el contrario al del Lasegue, y por eso las dos demostraciones
+      // ya no son el mismo clip.
+      movementId: 'hip-flexion',
+      angleDeg: 60,
+      side: 'L',
+      note: 'Se eleva la pierna SANA (el modelo levanta la contraria a la del Lasègue); el positivo es el dolor en la pierna sintomática.',
     },
     cite: [{ ref: 'deville-2000', verified: true, locator: 'metaanálisis, SLR cruzado' }],
   },
@@ -152,6 +162,10 @@ const tests: OrthopedicTest[] = [
     metrics: {
       sensitivity: 50,
       specificity: 100,
+      // El intervalo que la propia nota cita: 88-100. Con el extremo bajo, la
+      // LR+ pasa de infinita a 4,2 y el panel puede dar una cifra conservadora
+      // en vez de publicar una certeza que el estudio no sostiene.
+      specificityCiLow: 88,
       note: 'Las dos cifras de la Tabla 3 de Suri 2011 (57 pacientes, explorador CIEGO a la resonancia): 50% (IC 31-69) y 100% (IC 88-100) para la compresión L2-L4, con razón de verosimilitud positiva infinita, porque no hubo ni un falso positivo. Acotada al nivel L3 sube a 70% / 88%. Y la versión CRUZADA, igual de específica (100%) pero con 5% de sensibilidad, dio positivo en un solo paciente de la serie: no se puede contar con ella.',
     },
     utility: 'rule-in',

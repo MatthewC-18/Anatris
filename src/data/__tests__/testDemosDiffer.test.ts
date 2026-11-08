@@ -12,10 +12,22 @@
 // component cannot be quietly dropped.
 
 import { describe, it, expect } from 'vitest';
+import { ALL_TESTS_BY_REGION } from '../fullContent';
 import { ORTHOPEDIC_TESTS_BY_REGION } from '../orthopedicTests';
 import { getBoneControl } from '../../lib/boneMap';
+import type { OrthopedicTest } from '../../types/orthopedicTest';
 
-const shoulder = ORTHOPEDIC_TESTS_BY_REGION.shoulder ?? [];
+// TODAS LAS REGIONES, NO SOLO EL HOMBRO.
+//
+// Esto leia `ORTHOPEDIC_TESTS_BY_REGION`, el registro de EJECUCION, que desde
+// la division premium solo contiene el hombro: comprobaba 13 demos y dejaba 52
+// sin comprobar. Medido en ese estado: 21 de los 65 demos dibujaban la misma
+// pose --en la rodilla, 8 de 11 eran dos clips-- y `npm test` salia verde. Es
+// exactamente el motivo por el que se oye "ya esta arreglado" y se sigue
+// viendo mal: el arreglo y su vigilancia se aplicaron a la unica region que el
+// test podia ver. `fullContent` existe justo para esto (build y test).
+const ALL: Array<[string, OrthopedicTest[]]> = Object.entries(ALL_TESTS_BY_REGION);
+const shoulder = ALL_TESTS_BY_REGION.shoulder ?? [];
 
 /**
  * Maneuvers that genuinely share a limb position. Not a loophole -- these are
@@ -30,6 +42,11 @@ const SHARED_POSITION_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ['apprehension', 'relocation'],
   ['apprehension', 'surprise-release'],
   ['relocation', 'surprise-release'],
+  // Rodilla. Los dos cajones son la MISMA posicion: lo unico que cambia es la
+  // direccion de la traslacion tibial, que el rig no tiene. Igual el valgo y el
+  // varo, que se separan por hacia donde empuja la mano del explorador.
+  ['anterior-drawer-knee', 'posterior-drawer-knee'],
+  ['valgus-stress-knee', 'varus-stress-knee'],
 ];
 /** Sorted, so a lookup never depends on which order the caller happens to use. */
 const pairKey = (a: string, b: string) => [a, b].sort().join('|');
@@ -37,37 +54,56 @@ const SHARED_POSITION: ReadonlySet<string> = new Set(
   SHARED_POSITION_PAIRS.map(([a, b]) => pairKey(a, b)),
 );
 
-/** The demo's full recipe, as a comparable signature. */
-function signature(t: (typeof shoulder)[number]): string {
+/**
+ * The demo's full recipe, as a comparable signature.
+ *
+ * Incluye el LADO y si la maniobra es resistida: son dos cosas que el usuario
+ * VE --que pierna se eleva, si hay una mano del explorador en escena-- y que
+ * separan maniobras que de otro modo serian el mismo clip.
+ */
+function signature(t: OrthopedicTest): string {
   const d = t.demo!;
   const comps = (d.components ?? [])
     .map((c) => `${c.movementId}@${c.angleDeg}`)
     .sort()
     .join(',');
-  return `${d.movementId}@${d.angleDeg}|${comps}`;
+  const side = d.side ?? 'R';
+  const res = d.resisted ? 1 : 0;
+  return `${d.movementId}@${d.angleDeg}|${comps}|side=${side}|res=${res}`;
 }
 
 describe('orthopedic test demos', () => {
-  const withDemo = shoulder.filter((t) => t.demo);
+  const withDemo = ALL.flatMap(([, tests]) => tests).filter((t) => t.demo);
+
+  it('el registro de EJECUCION no alcanza: solo lleva el nivel gratuito', () => {
+    // Si esto fallara porque el registro crece, seria porque una region de pago
+    // volvio al paquete publico, que es la otra regresion que se vigila.
+    expect(Object.keys(ORTHOPEDIC_TESTS_BY_REGION)).toEqual(['shoulder']);
+    expect(ALL.length).toBeGreaterThan(5);
+    expect(withDemo.length).toBeGreaterThan(50);
+  });
 
   it('has demos for the shoulder tests', () => {
-    expect(withDemo.length).toBeGreaterThan(10);
+    expect(shoulder.filter((t) => t.demo).length).toBeGreaterThan(10);
   });
 
   it('never gives two tests the same maneuver unless they clinically share one', () => {
-    const bySig = new Map<string, string[]>();
-    for (const t of withDemo) {
-      const sig = signature(t);
-      bySig.set(sig, [...(bySig.get(sig) ?? []), t.id]);
-    }
+    // Por region: dos pruebas de regiones distintas nunca se ven juntas.
     const unexplained: string[] = [];
-    for (const ids of bySig.values()) {
-      if (ids.length < 2) continue;
-      for (let i = 0; i < ids.length; i++)
-        for (let j = i + 1; j < ids.length; j++) {
-          const pair = pairKey(ids[i], ids[j]);
-          if (!SHARED_POSITION.has(pair)) unexplained.push(pair);
-        }
+    for (const [region, tests] of ALL) {
+      const bySig = new Map<string, string[]>();
+      for (const t of tests.filter((x) => x.demo)) {
+        const sig = signature(t);
+        bySig.set(sig, [...(bySig.get(sig) ?? []), t.id]);
+      }
+      for (const ids of bySig.values()) {
+        if (ids.length < 2) continue;
+        for (let i = 0; i < ids.length; i++)
+          for (let j = i + 1; j < ids.length; j++) {
+            const pair = pairKey(ids[i], ids[j]);
+            if (!SHARED_POSITION.has(pair)) unexplained.push(region + ': ' + pair);
+          }
+      }
     }
     expect(unexplained, 'tests with an identical maneuver and no clinical reason').toEqual([]);
   });

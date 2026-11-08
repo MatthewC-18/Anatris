@@ -69,7 +69,13 @@ const tests: OrthopedicTest[] = [
       // were whatever the free movement had left active -- the pronator group,
       // i.e. the medial mass, in a test about the LATERAL epicondyle.
       highlightMuscleId: 'common-extensor-origin',
-      note: 'Con el codo en extensión y antebrazo pronado se resiste la extensión de la muñeca (componente de muñeca no reproducido).',
+      // LA MUNECA SI SE PUEDE MOVER, y es lo que separa a Cozen de Maudsley:
+      // los dos ponian el codo a 10 grados y nada mas, asi que en pantalla eran
+      // el mismo clip. Cozen resiste la EXTENSION DE MUNECA con el puno cerrado;
+      // Maudsley resiste la del tercer dedo, que el rig no tiene.
+      components: [{ movementId: 'wrist-extension', angleDeg: 40 }],
+      resisted: true,
+      note: 'Con el codo en extensión y antebrazo pronado se resiste la extensión de la muñeca con el puño cerrado.',
     },
     cite: [
       { ref: 'saroja-2014', verified: true, locator: 'Cozen: sensibilidad 84%, especificidad 0%' },
@@ -98,7 +104,11 @@ const tests: OrthopedicTest[] = [
       movementId: 'elbow-pronation',
       angleDeg: 80,
       highlightMuscleId: 'common-extensor-origin',
-      note: 'Con antebrazo pronado y muñeca flexionada se extiende pasivamente el codo; el modelo muestra la pronación y resalta el origen extensor, que es lo que se estira.',
+      // Mill es un estiramiento PASIVO: la muneca va a flexion y el explorador
+      // no resiste nada. Eso es justo lo contrario del test de epitroclea, que
+      // compartia con el esta misma pose de pronacion.
+      components: [{ movementId: 'wrist-flexion', angleDeg: 60 }],
+      note: 'Con antebrazo pronado y muñeca flexionada se extiende pasivamente el codo: es un estiramiento, no una resistencia. El modelo resalta el origen extensor, que es lo que se estira.',
     },
     cite: [
       {
@@ -131,7 +141,8 @@ const tests: OrthopedicTest[] = [
       movementId: 'elbow-extension',
       angleDeg: 10,
       highlightMuscleId: 'common-extensor-origin',
-      note: 'Con el codo en extensión se resiste la extensión del tercer dedo (componente digital no reproducido).',
+      resisted: true,
+      note: 'Con el codo en extensión se resiste la extensión del tercer dedo. El rig no tiene dedos, así que comparte posición con Cozen salvo por la muñeca: lo que cambia es DÓNDE resiste el explorador.',
     },
     cite: [
       {
@@ -165,7 +176,9 @@ const tests: OrthopedicTest[] = [
       movementId: 'elbow-pronation',
       angleDeg: 80,
       highlightMuscleId: 'common-flexor-pronator-origin',
-      note: 'Con el codo extendido se resiste la flexión de muñeca y la pronación; el modelo muestra la pronación y resalta el origen flexor-pronador de la epitróclea.',
+      components: [{ movementId: 'wrist-flexion', angleDeg: 35 }],
+      resisted: true,
+      note: 'Con el codo extendido se RESISTE la flexión de muñeca y la pronación; el modelo resalta el origen flexor-pronador de la epitróclea.',
     },
     cite: [{ ref: 'zwerus-2018', verified: false }],
   },
@@ -194,7 +207,8 @@ const tests: OrthopedicTest[] = [
     demo: {
       movementId: 'elbow-flexion',
       angleDeg: 90,
-      note: 'Se aplica un valgo constante mientras se flexiona-extiende el codo por el arco 70-120°; el modelo muestra la flexión.',
+      resisted: true,
+      note: 'Se aplica un valgo constante mientras se flexiona-extiende el codo por el arco 70-120°; el modelo muestra la flexión con la mano del explorador aplicando el valgo.',
     },
     cite: [
       {
@@ -251,7 +265,7 @@ const tests: OrthopedicTest[] = [
     demo: {
       movementId: 'elbow-flexion',
       angleDeg: 90,
-      note: 'Se percute el nervio en el canal epitrócleo-olecraniano con el codo en flexión (percusión no reproducida).',
+      note: 'Se percute el nervio en el canal epitrócleo-olecraniano con el codo en flexión. Comparte posición con el valgo dinámico: lo que cambia es que aquí el explorador percute y no aplica fuerza.',
     },
     cite: [
       {
