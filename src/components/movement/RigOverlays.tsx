@@ -197,6 +197,14 @@ interface GlowEntry {
 
 export function RigOverlays(): JSX.Element {
   const { scene } = useThree();
+  // LA ESCENA, ALCANZABLE EN DESARROLLO. Comprobar a ojo si una estructura se
+  // enciende es imposible --un ligamento mide veinte pixeles bajo la piel-- y la
+  // nota de resolveMuscleId ya dice que su tabla se verifico "contra el volcado
+  // real de mallas (recorrido de window.__scene)", pero esa ventana no existia:
+  // habia que ponerla a mano cada vez. Vite la elimina en produccion.
+  if (import.meta.env.DEV) {
+    (window as unknown as { __scene?: THREE.Object3D }).__scene = scene;
+  }
   const controls = useThree((s) => s.controls) as CameraControls | null;
   const camera = useThree((s) => s.camera);
   const cameraRef = useRef(camera);

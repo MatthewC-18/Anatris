@@ -54,3 +54,6 @@ cuerpo_completo.glb
 _tmp_*
 _scout*
 _probe*
+
+# Inventario del rig cacheado (se regenera desde el GLB).
+scripts/.cache/

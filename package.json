@@ -32,7 +32,8 @@
     "audit-forearm-fill": "tsx --tsconfig tsconfig.scripts.json scripts/audit-forearm-fill.mts",
     "audit-demo-hand": "tsx --tsconfig tsconfig.scripts.json scripts/audit-demo-hand.mts",
     "audit-structures": "tsx --tsconfig tsconfig.scripts.json scripts/audit-structures.mts",
-    "build-forearm-unmangle": "tsx --tsconfig tsconfig.scripts.json scripts/build-forearm-unmangle.mts"
+    "build-forearm-unmangle": "tsx --tsconfig tsconfig.scripts.json scripts/build-forearm-unmangle.mts",
+    "rig-find": "tsx --tsconfig tsconfig.scripts.json scripts/rig-find.mts"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",
