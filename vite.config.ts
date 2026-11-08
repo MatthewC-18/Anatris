@@ -33,6 +33,69 @@ const SHIP_EXTS = new Set([
   '.woff2',
 ]);
 
+/**
+ * UN DESPLIEGUE NO PUEDE PUBLICAR UN MODELO DE 133 BYTES.
+ *
+ * `.gitattributes` mete los `.glb` en Git LFS, asi que en git el modelo no es el
+ * modelo: es un puntero de texto. Medido: `git cat-file -s HEAD:public/cuerpo-rig.opt.glb`
+ * da 133 bytes, y empieza por `version https://git-lfs.github.com/spec/v1`.
+ *
+ * Este plugin copiaba con `copyFileSync` sin mirar ni el tamano ni la cabecera.
+ * Si el checkout del servidor de compilacion no materializa LFS --un token
+ * caducado, una cuota de LFS agotada, un clon con `GIT_LFS_SKIP_SMUDGE`--, `dist`
+ * sale con un `.glb` de 133 bytes y un `.glb.gz` de unos 160. En el navegador el
+ * cargador no encuentra magia de gzip ni de glTF (src/lib/compressedGLTF.ts),
+ * cae al plano, y `GLTFLoader.parse` lanza sobre texto. O sea: **la aplicacion 3D
+ * esta muerta en produccion y la compilacion ha salido en verde.**
+ *
+ * Tres lineas convierten ese fallo en "el build no sale", que es donde se puede
+ * ver.
+ */
+function assertRealModel(src: string): void {
+  const size = fs.statSync(src).size;
+  const head = Buffer.alloc(64);
+  const fd = fs.openSync(src, 'r');
+  try {
+    fs.readSync(fd, head, 0, 64, 0);
+  } finally {
+    fs.closeSync(fd);
+  }
+  if (head.toString('utf8').startsWith('version https://git-lfs')) {
+    throw new Error(
+      `[anatris] ${path.basename(src)} es un PUNTERO de Git LFS (${size} B), no el modelo. ` +
+        `El checkout no materializo LFS: ejecuta \`git lfs pull\` (o revisa el token y la ` +
+        `cuota de LFS del servidor de compilacion). Publicar esto deja la aplicacion 3D ` +
+        `muerta en produccion con el build en verde.`,
+    );
+  }
+  // LA MAGIA DEL FORMATO, NO EL TAMANO.
+  //
+  // El primer intento ponia un suelo de 1 MB, y el build fallo: `therapist-hand.glb`
+  // --la mano del fisio que dibuja la resistencia manual-- pesa 336 KB
+  // legitimamente. El tamano no distingue un GLB pequeno de un fichero roto; la
+  // cabecera si. Todo GLB binario empieza por el magico `glTF` (0x46546C67), asi
+  // que esto caza el puntero de LFS, un HTML de error del CDN, un fichero
+  // truncado a cero y un .glb que en realidad es .gltf de texto.
+  if (head.toString('ascii', 0, 4) !== 'glTF') {
+    throw new Error(
+      `[anatris] ${path.basename(src)} (${size} B) no empieza por el magico 'glTF': ` +
+        `no es un GLB binario. Publicarlo deja la aplicacion 3D muerta en produccion ` +
+        `con el build en verde.`,
+    );
+  }
+  // Y EL TRUNCADO, QUE LA MAGIA SOLA NO CAZA. Medido: un fichero cortado a 64
+  // bytes conserva la cabecera y pasaba. El GLB lleva su longitud total en los
+  // bytes 8..12, asi que comparar contra el tamanio real es exacto y no hace
+  // falta inventarse ningun suelo en megas.
+  const declared = head.readUInt32LE(8);
+  if (declared !== size) {
+    throw new Error(
+      `[anatris] ${path.basename(src)} declara ${declared} B en su cabecera y pesa ` +
+        `${size} B: esta truncado o incompleto.`,
+    );
+  }
+}
+
 function copyRuntimePublicAssets(): Plugin {
   return {
     name: 'anatris-copy-runtime-public',
@@ -46,6 +109,7 @@ function copyRuntimePublicAssets(): Plugin {
         const keep = RUNTIME_GLBS.has(name) || SHIP_EXTS.has(path.extname(name).toLowerCase());
         if (!keep) continue;
         const dest = path.join(outDir, name);
+        if (RUNTIME_GLBS.has(name)) assertRealModel(src);
         fs.copyFileSync(src, dest);
         // A PRE-COMPRESSED copy of each model, inflated in the browser by
         // src/lib/compressedGLTF.ts. meshopt is meant to be paired with transport

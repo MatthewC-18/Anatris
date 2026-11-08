@@ -38,6 +38,7 @@ import {
 } from '../../lib/romPhaseAtAngle';
 import { activeMusclesAt, type ActiveMuscle } from '../../lib/romActivation';
 import { ROM_ROLE_LABEL, type RomMuscleRole } from '../../types/rom';
+import { ROLE_ORDER, ROLE_TONE_CSS } from '../../lib/romRolePalette';
 import { getReference } from '../../data/references';
 import type { Citation } from '../../types/muscleContent';
 import { pathologyById } from '../../data/pathologies';
@@ -434,7 +435,21 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
   // only the protagonist section drops out. (Returning null there would have
   // left the embedded console headerless.)
   const hero = live[0] ?? null;
-  const others = live.slice(1, 4);
+  // TODOS los acompañantes, no los tres primeros.
+  //
+  // EL DEFECTO, MEDIDO: en un arco de abducción se encienden hasta 7 músculos a
+  // la vez y el panel nombraba 1 (el protagonista) + 3. Los otros brillaban en
+  // el modelo sin que nada en pantalla dijera cuáles eran ni qué papel tenían,
+  // que es exactamente la lectura que un fotograma de vídeo tiene que poder
+  // explicar solo.
+  const others = live.slice(1);
+  // Cuántos músculos trabajan ahora mismo en cada papel. Es lo que da sentido
+  // al color del contorno: sin esta fila, el borde ámbar o teal de una malla no
+  // se puede traducir mirando la pantalla (ver src/lib/rigRim.ts).
+  const roleCounts = ROLE_ORDER.map((role) => ({
+    role,
+    n: live.reduce((acc, m) => acc + (m.role === role ? 1 : 0), 0),
+  })).filter((r) => r.n > 0);
 
   // ISOLATE FROM THE READOUT. The panel names the muscle working at this angle;
   // until now that was a dead end -- to see it alone you had to find it on the rig
@@ -512,6 +527,30 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
             {demo ? 'Demostración' : 'Análisis en vivo'}
           </span>
         </div>
+
+        {/* LA LEYENDA DEL CONTORNO. El papel de cada músculo se dibuja en el
+            BORDE de su malla, no en su carne (src/lib/rigRim.ts explica por qué
+            con la medición), así que sin esta fila el color del borde no se
+            puede traducir. Una línea, siempre visible mientras haya algo
+            encendido: es lo que hace que un fotograma congelado se explique
+            solo. */}
+        {roleCounts.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            {roleCounts.map(({ role, n }) => (
+              <span key={role} className="flex items-center gap-1 whitespace-nowrap">
+                <span
+                  aria-hidden
+                  className="h-1.5 w-1.5 shrink-0 rounded-[1px]"
+                  style={{ backgroundColor: ROLE_TONE_CSS[role] }}
+                />
+                <span className="text-[9.5px] font-medium uppercase tracking-[0.08em] text-slate-400">
+                  {ROM_ROLE_LABEL[role]}
+                </span>
+                <span className="text-[9.5px] font-semibold tabular-nums text-slate-500">{n}</span>
+              </span>
+            ))}
+          </div>
+        )}
 
         <div className="mt-2 flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -1082,7 +1121,11 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
           </span>
         </div>
 
-        {/* Other active muscles (one compact line). Shed on short viewports. */}
+        {/* Los demás músculos activos, TODOS (antes solo 3; en una abducción se
+            encienden hasta 7 y los otros brillaban sin que nada los nombrara).
+            El párrafo envuelve, y cada nombre lleva el color de su papel. Se
+            cae en pantallas bajas, donde el panel comparte columna con la
+            consola. */}
         {showAlso && others.length > 0 && hero && (
           <p className="mt-2 text-[10.5px] leading-snug text-slate-400">
             <span className="text-slate-500">También </span>

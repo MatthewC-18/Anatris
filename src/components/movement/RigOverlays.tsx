@@ -46,23 +46,23 @@ import {
   type Side,
 } from '../../lib/boneMap';
 import type { RomMuscleRole } from '../../types/rom';
+import { attachRim, paintEmber, setRim } from '../../lib/rigRim';
+import { ROLE_TONE } from '../../lib/romRolePalette';
 
-// Role -> emissive glow color (amber prime / sky assistant / violet stabilizer),
-// matching the control panel and the app's role palette.
-const ROLE_GLOW: Record<RomMuscleRole, number> = {
-  'prime-mover': 0xffa51e,
-  assistant: 0x38bdf8,
-  'eccentric-control': 0x2dd4bf, // teal-400 — el freno, no el motor
-  stabilizer: 0xa78bfa,
-};
-// Same role hues as THREE.Color, reused to tint the muscle's own diffuse color so
-// an active muscle visibly CHANGES color (not just a faint emissive over red).
-const ROLE_COLOR3: Record<RomMuscleRole, THREE.Color> = {
-  'prime-mover': new THREE.Color(ROLE_GLOW['prime-mover']),
-  assistant: new THREE.Color(ROLE_GLOW.assistant),
-  'eccentric-control': new THREE.Color(ROLE_GLOW['eccentric-control']),
-  stabilizer: new THREE.Color(ROLE_GLOW.stabilizer),
-};
+// El tono del papel sale de UNA tabla (src/lib/romRolePalette.ts), compartida
+// con la leyenda del panel: tres copias de estos cuatro hexadecimales
+// garantizan que dejen de coincidir justo en un fotograma congelado.
+const ROLE_GLOW = ROLE_TONE;
+// EL TONO DEL PAPEL YA NO TOCA LA CARNE. Vive en el CONTORNO (ver
+// src/lib/rigRim.ts, que trae la medicion de por que el pectoral salia verde
+// menta) y en el texto del panel. `ROLE_GLOW` se sigue usando, pero como color
+// de borde y de leyenda, no como emisivo del vientre.
+//
+// Cuanto contorno lleva un musculo encendido: un suelo visible desde el primer
+// nivel de reclutamiento --para que el papel se lea tambien en un musculo que
+// apenas trabaja-- y el resto proporcional al esfuerzo.
+const RIM_FLOOR = 0.18;
+const RIM_RANGE = 0.45;
 // Peak emissive intensity per role (reached at activation level 1). The live glow
 // is this scaled by the muscle's activation level, so a muscle fades in as it
 // enters its recruitment range and brightens toward its peak effort. TUNED DOWN
@@ -70,18 +70,24 @@ const ROLE_COLOR3: Record<RomMuscleRole, THREE.Color> = {
 // muscle self-illuminated so uniformly it lost all form and read as a FLAT amber
 // blob. These levels still say "on" clearly but let the studio light keep the
 // muscle's dimensional shading -- see paintGlow.
+// SUBIDOS AL PASAR A BRASA. Antes estos techos competian con un tono ajeno
+// (teal, cian, violeta) que ya saturaba el canal por si solo; ahora el emisivo
+// es el propio rojo del tejido, que es el canal MAS estrecho que hay, asi que
+// hace falta mas intensidad para que "encendido" se lea. Medido: con 1,05 el
+// pico compone #e45c40 y la luminancia sube 4,5x sobre el reposo, sin que el
+// tono salga de 0-16 grados.
 const ROLE_GLOW_MAX: Record<RomMuscleRole, number> = {
-  'prime-mover': 0.72,
+  'prime-mover': 1.05,
   // Un freno trabaja DURO: en una flexion de tronco el erector es el musculo que
   // mas tension soporta de la fase, asi que brilla como un motor, no como un
-  // asistente. Lo que cambia es el color, no la intensidad.
-  'eccentric-control': 0.68,
-  assistant: 0.48,
-  stabilizer: 0.34,
+  // asistente. Lo que cambia es el CONTORNO, no la intensidad.
+  'eccentric-control': 1.0,
+  assistant: 0.7,
+  stabilizer: 0.45,
 };
 // A faint floor so a barely-recruited muscle is still visibly "on" rather than
 // invisible at low levels.
-const GLOW_FLOOR = 0.1;
+const GLOW_FLOOR = 0.15;
 
 /** Live emissive intensity for a role at an activation level 0..1. */
 function glowIntensity(role: RomMuscleRole, level: number): number {
@@ -90,14 +96,14 @@ function glowIntensity(role: RomMuscleRole, level: number): number {
 }
 
 /**
- * Paint an active muscle's clone so it clearly "turns on" WITHOUT looking like a
- * flat colored sticker (premium pass). The muscle keeps its anatomical red
- * diffuse -- we only nudge it a LITTLE toward the role hue (so the role is still
- * legible) and carry the "on" signal mostly through a strong emissive GLOW. The
- * old heavy diffuse lerp (0.5..0.95 toward the pure role hue) repainted the whole
- * belly cyan/violet, which read as an unnatural plaque over the abs/back; the
- * emissive-forward mix below stays meaty and reads clearly even through the glass
- * skin.
+ * BRASA EN EL VIENTRE, PAPEL EN EL CONTORNO.
+ *
+ * Un musculo encendido sube de luminancia sin cambiar de tono: el emisivo es su
+ * PROPIO rojo calentado (ver `paintEmber` en src/lib/rigRim.ts, con la medida de
+ * por que el teal del freno salia verde menta y por que bajar la mezcla una
+ * tercera vez no lo arreglaba). El difuso no se toca. El papel --motor, freno,
+ * asistente, estabilizador-- se lee en el borde de Fresnel, en la leyenda de
+ * cuatro chips del panel y en el texto del protagonista.
  */
 function paintGlow(
   clone: THREE.MeshStandardMaterial,
@@ -106,12 +112,8 @@ function paintGlow(
   level: number,
 ): void {
   const l = level <= 0 ? 0 : level > 1 ? 1 : level;
-  // Light diffuse tint only: 0.10 at the floor -> 0.30 at peak effort, so the
-  // muscle stays clearly RED-dominant at every level instead of turning solid
-  // role-color (was 0.15 -> 0.45, which pushed the belly too far to amber).
-  clone.color.copy(baseColor).lerp(ROLE_COLOR3[role], 0.1 + 0.2 * l);
-  clone.emissive.copy(ROLE_COLOR3[role]);
-  clone.emissiveIntensity = glowIntensity(role, l);
+  paintEmber(clone, baseColor, glowIntensity(role, l));
+  setRim(clone, ROLE_GLOW[role], RIM_FLOOR + RIM_RANGE * l);
 }
 
 // IMPLICATED emphasis: the structure a PATHOLOGY blames (from the readout banner)
@@ -124,11 +126,16 @@ const IMPLICATED_EMISSIVE = 1.0;
 
 /** Paint an implicated structure with the warm injured emphasis (pulsed live). */
 function paintImplicated(clone: THREE.MeshStandardMaterial, baseColor: THREE.Color): void {
-  // Push the diffuse noticeably toward orange (more than a role tint) and set a
-  // strong emissive; the useFrame modulates emissiveIntensity for the pulse.
+  // Aqui el naranja SI puede entrar en el difuso: 0xf97316 esta en hue 25, al
+  // borde de la banda del tejido, asi que una mezcla de 0,45 sobre el rojo deja
+  // el musculo en hue ~20 y sigue leyendose como carne. Es el unico resalte que
+  // mueve el tono, y lo que de verdad lo separa del resto es el PULSO, que el
+  // useFrame le pone y ningun otro resalte tiene.
   clone.color.copy(baseColor).lerp(IMPLICATED_COLOR3, 0.45);
   clone.emissive.copy(IMPLICATED_COLOR3);
   clone.emissiveIntensity = IMPLICATED_EMISSIVE;
+  // Y su contorno es el suyo, no el papel que llevara antes el mismo clon.
+  setRim(clone, IMPLICATED_HEX, 0.7);
 }
 
 /**
@@ -710,6 +717,9 @@ export function RigOverlays(): JSX.Element {
           // para siempre (src/lib/rigMaterialStack.ts).
           const src = mesh.material as THREE.MeshStandardMaterial;
           const clone = cloneOverlayMaterial(src);
+          // El contorno se engancha UNA vez, al clonar: `attachRim` escribe
+          // `onBeforeCompile`, y cambiarlo despues costaria recompilar.
+          attachRim(clone);
           mesh.material = clone;
           entry = {
             original: baseMaterialOf(src) as THREE.MeshStandardMaterial,

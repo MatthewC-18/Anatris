@@ -64,6 +64,7 @@ import { relaxSkinSeams } from '../../lib/skinSeamRelax';
 import { inflateSkinShell } from '../../lib/skinShellInflate';
 import { unmangleForearmMeshes } from '../../lib/rigForearmUnmangle';
 import { baseMaterialOf, cloneOverlayMaterial } from '../../lib/rigMaterialStack';
+import { attachRim, setRim } from '../../lib/rigRim';
 import { blendHipSkin } from '../../lib/rigHipSkin';
 import { regradeAnkleCrossers } from '../../lib/rigAnkleRebind';
 import {
@@ -345,11 +346,39 @@ const BODY_SKIN_GHOST_FRESNEL_FLOOR = 0.1;
 // sheen) instead of a muddy gray film over the muscles. Scaled by the ghost
 // amount in the fade useFrame; 0 when the skin is solid, so it never tints the
 // distal hand/foot caps (they keep the solid skinMat, emissiveIntensity 0).
-const BODY_SKIN_GHOST_EMISSIVE = 0.45;
+const BODY_SKIN_GHOST_EMISSIVE = 0.12;
+/**
+ * LA CABEZA NO FANTASMEA. Medido: de frente el sobre fantasma deja pasar el
+ * 84% de lo que haya detras (alpha por capa 0,085, dos caras 0,163), y detras
+ * de la cara hay 225 mallas de musculo facial y 149 de craneo en la banda
+ * y > 1,45 del GLB del laboratorio. O sea: la cara salia DESOLLADA --musculo
+ * rojo y hueso blanco-- en cada plano del laboratorio, que es exactamente el
+ * fotograma que descalifica un video.
+ *
+ * Asi que el fantasma se apaga por altura entre estas dos cotas. Medidas sobre
+ * `public/cuerpo-rig.opt.glb`: la piel del cuello llega hasta y=1,498
+ * (`Posterior_region_of_neck`, `Carotid_triangle`, `Submental_triangle`) y la
+ * de la cara empieza por encima (`Eyebrow` 1,617, `Temporal` 1,611, `Frontal`
+ * 1,625, `Parietal` 1,686). El degradado cae en la mandibula, 8 cm, asi que no
+ * hay salto de material ni costura en el cuello --el defecto que tiene hoy la
+ * muneca, donde si hay dos materiales distintos a 1,5 cm.
+ */
+const HEAD_SOLID_Y0 = 1.5; // por debajo: fantasma completo
+const HEAD_SOLID_Y1 = 1.58; // por encima: piel solida
 
-// Emissive tint for the click-to-dissect SELECTION (sky-300): shows what the
-// "Diseccionar" button will remove without repainting the muscle's own color.
+// EL RESALTE DE SELECCION DE LA DISECCION, y por que el comentario de antes
+// era falso. Decia "sin repintar el color propio del musculo" y ponia el
+// sky-300 en el EMISIVO, que es aditivo: en lineal 0x7dd3fc vale
+// [0.21, 0.63, 0.98] y a intensidad 0,55 su canal azul era 10 veces el techo
+// iluminado del rojo del musculo (0.044). O sea: repintaba el musculo de cian,
+// exactamente el mismo fallo que el brillo de papel de RigOverlays.
+//
+// Ahora el vientre sube de luminancia con su PROPIO color (brasa suave, sin
+// calentar hacia el naranja para que no se confunda con "activo") y el
+// "seleccionado" se dice en el CONTORNO, en sky-300: un borde azul claro sobre
+// un musculo rojo dice lo que hay que decir sin mentir sobre el tejido.
 const SELECTION_EMISSIVE = 0x7dd3fc;
+const SELECTION_RIM_K = 0.9;
 const SKIN_FADE_SPEED = 6; // per-second lerp rate toward the target
 
 // ---------------------------------------------------------------------------
@@ -1223,9 +1252,13 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       const src = lm.mesh.material as THREE.MeshStandardMaterial;
       const clone = cloneOverlayMaterial(src);
       if ('emissive' in clone) {
-        clone.emissive = new THREE.Color(SELECTION_EMISSIVE);
-        clone.emissiveIntensity = 0.55;
+        // Brasa sin calentar: el propio color, mas luminoso. `paintEmber`
+        // mezclaria hacia naranja, que es la senal de "activo".
+        clone.emissive = clone.color.clone();
+        clone.emissiveIntensity = 0.35;
       }
+      attachRim(clone);
+      setRim(clone, SELECTION_EMISSIVE, SELECTION_RIM_K);
       // `orig` es el material DE BASE. Guardar aqui el clon del brillo de
       // RigOverlays dejaba al musculo encendido para siempre: ver
       // src/lib/rigMaterialStack.ts.
@@ -1439,7 +1472,18 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         sheenColor: new THREE.Color(0xffdcc6),
         // Cool base tint the ghost fade scales up (see BODY_SKIN_GHOST_EMISSIVE);
         // intensity 0 here so the always-solid distal caps stay untinted.
-        emissive: new THREE.Color(0x1a2740),
+        //
+        // MEDIDO, Y POR ESO BAJO DE 0,45 A 0,12 Y DE 0x1a2740 A 0x2a3348: el
+        // emisivo es ADITIVO y no lo atenua ninguna luz, asi que entrando
+        // plano aportaba el 16% del azul en la cara iluminada, el 25% de
+        // frente y el 68% EN SOMBRA, y hacia que b-r pasara de -19 (marron
+        // calido) a +3 (gris frio): la sombra de la piel salia mas azul que
+        // roja. Eso era el "tubo gris-azulado de plastico". Ahora el termino
+        // va multiplicado por el MISMO Fresnel que la opacidad (ver
+        // `totalEmissiveRadiance` en el onBeforeCompile), que es lo que el
+        // comentario de BODY_SKIN_GHOST_OPACITY dice que se quiere: brillo en
+        // la silueta, nada en el centro ni en la sombra.
+        emissive: new THREE.Color(0x2a3348),
         emissiveIntensity: 0.0,
         side: THREE.DoubleSide,
       });
@@ -1461,20 +1505,49 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         sh.uniforms.uGhost = ghostU;
         sh.uniforms.uGhostPow = { value: BODY_SKIN_GHOST_FRESNEL_POW };
         sh.uniforms.uGhostFloor = { value: BODY_SKIN_GHOST_FRESNEL_FLOOR };
+        sh.uniforms.uHeadY0 = { value: HEAD_SOLID_Y0 };
+        sh.uniforms.uHeadY1 = { value: HEAD_SOLID_Y1 };
+        // LA ALTURA ANATOMICA, NO LA DE PANTALLA. Se toma de `position` (la
+        // pose de ligado) y no de `transformed` (la pose ya animada), para que
+        // la mascara de la cabeza no se mueva cuando el cuello se flexiona:
+        // con la pose animada, 50 deg de flexion bajan la coronilla 8,6 cm y
+        // el menton 2,5 cm, y parte de la cara volveria a fantasmear.
+        sh.vertexShader =
+          'varying float vAnatY;\n' +
+          sh.vertexShader.replace(
+            '#include <begin_vertex>',
+            ['#include <begin_vertex>', 'vAnatY = ( modelMatrix * vec4( position, 1.0 ) ).y;'].join(
+              '\n',
+            ),
+          );
         sh.fragmentShader =
           'uniform float uGhost;\nuniform float uGhostPow;\nuniform float uGhostFloor;\n' +
-          sh.fragmentShader.replace(
-            '#include <dithering_fragment>',
-            // `normal` ya viene volteada por three en las caras traseras, asi
-            // que la cara interna del sobre se apaga igual que la externa, que
-            // es la mitad del apilamiento.
-            [
-              'float ghostFres = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));',
-              'float ghostK = mix(uGhostFloor, 1.0, pow(ghostFres, uGhostPow));',
-              'gl_FragColor.a *= mix(1.0, ghostK, uGhost);',
+          'uniform float uHeadY0;\nuniform float uHeadY1;\nvarying float vAnatY;\n' +
+          sh.fragmentShader
+            // El emisivo se calcula AQUI y no en `dithering_fragment` porque
+            // ahi gl_FragColor ya lo lleva sumado y no se puede descontar.
+            // `normal` existe desde <normal_fragment_begin>, que three incluye
+            // antes de este punto, asi que el Fresnel ya se puede medir.
+            .replace(
+              '#include <emissivemap_fragment>',
+              [
+                '#include <emissivemap_fragment>',
+                'float ghostFres = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));',
+                'float ghostK = mix(uGhostFloor, 1.0, pow(ghostFres, uGhostPow));',
+                'float headSolid = smoothstep(uHeadY0, uHeadY1, vAnatY);',
+                'totalEmissiveRadiance *= ghostK * (1.0 - headSolid);',
+              ].join('\n'),
+            )
+            .replace(
               '#include <dithering_fragment>',
-            ].join('\n'),
-          );
+              // `normal` ya viene volteada por three en las caras traseras, asi
+              // que la cara interna del sobre se apaga igual que la externa, que
+              // es la mitad del apilamiento.
+              [
+                'gl_FragColor.a = mix(gl_FragColor.a * mix(1.0, ghostK, uGhost), 1.0, headSolid);',
+                '#include <dithering_fragment>',
+              ].join('\n'),
+            );
       };
       bodySkinMatRef.current = bodySkinMat;
       const swap = (mesh: THREE.Mesh, next: THREE.Material): void => {

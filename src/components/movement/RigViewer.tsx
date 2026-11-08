@@ -8,7 +8,7 @@
 // Self-contained: own lighting (same analytic setup as Viewer3D, no network),
 // own CameraControls, and a one-shot auto-fit onto the rig once it streams in.
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import {
   AdaptiveDpr,
@@ -25,11 +25,49 @@ import { ShoulderRhythmArc } from './ShoulderRhythmArc';
 import { NeuroSkinLayer } from './NeuroSkinLayer';
 import { useIsCompact } from '../../hooks/useIsCompact';
 import {
+  FRAME_DEGENERATE_SIDE,
   FRAME_MIN_SIDE,
   FRAME_PAD_RATIO,
   extraFrameBonesFor,
   regionFrameBones,
+  regionFrameCore,
 } from '../../lib/labFraming';
+import { rigSideFor } from '../../lib/boneMap';
+import { movementById } from '../../data/romByRegion';
+import { buildLabArc } from '../../lib/romPhaseAtAngle';
+
+/**
+ * REENCUADRAR. El laboratorio no tenia forma de volver a la vista: la barra de
+ * vistas (`ViewToolbar`) solo existe en Explorar, asi que una vez que el usuario
+ * tocaba la rueda o arrastraba, la unica salida era recargar la pagina. En una
+ * sesion de grabacion eso es una toma perdida por error.
+ */
+export const frameChannel = (() => {
+  const listeners = new Set<() => void>();
+  return {
+    refit: (): void => listeners.forEach((l) => l()),
+    subscribe: (l: () => void): (() => void) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+  };
+})();
+
+/**
+ * DPR DE GRABACION. El laboratorio pinta a 1,25x frente a los 2x del atlas, y
+ * `performance.min` lo baja a 0,75x MIENTRAS el brazo se mueve, devolviendo la
+ * nitidez 120 ms despues de parar: en video eso se ve como un enfoque que llega
+ * tarde. `?hd=1` sube a 2x y desactiva la regresion, SOLO para grabar. El tope
+ * de 1,25 se queda por defecto: esta ahi por los portatiles de los fisios.
+ */
+function wantsHd(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return new URLSearchParams(window.location.search).get('hd') === '1';
+  } catch {
+    return false;
+  }
+}
 
 // The rig is 1300+ skinned meshes; skinning is vertex-heavy and each mesh is a
 // draw call. Cap DPR low so mid-range physio laptops stay smooth -- geometry,
@@ -42,6 +80,8 @@ import {
 // runs. Geometry is what carries this model, not resolution.
 const RIG_DPR: [number, number] = [1, 1.25];
 const RIG_DPR_COMPACT: [number, number] = [1, 1];
+/** Solo con `?hd=1`: la resolucion del atlas, para grabar. Ver `wantsHd`. */
+const RIG_DPR_HD: [number, number] = [1, 2];
 
 /**
  * Auto-fit the camera onto the rig once it has a valid bounding box, and AGAIN
@@ -66,6 +106,10 @@ function AutoFit({
   const controls = useThree((s) => s.controls) as CameraControls | null;
   const framed = useRef(false);
   const lastKey = useRef<string | number | undefined>(undefined);
+  /** La caja que la camara tiene puesta ahora mismo. Solo crece. */
+  const keptBox = useRef<THREE.Box3 | null>(null);
+  /** Fuerza otra pasada de encuadre cuando el usuario pulsa Reencuadrar. */
+  const [nudge, setNudge] = useState(0);
 
   // A changed key means the viewport changed shape OR the studied region
   // changed: either way the current framing is wrong, so let the one-shot guard
@@ -90,11 +134,127 @@ function AutoFit({
     return rigChannel.subscribe(onCmd);
   }, [region]);
 
-  const fitKey = `${refitKey ?? ''}|${region ?? ''}|${demoBones.join(',')}`;
+  // EL LADO QUE SE ENCUADRA. Los nombres base de hueso casan en los DOS
+  // armatures: medido en la escena viva, los 6 nombres del hombro casaban 12
+  // huesos, 6 en Shoulder_Armature_R y 6 en Shoulder_Armature_L, asi que la
+  // caja abarcaba los dos brazos. Filtrar al lado activo baja el ancho de 0,79
+  // a 0,51 m en hombro y de 0,78 a 0,34 m en codo (medido).
+  //
+  // `rigSideFor` porque el sufijo del rig es el contrario del lado clinico: el
+  // nodo _R esta en +x, que es la IZQUIERDA anatomica (ver boneMap).
+  const [rigSuffix, setRigSuffix] = useState<'R' | 'L'>('L');
+  useEffect(() => {
+    const onSide = (cmd: RigCommand) => {
+      const next = rigSideFor(cmd.side);
+      setRigSuffix((prev) => (prev === next ? prev : next));
+    };
+    onSide(rigChannel.get());
+    return rigChannel.subscribe(onSide);
+  }, []);
+
+  const fitKey = `${refitKey ?? ''}|${region ?? ''}|${rigSuffix}|${demoBones.join(',')}`;
   if (lastKey.current !== fitKey) {
     lastKey.current = fitKey;
     framed.current = false;
   }
+
+  // Un reencuadre a mano vuelve al nucleo, igual que al entrar.
+  useEffect(
+    () =>
+      frameChannel.subscribe(() => {
+        framed.current = false;
+        keptBox.current = null;
+        setNudge((n) => n + 1);
+      }),
+    [],
+  );
+
+  // Las posiciones de mundo de un conjunto de nombres base de hueso, SOLO en el
+  // armature del lado activo. Los huesos del raquis no llevan sufijo de lado,
+  // asi que los que no cuelgan de ningun `*_Armature_{R|L}` entran siempre.
+  const bonePoints = useCallback(
+    (names: Set<string>): THREE.Vector3[] => {
+      const out: THREE.Vector3[] = [];
+      scene.traverse((o) => {
+        if (!(o as THREE.Bone).isBone) return;
+        // Z-Anatomy duplicates carry a numeric tail ("scapula_1").
+        if (!names.has(o.name.replace(/_\d+$/, ''))) return;
+        let r: THREE.Object3D | null = o;
+        let suffix: string | null = null;
+        while (r) {
+          const m = /_Armature_([RL])$/.exec(r.name);
+          if (m) {
+            suffix = m[1];
+            break;
+          }
+          r = r.parent;
+        }
+        if (suffix != null && suffix !== rigSuffix) return;
+        const p = o.getWorldPosition(new THREE.Vector3());
+        if (isFinite(p.x)) out.push(p);
+      });
+      return out;
+    },
+    [scene, rigSuffix],
+  );
+
+  // La caja con su margen: el proporcional (los huesos son el EJE del miembro;
+  // piel, vientres musculares y la pala de la escapula viven por fuera) y el
+  // minimo por lado (un bloque de raquis esta todo en la linea media, asi que
+  // su caja mide 0,00 m de ancho y ajustar una camara a un plano la mete dentro
+  // del modelo).
+  const padBox = useCallback((box: THREE.Box3): THREE.Box3 => {
+    if (box.isEmpty()) return box;
+    const size = box.getSize(new THREE.Vector3());
+    box.expandByScalar(Math.max(size.x, size.y, size.z) * FRAME_PAD_RATIO);
+    // EL MINIMO POR LADO SOLO PARA EL LADO DEGENERADO.
+    //
+    // MEDIDO: la caja del hombro mide 0,21 x 0,32 x 0,07 m. Aplicar el minimo de
+    // 0,34 m a los TRES lados engordaba la profundidad de 0,21 a 0,34, y como
+    // `fitToBox` retrocede la camara media profundidad, eso son 7 cm de
+    // alejamiento regalados sobre un encuadre de 0,46 m. El minimo existe por el
+    // raquis, cuyas vertebras estan TODAS en la linea media y dan una caja de
+    // 0,00 m de ancho --un plano, al que ajustar una camara la mete dentro del
+    // modelo--, asi que solo tiene que actuar donde el lado es de verdad
+    // degenerado, no donde simplemente es estrecho.
+    const grown = box.getSize(new THREE.Vector3());
+    const lift = (v: number) => (v < FRAME_DEGENERATE_SIDE ? (FRAME_MIN_SIDE - v) / 2 : 0);
+    const gx = Math.max(0, lift(grown.x));
+    const gy = Math.max(0, lift(grown.y));
+    const gz = Math.max(0, lift(grown.z));
+    box.min.set(box.min.x - gx, box.min.y - gy, box.min.z - gz);
+    box.max.set(box.max.x + gx, box.max.y + gy, box.max.z + gz);
+    return box;
+  }, []);
+
+  /**
+   * EL MARGEN DE `fitToBox`, EN PROPORCION Y NO EN METROS.
+   *
+   * MEDIDO, y era el termino que mas sobraba: con 0,15 m fijos por lado, una
+   * caja de 0,46 m de alto se encuadraba en 0,88 m de escena visible --el 91% de
+   * margen-- y el resultado era que el "encuadre del hombro" seguia enseniando
+   * de la coronilla a las manos. El margen tiene que escalar con lo que se
+   * encuadra: una region pequenia, un margen pequenio.
+   */
+  const padOf = useCallback((box: THREE.Box3): number => {
+    const s2 = box.getSize(new THREE.Vector3());
+    return Math.max(s2.x, s2.y, s2.z) * 0.07;
+  }, []);
+
+  // EL TOPE DE LA RUEDA, DERIVADO DE LO QUE SE ACABA DE ENCUADRAR.
+  //
+  // Eran numeros fijos (minDistance 0,05 / maxDistance 50) sobre un cuerpo de
+  // 1,75 m: medido, con la rueda hacia atras el cuerpo entero cabia en 34 px y
+  // las etiquetas del atlas se amontonaban en una columna con doce guias
+  // convergiendo en el mismo punto. Con el encuadre del hombro (d~1,5 m) el
+  // tope pasa a 3 m, donde el cuerpo sigue ocupando el 69% del alto.
+  const clampDolly = useCallback(() => {
+    if (!controls) return;
+    const d = controls.distance;
+    if (!isFinite(d) || d <= 0) return;
+    controls.maxDistance = d * 2;
+    controls.minDistance = Math.max(0.12, d * 0.08);
+  }, [controls]);
 
   useEffect(() => {
     if (framed.current || !controls) return;
@@ -105,40 +265,18 @@ function AutoFit({
         scene.updateWorldMatrix(true, true);
         const box = new THREE.Box3();
 
-        // REGION FIRST. The lab used to frame the whole body for every region,
-        // so choosing "Hombro" opened on a 1,75 m figure with the joint under
-        // study a few percent of the canvas. Framing the region's bones puts
-        // the joint where the user is looking; the bone list already includes
-        // the segments the movement carries (the hand for elevation, the shin
-        // for hip flexion), so the limb cannot swing out of frame mid-arc.
-        const wanted = regionFrameBones(region);
+        // EL NUCLEO PRIMERO, NO LA LISTA COMPLETA. El laboratorio encuadraba el
+        // cuerpo entero para cada region, asi que elegir "Hombro" abria sobre
+        // una figura de 1,75 m con la articulacion estudiada en un pequeno
+        // porcentaje del lienzo. Y encuadrar la lista COMPLETA tampoco servia:
+        // incluye la mano porque la abduccion la lleva arriba, pero en reposo
+        // la mano cuelga a la altura de la cadera y la caja bajaba hasta ahi
+        // (ver REGION_FRAME_CORE, con las medidas). Lo que la mano necesita es
+        // que la camara la siga, y de eso se encarga el guardian de abajo.
+        const wanted = regionFrameCore(region);
         if (wanted) {
-          const names = new Set([...wanted, ...demoBones]);
-          const p = new THREE.Vector3();
-          scene.traverse((o) => {
-            if (!(o as THREE.Bone).isBone) return;
-            // Z-Anatomy duplicates carry a numeric tail ("scapula_1").
-            if (!names.has(o.name.replace(/_\d+$/, ''))) return;
-            o.getWorldPosition(p);
-            if (isFinite(p.x)) box.expandByPoint(p);
-          });
-          // Bones are points on the AXIS of a limb; skin, muscle bellies and
-          // the scapular blade all live outside them. One proportional margin
-          // covers that without a per-region magic number.
-          if (!box.isEmpty()) {
-            const size = box.getSize(new THREE.Vector3());
-            const pad = Math.max(size.x, size.y, size.z) * FRAME_PAD_RATIO;
-            box.expandByScalar(pad);
-            // A spine region's bones are all on the midline, so its box is a
-            // PLANE (0.00 m wide). Fitting a camera to a plane flies it into
-            // the model. Grow any thin axis to a sensible trunk depth.
-            const grown = box.getSize(new THREE.Vector3());
-            const gx = Math.max(0, (FRAME_MIN_SIDE - grown.x) / 2);
-            const gy = Math.max(0, (FRAME_MIN_SIDE - grown.y) / 2);
-            const gz = Math.max(0, (FRAME_MIN_SIDE - grown.z) / 2);
-            box.min.set(box.min.x - gx, box.min.y - gy, box.min.z - gz);
-            box.max.set(box.max.x + gx, box.max.y + gy, box.max.z + gz);
-          }
+          for (const p of bonePoints(new Set([...wanted, ...demoBones]))) box.expandByPoint(p);
+          padBox(box);
         }
 
         // Fall back to the whole body: an unknown region, or a rig whose bones
@@ -156,19 +294,96 @@ function AutoFit({
         }
         if (box.isEmpty() || !isFinite(box.min.x)) return;
         framed.current = true;
+        keptBox.current = box.clone();
+        const pad = padOf(box);
         void controls.fitToBox(box, true, {
-          paddingTop: 0.15,
-          paddingBottom: 0.15,
-          paddingLeft: 0.15,
-          paddingRight: 0.15,
+          paddingTop: pad,
+          paddingBottom: pad,
+          paddingLeft: pad,
+          paddingRight: pad,
         });
+        // El tope se fija cuando la transicion ha llegado, no antes.
+        window.setTimeout(clampDolly, 450);
       });
     });
     return () => {
       cancelAnimationFrame(raf1);
       if (raf2) cancelAnimationFrame(raf2);
     };
-  }, [controls, scene, fitKey]);
+  }, [controls, scene, fitKey, nudge, bonePoints, padBox, padOf, clampDolly, demoBones, region]);
+
+  // EL GUARDIAN DE ENCUADRE: la camara AMPLIA, y solo amplia.
+  //
+  // Una sola caja estatica no puede contener a la vez el ritmo escapulohumeral
+  // --que se lee de cerca-- y una mano a y=1,91 m al final de la abduccion
+  // (medido: 0,531 m de radio desde la glenohumeral). Antes se resolvia metiendo
+  // la mano en la caja de apertura, y el precio era abrir sobre medio cuerpo.
+  //
+  // Asi que se abre sobre el nucleo y, cuando el arco saca de cuadro un hueso
+  // que la region declara que debe verse, la caja crece y se vuelve a ajustar.
+  // Solo crece: una camara que se acerca y se aleja sola durante una toma es
+  // peor que una que se queda ancha. Volver a lo estrecho es el boton de
+  // Reencuadrar (tecla R).
+  const camera = useThree((s) => s.camera);
+  const lastGrow = useRef(0);
+  useEffect(() => {
+    const full = regionFrameBones(region);
+    if (!full) return;
+    const names = new Set([...full, ...demoBones]);
+    const onCmd = (cmd: RigCommand) => {
+      if (!controls || !framed.current || !keptBox.current) return;
+      // SOLO MIENTRAS EL ARCO ESTA FUERA DE SU INICIO.
+      //
+      // MEDIDO, Y ERA UN FALLO DE ESTE MISMO GUARDIAN: en reposo la mano cuelga
+      // a y=0,864 m, o sea MUY por debajo del encuadre del hombro, asi que el
+      // guardian la veia fuera de cuadro y ampliaba la caja en el primer
+      // fotograma. Resultado: la vista volvia a abrir sobre medio cuerpo
+      // (`hand_flex` quedo en ndc y = -0,96, pegado al borde inferior), que es
+      // exactamente el defecto que el nucleo venia a arreglar.
+      //
+      // Un hueso fuera de cuadro EN REPOSO lo esta por diseno. Lo que hay que
+      // seguir es el que el MOVIMIENTO esta sacando. Asi que la camara solo
+      // amplia cuando el angulo se ha ido del inicio anatomico del gesto. Si el
+      // movimiento no se conoce todavia --una region de pago cuyo contenido aun
+      // no ha llegado-- no se amplia: mejor un encuadre estrecho que uno que se
+      // abre solo.
+      const mv = cmd.movementId ? movementById(cmd.movementId) : null;
+      if (!mv) return;
+      if (Math.abs(cmd.angleDeg - buildLabArc(mv).startDeg) <= 8) return;
+      const ndc = new THREE.Vector3();
+      const need = keptBox.current.clone();
+      let grew = false;
+      for (const p of bonePoints(names)) {
+        if (keptBox.current.containsPoint(p)) continue;
+        ndc.copy(p).project(camera);
+        // 0,88 y no 1,0: un hueso pegado al borde ya esta medio tapado por el
+        // propio grosor del miembro, y el panel izquierdo come lienzo.
+        if (Math.abs(ndc.x) < 0.88 && Math.abs(ndc.y) < 0.88) continue;
+        need.expandByPoint(p);
+        grew = true;
+      }
+      if (!grew) return;
+      padBox(need);
+      const was = keptBox.current.getSize(new THREE.Vector3());
+      const now = need.getSize(new THREE.Vector3());
+      // Histeresis: sin esto, cada grado del arco pediria un reajuste de un
+      // milimetro y la camara no pararia de respirar.
+      if (Math.max(now.x, now.y, now.z) < Math.max(was.x, was.y, was.z) * 1.06) return;
+      const t = performance.now();
+      if (t - lastGrow.current < 350) return;
+      lastGrow.current = t;
+      keptBox.current = need;
+      const pad = padOf(need);
+      void controls.fitToBox(need, true, {
+        paddingTop: pad,
+        paddingBottom: pad,
+        paddingLeft: pad,
+        paddingRight: pad,
+      });
+      window.setTimeout(clampDolly, 450);
+    };
+    return rigChannel.subscribe(onCmd);
+  }, [controls, camera, region, demoBones, bonePoints, padBox, padOf, clampDolly]);
 
   return null;
 }
@@ -336,11 +551,13 @@ function NavigationRig({ compact }: { compact: boolean }) {
           (point at a muscle and scroll in), and a small minDistance lets the
           camera get right up to a single muscle. Right-drag trucks (pans) up/
           down/sideways; double-click flies to a structure (DoubleClickFocus). */}
+      {/* minDistance/maxDistance los reescribe `AutoFit.clampDolly` con la caja
+          recien encuadrada; estos son solo el arranque, antes del primer ajuste. */}
       <CameraControls
         makeDefault
         dollyToCursor
         minDistance={0.05}
-        maxDistance={50}
+        maxDistance={6}
         smoothTime={0.18}
         draggingSmoothTime={0.08}
         onChange={regress}
@@ -349,8 +566,15 @@ function NavigationRig({ compact }: { compact: boolean }) {
   );
 }
 
-/** After this many ms the wait stops being normal and gets explained. */
-const RIG_SLOW_MS = 6000;
+/**
+ * A partir de aqui la espera se explica.
+ *
+ * Estaba en 6000 ms, y medido en /rodilla/movimiento la carga completa tarda mas
+ * que eso: la frase de contexto aparecia al sexto segundo, cuando el usuario ya
+ * habia decidido que la aplicacion estaba colgada. Si el texto es verdad, lo es
+ * desde el principio.
+ */
+const RIG_SLOW_MS = 1200;
 
 function RigLoaderOverlay({ progress }: { progress: number }) {
   const pct = Math.min(100, Math.round(progress));
@@ -374,7 +598,12 @@ function RigLoaderOverlay({ progress }: { progress: number }) {
           <span className="font-display text-sm font-medium tracking-wide text-slate-200">
             Cargando rig biomecánico
           </span>
-          <span className="font-mono text-xs text-slate-500">cuerpo-rig.glb · {pct}%</span>
+          {/* NO EL NOMBRE DEL FICHERO DEL DESARROLLADOR. "cuerpo-rig.glb" no le
+              dice nada a un fisio y sale en camara en cualquier plano de carga
+              en frio. */}
+          <span className="font-mono text-xs text-slate-500">
+            Hueso, músculo y piel · {pct}%
+          </span>
         </div>
         <div className="h-1 w-56 overflow-hidden rounded-full bg-slate-800">
           <div
@@ -384,12 +613,63 @@ function RigLoaderOverlay({ progress }: { progress: number }) {
         </div>
         {slow && (
           <p className="max-w-[18rem] text-center text-xs leading-relaxed text-slate-500">
-            Es un cuerpo entero con esqueleto, músculo y piel. Se descarga una
-            sola vez y queda guardado para las siguientes visitas.
+            Cuerpo completo, 11 MB. Se descarga una sola vez y queda guardado
+            para las siguientes visitas.
           </p>
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * VOLVER A LA VISTA. El laboratorio no tenia ninguna: `ViewToolbar` solo existe
+ * en Explorar, asi que despues de un arrastre o un giro de rueda la unica
+ * salida era recargar. La tecla R esta ahi porque en una sesion de grabacion es
+ * lo que te deja repetir una toma sin recargar y sin perder la pose.
+ */
+function RefitButton() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'r' && e.key !== 'R') return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // Nunca mientras se escribe en un campo (el buscador, una respuesta).
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || t?.isContentEditable) return;
+      e.preventDefault();
+      frameChannel.refit();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  // ABAJO AL CENTRO, Y NO ARRIBA A LA DERECHA.
+  //
+  // Ahi estaba, y MEDIDO en el navegador no se podia pulsar: el panel de capas
+  // (Piel / Musculo / Hueso / Tendones) ocupa `top-4 right-4` con `z-20` sobre
+  // el mismo contenedor, asi que `elementFromPoint` en el centro del boton
+  // devolvia el boton "Tendones". El clic entraba, pero en el otro boton. Abajo
+  // al centro el lienzo esta libre (comprobado a 560 px y 720 px de ancho de
+  // escenario) y `z-30` lo pone por encima de los dos paneles laterales.
+  return (
+    <button
+      type="button"
+      onClick={() => frameChannel.refit()}
+      title="Volver al encuadre de la región (R)"
+      aria-label="Reencuadrar la vista"
+      className="absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-slate-700/70 bg-ink-950/75 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-300 backdrop-blur-sm transition-colors hover:border-accent/60 hover:text-accent"
+    >
+      <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" aria-hidden>
+        <path
+          d="M2 5.5V3a1 1 0 0 1 1-1h2.5M14 5.5V3a1 1 0 0 0-1-1h-2.5M2 10.5V13a1 1 0 0 0 1 1h2.5M14 10.5V13a1 1 0 0 1-1 1h-2.5"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+      </svg>
+      Reencuadrar
+      <span className="font-mono text-[9px] text-slate-500">R</span>
+    </button>
   );
 }
 
@@ -402,6 +682,8 @@ export function RigViewer({
   const { progress } = useProgress();
   const [ready, setReady] = useState(false);
   const compact = useIsCompact();
+  // `?hd=1`: resolucion de grabacion. Se lee una vez, no por fotograma.
+  const [hd] = useState(wantsHd);
 
   // The rig itself reports when it's loaded AND styled (onReady). We dismiss the
   // loader on that signal -- NOT on drei's progress reaching 100, which never
@@ -428,7 +710,7 @@ export function RigViewer({
         // WebGL canvas (preserveDrawingBuffer is on, so toDataURL/drawImage work).
         id="rig-gl-canvas"
         camera={{ position: [2, 1.5, 4], fov: 45, near: 0.05, far: 100 }}
-        dpr={compact ? RIG_DPR_COMPACT : RIG_DPR}
+        dpr={hd ? RIG_DPR_HD : compact ? RIG_DPR_COMPACT : RIG_DPR}
         // Floor for the adaptive quality drop while the CAMERA moves (nothing
         // else regresses -- see the note above NavigationRig). Same on phones:
         // a lower floor here made a drag on mobile blocky for no real gain.
@@ -447,7 +729,7 @@ export function RigViewer({
         // the phones were already exempted from this half for the same reason.
         // 0.75 keeps a real saving for the genuinely heavy drags; the shorter
         // debounce brings the sharp frame back as soon as the gesture stops.
-        performance={{ min: 0.75, debounce: 120 }}
+        performance={hd ? { min: 1, debounce: 0 } : { min: 0.75, debounce: 120 }}
         gl={{
           // MSAA is a fill-rate tax, and fill rate is exactly what a phone does
           // not have spare while skinning 1300+ meshes per frame.
@@ -491,6 +773,8 @@ export function RigViewer({
           in front, both pointer-events-none so the canvas stays fully draggable. */}
       <div className="pointer-events-none absolute inset-0 rig-stage-glow" />
       <div className="pointer-events-none absolute inset-0 rig-vignette" />
+
+      {ready && <RefitButton />}
 
       {!ready && <RigLoaderOverlay progress={progress} />}
     </div>

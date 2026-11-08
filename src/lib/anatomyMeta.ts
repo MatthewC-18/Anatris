@@ -96,8 +96,16 @@ export interface ViewMeta {
 export const VIEW_META: Record<CameraView, ViewMeta> = {
   anterior: { label: 'Anterior', key: '1', dir: [0, 0, 1] },
   posterior: { label: 'Posterior', key: '2', dir: [0, 0, -1] },
-  'lateral-right': { label: 'Lateral der.', key: '3', dir: [1, 0, 0] },
-  'lateral-left': { label: 'Lateral izq.', key: '4', dir: [-1, 0, 0] },
+  // LA DERECHA DEL PACIENTE ESTÁ EN -x, NO EN +x.
+  //
+  // Estas dos direcciones estaban cambiadas, así que "Lateral der." enseñaba el
+  // costado IZQUIERDO del modelo y al revés. Es la misma convención que ya tiene
+  // medida y vigilada el laboratorio: en este GLB el lado _R del rig está en +x,
+  // que es la IZQUIERDA anatómica (ver `boneMap.rigSideFor` y
+  // `npm run audit-laterality`). La cámara mira HACIA el modelo, así que para
+  // ver el costado derecho --que está en -x-- hay que colocarla en -x.
+  'lateral-right': { label: 'Lateral der.', key: '3', dir: [-1, 0, 0] },
+  'lateral-left': { label: 'Lateral izq.', key: '4', dir: [1, 0, 0] },
   superior: { label: 'Superior', key: '5', dir: [0, 1, 0.0001] },
   'three-quarter': { label: '3/4', key: '6', dir: [0.8, 0.35, 0.9] },
 };

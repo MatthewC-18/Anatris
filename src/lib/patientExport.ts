@@ -33,11 +33,19 @@ const CARD_W = 1080;
 const CARD_H = 1440;
 const PAD = 64;
 
-/** Locate the movement-lab WebGL canvas (tagged in RigViewer). */
+/**
+ * Localiza el lienzo WebGL del laboratorio.
+ *
+ * OJO CON EL ID: `RigViewer` pone `id="rig-gl-canvas"` en el `<Canvas>` de r3f,
+ * y r3f se lo pasa al DIV ENVOLTORIO, no al `<canvas>`. Medido en el navegador:
+ * `document.getElementById('rig-gl-canvas').tagName` devuelve `DIV`. Asi que el
+ * camino que de verdad funciona es el segundo, y la guarda de `instanceof` es lo
+ * unico que impide llamar a `drawImage` sobre un DIV, que lanza.
+ */
 function findRigCanvas(): HTMLCanvasElement | null {
   const byId = document.getElementById('rig-gl-canvas');
   if (byId instanceof HTMLCanvasElement) return byId;
-  // Fallback: the only <canvas> on screen in the lab is the rig's.
+  // El camino real: en el laboratorio el unico <canvas> en pantalla es el rig.
   const all = Array.from(document.querySelectorAll('canvas'));
   return (all.find((c) => c.width > 100 && c.height > 100) as HTMLCanvasElement) ?? null;
 }

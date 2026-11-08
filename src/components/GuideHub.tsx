@@ -12,18 +12,29 @@
 //
 // UI strings Spanish LATAM; code/ids ASCII.
 
+import { REGIONS } from '../data/regiones';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { shortcutLabel, type AppMode } from './TopBar';
 
-const REGION_LABELS: Record<string, string> = {
+// EL NOMBRE DE LA REGIÓN SALE DE `REGIONS`, QUE ES LA ÚNICA FUENTE.
+//
+// Aquí había una copia a mano de la tabla, y le faltaban `hip` y `ankle`. La
+// línea de abajo hace `REGION_LABELS[regionId] ?? regionId`, así que el "estás
+// aquí" de la ayuda imprimía el identificador EN INGLÉS: 'hip' y 'ankle'. Son
+// dos de las regiones de PAGO, vistas desde el botón de ayuda permanente de la
+// barra superior, o sea en el primer minuto de cualquier demostración.
+//
+// Los nombres de región estaban escritos en tres sitios (`regiones.ts`, las
+// `MODULES` de `TopBar` y esta tabla); con esto queda uno menos, y la próxima
+// región nueva no puede volver a salir en inglés aquí.
+const EXTRA_LABELS: Record<string, string> = {
+  // 'fundamentos' no es una región anatómica, así que no vive en REGIONS.
   fundamentos: 'Fundamentos',
-  shoulder: 'Hombro',
-  elbow: 'Codo',
-  cervical: 'Cervical',
-  thoracic: 'Torácica',
-  lumbar: 'Lumbar',
-  knee: 'Rodilla',
 };
+
+function regionLabelOf(regionId: string): string {
+  return EXTRA_LABELS[regionId] ?? REGIONS[regionId]?.name ?? regionId;
+}
 
 interface ModeInfo {
   id: AppMode;
@@ -114,7 +125,7 @@ export function GuideHub({
   onClose,
 }: GuideHubProps) {
   const setPaletteOpen = useAnatomyStore((s) => s.setPaletteOpen);
-  const regionLabel = REGION_LABELS[regionId] ?? regionId;
+  const regionLabel = regionLabelOf(regionId);
   const active = MODES.find((m) => m.id === mode) ?? MODES[0];
 
   const openSearch = () => {

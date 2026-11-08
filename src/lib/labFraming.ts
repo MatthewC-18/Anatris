@@ -43,6 +43,56 @@ export const REGION_FRAME_BONES: Record<string, readonly string[]> = {
 };
 
 /**
+ * EL ENCUADRE DE APERTURA: hasta donde llega la vista al entrar, antes de que
+ * ningun arco haya movido nada.
+ *
+ * POR QUE HACEN FALTA DOS LISTAS, MEDIDO EN LA ESCENA VIVA. `REGION_FRAME_BONES`
+ * dice que huesos no se pueden salir de cuadro EN NINGUN momento del arco, y eso
+ * incluye la mano, porque la abduccion la lleva por encima de la cabeza. Pero en
+ * la pose de REPOSO la mano cuelga a y=0,864 m, que es exactamente la altura de
+ * `femur_base` (0,865 m): encuadrar esa lista al entrar hacia una caja del
+ * acromion a la cadera. Medido a 1440x900: la cabeza empezaba a 84 px del borde
+ * superior y el cuerpo se cortaba a medio muslo, ~1,24 m de escena visible para
+ * una articulacion de 10 cm.
+ *
+ * Posiciones de reposo medidas en el navegador (Shoulder_Armature_R):
+ * clavicle 1,396 / scapula 1,420 / humerus_gh 1,381 / forearm_flex 1,101 /
+ * hand_flex 0,864. Asi que:
+ *
+ *   - con la lista completa la caja mide 0,47 x 0,56 m;
+ *   - solo el nucleo (hasta el codo) mide 0,21 x 0,32 m, que compone acromion a
+ *     codo con el esternon y el cuello dentro: la vista que un fisio espera al
+ *     abrir "Hombro".
+ *
+ * Y lo que la mano necesita no es una caja mas grande, es que la camara la siga:
+ * una sola caja que contenga a la vez el ritmo escapulohumeral y una mano a
+ * y=1,91 m (medido: el radio del miembro desde la glenohumeral es 0,531 m) mide
+ * 0,81 m de alto y vuelve a ser medio cuerpo. Ver el guardian de encuadre de
+ * `RigViewer`, que amplia la caja --y solo la amplia-- cuando el arco saca un
+ * hueso de cuadro.
+ */
+export const REGION_FRAME_CORE: Record<string, readonly string[]> = {
+  // Cintura escapular mas brazo HASTA EL CODO. El codo es el extremo distal del
+  // segmento que se lee: deja el humero entero dentro, que es la rama de
+  // referencia del goniometro.
+  shoulder: ['clavicle', 'scapula', 'humerus_gh', 'forearm_flex'],
+  // El codo abre con el humero y el antebrazo; la mano es lo que arrastra.
+  elbow: ['humerus_gh', 'forearm_flex', 'forearm_rot'],
+  // La cadera abre con la pelvis y el muslo hasta la rodilla.
+  hip: ['vert_sacrum', 'vert_L5', 'femur_base', 'patella'],
+  // Rodilla: femur y tibia. El pie es lo que arrastra la flexion.
+  knee: ['femur_base', 'patella', 'shin_flex'],
+  // El raquis y el tobillo no arrastran nada fuera de su propia caja, asi que
+  // su nucleo es su lista completa y no hace falta repetirla aqui.
+};
+
+/** Huesos del encuadre de APERTURA de una region (o su lista completa). */
+export function regionFrameCore(region: string | null | undefined): readonly string[] | null {
+  if (region == null) return null;
+  return REGION_FRAME_CORE[region] ?? REGION_FRAME_BONES[region] ?? null;
+}
+
+/**
  * Extra room around the bone box, as a FRACTION of the box's own larger side.
  *
  * Bones are points on the axis of a limb; the skin, the muscle bellies and the
@@ -62,6 +112,19 @@ export const FRAME_PAD_RATIO = 0.22;
  * and wide at the chest, so this is also roughly what the user needs to see.
  */
 export const FRAME_MIN_SIDE = 0.34;
+
+/**
+ * Por debajo de esto un lado de la caja se considera DEGENERADO y se eleva a
+ * `FRAME_MIN_SIDE`. Por encima se deja como esta.
+ *
+ * Antes el minimo se aplicaba a los tres lados sin condicion, y eso engordaba
+ * cajas que no eran planas: medido, la del hombro pasa de 0,07 a 0,21 m de
+ * profundidad con el margen proporcional, y elevar eso a 0,34 regalaba 7 cm de
+ * alejamiento de camara porque `fitToBox` retrocede media profundidad. Un bloque
+ * de raquis da literalmente 0,00 m, asi que el caso que el minimo existe para
+ * cubrir sigue cubierto de sobra.
+ */
+export const FRAME_DEGENERATE_SIDE = 0.12;
 
 /** True when this region has a framing recipe. */
 export function hasRegionFrame(region: string | null | undefined): boolean {
