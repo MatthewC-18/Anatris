@@ -152,11 +152,34 @@ export function runClinicalAudit(): AuditResult {
             `demo.movementId '${t.demo.movementId}' no está en el ROM de ${region} ni es accionable`,
           );
         }
+        // EL ANGULO DE UN COMPONENTE CABE EN LO QUE EL RIG PUEDE HACER.
+        //
+        // `clinicalRange` no es decorativo: es el tope hasta el que la malla
+        // aguanta sin atravesar el cuerpo. La rotacion interna llega a 100
+        // grados en la tabla de ROM --con la mano pasando por detras de la
+        // espalda-- pero solo a 70 en la postura de lectura, codo a 90 y brazo
+        // al costado, porque a partir de ahi el antebrazo entra en el abdomen.
+        // Un componente autorizado por encima del tope no se queja: posa la
+        // maniobra atravesando al paciente, que es lo que se ve en pantalla.
+        const compAt = (id: string, deg: number) => {
+          const ctrl = BONE_MAP[id];
+          const r = ctrl && 'clinicalRange' in ctrl ? ctrl.clinicalRange : null;
+          if (!r) return;
+          if (deg < r.min || deg > r.max) {
+            err(
+              at,
+              `demo: '${id}' a ${deg}° se sale de lo accionable (${r.min}–${r.max}°)`,
+            );
+          }
+        };
         for (const c of t.demo.components ?? []) {
           if (!(c.movementId in BONE_MAP)) {
             err(at, `demo.components: '${c.movementId}' no es accionable en el rig`);
+          } else {
+            compAt(c.movementId, c.angleDeg);
           }
         }
+        if (t.demo.movementId in BONE_MAP) compAt(t.demo.movementId, t.demo.angleDeg);
         const hm = t.demo.highlightMuscleId;
         if (hm && muscleIds.size && !muscleIds.has(hm)) {
           err(at, `demo.highlightMuscleId '${hm}' no existe en ${region}`);

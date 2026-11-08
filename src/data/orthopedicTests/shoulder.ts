@@ -200,7 +200,32 @@ const tests: OrthopedicTest[] = [
       'La más específica de las cuatro pruebas de subescapular y la MENOS sensible de todas: un positivo confirma, un negativo no dice nada. Requiere rango de rotación interna suficiente para ejecutarse.',
     pearl:
       'Si el paciente no alcanza la posición lumbar (hombro rígido/doloroso), usa el belly-press como alternativa.',
-    demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }], movementId: 'glenohumeral-internal-rotation', angleDeg: 90, highlightMuscleId: 'subscapularis', note: 'La mano parte del dorso lumbar y se despega de la espalda.' },
+    // SIN DEMO, Y ESTA ES LA RAZÓN.
+    //
+    // Esta prueba se hace con el DORSO DE LA MANO sobre la región lumbar, y esa
+    // posición el rig no la alcanza. Lo que tenía era una rotación interna de
+    // 90° con el codo a 90, y ahí hay dos problemas encadenados:
+    //
+    //  1. 90° se sale de lo que el control conduce. La tabla de ROM da 100°,
+    //     pero esa cifra es precisamente con la mano pasando por detrás de la
+    //     espalda; el control trabaja en la postura de lectura --codo a 90,
+    //     brazo al costado-- donde el tope medido son 70° porque a partir de
+    //     ahí el antebrazo entra en el abdomen. Pedir 90 no daba el dorso
+    //     lumbar: daba un antebrazo atravesando la tripa. Ahora lo vigila
+    //     `npm run audit-data`.
+    //  2. Bajarlo al tope tampoco sirve. Medido con
+    //     `scripts/measure-test-poses.mts`: a 70° la pose queda a 2,7 cm de la
+    //     del press abdominal, por debajo del umbral con el que dos maniobras
+    //     se leen como la misma. Y no es un parecido cualquiera: lo que se
+    //     vería es la mano SOBRE EL ABDOMEN, que es el press abdominal, con el
+    //     rótulo "Lift-off (Gerber)" encima. Un alumno aprendería la maniobra
+    //     equivocada.
+    //
+    // Llevar la mano detrás de la espalda exige además extensión de hombro, que
+    // en este rig va dentro de la cadena de flexión y no se puede sostener como
+    // componente. Así que no hay botón: la maniobra está descrita en su texto y
+    // la perla ya dice qué hacer cuando el paciente tampoco alcanza la posición
+    // lumbar. Mejor ninguna demostración que una que enseña otra prueba.
     cite: [
       {
         ref: 'barth-2006',
