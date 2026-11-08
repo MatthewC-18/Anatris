@@ -63,6 +63,7 @@ import { gradeShoulderMuscleBinding } from '../../lib/shoulderMuscleBinding';
 import { relaxSkinSeams } from '../../lib/skinSeamRelax';
 import { inflateSkinShell } from '../../lib/skinShellInflate';
 import { unmangleForearmMeshes } from '../../lib/rigForearmUnmangle';
+import { baseMaterialOf, cloneOverlayMaterial } from '../../lib/rigMaterialStack';
 import { blendHipSkin } from '../../lib/rigHipSkin';
 import { regradeAnkleCrossers } from '../../lib/rigAnkleRebind';
 import {
@@ -386,6 +387,20 @@ function meshWorldCenter(mesh: THREE.Mesh): THREE.Vector3 {
 // measurably off-centre goes to the side it leans to, so peeling one pectoral
 // leaves no sliver of it floating over the sternum. Only what is truly ON the
 // midline stays 'center', and that is the tissue a one-sided peel should keep.
+//
+// SE REVISO SI EL NOMBRE ES DE FIAR EN LA BANDA, Y SI LO ES. Medido sobre el
+// GLB con las 2659 mallas, mirando solo musculo y conectivo:
+//   - lejos del eje (|x| >= 4 cm), donde la geometria es segura, el nombre la
+//     contradice 21 veces de 666 (3,2%) -- y 19 de esas 21 son nombres SIN
+//     gemelo del otro lado, la clase que Z-Anatomy etiqueta mal. Ahi manda la
+//     geometria, asi que da igual;
+//   - en la banda (0,5 a 4 cm), donde manda el nombre, las 254 mallas con lado
+//     en el nombre TIENEN su gemelo, las 254. Ni una sola es de la clase
+//     dudosa. Las 22 que discrepan de la geometria son casos en que el centro
+//     de la esfera envolvente es la senal debil, que es justo el motivo de que
+//     ahi mande el nombre.
+// Conclusion: no tocar. Si alguien vuelve a sospechar de esta funcion, el banco
+// esta en el historial de `scripts/_side2.mts` y la respuesta ya es esta.
 const SIDE_LATERAL_M = 0.04; // clearly on a limb / one half of the trunk
 const SIDE_MIDLINE_M = 0.005; // inside this, genuinely on the axis
 function dissectSideOfMesh(mesh: THREE.Mesh, named: ParsedSide): ParsedSide {
@@ -1099,12 +1114,15 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       const match = sel.scope === 'both' || s === sel.scope;
       if (!match || !lm.mesh.visible) continue;
       const src = lm.mesh.material as THREE.MeshStandardMaterial;
-      const clone = (src.clone ? src.clone() : new THREE.MeshStandardMaterial()) as THREE.MeshStandardMaterial;
+      const clone = cloneOverlayMaterial(src);
       if ('emissive' in clone) {
         clone.emissive = new THREE.Color(SELECTION_EMISSIVE);
         clone.emissiveIntensity = 0.55;
       }
-      selGlowRef.current.set(lm.mesh, { orig: src, clone });
+      // `orig` es el material DE BASE. Guardar aqui el clon del brillo de
+      // RigOverlays dejaba al musculo encendido para siempre: ver
+      // src/lib/rigMaterialStack.ts.
+      selGlowRef.current.set(lm.mesh, { orig: baseMaterialOf(src), clone });
       lm.mesh.material = clone;
     }
   }, []);

@@ -32,6 +32,7 @@ import * as THREE from 'three';
 
 import { rigChannel, type RigCommand } from './RigModel';
 import { buildMuscleResolution, type MuscleResolution } from '../../lib/muscleResolver';
+import { baseMaterialOf, cloneOverlayMaterial } from '../../lib/rigMaterialStack';
 import { parseMeshName, type ParsedSide } from '../../lib/parseMeshName';
 import { useAllMuscles } from '../../hooks/useMuscleResolution';
 import { movementById } from '../../data/romByRegion';
@@ -617,6 +618,8 @@ export function RigOverlays(): JSX.Element {
       // system had already replaced (and left ours disposed under it).
       for (const [mesh, entry] of glow) {
         if (!targets.has(mesh)) {
+          // `entry.original` es el material DE BASE, nunca el clon del otro
+          // sistema: ver src/lib/rigMaterialStack.ts.
           if (mesh.material === entry.clone) mesh.material = entry.original;
           entry.clone.dispose();
           glow.delete(mesh);
@@ -628,13 +631,18 @@ export function RigOverlays(): JSX.Element {
       for (const [mesh, { role, level, implicated }] of targets) {
         let entry = glow.get(mesh);
         if (!entry) {
-          // Clone the shared material so only THIS mesh glows.
+          // Clone the shared material so only THIS mesh glows. El "original"
+          // que se guarda es el DE BASE: si la malla ya llevaba encima el
+          // resalte de seleccion, guardar ese clon dejaba al musculo encendido
+          // para siempre (src/lib/rigMaterialStack.ts).
           const src = mesh.material as THREE.MeshStandardMaterial;
-          const clone = (src.clone
-            ? src.clone()
-            : new THREE.MeshStandardMaterial()) as THREE.MeshStandardMaterial;
+          const clone = cloneOverlayMaterial(src);
           mesh.material = clone;
-          entry = { original: src, clone, implicated };
+          entry = {
+            original: baseMaterialOf(src) as THREE.MeshStandardMaterial,
+            clone,
+            implicated,
+          };
           glow.set(mesh, entry);
         }
         entry.implicated = implicated;

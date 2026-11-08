@@ -108,7 +108,7 @@ export interface DissectState {
 
 /** Turn a parseMeshName base into a readable display name. */
 export function prettifyBase(base: string): string {
-  const words = base
+  const words = baseKey(base)
     .replace(/_/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -203,8 +203,17 @@ export function makeSelection(
  * llevan el sufijo de duplicado de Blender, `001` / `_2`, que Z-Anatomy usa
  * donde se le olvido el marcador l/r-- entraban en la seleccion, se encendian
  * con el resalte y el panel ofrecia "Diseccionar"... y al pulsarlo se quedaban
- * ahi. Medido sobre el GLB: 22 mallas de musculo no se retiraban nunca, 20 de
- * ellas del lado derecho, que es justo el lado que Z-Anatomy marca con `001`.
+ * ahi. Medido sobre el GLB con los musculos de hombro, rodilla, cadera y codo:
+ * de 468 mallas resueltas, 42 no se retiraban nunca.
+ *
+ * Y arrastraba un segundo sintoma: el censo por lados contaba solo las mallas
+ * que casaban exacto, asi que seis musculos salian como si tuvieran un solo
+ * lado y el panel les quitaba el interruptor Izquierdo/Derecho --mientras
+ * seguia prometiendo llevarse la estructura entera--. Medido: pronador
+ * cuadrado {left:0,right:4}, pronador redondo {left:4,right:0}, grupo
+ * flexor-pronador {left:6,right:0}, obturador interno, psoas mayor y tensor de
+ * la fascia lata igual. Comparando por clave, los 55 musculos resueltos salen
+ * bilaterales.
  */
 export function basesInclude(bases: string[], base: string): boolean {
   if (bases.includes(base)) return true;

@@ -75,7 +75,12 @@ export function DissectionPanel() {
       ) {
         return;
       }
-      if (e.metaKey || e.altKey) return;
+      // Ctrl tambien, no solo Cmd y Alt: en Windows Ctrl+A es "seleccionar
+      // todo", Ctrl+D "anadir a marcadores" y Ctrl+Z "deshacer". Sin esta
+      // linea, el fisio que pulsa Ctrl+A para copiar el nombre de un musculo
+      // AISLA la estructura y se le queda la escena pelada, y Ctrl+D la
+      // disecciona. El atajo es la tecla sola.
+      if (e.metaKey || e.altKey || e.ctrlKey) return;
       const s = dissectChannel.get();
       const k = e.key.toLowerCase();
       if (k === 'd' && s.selection?.dissectable) {
