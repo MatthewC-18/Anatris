@@ -30,7 +30,9 @@ import {
   ALL_TESTS_BY_REGION,
   ALL_TRACK_BY_REGION,
 } from '../src/data/fullContent.ts';
+import { NEURO_BY_REGION } from '../src/data/neuro/index.ts';
 import type { PremiumRegionPayload } from '../src/data/premiumStore.ts';
+import type { Muscle } from '../src/types/muscle.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = resolve(HERE, '../supabase/functions/content/payloads');
@@ -40,6 +42,85 @@ export const PREMIUM_REGION_IDS: string[] = ALL_REGION_IDS.filter(
   (r) => !FREE_REGIONS.has(r),
 ).sort();
 
+/** Todas las fichas del catalogo, una por id, para componer prestamos. */
+const CATALOGO: Map<string, Muscle> = (() => {
+  const out = new Map<string, Muscle>();
+  for (const list of Object.values(ALL_MUSCLES_BY_REGION)) {
+    for (const m of list) if (!out.has(m.id)) out.set(m.id, m);
+  }
+  return out;
+})();
+
+/** Ids que ya van en el paquete publico, asi que nunca hay que prestarlos. */
+const FREE_REGION_MUSCLE_IDS: Set<string> = new Set(
+  ALL_REGION_IDS.filter((r) => FREE_REGIONS.has(r)).flatMap((r) =>
+    (ALL_MUSCLES_BY_REGION[r] ?? []).map((m) => m.id),
+  ),
+);
+
+/**
+ * LAS FICHAS QUE EL PANEL NEURO DE ESTA REGION NOMBRA Y LA REGION NO TIENE.
+ *
+ * El panel Neuro no es por region sino por EXTREMIDAD: el mismo juego cervical
+ * (C5-T1) sirve a hombro, codo y cervical, y el lumbosacro (L2-S1) a cadera,
+ * rodilla, tobillo y lumbar. Asi que un demo de miotoma nombra fichas que viven
+ * en otra region: C6 el braquiorradial (codo), L2 el psoas y el iliaco
+ * (cadera), L3 el cuadriceps (rodilla), L4 y S1 el tibial anterior, el
+ * gastrocnemio y el soleo (tobillo).
+ *
+ * Como el universo que el laboratorio resuelve contra el GLB es "hombro
+ * gratuito + payload de LA REGION ABIERTA", esos ids no resolvian ninguna malla
+ * y el play movia la articulacion sin encender nada. Medido contra las 942
+ * mallas vivas de capa muscular: 24 de 48 acreditaciones mudas (lumbar 7/9,
+ * tobillo 6/9, cadera 6/9, rodilla 3/9, cervical 1/4, hombro 1/4).
+ *
+ * Es el mismo arreglo que ya se hizo para el raquis (`ALL_ROM_LOOKUP_BY_REGION`)
+ * y se compone igual: en tiempo de CONSTRUCCION, de modo que el runtime nunca
+ * necesita otra region cargada. Coste medido: +17,0 KB repartidos entre los
+ * siete payloads (+0,0 KB codo y toracica; +5,3 KB lumbar, que es el peor caso,
+ * un 4% sobre sus 129 KB). La alternativa --meter el catalogo entero en cada
+ * payload-- son +389,8 KB, con el tobillo pasando de 75 a 139 KB, y regala a
+ * cada region la biblioteca de las otras siete.
+ *
+ * Barre TODO lo que una region nombra, no solo los miotomas, para que el
+ * proximo prestamo no vuelva a pasar inadvertido. Medido hoy: ROM, guias de la
+ * via y resaltes de las pruebas ortopedicas estan todos dentro de la region;
+ * los unicos prestamos son los de los miotomas (23 en total, 10 fichas
+ * distintas).
+ *
+ * Y el payload no alcanza al HOMBRO, que es gratuito y no tiene payload que
+ * cargar: su parte la cubre `MINIMO_RESOLUBLE`
+ * (src/hooks/useMuscleResolution.ts), que lleva nombre y bases de malla y nada
+ * de contenido de pago.
+ */
+function fichasPrestadas(region: string): Muscle[] {
+  const dentro = new Set([
+    // EL NIVEL GRATUITO CUENTA COMO PRESENTE: va en el paquete y el universo
+    // del laboratorio siempre lo lleva delante (`useAllMuscles`). Sin esta
+    // linea el payload se llevaba otra copia del deltoides, del biceps y del
+    // triceps braquial a seis regiones, +3 KB cada una para nada.
+    ...FREE_REGION_MUSCLE_IDS,
+    ...(ALL_ROM_LOOKUP_BY_REGION[region] ?? ALL_MUSCLES_BY_REGION[region] ?? []).map((m) => m.id),
+  ]);
+  const pedidos = new Set<string>();
+  for (const root of NEURO_BY_REGION[region]?.roots ?? []) {
+    for (const id of root.demo?.highlightMuscleIds ?? []) pedidos.add(id);
+  }
+  for (const test of ALL_TESTS_BY_REGION[region] ?? []) {
+    const id = test.demo?.highlightMuscleId;
+    if (id) pedidos.add(id);
+  }
+  const out: Muscle[] = [];
+  for (const id of pedidos) {
+    if (dentro.has(id)) continue;
+    const ficha = CATALOGO.get(id);
+    // Un id que no existe en ningun catalogo no es un prestamo, es un dato
+    // roto: lo cazan `neuroMyotomeDemo.test.ts` y `npm run audit-glow`.
+    if (ficha) out.push(ficha);
+  }
+  return out;
+}
+
 /** Build one region's payload exactly as the client store expects it. */
 export function buildPayload(region: string): PremiumRegionPayload {
   return {
@@ -47,7 +128,11 @@ export function buildPayload(region: string): PremiumRegionPayload {
     muscles: ALL_MUSCLES_BY_REGION[region] ?? [],
     // Resolved at BUILD time: for the spine this is the whole-spine union, so
     // the runtime never needs a sibling region loaded to render this one.
-    romLookupMuscles: ALL_ROM_LOOKUP_BY_REGION[region] ?? ALL_MUSCLES_BY_REGION[region] ?? [],
+    // Mas las fichas prestadas que los paneles de la region nombran (ver arriba).
+    romLookupMuscles: [
+      ...(ALL_ROM_LOOKUP_BY_REGION[region] ?? ALL_MUSCLES_BY_REGION[region] ?? []),
+      ...fichasPrestadas(region),
+    ],
     content: ALL_MUSCLE_CONTENT_BY_REGION[region] ?? {},
     rom: ALL_ROM_BY_REGION[region] ?? [],
     track: ALL_TRACK_BY_REGION[region] ?? null,

@@ -25,12 +25,14 @@ import { readFileSync } from 'node:fs';
 import {
   FRAME_DEGENERATE_SIDE,
   FRAME_MIN_SIDE,
+  FRAME_PAD_RATIO,
   REGION_FRAME_BONES,
   REGION_FRAME_CORE,
   regionFrameCore,
 } from '../labFraming';
 import { VIEW_META } from '../anatomyMeta';
 import { REGIONS } from '../../data/regiones';
+import frameFixture from './fixtures/labFrameBones.json';
 
 describe('el núcleo del encuadre', () => {
   it('todo núcleo es un subconjunto de la lista completa de su región', () => {
@@ -77,6 +79,165 @@ describe('el núcleo del encuadre', () => {
     // profundidad cruda y 0,21 m con el margen proporcional.
     expect(FRAME_DEGENERATE_SIDE).toBeLessThan(FRAME_MIN_SIDE);
     expect(FRAME_DEGENERATE_SIDE).toBeLessThan(0.21);
+  });
+});
+
+// EL ENCUADRE DE APERTURA, EN CENTIMETROS Y NO EN BUENA INTENCION.
+//
+// Las listas de huesos de `labFraming` se leen muy razonables y encuadraban mal
+// las tres regiones que mas se usan. El fallo no se ve leyendo nombres: hay que
+// saber DONDE esta cada hueso. `REGION_FRAME_CORE.knee` decia "femur, rotula,
+// tibia" y resultaba ser una caja de la CADERA a la rodilla, porque en este rig
+// `femur_base` esta en y=0,865 y `patella` y `shin_flex` estan los dos en el
+// mismo punto.
+//
+// Asi que aqui se recalcula la cadena completa --caja de huesos -> `padBox` ->
+// `padOf` -> `fitToBox`-- sobre una INSTANTANEA del rig publicado
+// (fixtures/labFrameBones.json), y se comprueba contra las cotas de las mallas:
+// que la cabeza entra entera, que la articulacion cae en medio del cuadro y que
+// el segmento distal no se sale. Igual que neuroSkin.test.ts, la instantanea
+// deja el test corriendo sin el binario de 16 MB.
+//
+// Regenerar la instantanea cuando se reexporte el rig: cargar
+// public/cuerpo-rig.opt.glb (scripts/lib/rigPath.mts) y leer la posicion de
+// mundo en REPOSO de cada hueso que nombran las recetas, filtrando por el
+// ancestro `*_Armature_L` exactamente como hace `RigViewer.bonePoints`; las
+// cotas de `segments` son la caja en y de las mallas de cada segmento.
+describe('el encuadre de apertura, recalculado sobre el rig publicado', () => {
+  const BONES = frameFixture.bones as unknown as Record<string, [number, number, number]>;
+  const SEG = frameFixture.segments as unknown as Record<string, [number, number]>;
+  // El lienzo del laboratorio en escritorio. Un lienzo mas estrecho solo puede
+  // dar MAS alto visible (pasa a limitar el ancho), asi que este es el caso
+  // desfavorable para "entra la cabeza".
+  const ASPECT = 1.6;
+  const TAN_HALF_FOV = Math.tan(((frameFixture.camera.fovDeg / 2) * Math.PI) / 180);
+
+  /**
+   * El encuadre que sale de un nucleo, en metros de mundo.
+   *
+   * `fitToBox` de camera-controls redondea azimut y polar al eje mas cercano,
+   * asi que la vista de apertura siempre es frontal o lateral: lo unico que
+   * cambia es que lado de la caja hace de ancho de pantalla y cual de
+   * profundidad.
+   */
+  const openFrame = (core: readonly string[], view: 'frontal' | 'lateral') => {
+    const min = [Infinity, Infinity, Infinity];
+    const max = [-Infinity, -Infinity, -Infinity];
+    for (const b of core) {
+      const p = BONES[b];
+      expect(p, `el fixture no trae ${b}`).toBeDefined();
+      for (let i = 0; i < 3; i++) {
+        min[i] = Math.min(min[i], p[i]);
+        max[i] = Math.max(max[i], p[i]);
+      }
+    }
+    // padBox: margen proporcional al lado mayor...
+    const raw = max.map((v, i) => v - min[i]);
+    const grow = Math.max(...raw) * FRAME_PAD_RATIO;
+    for (let i = 0; i < 3; i++) {
+      min[i] -= grow;
+      max[i] += grow;
+    }
+    // ...y el minimo solo sobre el lado degenerado.
+    for (let i = 0; i < 3; i++) {
+      const side = max[i] - min[i];
+      if (side >= FRAME_DEGENERATE_SIDE) continue;
+      const lift = (FRAME_MIN_SIDE - side) / 2;
+      min[i] -= lift;
+      max[i] += lift;
+    }
+    const size = max.map((v, i) => v - min[i]);
+    const pad = Math.max(...size) * 0.07; // padOf
+    const width = (view === 'frontal' ? size[0] : size[2]) + 2 * pad;
+    const height = size[1] + 2 * pad;
+    const depth = view === 'frontal' ? size[2] : size[0];
+    // fitToBox: encuadra el lado que limita y retrocede media profundidad.
+    const heightToFit = width / height < ASPECT ? height : width / ASPECT;
+    const distance = (heightToFit * 0.5) / TAN_HALF_FOV + depth * 0.5;
+    const visible = 2 * distance * TAN_HALF_FOV;
+    const centreY = (min[1] + max[1]) / 2;
+    return { top: centreY + visible / 2, bottom: centreY - visible / 2, visible };
+  };
+
+  /** Que fraccion del alto de un segmento entra en el cuadro. */
+  const inside = (seg: [number, number], f: { top: number; bottom: number }) =>
+    Math.max(0, Math.min(f.top, seg[1]) - Math.max(f.bottom, seg[0])) / (seg[1] - seg[0]);
+
+  /** A que altura del cuadro cae una cota, 0 = borde inferior, 1 = superior. */
+  const at = (y: number, f: { top: number; bottom: number }) =>
+    (y - f.bottom) / (f.top - f.bottom);
+
+  it('el hombro abre con la cabeza ENTERA, no cortada por la boca', () => {
+    // El defecto medido: el borde superior caia en y=1,565 y la piel de la
+    // cabeza va de 1,488 a 1,709, asi que entraba el 35% y el corte pasaba por
+    // el orbicular de los labios (1,509..1,554).
+    const f = openFrame(regionFrameCore('shoulder')!, 'frontal');
+    expect(f.top).toBeGreaterThan(SEG.cabeza[1]);
+    expect(inside(SEG.cabeza, f)).toBe(1);
+    // Y no a cambio de volver a medio cuerpo: el cuerpo mide 1,709 m.
+    expect(f.visible).toBeLessThan(0.9);
+  });
+
+  it('la toracica tambien, que se cortaba a la altura de las orbitas', () => {
+    const f = openFrame(regionFrameCore('thoracic')!, 'lateral');
+    expect(inside(SEG.cabeza, f)).toBe(1);
+    expect(f.visible).toBeLessThan(0.85);
+  });
+
+  it('la rodilla abre CENTRADA en la rodilla, no sobre el muslo', () => {
+    // El defecto medido: la rodilla al 23% del alto, pegada al borde de abajo,
+    // y de la tibia entraba el 52%.
+    const f = openFrame(regionFrameCore('knee')!, 'lateral');
+    const rodilla = BONES.patella[1];
+    expect(at(rodilla, f)).toBeGreaterThan(0.45);
+    expect(at(rodilla, f)).toBeLessThan(0.55);
+    // Y entra mas tibia que antes, que es la rama movil del goniometro.
+    expect(inside(SEG.tibia, f)).toBeGreaterThan(0.65);
+    expect(inside(SEG.femur, f)).toBeGreaterThan(0.6);
+  });
+
+  it('el codo igual, y con el antebrazo dentro', () => {
+    // El defecto medido: el codo al 25% del alto y el antebrazo al 56%.
+    const f = openFrame(regionFrameCore('elbow')!, 'lateral');
+    const codo = (BONES.forearm_flex[1] + BONES.forearm_rot[1]) / 2;
+    expect(at(codo, f)).toBeGreaterThan(0.45);
+    expect(at(codo, f)).toBeLessThan(0.55);
+    expect(inside(SEG.antebrazo, f)).toBeGreaterThan(0.95);
+    expect(inside(SEG.humero, f)).toBeGreaterThan(0.8);
+  });
+
+  it('el cubo del nucleo por articulacion son 0,528 m de escena', () => {
+    // Es lo que promete el comentario de FRAME_MIN_SIDE: el codo y la rodilla
+    // abren con los huesos de su propia articulacion, la caja sale degenerada
+    // por los tres lados y es ese minimo el que fija el zoom de apertura. Si
+    // alguien mueve 0,34 m, estas dos regiones cambian de encuadre.
+    for (const region of ['knee', 'elbow']) {
+      const f = openFrame(regionFrameCore(region)!, 'lateral');
+      expect(f.visible, region).toBeCloseTo(0.528, 2);
+    }
+  });
+
+  it('la cervical sigue perdiendo la coronilla, y es un limite del rig', () => {
+    // NO es un arreglo pendiente de este fichero: por encima de `vert_C1`
+    // (1,543) el rig no tiene ningun hueso, y la coronilla esta en 1,709, asi
+    // que ninguna lista de huesos puede empujar el borde hasta ahi sin
+    // convertir el primer plano cervical en un plano de raquis entero (medido:
+    // hasta T12 el borde llega a 1,708 y la escena pasa de 0,394 a 0,730 m).
+    // Se vigila que no EMPEORE mientras no haya margen superior por region.
+    const f = openFrame(regionFrameCore('cervical')!, 'lateral');
+    expect(inside(SEG.cabeza, f)).toBeGreaterThan(0.8);
+  });
+
+  it('la cadera y el tobillo no tienen el defecto, y se quedan como estaban', () => {
+    // Medido: la cadera cae al 64% del alto --no contra un borde-- con el femur
+    // entero dentro; y el tobillo al 23%, pero ahi el cuerpo SE ACABA y la
+    // tibia entra al 100%, asi que es el encuadre correcto.
+    const cadera = openFrame(regionFrameCore('hip')!, 'lateral');
+    expect(at(BONES.femur_base[1], cadera)).toBeGreaterThan(0.5);
+    expect(at(BONES.femur_base[1], cadera)).toBeLessThan(0.75);
+    expect(inside(SEG.femur, cadera)).toBe(1);
+    const tobillo = openFrame(regionFrameCore('ankle')!, 'lateral');
+    expect(inside(SEG.tibia, tobillo)).toBe(1);
   });
 });
 

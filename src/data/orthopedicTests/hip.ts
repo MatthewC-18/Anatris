@@ -151,6 +151,8 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       note: 'Sensibilidad 0,82 (IC 95% 0,57-0,96) frente a bloqueo intraarticular (Maslowski, 50 pacientes). SIN cifra de especificidad: ese estudio no la publica para el FABER, y dice que la MÁS específica de sus cuatro maniobras llegaba sólo a 0,32. Las revisiones dan un rango de 18-100%, demasiado ancho para enseñar un número. Localizar el dolor (inguinal vs posterior) aporta más que el sí/no.',
     },
     utility: 'balanced',
+    utilityBasis:
+      'Solo existe una de las dos cifras: Maslowski publica 0,82 de sensibilidad y ninguna especificidad, y las revisiones dan un rango de 18 a 100%, demasiado ancho para publicar un número. La etiqueta describe cómo se usa, localizando el origen del dolor, y no un perfil de dos ejes medido.',
     interpretation:
       'Úsalo para LOCALIZAR el origen del dolor más que como prueba binaria; combínalo con FADIR y el cuadro clínico.',
     // SIN DEMO, Y ESTA ES LA RAZON.
@@ -190,6 +192,8 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       note: 'SIN cifras. Las que circulan (62% / 75%) no las publica ninguna fuente que se pueda abrir. Lo que sí está publicado son rangos: sensibilidad 50-100% y especificidad en torno al 29% (Wong 2022, texto completo abierto). Una especificidad del 75% además contradice el único estudio primario con bloqueo intraarticular, donde la prueba MÁS específica de la cadera llegaba a 0,32.',
     },
     utility: 'balanced',
+    utilityBasis:
+      'Sin cifras propias que se puedan abrir: lo publicado son rangos, sensibilidad de 50 a 100% y especificidad en torno al 29%. La etiqueta describe el uso que propone la fuente, provocar el dolor articular dentro de un conjunto de maniobras, y no un perfil medido.',
     interpretation:
       'Un arco doloroso o con resalte apoya patología intraarticular; no descarta por sí solo.',
     demo: {
@@ -222,6 +226,8 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       note: 'SIN cifras: no hay estudio que publique sensibilidad ni especificidad del log roll. La fama de prueba "muy específica" viene de su MECÁNICA -- es la única que mueve el fémur bajo el acetábulo sin tensar partes blandas -- y así la recoge la revisión de Wong 2022, que lo dice con palabras y no con números. Las cifras que circulan (30% / 85%) no tienen fuente localizable.',
     },
     utility: 'rule-in',
+    utilityBasis:
+      'No hay estudio que publique sensibilidad ni especificidad del log roll, así que la etiqueta no sale de una cifra: sale de la MECÁNICA, que es como la recoge la revisión de Wong 2022, con palabras y no con números. Es la única maniobra que mueve el fémur bajo el acetábulo sin tensar partes blandas, de modo que un positivo señala el interior de la articulación.',
     interpretation:
       'Al mover SOLO la cadera, un positivo apunta con fuerza al interior de la articulación (SpPin).',
     demo: {
@@ -257,6 +263,8 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       note: 'Prueba de longitud muscular; la exactitud diagnóstica no suele expresarse en sens/espec.',
     },
     utility: 'balanced',
+    utilityBasis:
+      'Es una prueba de LONGITUD muscular, no de diagnóstico: su exactitud no se expresa en sensibilidad y especificidad, así que ninguna cifra respalda la etiqueta. Lo que informa es el balance flexor de la cadera.',
     interpretation:
       'Valora el balance flexor: un iliopsoas corto favorece la anteversión pélvica y limita la extensión de cadera.',
     demo: {
@@ -283,6 +291,8 @@ export const HIP_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       note: 'Prueba de longitud; sin sens/espec establecidas de forma consistente.',
     },
     utility: 'balanced',
+    utilityBasis:
+      'Es una prueba de LONGITUD, sin sensibilidad ni especificidad establecidas de forma consistente, así que la etiqueta no se apoya en ninguna cifra. Lo que informa es la retracción de la banda iliotibial y del tensor de la fascia lata.',
     interpretation:
       'Una banda iliotibial retraída se asocia a dolor lateral de rodilla y a compresión de los tendones glúteos.',
     demo: {

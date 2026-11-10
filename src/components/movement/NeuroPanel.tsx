@@ -78,6 +78,8 @@ import {
   type RootFinding,
 } from '../../lib/neuroScreen';
 import { neuroSkinChannel } from './neuroSkinChannel';
+import { useAllMuscles } from '../../hooks/useMuscleResolution';
+import { readPose } from './consolePoseStore';
 import { clearScreen, readScreen, writeScreen } from './neuroScreenStore';
 import { HowToUse, Kicker, NeuroRootRow, shortReflex } from './NeuroRootRow';
 import { ChevronDownIcon, CloseIcon } from '../ui/Icons';
@@ -365,6 +367,56 @@ export function NeuroPanel({
 
   const byId = useMemo(() => new Map((set?.roots ?? []).map((r) => [r.id, r])), [set]);
 
+  // ---------------------------------------------------------------------------
+  // EL PLAY QUE NO ENCENDIA NADA, Y NO LO DECIA.
+  // ---------------------------------------------------------------------------
+  // El brillo de un demo sale solo de `highlightMuscleIds`, y RigOverlays
+  // resuelve cada id contra las FICHAS que la sesion tiene cargadas: el hombro
+  // gratuito mas el payload de LA REGION ABIERTA (`useAllMuscles`). Una ficha
+  // que vive en otra region simplemente no esta, y `forMuscleMeshes` hace
+  // `if (!names) return;` sin aviso ninguno.
+  //
+  // MEDIDO el 2026-11-10, reconstruyendo ese universo region por region y
+  // resolviendolo contra las mallas VISIBLES del rig preparado (el banco que lo
+  // vigila a mano usaba la UNION de los seis catalogos, que es una union que la
+  // aplicacion no tiene nunca, y por eso salia en verde):
+  //
+  //   [lumbar] las cuatro cabezas del cuadriceps 0 mallas y los isquiotibiales
+  //            0: los dos demos de la region, mudos.
+  //   [tobillo] lo mismo, los dos demos mudos.
+  //   [cadera] recto femoral 3 mallas y los tres vastos 0: medio encendido.
+  //   [cervical/hombro] el braquiorradial de C6, 0 mallas.
+  //
+  // El usuario pulsaba el play, el cuerpo se volvia de cristal, la articulacion
+  // se movia y no se iluminaba ningun musculo.
+  //
+  // La plomeria (que fichas viajan en que payload) no se arregla desde aqui, y
+  // de hecho se esta cerrando por el otro lado con un suelo de fichas que
+  // `useAllMuscles` suma siempre. Lo que se arregla aqui es el SILENCIO, que es
+  // un defecto por su cuenta: lo que se enciende se NOMBRA, y lo que no puede
+  // encenderse se dice con palabras, en vez de dejar al fisio delante de un
+  // modelo de cristal preguntandose cual era el musculo.
+  const allMuscles = useAllMuscles();
+  /** id -> nombre clinico, SOLO de los musculos que esta region puede resolver. */
+  const nameByMuscleId = useMemo(
+    () =>
+      new Map(
+        allMuscles.filter((m) => m.meshBases.length > 0).map((m) => [m.id, m.name] as const),
+      ),
+    [allMuscles],
+  );
+  /** Separa los musculos de un demo en los que se encienden y los que no. */
+  const splitHighlight = (ids: string[]) => {
+    const lit: string[] = [];
+    const mute: string[] = [];
+    for (const id of ids) {
+      const name = nameByMuscleId.get(id);
+      if (name) lit.push(name);
+      else mute.push(id);
+    }
+    return { lit, mute };
+  };
+
   const pick = (id: string) => {
     setPicked((cur) => {
       if (!compare) return cur.length === 1 && cur[0] === id ? [] : [id];
@@ -451,12 +503,28 @@ export function NeuroPanel({
       role: 'prime-mover' as const,
       level: 1,
     }));
+    // Lo que de verdad se va a encender, y lo que no. Ver la nota de
+    // `nameByMuscleId`: el id que no tiene ficha en esta region no ilumina
+    // nada, y hasta ahora eso ocurria en silencio.
+    const { lit, mute } = splitHighlight(d.highlightMuscleIds ?? []);
     // Built ONCE per demo, not per frame: the readout compares it by identity to
     // decide whether anything changed.
     const demoInfo = {
       label: `Miotoma ${root.label}`,
       targetDeg: target,
       structure: root.myotome.action,
+      // EL NOMBRE DE LO QUE SE ENCIENDE. El lector tenia la linea
+      // "Resaltado: ..." preparada y el panel de tests si le mandaba el campo;
+      // este no, asi que un musculo se ponia rojo y en ningun sitio aparecia su
+      // nombre --y encima el lector retira la tarjeta "Musculo protagonista"
+      // mientras corre un demo--.
+      structureLabels: lit,
+      cannotShow:
+        mute.length === 0
+          ? undefined
+          : lit.length === 0
+            ? 'En esta región el modelo no ilumina el músculo del miotoma: su ficha pertenece a otra región del atlas. El movimiento que ves sí es el del miotoma.'
+            : `Del miotoma ${mute.length === 1 ? 'queda 1 músculo' : `quedan ${mute.length} músculos`} sin iluminar: su ficha pertenece a otra región del atlas.`,
       note: d.note,
     };
     const push = (deg: number) =>
@@ -473,10 +541,42 @@ export function NeuroPanel({
         // instead of recomputing (and flickering) its analysis every frame.
         demo: demoInfo,
       });
-    // On stop, RELEASE the channel (only if this demo still owns it): the
-    // console reacts by re-pushing its own live state, which restores the pose
-    // and clears the demo-only ghostSkin flag.
-    const release = () => demoChannel.stop(DEMO_NS + demoId);
+    // PARAR TIENE QUE DEVOLVER EL RIG, NO SOLO SOLTAR EL CANAL.
+    //
+    // Esto soltaba el canal y nada mas, contando con que la CONSOLA reaccionara
+    // volviendo a empujar su estado con `setFromConsole`, que limpia de una
+    // pieza lo que solo un demo pone (piel de cristal, componentes, tarjeta,
+    // mano que resiste). Por debajo de 1024 px (useIsCompact) eso no pasa: la
+    // hoja movil dibuja UNA pestana a la vez, asi que estando en Neuro la
+    // consola esta DESMONTADA y no hay quien reaccione. Y `rigChannel.set` es
+    // un parche, de modo que el ultimo fotograma del demo se quedaba puesto:
+    // ghostSkin, los musculos encendidos, los marcadores apagados y los
+    // componentes aplicados (el miotoma C5 lleva elbow-flexion a 90 grados).
+    //
+    // En un iPad en vertical (820 px) el boton de parar parecia no responder:
+    // el cuerpo se quedaba translucido, con el brazo en abduccion y el codo
+    // doblado, y solo se arreglaba saliendo a la pestana Movimiento.
+    //
+    // Asi que el panel empuja el mismo estado que empujaria la consola: la pose
+    // que el fisio dejo puesta en esta region --`consolePoseStore`, que es de
+    // donde la consola se restaura al volver a montarse-- o el reposo si no hay
+    // ninguna. Con la consola montada ese empuje es identico al que ella hara
+    // un instante despues, asi que no hay parpadeo ni pelea por el canal.
+    const release = () => {
+      demoChannel.stop(DEMO_NS + demoId);
+      const pose = readPose(region);
+      rigChannel.setFromConsole({
+        movementId: pose?.movementId ?? null,
+        side: pose?.side ?? 'R',
+        angleDeg: pose?.angleDeg ?? 0,
+        // El brillo y los marcadores son de la consola. `setFromConsole` no los
+        // toca --no son campos de demo-- asi que hay que devolverlos a mano, o
+        // los musculos del miotoma se quedan encendidos sobre un modelo parado.
+        highlight: [],
+        implicated: [],
+        showMarkers: true,
+      });
+    };
 
     const reduce =
       typeof window !== 'undefined' &&
@@ -536,7 +636,12 @@ export function NeuroPanel({
       cancelAnimationFrame(rafRef.current);
       release();
     };
-  }, [demoId, byId, open, bare]);
+    // `nameByMuscleId` y `region` entran porque el demo los lee: el primero
+    // decide que musculos se nombran, el segundo de que pose se vuelve al
+    // parar. Los dos cambian como mucho una vez por region, al instalarse su
+    // contenido, que es antes de que nadie pueda pulsar un play.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demoId, byId, open, bare, nameByMuscleId, region]);
 
   if (!set) return null;
 
@@ -565,6 +670,14 @@ export function NeuroPanel({
   // Stated once below instead of stamped on all ten rows.
   const allPending = set.roots.every((r) => r.cite.every((c) => !c.verified));
   const localization = localizeRoot(set.roots, screen);
+  // Que se esta encendiendo AHORA, para la franja de abajo. El lector
+  // (RhythmReadout) ya recibe lo mismo, pero no se monta por debajo de `lg`:
+  // en tableta y movil esta franja es el UNICO sitio donde el musculo que se
+  // pone rojo lleva su nombre.
+  const demoRoot = demoId ? byId.get(demoId) : undefined;
+  const demoSplit = demoRoot?.demo
+    ? splitHighlight(demoRoot.demo.highlightMuscleIds ?? [])
+    : null;
 
   return (
     <div
@@ -668,6 +781,43 @@ export function NeuroPanel({
           </p>
         )}
       </div>
+
+      {/* QUE SE ESTA ENCENDIENDO, MIENTRAS CORRE EL DEMO.
+          Una seccion separada por hairline, no una caja: el panel es una sola
+          superficie (regla 3). Aparece solo durante el demo y dice las dos
+          cosas que faltaban -- el nombre del musculo que se pone rojo, y
+          cuando NO hay ninguno. Sin ella, en tableta y movil el fisio ve un
+          cuerpo de cristal moviendose sin saber que esta mirando. */}
+      {demoSplit && (
+        <div className="border-b border-slate-800/60 px-4 py-2">
+          <Kicker>En el modelo ahora</Kicker>
+          {demoSplit.lit.length > 0 ? (
+            <p className="mt-1 text-[13px] leading-snug text-slate-400">
+              Se ilumina{' '}
+              <span className="font-semibold text-slate-200">
+                {demoSplit.lit.join(' · ')}
+              </span>
+              .
+            </p>
+          ) : (
+            <p className="mt-1 text-[13px] leading-snug text-slate-400">
+              El movimiento es el del miotoma, pero aquí{' '}
+              <span className="font-semibold text-slate-200">
+                no se ilumina ningún músculo
+              </span>
+              : su ficha pertenece a otra región del atlas.
+            </p>
+          )}
+          {demoSplit.lit.length > 0 && demoSplit.mute.length > 0 && (
+            <p className="mt-1 text-[11px] leading-snug text-slate-500">
+              {demoSplit.mute.length === 1
+                ? 'Queda 1 músculo del miotoma sin iluminar'
+                : `Quedan ${demoSplit.mute.length} músculos del miotoma sin iluminar`}
+              : su ficha pertenece a otra región del atlas.
+            </p>
+          )}
+        </div>
+      )}
 
       {comparing && (
         <CompareBlock figure={set.figure} a={pickedRoots[0]} b={pickedRoots[1]} />

@@ -64,7 +64,11 @@ describe('el registro de estructuras clínicas', () => {
 
   it('no encienda nada en una capa que el laboratorio no muestra', () => {
     for (const id of ids) {
-      expect(['muscle', 'bone', 'connective', 'skin']).toContain(CLINICAL_STRUCTURES[id].layer);
+      // 'bursa' entra desde que el panel tiene su interruptor; lo que sigue
+      // fuera es lo que `layerForMaterial` deja en null (nervio, vaso, fascia).
+      expect(['muscle', 'bone', 'connective', 'skin', 'bursa']).toContain(
+        CLINICAL_STRUCTURES[id].layer,
+      );
     }
   });
 });

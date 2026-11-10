@@ -273,6 +273,8 @@ const tests: OrthopedicTest[] = [
       note: 'Sensibilidad 0,70 a los 30 segundos (Novak 1994, 44 extremidades con túnel cubital confirmado por electrodiagnóstico frente a 33 controles). SIN cifra de especificidad: ese estudio no la publica para ninguna de sus cuatro maniobras; de los controles dice sólo que "rara vez" dieron positivo. El 98% que suele citarse no está en la fuente.',
     },
     utility: 'balanced',
+    utilityBasis:
+      'Falta una de las dos cifras: Novak 1994 publica 0,70 de sensibilidad y ninguna especificidad, para ninguna de sus cuatro maniobras (el 98% que suele citarse no está en esa fuente). La etiqueta no puede apoyarse en un perfil de dos ejes que no existe; interprétalo con la clínica y el electrodiagnóstico.',
     interpretation:
       'Un Tinel positivo apoya la neuropatía cubital, pero con la cautela de que su especificidad no está medida: también aparece en personas sanas. Interprétalo con la clínica y el electrodiagnóstico.',
     demo: {

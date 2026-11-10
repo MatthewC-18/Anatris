@@ -10,8 +10,30 @@
 // ningun valor: solo anade el musculo clave en las palabras de ISNCSCI y los
 // movimientos que esa misma hoja lista como NO clave.
 //
-// Rig demos available for the lower limb: knee extension, knee flexion. Hip,
-// ankle and toe movements are not riggable, so those roots carry a demoNote.
+// -----------------------------------------------------------------------------
+// LO QUE EL MODELO SI PUEDE ENSENAR, MEDIDO (2026-11-10)
+// -----------------------------------------------------------------------------
+// Esta cabecera decia "Hip, ankle and toe movements are not riggable", y de ahi
+// salian tres textos en pantalla que NEGABAN un movimiento que el rig si hace:
+// L2 ("la flexion de cadera no se puede reproducir aqui"), L4 (igual con la
+// dorsiflexion) y S1, que sustituia la flexion plantar por la de rodilla. Se
+// escribio antes de que cadera y tobillo fueran regiones completas y nadie la
+// volvio a mirar: un fisio que acababa de usar el laboratorio de Cadera leia
+// aqui que la flexion de cadera no se puede reproducir.
+//
+// Antes de prometer un movimiento se mide, y en LOS DOS LADOS, porque los cinco
+// armazones del rig no comparten convencion de eje (`npm run audit-direction` y
+// `npm run audit-angles`, corridos hoy):
+//
+//   hip-flexion           R y L   90 grados   la rodilla avanza 42,2 cm
+//   ankle-dorsiflexion    R y L   20 grados   la punta del pie sube 6,1 cm
+//   ankle-plantarflexion  R y L   50 grados   la punta del pie baja 10,6 cm
+//   knee-flexion          R y L   90 grados   el talon sube 39,9 cm
+//   knee-extension        R y L  120 grados   el talon baja 59,8 cm
+//
+// El unico miotoma lumbosacro que sigue sin demo es L5 (extension del dedo
+// gordo): `boneMap` no tiene ningun hueso de los dedos del pie, asi que ahi el
+// demoNote es cierto y se queda.
 
 import type { NeuroSegmentSet } from '../../types/neuro';
 
@@ -40,8 +62,19 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
         asiaKey: 'Flexores de cadera (iliopsoas).',
         asiaNonKey: 'Cadera: aducción.',
       },
-      demoNote:
-        'El modelo mueve la pierna desde la rodilla, así que la flexión de cadera no se puede reproducir aquí.',
+      // 90 GRADOS, NO 120. Hasta los 90 el arco es de PIERNA RECTA: la rodilla
+      // solo empieza a plegarse pasado ese punto (hipDeepFlexionKneeCoupling en
+      // boneMap), y el gesto con el que se explora el iliopsoas en consulta es
+      // la elevacion de la pierna recta. Medido a 90: la rodilla avanza 42,2 cm
+      // en los dos lados.
+      demo: {
+        movementId: 'hip-flexion',
+        angleDeg: 90,
+        side: 'R',
+        // El musculo clave de ISNCSCI es el iliopsoas, que en el catalogo son
+        // dos fichas: el psoas mayor y el iliaco.
+        highlightMuscleIds: ['psoas-major', 'iliacus'],
+      },
       mimic: {
         nerve: 'Nervio femorocutáneo lateral (meralgia parestésica)',
         discriminator:
@@ -111,8 +144,17 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
         elicitation:
           'Percute el tendón rotuliano; respuesta: extensión de rodilla (comparte nivel con L3).',
       },
-      demoNote:
-        'El modelo llega hasta la flexión de rodilla, así que la dorsiflexión de tobillo no se puede reproducir aquí.',
+      // 20 grados es el tope activo del arco, y es el recorrido completo de la
+      // dorsiflexion: medido, la punta del pie sube 6,1 cm en los dos lados.
+      // SIN COMPONENTES. La dorsiflexion se explora con la rodilla extendida,
+      // que es lo que pone en tension al gastrocnemio; doblar la rodilla para
+      // acercar el pie a la camara cambiaria el significado clinico del gesto.
+      demo: {
+        movementId: 'ankle-dorsiflexion',
+        angleDeg: 20,
+        side: 'R',
+        highlightMuscleIds: ['tibialis-anterior'],
+      },
       pearl:
         'Marcha del talón débil (no puede caminar sobre los talones): sospecha L4-L5 por el tibial anterior.',
       cite: CITE,
@@ -162,12 +204,19 @@ export const LUMBOSACRAL_NEURO: NeuroSegmentSet = {
         elicitation:
           'Con el tobillo en ligera dorsiflexión, percute el tendón de Aquiles; respuesta: flexión plantar.',
       },
+      // S1 ENSENA SU MUSCULO CLAVE, QUE ES EL TRICEPS SURAL. El demo era
+      // `knee-flexion` con una nota que decia que la flexion plantar "no se
+      // puede reproducir aqui", y si se puede: 50 grados en los dos lados, la
+      // punta del pie baja 10,6 cm. Asi que el gesto que se demuestra es el que
+      // ISNCSCI puntua, y el gastrocnemio y el soleo se encienden directamente.
+      // La flexion de rodilla sigue siendo parte del miotoma y se dice en la
+      // nota, en vez de ocupar el demo.
       demo: {
-        movementId: 'knee-flexion',
-        angleDeg: 90,
+        movementId: 'ankle-plantarflexion',
+        angleDeg: 50,
         side: 'R',
-        highlightMuscleIds: ['biceps-femoris', 'semitendinosus', 'semimembranosus'],
-        note: 'El modelo muestra la flexión de rodilla (isquiotibiales, S1); la flexión plantar no se puede reproducir aquí.',
+        highlightMuscleIds: ['gastrocnemius', 'soleus'],
+        note: 'El demo muestra la flexión plantar, que es el músculo clave de ISNCSCI para S1. La flexión de rodilla (isquiotibiales) es el otro componente del miotoma y se ve en el laboratorio de rodilla.',
       },
       mimic: {
         nerve: 'Ciático troncular (incluido el síndrome piriforme)',

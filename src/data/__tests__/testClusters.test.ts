@@ -11,7 +11,12 @@
 // estudio ya no describe lo que el usuario tiene delante.
 
 import { describe, expect, it } from 'vitest';
-import { TEST_CLUSTERS, measuredCluster } from '../testClusters';
+import {
+  TEST_CLUSTERS,
+  clusterLrPositive,
+  measuredCluster,
+  partialCluster,
+} from '../testClusters';
 import { ALL_TESTS_BY_REGION } from '../fullContent';
 import { REFERENCES } from '../references';
 
@@ -105,5 +110,47 @@ describe('conjuntos de pruebas medidos', () => {
   it('no se aplica a una region que no es la suya', () => {
     const c = TEST_CLUSTERS[0];
     expect(measuredCluster('hombro', c.tests.slice(0, c.minPositive))).toBeNull();
+  });
+});
+
+// LA CIFRA MEDIDA, MIENTRAS AUN FALTAN POSITIVAS.
+//
+// Por debajo del umbral el panel vuelve a su estimacion, que es la MAS
+// OPTIMISTA de las dos: medido con las razones del propio catalogo, dos pruebas
+// sacroiliacas marcadas dan 30% -> 79,3% (producto de LR+ 8,96) frente al
+// 30% -> 64,7% que da la cifra medida de Laslett para tres o mas (LR+ 4,27). Y
+// la advertencia que lo explica vivia DENTRO del bloque del conjunto medido, o
+// sea que solo aparecia cuando la cifra ya era la buena. `partialCluster` es lo
+// que permite ensenar la referencia antes.
+describe('conjunto que aun no llega a su umbral', () => {
+  it('reconoce la seleccion incompleta y deja de hacerlo al alcanzar el umbral', () => {
+    for (const c of TEST_CLUSTERS) {
+      const pocas = c.tests.slice(0, c.minPositive - 1);
+      const justo = c.tests.slice(0, c.minPositive);
+      expect(partialCluster(c.region, pocas)?.id, c.id).toBe(c.id);
+      expect(partialCluster(c.region, justo), c.id).toBeNull();
+      // Los dos son excluyentes: nunca se enseñan las dos cosas a la vez.
+      expect(measuredCluster(c.region, pocas), c.id).toBeNull();
+      expect(measuredCluster(c.region, justo)?.id, c.id).toBe(c.id);
+    }
+  });
+
+  it('nada seleccionado no es un conjunto incompleto', () => {
+    for (const c of TEST_CLUSTERS) expect(partialCluster(c.region, [])).toBeNull();
+  });
+
+  it('con una prueba ajena mezclada, la referencia no aplica', () => {
+    const c = TEST_CLUSTERS[0];
+    const ajena = (BY_REGION[c.region] ?? []).find((t) => !c.tests.includes(t.id))!;
+    expect(partialCluster(c.region, [c.tests[0], ajena.id])).toBeNull();
+  });
+
+  it('la razon del conjunto es la publicada, o la derivada de sus dos cifras', () => {
+    const laslett = TEST_CLUSTERS.find((c) => c.id === 'si-laslett');
+    const wainner = TEST_CLUSTERS.find((c) => c.id === 'cervical-wainner');
+    // Laslett publica 94/78: 94/(100-78) = 4,27.
+    if (laslett) expect(clusterLrPositive(laslett)).toBeCloseTo(4.27, 2);
+    // Wainner solo publica la razon, y manda sobre cualquier derivada.
+    if (wainner) expect(clusterLrPositive(wainner)).toBe(30.3);
   });
 });

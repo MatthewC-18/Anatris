@@ -230,6 +230,37 @@ export function runClinicalAudit(): AuditResult {
       if (t.utility === 'rule-in' && m.specificity != null && m.specificity < 80 && !t.utilityBasis) {
         warn(at, `utility 'rule-in' pero especificidad ${m.specificity} < 80 y sin utilityBasis que lo explique`);
       }
+      // Y UNA ETIQUETA SIN NINGUNA CIFRA DETRAS TAMBIEN HAY QUE DECLARARLA.
+      //
+      // Las dos reglas de arriba solo miran la cifra CUANDO EXISTE (`!= null`),
+      // asi que una prueba que no publica ninguna pasaba limpia llevando la
+      // insignia mas fuerte del panel. Medido sobre las 80 pruebas: cuatro
+      // decian "Confirma", con el titulo "Alta especificidad (SpPin): un
+      // positivo confirma", sin publicar ni sensibilidad ni especificidad
+      // --shoulder/relocation, thoracic/adams-forward-bend, hip/hip-log-roll y
+      // knee/posterior-sag--, y la nota de relocation dice ella misma que Lo
+      // 2004 "no publico sensibilidad ni especificidad de la recolocacion
+      // aislada". Otras ocho llevaban "Equilibrado", que AFIRMA que las dos
+      // cifras se parecen, teniendo una sola o ninguna.
+      //
+      // 'weak' no entra: "poca precision aislado, usalo dentro de un grupo" es
+      // justo lo que significa no tener cifras, asi que ahi la etiqueta no
+      // promete nada que falte.
+      //
+      // Es la MISMA regla que el panel usa para pintar la palabra en gris
+      // (`utilityBacked` en OrthopedicTestsPanel.tsx): si cambia una, cambia la
+      // otra, o el panel gris contradice a una auditoria en verde.
+      const sinRespaldo =
+        (t.utility === 'rule-in' && m.specificity == null) ||
+        (t.utility === 'rule-out' && m.sensitivity == null) ||
+        (t.utility === 'balanced' && (m.sensitivity == null || m.specificity == null));
+      if (sinRespaldo && !t.utilityBasis) {
+        warn(
+          at,
+          `utility '${t.utility}' sin la cifra que lo respalda (Se=${m.sensitivity ?? 's/d'}, ` +
+            `Es=${m.specificity ?? 's/d'}) y sin utilityBasis que lo explique`,
+        );
+      }
       // Y al contrario: una base declarada cuando la cifra YA concuerda sobra,
       // porque entonces no explica ninguna excepcion.
       if (t.utilityBasis) {

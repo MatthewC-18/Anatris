@@ -20,11 +20,19 @@
 //   prep1    -> listo     etiquetado de capas + onReady
 //   listo    -> pintado   el primer fotograma de verdad en pantalla
 //
-// Esta encendido en `vite dev` y, en produccion, solo con `?perf=1`. Imprimir
-// una tabla cuesta menos que una pulsacion y nadie que no la pida la ve.
+// MARCAR SIEMPRE, IMPRIMIR SOLO SI SE PIDE. Antes el reloj entero estaba
+// apagado fuera de `vite dev` y de `?perf=1`, y eso dejaba a la PANTALLA DE
+// CARGA sin forma de saber en que tramo esta: la barra decia "descargando"
+// durante los 9,1 s que van del fin de la lectura de bytes al primer fotograma
+// (medido en el build de produccion con `vite preview`). Un sello es un
+// `performance.now()` y una escritura en un objeto, asi que tomarlos siempre no
+// se nota; lo que cuesta --la tabla por consola-- sigue detras de `?perf=1`.
 //
 // Leerlo: `__arranque()` en la consola, o la tabla automatica que sale sola
 // cuando llega `pintado`.
+//
+// Y QUIEN LOS LEE EN VIVO: `onStamp` / `stampedAt`, que es de donde
+// RigLoadingScreen saca las fases reales del arranque.
 
 /** Los instantes que se marcan, en el orden en que ocurren. */
 export type BootStamp =
@@ -62,10 +70,13 @@ const ETIQUETA: Record<BootStamp, string> = {
   pintado: 'primer fotograma en pantalla',
 };
 
+type Oyente = (name: BootStamp, t: number) => void;
+
 interface Reloj {
   t: Partial<Record<BootStamp, number>>;
   fases: { nombre: string; t: number }[];
   on: boolean;
+  subs: Set<Oyente>;
 }
 
 function host(): Reloj {
@@ -79,9 +90,29 @@ function host(): Reloj {
     } catch {
       on = false;
     }
-    w.__bootClock = { t: {}, fases: [], on };
+    w.__bootClock = { t: {}, fases: [], on, subs: new Set() };
   }
+  // Un reloj creado por una version anterior de este modulo (recarga en
+  // caliente) puede no traer `subs`.
+  if (!w.__bootClock.subs) w.__bootClock.subs = new Set();
   return w.__bootClock;
+}
+
+/** El instante de un sello, o undefined si todavia no ha ocurrido. */
+export function stampedAt(name: BootStamp): number | undefined {
+  return host().t[name];
+}
+
+/**
+ * Avisa cuando se marca un instante. Lo usa la pantalla de carga para cambiar de
+ * fase cuando la fase cambia DE VERDAD, en vez de por un temporizador.
+ */
+export function onStamp(fn: Oyente): () => void {
+  const h = host();
+  h.subs.add(fn);
+  return () => {
+    h.subs.delete(fn);
+  };
 }
 
 /**
@@ -91,8 +122,17 @@ function host(): Reloj {
  */
 export function stamp(name: BootStamp): void {
   const h = host();
-  if (!h.on || h.t[name] !== undefined) return;
+  if (h.t[name] !== undefined) return;
   h.t[name] = performance.now();
+  // Un oyente que falle no puede dejar el arranque a medias: el que sigue
+  // avisando es el mismo que levanta el cartel de carga.
+  for (const fn of h.subs) {
+    try {
+      fn(name, h.t[name] as number);
+    } catch {
+      /* ignorado a proposito */
+    }
+  }
   if (name === 'listo') {
     // El primer rAF tras `listo` todavia es el que encola el dibujo; el segundo
     // ya ocurre con el fotograma presentado. Medir en el primero se adelanta un

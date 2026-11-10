@@ -44,7 +44,7 @@ const tests: OrthopedicTest[] = [
       'Sensibilidad moderada (72%) y especificidad baja (60%): aislado no descarta ni confirma. Su valor está en el clúster con Hawkins y arco doloroso.',
     pearl:
       'Comparte falsos positivos con patología acromioclavicular y labral; interprétalo dentro de un clúster.',
-    demo: { examinerForce: 'applies', cannotShow: 'La bolsa subacromial, que es lo que se pinza, está en el modelo pero su material la deja en una capa que el laboratorio no muestra nunca. Lo que se enciende es el supraespinoso: el tendón que pasa por debajo del arco.', components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 60 }], movementId: 'glenohumeral-flexion', angleDeg: 160, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna del hombro.' },
+    demo: { examinerForce: 'applies', components: [{ movementId: 'glenohumeral-internal-rotation', angleDeg: 60 }], movementId: 'glenohumeral-flexion', angleDeg: 160, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna del hombro.' },
     cite: [{ ref: 'hegedus-2012', verified: true, locator: 'Neer 72/60' }],
   },
   {
@@ -70,7 +70,7 @@ const tests: OrthopedicTest[] = [
     utility: 'weak',
     interpretation:
       'El más sensible del grupo (79%), aunque insuficiente para descartar por sí solo, y con especificidad baja (59%). Úsalo dentro del clúster de pinzamiento, no aislado.',
-    demo: { examinerForce: 'applies', cannotShow: 'La bolsa subacromial, que es lo que se pinza, está en el modelo pero su material la deja en una capa que el laboratorio no muestra nunca. Lo que se enciende es el supraespinoso: el tendón que pasa por debajo del arco.', components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-internal-rotation', angleDeg: 70 }], movementId: 'glenohumeral-flexion', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna forzada a 90°.' },
+    demo: { examinerForce: 'applies', components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-internal-rotation', angleDeg: 70 }], movementId: 'glenohumeral-flexion', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'La maniobra añade rotación interna forzada a 90°.' },
     cite: [
       {
         ref: 'hegedus-2012',
@@ -97,7 +97,7 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Sensibilidad y especificidad equilibradas: aporta tanto al cribado como a la confirmación. Dolor en ~170-180° orienta más a la articulación acromioclavicular.',
-    demo: { cannotShow: 'La bolsa subacromial, que es lo que se pinza, está en el modelo pero su material la deja en una capa que el laboratorio no muestra nunca. Lo que se enciende es el supraespinoso: el tendón que pasa por debajo del arco.', movementId: 'glenohumeral-abduction', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'El dolor aparece en el arco medio (~60-120°). Comparte posición con el brazo caído: lo que cambia no es dónde está el brazo, sino que aquí el paciente sube activamente.' },
+    demo: { movementId: 'glenohumeral-abduction', angleDeg: 90, highlightMuscleId: 'supraspinatus', note: 'El dolor aparece en el arco medio (~60-120°). Comparte posición con el brazo caído: lo que cambia no es dónde está el brazo, sino que aquí el paciente sube activamente.' },
     cite: [{ ref: 'park-2005', verified: true, locator: 'arco doloroso 74/81' }],
   },
 
@@ -308,6 +308,8 @@ const tests: OrthopedicTest[] = [
       note: 'SIN CIFRA PROPIA, y el motivo es el hallazgo. Lo 2004 (46 pacientes, cuatro examinadores ciegos e independientes) midió las tres pruebas juntas y concluyó que el alivio de la aprensión o del dolor con la recolocación "añadía poco" al valor del conjunto: no publicó sensibilidad ni especificidad de la recolocación aislada. Lo que sí midió es la prueba de SORPRESA, que es la mejor de las tres por separado (63,9% / 98,9%), y el conjunto: con aprensión en las tres pruebas, el valor predictivo positivo fue del 93,6%. La recolocación vale como paso intermedio para llegar a la sorpresa, no como prueba con cifra propia.',
     },
     utility: 'rule-in',
+    utilityBasis:
+      'Lo 2004 no publicó sensibilidad ni especificidad de la recolocación aislada, así que ninguna cifra propia respalda esta etiqueta. Lo que ese estudio sí midió es la SECUENCIA: con aprensión en las tres pruebas el valor predictivo positivo fue del 93,6%, y la prueba de sorpresa por separado dio 63,9% / 98,9%. Confirma como paso de esa secuencia, no sola.',
     interpretation:
       'Es el paso intermedio de una secuencia, no una prueba independiente: su utilidad medida está en completar aprensión + recolocación + sorpresa, donde el conjunto positivo es muy específico de inestabilidad anterior traumática.',
     demo: { cannotShow: 'El rig no tiene cápsula glenohumeral ni labrum glenoideo: ninguna de las dos está en el modelo, así que no hay nada honesto que encender. Lo que ves es la posición; qué estructura cede va en el texto.', components: [{ movementId: 'elbow-flexion', angleDeg: 90 }, { movementId: 'glenohumeral-external-rotation', angleDeg: 80 }], movementId: 'glenohumeral-abduction', angleDeg: 90, note: 'Misma posición que la aprensión. Lo único que cambia es que el explorador empuja la cabeza humeral hacia atrás — por eso el brazo se ve igual.' },

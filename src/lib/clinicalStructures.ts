@@ -18,19 +18,28 @@
 // `npm run rig-find`, y `npm run audit-structures` lo vuelve a medir contra el
 // GLB publicado en cada pasada.
 //
-// LA SEGUNDA RESTRICCIÓN: el laboratorio solo sabe mostrar cuatro capas (piel,
-// músculo, hueso, conectivo), y la capa la decide `layerForMaterial` a partir
-// del MATERIAL de la malla. Devuelve null para los nervios, los vasos, las
-// bolsas serosas y las fascias: esas mallas están en el GLB pero el sistema de
-// capas no las muestra nunca. Así que una prueba cuyo objetivo es una raíz
-// nerviosa, el nervio cubital o la bolsa subacromial NO puede resaltar su
-// estructura, y eso se DECLARA (`cannotShow` en el dato de la prueba) en vez de
-// taparse con un resalte aproximado. Un resalte que enciende "algo parecido" es
-// peor que ninguno: enseña una estructura falsa como si fuera la que el libro
-// nombra. Lo mismo vale para lo que no está en el modelo: el rig no tiene
-// cruzados, ni menisco lateral, ni colateral lateral de rodilla, ni labrum
-// (glenoideo ni acetabular), ni cápsula glenohumeral, ni un solo ligamento de
-// raquis, cadera o sacroilíaca.
+// LA SEGUNDA RESTRICCIÓN: el laboratorio solo sabe mostrar las capas que el
+// panel tiene en su tabla (piel, músculo, hueso, tendón/ligamento, cartílago y
+// cápsula, bolsas serosas), y la capa la decide `layerForMaterial` a partir del
+// MATERIAL de la malla. Devuelve null para los nervios, los vasos y las
+// fascias: esas mallas están en el GLB pero el sistema de capas no las muestra
+// nunca. Así que una prueba cuyo objetivo es una raíz nerviosa o el nervio
+// cubital NO puede resaltar su estructura, y eso se DECLARA (`cannotShow` en el
+// dato de la prueba) en vez de taparse con un resalte aproximado. Un resalte
+// que enciende "algo parecido" es peor que ninguno: enseña una estructura falsa
+// como si fuera la que el libro nombra. Lo mismo vale para lo que no está en el
+// modelo: el rig no tiene cruzados, ni menisco lateral, ni colateral lateral de
+// rodilla, ni labrum (glenoideo ni acetabular), ni cápsula glenohumeral, ni un
+// solo ligamento de raquis, cadera o sacroilíaca.
+//
+// LA BOLSA SEROSA YA NO ESTÁ EN ESA LISTA, y este comentario la ponía de
+// ejemplo justo al lado del nervio cubital. El material 'Bursa' tiene capa
+// propia e interruptor en el panel desde que se midió lo que costaba no
+// tenerlo: 42 mallas y 3.902 vértices ya descargados que no se podían encender
+// (la fila `Bursa ... [ENCENDER?]` de `npm run audit-glb-waste`), con Neer,
+// Hawkins-Kennedy y el arco doloroso llevando escrito en la ficha que el
+// laboratorio no podía enseñar lo que se pinza. Las tres frases se han borrado
+// y la estructura está aquí abajo.
 //
 // `expectMeshes` es la cifra MEDIDA sobre el GLB que se publica, y existe para
 // que `npm run audit-structures` falle si una reexportación del modelo se lleva
@@ -38,8 +47,14 @@
 // el síntoma vuelve a ser el de siempre: el botón se pulsa y no se enciende
 // nada.
 
-/** La capa del laboratorio a la que pertenece la estructura. */
-export type StructureLayer = 'muscle' | 'bone' | 'connective' | 'skin';
+/**
+ * La capa del laboratorio a la que pertenece la estructura. Son las llaves de
+ * `LayerState`, menos `cartilage`: para el panel el cartílago y la cápsula
+ * tienen interruptor propio, pero `layerForMaterial` --que es con lo que
+ * `npm run audit-structures` comprueba este registro-- los sigue llamando
+ * conectivo, y ahí es donde tiene que cuadrar.
+ */
+export type StructureLayer = 'muscle' | 'bone' | 'connective' | 'skin' | 'bursa';
 
 export interface ClinicalStructure {
   /** Nombre clínico, como lo lee el fisio. */
@@ -73,6 +88,20 @@ export const CLINICAL_STRUCTURES: Record<string, ClinicalStructure> = {
     layer: 'connective',
     include: [/^Long_head_of_biceps_brachii_[13]$/],
     expectMeshes: 2,
+  },
+  // LA BOLSA QUE SE PINZA. Subacromial y subdeltoidea son la MISMA bolsa (en el
+  // cuerpo se continúan por fuera del troquíter) y el rig las trae partidas en
+  // dos piezas por lado: Subacromial_bursal/r (206 vértices cada una) y
+  // Subdeltoid_bursal/r (189 y 187). Las dos van juntas porque la maniobra de
+  // Neer y la de Hawkins comprimen el conjunto, no una mitad.
+  //   Las otras 38 bolsas del rig (las tres prerrotulianas, la infrarrotuliana
+  // profunda, la anserina, la del tendón calcáneo) se ven con el interruptor
+  // "Bolsas serosas"; solo entran aquí las que una prueba tiene que señalar.
+  'subacromial-bursa': {
+    label: 'Bolsa subacromial-subdeltoidea',
+    layer: 'bursa',
+    include: [/^Sub(acromial|deltoid)_bursa[lr]$/],
+    expectMeshes: 4,
   },
 
   // ============================= TORÁCICA =============================

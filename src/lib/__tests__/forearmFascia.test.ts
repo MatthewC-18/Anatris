@@ -74,7 +74,11 @@ describe('la fascia que cierra el antebrazo', () => {
     // Si algun dia `layerForMaterial('Fascia')` devolviera una capa, se
     // encenderia la fascia de todo el cuerpo y volverian las mangas blancas.
     expect(layerForMaterial('Fascia')).toBeNull();
-    expect(layerForMaterial('Bursa')).toBeNull();
+    // La bolsa serosa SI tiene capa, y esto lo vigila: vivia en este mismo
+    // cubo de "material sin capa" --42 mallas del GLB que no se podian
+    // encender-- y salio de el con interruptor propio en el panel. Que vuelva
+    // a null significaria que el boton "Bolsas serosas" no enciende nada.
+    expect(layerForMaterial('Bursa')).toBe('bursa');
   });
 
   it('la carne profunda es mas oscura que cualquier vientre del rig', () => {

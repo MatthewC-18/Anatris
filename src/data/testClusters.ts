@@ -137,3 +137,47 @@ export function measuredCluster(
   }
   return null;
 }
+
+/**
+ * EL CONJUNTO AL QUE PERTENECE LA SELECCION, AUNQUE AUN NO LLEGUE AL UMBRAL.
+ *
+ * Por debajo del minimo medido, el panel vuelve a su estimacion -- y esa
+ * estimacion es justo la que este fichero existe para desconfiar. Medido con
+ * las razones del propio catalogo: con DOS pruebas sacroiliacas marcadas el
+ * producto de sus LR+ es 8,96 y el panel enseña 30% -> 79,3%; la cifra MEDIDA
+ * de Laslett para tres o mas positivas es LR+ 4,27, es decir 30% -> 64,7%. La
+ * estimacion mas optimista era la que se publicaba sin ninguna advertencia,
+ * porque el aviso ambar que lo explica vivia DENTRO del bloque del conjunto
+ * medido y por tanto solo existia cuando el conjunto ya se aplicaba.
+ *
+ * Devuelve el conjunto SOLO mientras falten positivas (al alcanzarlas manda
+ * `measuredCluster`), y con la misma exigencia: todas las marcadas tienen que
+ * ser suyas.
+ */
+export function partialCluster(
+  region: string,
+  selected: Iterable<string>,
+): TestCluster | null {
+  const ids = [...selected];
+  if (!ids.length) return null;
+  for (const c of clustersForRegion(region)) {
+    if (ids.length >= c.minPositive) continue;
+    if (ids.every((id) => c.tests.includes(id))) return c;
+  }
+  return null;
+}
+
+/**
+ * La razon de verosimilitud positiva del conjunto, TAL COMO LA PUBLICA SU
+ * FUENTE o derivada de sus dos cifras. Null cuando no publica ninguna de las
+ * dos cosas (derivarla de cifras que no existen daba NaN).
+ *
+ * Vive aqui y no en el panel porque ahora la leen dos sitios: el bloque del
+ * conjunto aplicado y la linea de referencia de cuando aun faltan positivas.
+ */
+export function clusterLrPositive(c: TestCluster): number | null {
+  if (c.lrPositive != null) return c.lrPositive;
+  if (c.sensitivity == null || c.specificity == null) return null;
+  if (c.specificity >= 100) return Infinity;
+  return c.sensitivity / (100 - c.specificity);
+}

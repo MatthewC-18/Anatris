@@ -201,20 +201,27 @@ export interface OrthopedicTest {
    *
    * La regla normal es la obvia: se descarta con una prueba sensible y se
    * confirma con una específica, y la auditoría avisa cuando la etiqueta y la
-   * cifra no concuerdan. Pero hay dos casos reales en los que concuerdan mal
-   * por un buen motivo, y callarlo convertía el aviso en ruido permanente:
+   * cifra no concuerdan. Pero hay casos reales en los que concuerdan mal por un
+   * buen motivo, y callarlo convertía el aviso en ruido permanente:
    *
    *   - la aducción cruzada tiene una sensibilidad del 77%, y lo que la hace
    *     una prueba de descarte es el VALOR PREDICTIVO NEGATIVO por encima del
    *     94% que publica la misma fuente;
-   *   - la prueba de Roos lleva un 72% que no es suyo, sino la MEDIA de todos
-   *     los tests provocativos del estudio, de modo que la etiqueta no puede
-   *     apoyarse en esa cifra.
+   *   - y el caso más frecuente, que es NO TENER CIFRA NINGUNA. Doce pruebas
+   *     llevan una etiqueta cuya cifra su fuente no publica, y cuatro de ellas
+   *     llevaban la más fuerte del panel: "Confirma", con el título "Alta
+   *     especificidad (SpPin): un positivo confirma", sin sensibilidad y sin
+   *     especificidad (relocation, Adams, log roll y el sag posterior). La nota
+   *     de relocation lo dice ella misma: Lo 2004 "no publicó sensibilidad ni
+   *     especificidad de la recolocación aislada".
    *
    * Así que la excepción se DECLARA aquí, con su evidencia, en vez de vivir en
-   * una lista de perdones dentro del auditor. Si la cifra deja de contradecir
-   * a la etiqueta, este campo sobra; mientras la contradiga, la explicación
-   * tiene que estar escrita y el usuario tiene que poder leerla.
+   * una lista de perdones dentro del auditor; `clinicalAudit` exige este campo
+   * cuando falta la cifra que respalda la etiqueta, y el panel pinta la palabra
+   * en gris y la enseña en el título de la fila. Si la cifra deja de
+   * contradecir a la etiqueta, este campo sobra; mientras la contradiga o no
+   * exista, la explicación tiene que estar escrita y el usuario tiene que poder
+   * leerla.
    */
   utilityBasis?: string;
   /** How to read a positive/negative given the metric profile. */

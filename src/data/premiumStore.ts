@@ -40,6 +40,17 @@ import type { MovementPathology } from './pathologies';
  * for the spine: a thoracic rotation recruits the abdominal wall, which is
  * authored in the lumbar sub-region. The composition is resolved at BUILD time
  * so the runtime never needs a sibling region loaded to render this one.
+ *
+ * SU CONTRATO ES MAS ANCHO QUE EL NOMBRE: no es "los musculos del ROM", es
+ * TODA FICHA QUE UNA PANTALLA DE ESTA REGION PUEDE NOMBRAR. El ROM fue el
+ * primer caso; el segundo, medido, son los demos de miotoma del panel Neuro,
+ * que son los mismos para toda una extremidad y por eso nombran fichas de otra
+ * region (C6 el braquiorradial, del codo; L2 el psoas, de la cadera; L3 el
+ * cuadriceps, de la rodilla). Con el universo atado a la region abierta, 24 de
+ * las 48 acreditaciones de miotoma no encendian NI UNA malla.
+ * `scripts/build-premium-content.mts` compone la lista; cuesta +17,0 KB en los
+ * siete payloads (de +0,0 KB en codo y toracica a +5,3 KB en lumbar, un 4%) y
+ * `npm run audit-glow` lo mide region por region.
  */
 export interface PremiumRegionPayload {
   region: string;
@@ -104,10 +115,24 @@ export function clearPremiumRegions(): void {
   bump();
 }
 
-/** Every muscle of every LOADED premium region (for the mesh-name resolver). */
+/**
+ * Every muscle of every LOADED premium region (for the mesh-name resolver).
+ *
+ * LEE `romLookupMuscles`, NO `muscles`. La lista anatomica de la region no
+ * alcanza: el laboratorio resuelve contra el GLB todo lo que sus paneles
+ * nombran, y hay pantallas que nombran una ficha de otra region (el ROM del
+ * raquis, y los demos de miotoma del panel Neuro). Con `muscles` a secas, el
+ * play de L3 en el laboratorio lumbar movia la rodilla sin encender el
+ * cuadriceps: su ficha solo vive en la rodilla. Es un superconjunto por
+ * construccion, asi que `muscles` va detras solo como red por si un payload
+ * viejo llega sin el campo.
+ */
 export function allLoadedPremiumMuscles(): Muscle[] {
   const out: Muscle[] = [];
-  for (const p of installed.values()) out.push(...p.muscles);
+  // `?? []` y no `p.romLookupMuscles` a secas: el payload llega por red desde
+  // una funcion desplegada aparte, asi que una version antigua puede venir sin
+  // el campo, y un `...undefined` tiraria el laboratorio entero.
+  for (const p of installed.values()) out.push(...(p.romLookupMuscles ?? []), ...p.muscles);
   return out;
 }
 

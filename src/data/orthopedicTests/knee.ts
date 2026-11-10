@@ -17,6 +17,20 @@
 // Most knee tests are translation (Lachman, cajones) or stress maneuvers the rig
 // cannot reproduce; those approximate the flexion angle at which the test is done
 // with an honest `note`. McMurray/Thessaly use the rotation the rig CAN show.
+//
+// Y `cannotShow` PROMETIA UNA DIRECCION QUE LA ESCENA NO DIBUJA. Cinco demos de
+// esta region decian "lo que se demuestra es la direccion de la traslacion
+// anterior/posterior de la tibia" o "se demuestra la direccion del varo",
+// mientras la `note` de la misma tarjeta decia lo contrario ("translacion, que
+// el modelo no reproduce"). Medido en la escena: el grupo de resistencia de
+// RigOverlays contiene UN solo objeto, la mano, y su orientacion se calcula
+// hacia la posicion de reposo del segmento (WORLD_DOWN), igual para el cajon
+// anterior que para el posterior; no hay flecha ni ningun otro indicador de
+// direccion, y lachman y posterior-sag no llevan `examinerForce`, asi que ahi
+// ni mano sale. Las frases dicen ahora lo mismo que la nota: la POSICION si, la
+// traslacion no. La alternativa buena --un campo `forceDirection` en TestDemo
+// que `placeResistance` use para orientar la mano y dibujar la flecha-- vive en
+// RigOverlays y queda pedida.
 
 import type { OrthopedicTest } from '../../types/orthopedicTest';
 
@@ -45,7 +59,7 @@ const tests: OrthopedicTest[] = [
       'Más fiable en agudo que el cajón anterior (menos espasmo/hemartros). La calidad del tope final importa tanto como la cantidad de traslación.',
     demo: {
       cannotShow:
-        'El ligamento cruzado anterior no está en el rig: el modelo no trae cruzados. Lo que se demuestra es la dirección de la traslación anterior de la tibia, que es lo que el LCA frena.',
+        'El ligamento cruzado anterior no está en el rig: el modelo no trae cruzados. Y la traslación tampoco, ni hacia dónde va: el rig gira articulaciones, no desliza la tibia, y en esta prueba ni siquiera se dibuja la mano del explorador. Lo que se demuestra es la posición en la que se explora, la rodilla a 20-30 grados.',
       movementId: 'knee-flexion',
       angleDeg: 25,
       note: 'A 20-30° de flexión se traslada la tibia hacia anterior (translación, que el modelo no reproduce).',
@@ -73,7 +87,7 @@ const tests: OrthopedicTest[] = [
       'En lesión CRÓNICA es tan bueno como el Lachman (92/91). En agudo no: el dolor y el hemartros lo limitan y un negativo no descarta nada. La cifra que ves solo vale para el paciente crónico.',
     demo: {
       cannotShow:
-        'El ligamento cruzado anterior no está en el rig: el modelo no trae cruzados. Lo que se demuestra es la dirección de la traslación anterior de la tibia, que es lo que el LCA frena.',
+        'El ligamento cruzado anterior no está en el rig: el modelo no trae cruzados. Y la dirección del tirón tampoco se ve: la mano del explorador se dibuja apoyada en el segmento, pero la escena no representa hacia dónde empuja. Lo que se demuestra es la posición, la rodilla a 90 grados.',
       movementId: 'knee-flexion',
       angleDeg: 90,
       examinerForce: 'applies',
@@ -102,7 +116,7 @@ const tests: OrthopedicTest[] = [
       'Muy específico (SpPin): un positivo confirma la insuficiencia del LCA. Solo ve una de cada cuatro roturas con el paciente despierto; su rendimiento sube bajo anestesia.',
     demo: {
       cannotShow:
-        'El cruzado anterior no está en el modelo. Lo que se demuestra es la combinación de valgo y rotación con la que la tibia se reduce.',
+        'El cruzado anterior no está en el modelo, y el valgo no se reproduce: el rig no tiene ese eje en la rodilla. Lo que se demuestra es la mitad de la maniobra que sí conduce, la flexión con la tibia en rotación interna.',
       movementId: 'knee-flexion',
       angleDeg: 30,
       components: [{ movementId: 'knee-internal-rotation', angleDeg: 25 }],
@@ -136,7 +150,7 @@ const tests: OrthopedicTest[] = [
       'Confirma primero la posición de partida con el signo del cajón posterior en reposo (posterior sag): una tibia ya desplazada puede simular un falso cajón anterior.',
     demo: {
       cannotShow:
-        'El ligamento cruzado posterior no está en el rig. Lo que se demuestra es la dirección de la traslación posterior de la tibia, que es lo que el LCP frena.',
+        'El ligamento cruzado posterior no está en el rig. Y la dirección del empuje tampoco se ve: la mano del explorador se dibuja apoyada en el segmento, pero la escena no representa hacia dónde empuja, así que en pantalla esta prueba y el cajón anterior son la misma imagen. Lo que se demuestra es la posición, la rodilla a 90 grados.',
       movementId: 'knee-flexion',
       angleDeg: 90,
       examinerForce: 'applies',
@@ -170,11 +184,13 @@ const tests: OrthopedicTest[] = [
       note: 'SIN CIFRA PROPIA. El 79% / 100% que esta aplicación mostraba se atribuía a Malanga 2003, que es una revisión narrativa y no publica cifras del sag. Lo que SÍ está medido es la exploración del LCP en conjunto: Rubinstein 1994 (39 sujetos, 19 roturas crónicas aisladas de LCP, examinadores cegados a la historia y al diagnóstico) da 90% de sensibilidad y 99% de especificidad, con una exactitud global del 96%, y señala que la prueba más sensible y específica es el CAJÓN POSTERIOR con palpación del escalón tibiofemoral. La exactitud fue mayor en laxitudes de grado II y III que en grado I. El sag es el paso que coloca la rodilla antes de ese cajón, no una prueba con cifra propia.',
     },
     utility: 'rule-in',
+    utilityBasis:
+      'No hay cifra propia del sag: Malanga 2003 es una revisión narrativa y no la publica. Lo medido es la exploración del LCP EN CONJUNTO (Rubinstein 1994: 90% de sensibilidad y 99% de especificidad), y dentro de ella el sag es el paso que coloca la rodilla antes del cajón posterior. Confirma como parte de esa exploración, no por una cifra suya.',
     interpretation:
       'Un sag visible orienta a insuficiencia del LCP y, sobre todo, evita malinterpretar la traslación del cajón: si la tibia parte caída, un cajón anterior "normal" puede ser en realidad la reducción de una tibia subluxada. Explóralo SIEMPRE antes del cajón anterior y posterior.',
     demo: {
       cannotShow:
-        'El ligamento cruzado posterior no está en el rig. Lo que se demuestra es la dirección de la traslación posterior de la tibia, que es lo que el LCP frena.',
+        'El ligamento cruzado posterior no está en el rig, y la caída de la tibia tampoco: es una traslación, y el rig gira articulaciones. Aquí además no se dibuja ninguna mano, porque en esta prueba el explorador no aplica nada. Lo que se demuestra es la posición de partida, cadera y rodilla a 90 grados.',
       movementId: 'knee-flexion',
       angleDeg: 90,
       note: 'Con cadera y rodilla a 90° la tibia cae hacia posterior por su propio PESO: aquí el explorador no aplica nada, que es lo que lo separa de los dos cajones. La traslación no se reproduce.',
@@ -352,6 +368,8 @@ const tests: OrthopedicTest[] = [
       note: 'SIN CIFRA DEFENDIBLE, y no por falta de búsqueda. El 86% / 68% que se mostraba aquí se atribuía a Malanga 2003, que no lo publica; y su conclusión sobre estas pruebas es justamente la contraria a dar un número: aunque la exploración de los ligamentos colaterales PARECE sensible y específica, faltan estudios bien diseñados que la validen. Lo que sí se puede afirmar en consulta es el hallazgo estructural: la apertura en valgo a 30° de flexión apunta al ligamento colateral medial, mientras que la apertura con la rodilla en EXTENSIÓN COMPLETA implica lesión combinada (cruzado y/o esquina posteromedial) y cambia el manejo.',
     },
     utility: 'balanced',
+    utilityBasis:
+      'Sin cifra defendible: el 86% / 68% que se mostraba aquí no está en Malanga 2003, y la conclusión de esa revisión es que a la exploración de los colaterales le faltan estudios bien diseñados. La etiqueta describe el uso, no un perfil medido: lo que decide el manejo es DÓNDE se abre, a 30 grados o en extensión completa.',
     interpretation:
       'Sensible para el LCM a 30°. Una apertura clara a 0° de extensión orienta a lesión combinada (cápsula posteromedial o cruzados) y obliga a valorarlos.',
     demo: {
@@ -384,11 +402,13 @@ const tests: OrthopedicTest[] = [
       note: 'SIN CIFRA DEFENDIBLE, por el mismo motivo que la prueba en valgo: el 25% / 90% no consta en Malanga 2003, que concluye que a la exploración de los colaterales le faltan estudios bien diseñados que la validen. El LCL se lesiona con mucha menos frecuencia que el LCM, así que cualquier cifra procedería además de series muy pequeñas. Lo útil sigue siendo estructural: apertura en varo a 30° orienta al colateral lateral; apertura en extensión completa, a lesión combinada con la esquina posterolateral.',
     },
     utility: 'balanced',
+    utilityBasis:
+      'Sin cifra defendible, igual que la prueba en valgo: el 25% / 90% no consta en Malanga 2003. La etiqueta describe el uso, no un perfil medido: apertura a 30 grados orienta al colateral lateral, y apertura en extensión completa a lesión combinada con la esquina posterolateral.',
     interpretation:
       'Una apertura lateral a 0° orienta a lesión de la esquina posterolateral y obliga a descartar afectación asociada del LCP.',
     demo: {
       cannotShow:
-        'El ligamento colateral lateral no está en el rig (el medial sí). Se demuestra la dirección del varo, que es lo que lo tensa.',
+        'El ligamento colateral lateral no está en el rig (el medial sí). Y la dirección del varo tampoco se ve: la escena no representa hacia dónde empuja la mano, así que en pantalla esto y el estrés en valgo son la misma imagen. Lo que se demuestra es la flexión en la que se aplica.',
       movementId: 'knee-flexion',
       angleDeg: 30,
       examinerForce: 'applies',

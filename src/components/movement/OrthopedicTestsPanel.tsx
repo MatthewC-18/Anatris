@@ -49,7 +49,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { testsForRegion } from '../../data/orthopedicTests';
-import { measuredCluster } from '../../data/testClusters';
+import {
+  clusterLrPositive,
+  measuredCluster,
+  partialCluster,
+} from '../../data/testClusters';
 import type {
   OrthopedicTest,
   TestUtility,
@@ -58,6 +62,8 @@ import type {
 import { getReference, formatReference, type ReferenceId } from '../../data/references';
 import { rigChannel } from './RigModel';
 import { demoChannel, useActiveDemo } from './demoChannel';
+import { readPose } from './consolePoseStore';
+import { getBoneControl } from '../../lib/boneMap';
 import { EVENTS, track } from '../../lib/analytics';
 import { structureLabel } from '../../lib/clinicalStructures';
 import { SaveButton } from '../SaveButton';
@@ -109,13 +115,13 @@ const UTILITY: Record<
 // ---------------------------------------------------------------------------
 // Bayes / likelihood-ratio math.
 // ---------------------------------------------------------------------------
-function lrPosNum(m: DiagnosticMetrics): number | null {
+export function lrPosNum(m: DiagnosticMetrics): number | null {
   if (m.lrPositive != null) return m.lrPositive;
   if (m.sensitivity == null || m.specificity == null) return null;
   if (m.specificity >= 100) return Infinity;
   return (m.sensitivity / 100) / (1 - m.specificity / 100);
 }
-function lrNegNum(m: DiagnosticMetrics): number | null {
+export function lrNegNum(m: DiagnosticMetrics): number | null {
   if (m.lrNegative != null) return m.lrNegative;
   if (m.sensitivity == null || m.specificity == null || m.specificity === 0) return null;
   return (1 - m.sensitivity / 100) / (m.specificity / 100);
@@ -139,7 +145,8 @@ function lrPosConservative(m: DiagnosticMetrics): number | null {
 }
 
 /**
- * Probabilidad post-test. NULL cuando la razon de verosimilitud no es finita.
+ * Probabilidad post-test. NULL cuando la razon de verosimilitud no es finita
+ * NI ES CERO: los dos extremos son el mismo error, uno en cada direccion.
  *
  * Esto devolvia 100. Tres pruebas del catalogo traen especificidad 100%
  * --Maudsley (Saroja 2014, 30 sujetos), signo femoral (Suri 2011, 57 pacientes)
@@ -149,9 +156,20 @@ function lrPosConservative(m: DiagnosticMetrics): number | null {
  * pacientes. Ahora el bloque de Fagan lo explica en vez de imprimir un numero
  * que no existe, y ensena la estimacion conservadora cuando la fuente publica
  * el intervalo.
+ *
+ * Y EL ESPEJO SE QUEDO SIN GUARDAR, que es peor porque nadie lo busca. Una
+ * sensibilidad del 100% da LR- = (1-1)/espec = 0, cero es finito, y
+ * `odds * 0 / (1 + odds * 0)` es 0: el panel publicaba "Si sale negativo:
+ * 30% -> 0%" y "LR- 0.00". Medido sobre el payload que se SIRVE
+ * (supabase/functions/content/payloads/elbow.json) para el unico test del
+ * catalogo con sensibilidad 100 --moving valgus stress, O'Driscoll 2005, 17 de
+ * 17-- daba 0,0% desde CUALQUIER pre-test: 10, 30, 70 y 90 por ciento. Es
+ * decir, un negativo descartaba la lesion del ligamento colateral cubital con
+ * certeza absoluta a partir de 17 sujetos. Cero y infinito se tratan igual:
+ * no se cifra, se explica (ver FaganBlock).
  */
-function postProb(prePct: number, lr: number): number | null {
-  if (!isFinite(lr)) return null;
+export function postProb(prePct: number, lr: number): number | null {
+  if (!isFinite(lr) || lr <= 0) return null;
   const pre = Math.min(99.9, Math.max(0.1, prePct)) / 100;
   const odds = pre / (1 - pre);
   const post = odds * lr;
@@ -182,6 +200,57 @@ const EMPTY_PREDICTION: Prediction = { sens: null, espec: null, revealed: false 
 function levelOf(value: number | undefined): Level | undefined {
   if (value == null) return undefined;
   return value >= ALTA_THRESHOLD ? 'alta' : 'baja';
+}
+
+/**
+ * ¿HAY ALGUNA CIFRA DETRAS DE LA ETIQUETA DE USO?
+ *
+ * La insignia de la fila afirma algo sobre una de las dos cifras: "Confirma" es
+ * alta especificidad y "Descarta" es alta sensibilidad. Se pintaba SIEMPRE,
+ * tambien cuando la prueba no publica esa cifra. Medido sobre el catalogo
+ * completo (las 80 pruebas de `fullContent`), doce la llevaban sin respaldo, y
+ * cuatro con la insignia fuerte y sin ningun numero: shoulder/relocation,
+ * thoracic/adams-forward-bend, hip/hip-log-roll y knee/posterior-sag decian
+ * "Confirma" con el titulo "Alta especificidad (SpPin)" y con `metrics` sin
+ * sensibilidad y sin especificidad. La nota de relocation lo dice ella misma:
+ * Lo 2004 "no publico sensibilidad ni especificidad de la recolocacion
+ * aislada".
+ *
+ * `weak` no entra: "poca precision aislado" es justamente lo que significa no
+ * tener cifras, asi que ahi la etiqueta no promete nada que falte.
+ */
+export function utilityBacked(test: OrthopedicTest): boolean {
+  const m = test.metrics;
+  switch (test.utility) {
+    case 'rule-in':
+      return m.specificity != null;
+    case 'rule-out':
+      return m.sensitivity != null;
+    case 'balanced':
+      return m.sensitivity != null && m.specificity != null;
+    default:
+      return true;
+  }
+}
+
+/** Lo que se lee al pasar por encima de una etiqueta sin cifra que la respalde. */
+function unbackedTip(test: OrthopedicTest): string {
+  return (
+    'Uso propuesto por la fuente; sin sensibilidad ni especificidad publicadas que lo respalden. ' +
+    (test.utilityBasis ?? '')
+  ).trim();
+}
+
+/**
+ * ¿SE LE PUEDE PREGUNTAR ALGO AL USUARIO SOBRE ESTA PRUEBA?
+ *
+ * El modo examen pide predecir sensibilidad y especificidad. Veintiuna de las
+ * ochenta pruebas no traen ninguna de las dos, y con los dos ejes a `undefined`
+ * la correccion daba por buena cualquier respuesta: bastaba pulsar Revelar para
+ * leer "Bien razonado".
+ */
+function isPredictable(test: OrthopedicTest): boolean {
+  return test.metrics.sensitivity != null || test.metrics.specificity != null;
 }
 
 // ---------------------------------------------------------------------------
@@ -264,6 +333,16 @@ function FaganBlock({
   const postNeg = lrNeg != null ? postProb(pretest, lrNeg) : null;
   const lrCons = lrPosConservative(metrics);
   const conservative = postPos == null && lrCons != null ? postProb(pretest, lrCons) : null;
+  // UN POSITIVO QUE NO SUBE LA SOSPECHA NO SE PINTA COMO SI CONFIRMARA.
+  // Cozen (84/0) y Maudsley (88/0) dan LR+ 0,84 y 0,88: medido, un pre-test del
+  // 30% BAJA a 26,5% y a 27,4% cuando la prueba sale positiva. La cifra se
+  // imprimia en verde esmeralda, el color que en este panel significa
+  // "confirma", con el mismo formato que las pruebas donde sube.
+  const posLowersSuspicion = lrPos != null && isFinite(lrPos) && lrPos < 1;
+  // Los dos negativos que NO se pueden cifrar, cada uno por su extremo:
+  // sensibilidad 100% (LR- = 0) y especificidad 0% (LR- se iria a infinito).
+  const sensIsPerfect = lrNeg === 0;
+  const especIsZero = lrNeg == null && metrics.specificity === 0 && metrics.sensitivity != null;
   return (
     <div className="border-t border-slate-800/70 pt-2.5">
       <Kicker>Probabilidad post-test</Kicker>
@@ -286,7 +365,7 @@ function FaganBlock({
           pretest={pretest}
           value={postPos}
           lr={`LR+ ${lrLabel(lrPos)}`}
-          tone="emerald"
+          tone={posLowersSuspicion ? 'slate' : 'emerald'}
         />
         <FaganResult
           title="Si sale negativo"
@@ -319,6 +398,44 @@ function FaganBlock({
           )}
         </p>
       )}
+      {/* Y LA SENSIBILIDAD DEL 100% TAMPOCO ES CERTEZA, que es el mismo error
+          visto desde el otro lado y el que estaba sin guardar: aqui el panel
+          imprimia "30% -> 0%" y "LR- 0.00", o sea un negativo que descarta la
+          lesion con certeza absoluta. Ver postProb. */}
+      {sensIsPerfect && (
+        <p className="mt-2 text-[11px] leading-snug text-slate-400">
+          Con sensibilidad del 100% la razón de verosimilitud negativa sale 0 y la
+          probabilidad post-test de un negativo no se puede calcular: en esa muestra
+          no hubo ni un falso negativo, pero una muestra sin falsos negativos no es
+          una prueba sin falsos negativos. Mira el tamaño de la serie en la fuente,
+          abajo: un solo caso distinto cambiaría la cifra. Un negativo aquí hace la
+          lesión poco probable; no la descarta.
+        </p>
+      )}
+      {/* LA ESPECIFICIDAD DEL 0%: el otro divisor imposible. Son dos pruebas
+          reales (Cozen y Maudsley, Saroja 2014) y no un error de lectura: en esa
+          serie TODOS los sujetos con ecografia negativa dieron positivo. El
+          panel imprimia "s/d" en la mitad negativa y no decia por que. */}
+      {especIsZero && (
+        <p className="mt-2 text-[11px] leading-snug text-slate-400">
+          Con especificidad del 0% ninguna de las dos mitades se sostiene. En esa
+          serie todos los sujetos sanos dieron positivo, así que la razón de
+          verosimilitud negativa se iría a infinito (un negativo sólo aparecía en
+          enfermos), y eso es un artefacto de los pocos negativos de la muestra, no
+          un hallazgo: por eso no se cifra. Y por lo mismo un positivo{' '}
+          <span className="text-slate-300">no sube la sospecha</span>: la prueba no
+          separa a quien tiene la lesión de quien no.
+        </p>
+      )}
+      {/* Y si la LR+ baja de 1 por cualquier otra combinacion, se dice igual. */}
+      {posLowersSuspicion && !especIsZero && (
+        <p className="mt-2 text-[11px] leading-snug text-slate-400">
+          La razón de verosimilitud positiva es menor que 1, así que un positivo{' '}
+          <span className="text-slate-300">no sube la sospecha</span>: la deja por
+          debajo de tu probabilidad pre-test. El valor de esta prueba está en el
+          negativo.
+        </p>
+      )}
     </div>
   );
 }
@@ -334,10 +451,21 @@ function FaganResult({
   pretest: number;
   value: number | null;
   lr: string;
-  tone: 'emerald' | 'sky';
+  /**
+   * Emerald es el positivo y sky el negativo (regla 1 del panel). `slate` es la
+   * tercera: el positivo de una prueba cuya LR+ es menor que 1, que BAJA la
+   * probabilidad. Pintarlo de verde decia "confirma" sobre un numero que cae.
+   */
+  tone: 'emerald' | 'sky' | 'slate';
 }) {
-  const text = tone === 'emerald' ? 'text-emerald-300' : 'text-sky-300';
-  const bar = tone === 'emerald' ? 'bg-emerald-400' : 'bg-sky-400';
+  const text =
+    tone === 'emerald'
+      ? 'text-emerald-300'
+      : tone === 'sky'
+        ? 'text-sky-300'
+        : 'text-slate-300';
+  const bar =
+    tone === 'emerald' ? 'bg-emerald-400' : tone === 'sky' ? 'bg-sky-400' : 'bg-slate-500';
   return (
     <div>
       <span className="block text-[11px] text-slate-400">{title}</span>
@@ -475,11 +603,51 @@ function ExamBlock({
   const hasSens = sensActual !== undefined;
   const hasEspec = especActual !== undefined;
   const u = UTILITY[test.utility];
+  const wordClass = utilityBacked(test) ? u.text : 'text-slate-400';
+
+  // SIN CIFRA NO HAY PREGUNTA, y hasta ahora habia pregunta y premio.
+  //
+  // `sensOk` sale true cuando no hay sensibilidad publicada, y `especOk` igual:
+  // con los dos ejes vacios, `bothOk` era true y el examen respondia "Bien
+  // razonado" a quien solo pulsaba Revelar. Medido sobre las 80 pruebas del
+  // catalogo, 21 no traen ni sensibilidad ni especificidad (shoulder/
+  // relocation, tres cervicales de ligamento, cinco toracicas, lumbar/
+  // prone-instability-test, cuatro de cadera, tres de rodilla, tres de codo y
+  // dos de tobillo). Asi que a esas no se les pregunta: se les ensena lo unico
+  // que SI declaran, que es el uso y su motivo.
+  if (!hasSens && !hasEspec) {
+    return (
+      <div className="border-t border-slate-800/70 pt-2.5">
+        <Kicker>Aquí no hay perfil que predecir</Kicker>
+        <p className="mt-1 text-[13px] leading-relaxed text-slate-300">
+          Esta prueba no publica sensibilidad ni especificidad, así que no se puede
+          acertar ni fallar su perfil. Lo que sí declara es cómo se usa, y por qué:
+        </p>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+          <span className={wordClass}>Uso: {u.word}.</span>{' '}
+          {test.utilityBasis ?? u.tip}
+        </p>
+      </div>
+    );
+  }
 
   if (prediction.revealed) {
     const sensOk = !hasSens || prediction.sens === sensActual;
     const especOk = !hasEspec || prediction.espec === especActual;
     const bothOk = sensOk && especOk;
+    // UN SOLO EJE MEDIDO NO ES "BIEN RAZONADO". Cinco pruebas traen una sola de
+    // las dos cifras (shoulder/cross-body-adduction, hip/hip-faber,
+    // hip/hip-resisted-flexion, elbow/tinel-cubital y elbow/
+    // elbow-flexion-pressure): acertar la que hay es acertar la mitad del
+    // perfil, y el veredicto lo dice.
+    const bothAxes = hasSens && hasEspec;
+    const verdict = bothOk
+      ? bothAxes
+        ? 'Bien razonado'
+        : 'Acertaste el único eje medido'
+      : bothAxes
+        ? 'Revisa el perfil'
+        : 'Revisa ese eje';
     return (
       <div className="border-t border-slate-800/70 pt-2.5">
         <div className="flex items-center justify-between">
@@ -489,7 +657,7 @@ function ExamBlock({
               bothOk ? 'text-emerald-300' : 'text-amber-300'
             }`}
           >
-            {bothOk ? 'Bien razonado' : 'Revisa el perfil'}
+            {verdict}
           </span>
         </div>
         <div className="mt-1.5 space-y-1">
@@ -509,7 +677,8 @@ function ExamBlock({
           />
         </div>
         <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-          <span className={u.text}>Uso: {u.word}.</span> {u.tip}
+          <span className={wordClass}>Uso: {u.word}.</span>{' '}
+          {utilityBacked(test) ? u.tip : unbackedTip(test)}
         </p>
       </div>
     );
@@ -600,14 +769,20 @@ function HelpCard({ onDismiss }: { onDismiss: () => void }) {
           Ajusta la <span className="text-slate-100">probabilidad pre-test</span>: que
           tan probable crees la lesión antes de explorar.
         </HelpStep>
+        {/* Y LO QUE NO TRAE CIFRAS SE DICE AQUI TAMBIEN. De las 80 pruebas, 21
+            no publican ninguna de las dos: la ayuda decia "cada prueba trae
+            sensibilidad y especificidad" y luego la fila ensenaba "s/d", que
+            parece un hueco por rellenar y no una propiedad de la literatura. */}
         <HelpStep n={2}>
           Cada prueba trae <span className="text-sky-300">sensibilidad</span> y{' '}
-          <span className="text-emerald-300">especificidad</span>. Un negativo descarta
-          cuando la sensibilidad es alta; un positivo confirma cuando la especificidad
-          lo es.
+          <span className="text-emerald-300">especificidad</span> cuando su fuente las
+          publica. Un negativo descarta cuando la sensibilidad es alta; un positivo
+          confirma cuando la especificidad lo es. Donde la fuente no da la cifra verás{' '}
+          <span className="font-mono text-slate-400">s/d</span>, y la palabra de uso en
+          gris: es un uso propuesto, no un perfil medido.
         </HelpStep>
         <HelpStep n={3}>
-          Cada fila muestra a cuanto sube tu sospecha si esa prueba sale positiva. Al
+          Cada fila muestra a dónde lleva tu sospecha esa prueba si sale positiva. Al
           abrirla verás también el caso negativo.
         </HelpStep>
         <HelpStep n={4}>
@@ -631,6 +806,7 @@ function HelpCard({ onDismiss }: { onDismiss: () => void }) {
           <span className="text-slate-100">Examen</span> oculta los números y te pide
           predecir si cada prueba es sensible o específica antes de enseñártelos. Sirve
           para comprobar si sabrías <em>elegir</em> la prueba adecuada, no solo leerla.
+          Las pruebas sin cifras publicadas no entran: ahí no hay perfil que acertar.
         </HelpStep>
       </ol>
     </div>
@@ -676,10 +852,21 @@ function TestRow({
   const sens = test.metrics.sensitivity;
   const espec = test.metrics.specificity;
   // In exam mode the numbers stay hidden until the user reveals their prediction.
-  const hideMetrics = examMode && !prediction.revealed;
+  // UNA PRUEBA SIN CIFRAS NO ENTRA EN ESA ESPERA: no hay nada que ocultar, y
+  // `revealed` no llega nunca porque ya no se le hace la pregunta, asi que el
+  // modo examen le escondia para siempre la interpretacion, la perla y la
+  // fuente. Son 21 de las 80.
+  const hideMetrics = examMode && isPredictable(test) && !prediction.revealed;
   // The headline number of the whole panel: where this test leaves you if it is
   // positive, from the pretest currently on the slider.
   const postPos = lrPos != null ? postProb(pretest, lrPos) : null;
+  // UN POSITIVO QUE BAJA LA SOSPECHA NO SE PINTA DE VERDE. Cozen y Maudsley
+  // (especificidad 0% en Saroja 2014) dan LR+ 0,84 y 0,88: medido, la fila
+  // imprimia "30 -> 27% si +" en esmeralda, el color de "confirma", con el
+  // mismo formato que las pruebas donde la cifra sube.
+  const postPosRaises = lrPos != null && lrPos >= 1;
+  // La insignia de uso solo se pinta con su color cuando hay una cifra detras.
+  const backed = utilityBacked(test);
 
   return (
     <div
@@ -689,7 +876,9 @@ function TestRow({
       // confirman y azul en las que descartan, que es exactamente lo que el modo
       // examen pide predecir: se veia el color antes de contestar, asi que la
       // pregunta no medía nada. Mientras la cifra esta oculta, el filo es gris.
-      className={`border-l-2 transition-colors ${hideMetrics ? 'border-slate-700/70' : u.bar} ${
+      className={`border-l-2 transition-colors ${
+        hideMetrics || !backed ? 'border-slate-700/70' : u.bar
+      } ${
         selected ? 'bg-accent/[0.06]' : expanded ? 'bg-slate-800/20' : 'hover:bg-slate-800/20'
       }`}
     >
@@ -712,9 +901,29 @@ function TestRow({
         >
           <span className="flex items-baseline justify-between gap-2">
             <span className="truncate text-sm font-medium text-slate-100">{test.name}</span>
+            {/* LA INSIGNIA DE USO, EN GRIS CUANDO NINGUNA CIFRA LA RESPALDA.
+                "Confirma" con el titulo "Alta especificidad (SpPin): un
+                positivo confirma" se pintaba igual en una prueba con
+                especificidad del 99% que en cuatro que no publican ninguna
+                cifra. En gris, subrayada de puntos y con el motivo en el
+                titulo, la fila dice lo que es: un uso propuesto por la fuente,
+                no un perfil medido. Y las dos cifras de la misma fila ya lo
+                corroboran, porque salen como "Se s/d  Es s/d". */}
             <span
-              className={`shrink-0 text-[11px] ${hideMetrics ? 'text-slate-600' : u.text}`}
-              title={hideMetrics ? 'Predice el uso antes de revelar' : u.tip}
+              className={`shrink-0 text-[11px] ${
+                hideMetrics
+                  ? 'text-slate-600'
+                  : backed
+                    ? u.text
+                    : 'cursor-help border-b border-dotted border-slate-600 text-slate-400'
+              }`}
+              title={
+                hideMetrics
+                  ? 'Predice el uso antes de revelar'
+                  : backed
+                    ? u.tip
+                    : unbackedTip(test)
+              }
             >
               {hideMetrics ? '?' : u.word}
             </span>
@@ -745,13 +954,26 @@ function TestRow({
           {!hideMetrics && (
             <span className="mt-1 flex items-center gap-3 font-mono text-[11px] tabular-nums">
               {postPos != null ? (
-                <span className="flex items-baseline gap-1">
+                <span
+                  className="flex items-baseline gap-1"
+                  title={
+                    postPosRaises
+                      ? 'A dónde llega tu sospecha si la prueba sale positiva.'
+                      : 'Su razón de verosimilitud positiva es menor que 1: un positivo no sube la sospecha, la deja por debajo de la probabilidad pre-test.'
+                  }
+                >
                   <span className="text-slate-600">{Math.round(pretest)}</span>
                   <span className="text-slate-700">→</span>
-                  <span className="font-semibold text-emerald-300">
+                  <span
+                    className={`font-semibold ${
+                      postPosRaises ? 'text-emerald-300' : 'text-slate-400'
+                    }`}
+                  >
                     {Math.round(postPos)}%
                   </span>
-                  <span className="ml-0.5 text-slate-600">si +</span>
+                  <span className="ml-0.5 text-slate-600">
+                    {postPosRaises ? 'si +' : 'si + (no sube)'}
+                  </span>
                 </span>
               ) : (
                 <span className="text-slate-600">sin LR</span>
@@ -1142,6 +1364,9 @@ export function OrthopedicTestsPanel({
     for (const t of tests) {
       const pr = predictions[t.id];
       if (!pr?.revealed) continue;
+      // Y una prueba sin cifras no cuenta: no se le hace pregunta, asi que
+      // tampoco puede sumar una acertada (21 de las 80 sumaban una gratis).
+      if (!isPredictable(t)) continue;
       a += 1;
       const sensActual = levelOf(t.metrics.sensitivity);
       const especActual = levelOf(t.metrics.specificity);
@@ -1214,19 +1439,27 @@ export function OrthopedicTestsPanel({
     if (!region) return null;
     const c = measuredCluster(region, selected);
     if (!c) return null;
-    // LA RAZON PUBLICADA MANDA SOBRE LA DERIVADA. El conjunto de Wainner solo
-    // trae LR+ (su resumen no publica sensibilidad ni especificidad del
-    // cluster), y derivarla de cifras que no existen daba NaN.
-    const lr =
-      c.lrPositive != null
-        ? c.lrPositive
-        : c.sensitivity == null || c.specificity == null
-          ? null
-          : c.specificity >= 100
-            ? Infinity
-            : c.sensitivity / (100 - c.specificity);
+    // LA RAZON PUBLICADA MANDA SOBRE LA DERIVADA (ver clusterLrPositive).
+    const lr = clusterLrPositive(c);
     if (lr == null) return null;
     return { cluster: c, lr, post: postProb(pretest, lr) };
+  }, [region, selected, pretest]);
+
+  // Y MIENTRAS AUN FALTAN POSITIVAS, la referencia del estudio tambien se
+  // enseña. Por debajo del umbral el panel vuelve a multiplicar razones de
+  // verosimilitud, que es la estimacion MAS OPTIMISTA, y la advertencia que lo
+  // explica vivia dentro del bloque del conjunto medido: solo aparecia cuando
+  // el conjunto ya se aplicaba, es decir cuando la cifra ya era la buena.
+  // Medido con las razones del propio catalogo: dos pruebas sacroiliacas
+  // marcadas dan 30% -> 79,3% (producto 8,96), y la cifra medida de Laslett
+  // para tres o mas positivas es LR+ 4,27, o sea 30% -> 64,7%.
+  const partial = useMemo(() => {
+    if (!region) return null;
+    const c = partialCluster(region, selected);
+    if (!c) return null;
+    const lr = clusterLrPositive(c);
+    if (lr == null) return null;
+    return { cluster: c, lr, post: postProb(pretest, lr), missing: c.minPositive - selected.size };
   }, [region, selected, pretest]);
 
   const startDemo = (t: OrthopedicTest) => {
@@ -1255,6 +1488,24 @@ export function OrthopedicTestsPanel({
     if (!test || !d) return;
     const side = d.side ?? 'R';
     const target = d.angleDeg;
+    // EL ARCO COMPARTIDO: 0 GRADOS ES EL FINAL DEL MOVIMIENTO, NO SU INICIO.
+    //
+    // En el codo y en la rodilla, flexion y extension recorren UN SOLO arco: 0
+    // es la articulacion estirada y el maximo es la flexion completa, asi que
+    // la extension es el regreso hacia 0 (`arcFrom: 'max'` en boneMap). Este
+    // bucle no lo miraba: barria 0 -> objetivo y hacia la espera LARGA en el
+    // objetivo, que en una extension es el extremo DOBLADO. Medido sobre el
+    // catalogo, son tres pruebas y las tres son del codo --cozen, mill y
+    // maudsley, con `elbow-extension` a 10 grados-- y las tres dicen en su
+    // maniobra "codo en extension": el modelo sostenia los 10 grados de flexion
+    // y pasaba de largo por la postura que la prueba nombra. El NeuroPanel ya
+    // lo resolvio asi para los miotomas de C7 y L3.
+    const ctrl = getBoneControl(d.movementId);
+    const fromMax = ctrl?.kind === 'joint' && ctrl.arcFrom === 'max';
+    // Y LA TARJETA ANUNCIA LA POSICION QUE SE SOSTIENE, no el extremo del arco:
+    // con `targetDeg: target` a secas, el readout imprimia "Posicion de prueba
+    // 10" mientras el modelo se para a proposito en 0.
+    const heldDeg = fromMax ? 0 : target;
     const highlight = d.highlightMuscleId
       ? [{ muscleId: d.highlightMuscleId, role: 'prime-mover' as const, level: 1 }]
       : [];
@@ -1263,7 +1514,7 @@ export function OrthopedicTestsPanel({
     // the very re-render it is meant to stop.
     const demoInfo = {
       label: test.name,
-      targetDeg: target,
+      targetDeg: heldDeg,
       structure: test.target,
       examinerForce: d.examinerForce,
       // Lo que se enciende, y lo que no se puede encender: el readout tiene que
@@ -1305,21 +1556,41 @@ export function OrthopedicTestsPanel({
     // On stop, RELEASE the channel (only if this demo still owns it): the
     // console reacts by re-pushing its own live state, which restores the pose
     // and clears the demo-only flags (ghostSkin, resistance).
-    const release = () => demoChannel.stop(DEMO_NS + demoId);
+    //
+    // PERO LA CONSOLA PUEDE NO ESTAR MONTADA, y entonces no reacciona nadie.
+    // En tableta y movil el laboratorio es una hoja con pestañas: parar el demo
+    // desde la pestaña de Tests dejaba el rig tal cual --piel de cristal, la
+    // articulacion posada, los musculos encendidos y la mano del explorador--
+    // porque el unico sitio que devuelve el rig a reposo es la consola, que
+    // vive en OTRA pestaña y esta desmontada. Asi que al soltar se empuja
+    // tambien la pose guardada de la consola (consolePoseStore, lo que el
+    // usuario tenia puesto en esta region) o el reposo si no hay ninguna.
+    // Tiene que ser `setFromConsole` y no `set`: `set` es un PARCHE y dejaria
+    // puestos justo los campos que solo pone un demo; `setFromConsole` limpia
+    // components/ghostSkin/resistance/demo/structures de una pieza.
+    const release = () => {
+      demoChannel.stop(DEMO_NS + demoId);
+      const pose = readPose(region);
+      rigChannel.setFromConsole(
+        pose
+          ? { movementId: pose.movementId, side: pose.side, angleDeg: pose.angleDeg, highlight: [] }
+          : { movementId: null, angleDeg: 0, highlight: [], implicated: [] },
+      );
+    };
 
     const reduce =
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) {
-      push(target);
+      push(heldDeg);
       return release;
     }
 
     // Claim the rig for this maneuver straight away, before the first animation
     // frame: pressing Demostrar switches the readout to the test immediately
     // instead of after the browser gets round to scheduling a frame.
-    push(0);
+    push(fromMax ? target : 0);
 
     // Exam pace, not animation pace. The old 55 deg/s with a 1 s hold swept a
     // 90 deg test in under two seconds, which is faster than the position can
@@ -1330,8 +1601,11 @@ export function OrthopedicTestsPanel({
     const HOLD_AT_TARGET_MS = 2800;
     const HOLD_AT_REST_MS = 800;
     let last = 0;
-    let dir: 1 | -1 = 1;
-    let angle = 0;
+    // En un arco compartido la maniobra ABRE doblada y se estira hacia 0, que
+    // es donde esta la postura que la prueba nombra; en todo lo demas abre en
+    // reposo y sale hacia su objetivo.
+    let dir: 1 | -1 = fromMax ? -1 : 1;
+    let angle = fromMax ? target : 0;
     let holdUntil = 0;
     const step = (ts: number) => {
       if (!last) last = ts;
@@ -1344,11 +1618,13 @@ export function OrthopedicTestsPanel({
         if (angle >= target) {
           angle = target;
           dir = -1;
-          holdUntil = ts + HOLD_AT_TARGET_MS;
+          // La espera LARGA va en la posicion que se sostiene: en un arco
+          // compartido ese extremo es el punto de partida, no la prueba.
+          holdUntil = ts + (fromMax ? HOLD_AT_REST_MS : HOLD_AT_TARGET_MS);
         } else if (angle <= 0) {
           angle = 0;
           dir = 1;
-          holdUntil = ts + HOLD_AT_REST_MS;
+          holdUntil = ts + (fromMax ? HOLD_AT_TARGET_MS : HOLD_AT_REST_MS);
         }
       }
       push(angle);
@@ -1359,7 +1635,7 @@ export function OrthopedicTestsPanel({
       cancelAnimationFrame(rafRef.current);
       release();
     };
-  }, [demoId, byId, open, bare]);
+  }, [demoId, byId, open, bare, region]);
 
   if (tests.length === 0) return null;
 
@@ -1682,6 +1958,27 @@ export function OrthopedicTestsPanel({
               estudio, así que el producto de razones de verosimilitud no se
               puede cifrar: no hubo falsos positivos en esa muestra, pero eso no
               es certeza.
+            </p>
+          )}
+          {/* LA CIFRA MEDIDA, ANTES DE ALCANZAR EL UMBRAL. Esta estimación es la
+              más optimista de las dos y hasta ahora se publicaba sola: el aviso
+              que explica por qué baja al marcar una positiva más vivía dentro
+              del bloque del conjunto ya aplicado. Ahora la referencia del
+              estudio acompaña a la estimación desde la primera prueba marcada
+              del conjunto. */}
+          {partial && partial.post != null && (
+            <p className="mt-1.5 text-[11px] leading-snug text-amber-500/90">
+              Estas pruebas forman {partial.cluster.name}, y ese conjunto SÍ está
+              medido: con {partial.cluster.minPositive} o más positivas el estudio
+              lleva tu {Math.round(pretest)}% a{' '}
+              <span className="font-mono tabular-nums">
+                {Math.round(partial.post)}%
+              </span>{' '}
+              (LR+ {lrLabel(partial.lr, 2)}). Te{' '}
+              {partial.missing === 1 ? 'falta 1 positiva' : `faltan ${partial.missing} positivas`}
+              , así que lo de arriba es una estimación: multiplica razones de
+              verosimilitud como si las pruebas fueran independientes, y estas
+              provocan la misma articulación.
             </p>
           )}
           <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">

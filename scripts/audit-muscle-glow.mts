@@ -31,6 +31,26 @@
 // pierna tambien. Ahora corre `createRigPoser`, la misma cadena que RigModel, y
 // cuenta solo mallas VISIBLES y de capa viva.
 //
+// ---------------------------------------------------------------------------
+// Y UNA RESOLUCION POR REGION, QUE ES LO QUE LA APLICACION TIENE
+// ---------------------------------------------------------------------------
+// Este banco construia UNA resolucion con la UNION de los seis catalogos
+// importados a mano. La aplicacion no tiene eso: `useAllMuscles` es "hombro
+// gratuito + payload de LA REGION ABIERTA" (src/hooks/useMuscleResolution.ts),
+// porque el contenido de pago sale del paquete y lo sirve la funcion `content`
+// tras el control de acceso. Midiendo la union, el banco decia "0 musculos no
+// encienden nada" mientras en cinco regiones el play del miotoma no encendia
+// NI UNA malla: las fichas del vasto y del isquiotibial solo viven en la
+// rodilla, y la del braquiorradial solo en el codo.
+//
+// Es el fallo de fidelidad de siempre, el de [[render-harness-fidelity]]: un
+// banco que no mide lo que mide la aplicacion. Ahora:
+//   - una resolucion POR REGION, con el payload que la funcion sirve de verdad
+//     (leido de supabase/functions/content/payloads), no con los modulos;
+//   - y recorre TAMBIEN los demos de miotoma de `src/data/neuro`, que no tocaba
+//     y que son justo donde estaba el defecto, mas los resaltes de las pruebas
+//     ortopedicas.
+//
 // Run: npm run audit-glow
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
@@ -38,47 +58,39 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { rigGlbPath } from './lib/rigPath.mts';
 import { createRigPoser } from './lib/rigPose.mts';
+import { PREMIUM_REGION_IDS, readWrittenPayload } from './build-premium-content.mts';
 import { buildMuscleResolution } from '../src/lib/muscleResolver.ts';
 import { parseMeshName } from '../src/lib/parseMeshName.ts';
+import {
+  colorForMaterial,
+  layerForMaterial,
+  meshIsForearmFascia,
+} from '../src/lib/materialColors.ts';
+import { inDistalRegion, meshWorldCenter } from '../src/lib/rigLimbTrim.ts';
+import { MINIMO_RESOLUBLE } from '../src/hooks/useMuscleResolution.ts';
 import { shoulderMuscles } from '../src/data/muscles/shoulder.ts';
-import { elbowMuscles } from '../src/data/muscles/elbow.ts';
-import { kneeMuscles } from '../src/data/muscles/knee.ts';
-import { hipMuscles } from '../src/data/muscles/hip.ts';
-import { ankleMuscles } from '../src/data/muscles/ankle.ts';
-import { spineMuscles } from '../src/data/muscles/spine.ts';
 import { SHOULDER_ROM_LIST } from '../src/data/shoulderRom.ts';
-import { ELBOW_ROM_LIST } from '../src/data/elbowRom.ts';
-import { KNEE_ROM_LIST } from '../src/data/kneeRom.ts';
-import { HIP_ROM_LIST } from '../src/data/hipRom.ts';
-import { ANKLE_ROM_LIST } from '../src/data/ankleRom.ts';
-import { CERVICAL_ROM_LIST } from '../src/data/cervicalRom.ts';
-import { THORACIC_ROM_LIST } from '../src/data/thoracicRom.ts';
-import { LUMBAR_ROM_LIST } from '../src/data/lumbarRom.ts';
 import { SHOULDER_TRACK } from '../src/data/shoulderPhases.ts';
-import { ELBOW_TRACK } from '../src/data/elbowPhases.ts';
-import { KNEE_TRACK } from '../src/data/kneePhases.ts';
-import { HIP_TRACK } from '../src/data/hipPhases.ts';
-import { ANKLE_TRACK } from '../src/data/anklePhases.ts';
-import { CERVICAL_TRACK } from '../src/data/cervicalPhases.ts';
-import { THORACIC_TRACK } from '../src/data/thoracicPhases.ts';
-import { LUMBAR_TRACK } from '../src/data/lumbarPhases.ts';
+import { SHOULDER_ORTHOPEDIC_TESTS } from '../src/data/orthopedicTests/shoulder.ts';
+import { NEURO_BY_REGION } from '../src/data/neuro/index.ts';
+import type { Muscle } from '../src/types/muscle.ts';
 
 type WantSide = 'left' | 'right';
 
-const REGIONS = [
-  { id: 'shoulder', moves: SHOULDER_ROM_LIST, track: SHOULDER_TRACK },
-  { id: 'elbow', moves: ELBOW_ROM_LIST, track: ELBOW_TRACK },
-  { id: 'knee', moves: KNEE_ROM_LIST, track: KNEE_TRACK },
-  { id: 'hip', moves: HIP_ROM_LIST, track: HIP_TRACK },
-  { id: 'ankle', moves: ANKLE_ROM_LIST, track: ANKLE_TRACK },
-  { id: 'cervical', moves: CERVICAL_ROM_LIST, track: CERVICAL_TRACK },
-  { id: 'thoracic', moves: THORACIC_ROM_LIST, track: THORACIC_TRACK },
-  { id: 'lumbar', moves: LUMBAR_ROM_LIST, track: LUMBAR_TRACK },
+/** Las ocho regiones del laboratorio, en el orden en que se ensenan. */
+const REGION_IDS = [
+  'shoulder',
+  'elbow',
+  'knee',
+  'hip',
+  'ankle',
+  'cervical',
+  'thoracic',
+  'lumbar',
 ];
 
 /** Donde nombra el dato a este musculo, para poder ir a arreglarlo. */
 interface Credit {
-  region: string;
   where: string;
   muscleId: string;
 }
@@ -95,51 +107,120 @@ interface GuideLike {
   steps: { id: string; muscles: { id: string }[] }[];
 }
 
-function collectCredits(): Credit[] {
-  const out: Credit[] = [];
-  for (const reg of REGIONS) {
-    for (const mv of reg.moves as unknown as MoveLike[]) {
-      for (const ph of mv.phases) {
-        for (const m of ph.muscles) {
-          out.push({
-            region: reg.id,
-            where: `${mv.id} / fase "${ph.label}"`,
-            muscleId: m.muscleId,
-          });
-        }
-      }
-      for (const ph of mv.labReverse?.phases ?? []) {
-        for (const m of ph.muscles) {
-          out.push({
-            region: reg.id,
-            where: `${mv.id} / arco inverso "${ph.label}"`,
-            muscleId: m.muscleId,
-          });
-        }
-      }
-      for (const a of mv.activations ?? []) {
-        out.push({ region: reg.id, where: `${mv.id} / envolvente`, muscleId: a.muscleId });
-      }
-    }
-    const guides = Object.values(reg.track.phases).flatMap(
+interface TestLike {
+  id: string;
+  demo?: { highlightMuscleId?: string };
+}
+
+/**
+ * LO QUE LA APLICACION TIENE ABIERTA ESTA REGION.
+ *
+ * El hombro es gratuito y va en el paquete; las otras siete llegan por red. Se
+ * lee el payload ESCRITO EN DISCO, que es lo que la funcion `content` sirve,
+ * no `buildPayload`: asi un payload sin regenerar sale aqui en lugar de salir
+ * en la pantalla de un cliente que paga.
+ */
+interface RegionData {
+  id: string;
+  muscles: Muscle[];
+  moves: MoveLike[];
+  guides: GuideLike[];
+  tests: TestLike[];
+}
+
+function loadRegion(id: string): RegionData {
+  const guidesOf = (track: unknown): GuideLike[] =>
+    Object.values((track as { phases?: Record<string, unknown> })?.phases ?? {}).flatMap(
       (ph) => ((ph as { guides?: GuideLike[] }).guides ?? []),
     );
-    for (const g of guides) {
-      for (const st of g.steps) {
-        for (const mu of st.muscles) {
-          out.push({
-            region: reg.id,
-            where: `${g.movementId} / guia paso "${st.id}"`,
-            muscleId: mu.id,
-          });
-        }
+
+  if (!PREMIUM_REGION_IDS.includes(id)) {
+    return {
+      id,
+      muscles: shoulderMuscles,
+      moves: SHOULDER_ROM_LIST as unknown as MoveLike[],
+      guides: guidesOf(SHOULDER_TRACK),
+      tests: SHOULDER_ORTHOPEDIC_TESTS as unknown as TestLike[],
+    };
+  }
+  const payload = readWrittenPayload(id);
+  if (!payload) {
+    throw new Error(
+      `falta supabase/functions/content/payloads/${id}.json — corre "npm run build-premium-content"`,
+    );
+  }
+  return {
+    id,
+    // `romLookupMuscles`, no `muscles`: es el universo que el payload trae para
+    // resolver nombres, y es lo que lee `allLoadedPremiumMuscles` (premiumStore).
+    muscles: payload.romLookupMuscles ?? payload.muscles,
+    moves: payload.rom as unknown as MoveLike[],
+    guides: guidesOf(payload.track),
+    tests: payload.tests as unknown as TestLike[],
+  };
+}
+
+/** Todo lo que una region nombra: ROM, arcos inversos, envolventes, guias,
+ *  demos de miotoma y resaltes de las pruebas ortopedicas. */
+function collectCredits(reg: RegionData): Credit[] {
+  const out: Credit[] = [];
+  for (const mv of reg.moves) {
+    for (const ph of mv.phases) {
+      for (const m of ph.muscles) {
+        out.push({ where: `${mv.id} / fase "${ph.label}"`, muscleId: m.muscleId });
       }
+    }
+    for (const ph of mv.labReverse?.phases ?? []) {
+      for (const m of ph.muscles) {
+        out.push({ where: `${mv.id} / arco inverso "${ph.label}"`, muscleId: m.muscleId });
+      }
+    }
+    for (const a of mv.activations ?? []) {
+      out.push({ where: `${mv.id} / envolvente`, muscleId: a.muscleId });
+    }
+  }
+  for (const g of reg.guides) {
+    for (const st of g.steps) {
+      for (const mu of st.muscles) {
+        out.push({ where: `${g.movementId} / guia paso "${st.id}"`, muscleId: mu.id });
+      }
+    }
+  }
+  for (const t of reg.tests) {
+    const id = t.demo?.highlightMuscleId;
+    if (id) out.push({ where: `prueba ${t.id} / demo`, muscleId: id });
+  }
+  // EL PANEL NEURO, que este banco no tocaba. Su juego de raices es por
+  // EXTREMIDAD, no por region (el cervical sirve a hombro, codo y cervical; el
+  // lumbosacro a cadera, rodilla, tobillo y lumbar), asi que un demo de miotoma
+  // nombra fichas de otra region y es justo donde el universo por region se
+  // rompia.
+  for (const root of NEURO_BY_REGION[reg.id]?.roots ?? []) {
+    for (const id of root.demo?.highlightMuscleIds ?? []) {
+      out.push({ where: `miotoma ${root.id} / demo`, muscleId: id });
     }
   }
   return out;
 }
 
-// --- Cargar el rig y resolver ------------------------------------------------
+/**
+ * EL MISMO UNIVERSO QUE `useAllMuscles`: gratuito + payload de la region +
+ * el suelo siempre resoluble, y en ese orden (la ficha completa gana).
+ */
+function universeFor(reg: RegionData): Muscle[] {
+  const seen = new Set<string>();
+  const out: Muscle[] = [];
+  for (const list of [shoulderMuscles, reg.muscles, MINIMO_RESOLUBLE]) {
+    for (const m of list) {
+      if (seen.has(m.id)) continue;
+      seen.add(m.id);
+      out.push(m);
+    }
+  }
+  return out;
+}
+
+// --- Cargar el rig -----------------------------------------------------------
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 const buf = readFileSync(rigGlbPath());
@@ -159,19 +240,7 @@ scene.traverse((o) => {
   if (m.isMesh) meshes.push(m);
 });
 const meshByName = new Map(meshes.map((m) => [m.name, m]));
-// LOS MODULOS DIRECTAMENTE, no `MUSCLES_BY_REGION`: ese registro solo lleva el
-// nivel gratuito (el hombro) y el resto llega en tiempo de ejecucion tras el
-// control de acceso, asi que en un script devuelve 18 musculos de 95. Es la
-// misma trampa que `romForRegion` en `audit-functions` -- y la que hacia que el
-// laboratorio no encendiera nada fuera del hombro (ver `useAllMuscles`).
-const ALL_MUSCLES = [
-  ...shoulderMuscles, ...elbowMuscles, ...kneeMuscles,
-  ...hipMuscles, ...ankleMuscles, ...spineMuscles,
-];
-const resolution = buildMuscleResolution(
-  ALL_MUSCLES,
-  meshes.map((m) => m.name),
-);
+const meshNames = meshes.map((m) => m.name);
 
 // EL MISMO filtro de lado que RigOverlays: la POSICION decide, no el nombre.
 const LATERAL_M = 0.04;
@@ -185,14 +254,34 @@ function sideOfMesh(name: string, mesh: THREE.Mesh): string | null {
 /**
  * ¿Esta malla llega a pintarse?
  *
- * La preparacion oculta mallas de dos maneras: apagando `visible` (recortes por
- * eje) y marcandolas `rigLayer = 'hidden'`, que las deja fuera de TODOS los
- * interruptores de capa. Una malla en cualquiera de los dos estados no se
- * enciende nunca, por mucho que el id resuelva.
+ * LA CAPA SALE DEL MATERIAL, no de `userData.rigLayer`. Esto preguntaba por
+ * `userData.rigLayer === 'hidden'`, y ESE CAMPO NO EXISTE AQUI: lo escribe
+ * RigModel al cargar en el navegador, y la cadena del banco (`rigPose.mts`) no
+ * lo escribe nunca. O sea que medio filtro no filtraba nada y el banco contaba
+ * como encendidas mallas que la aplicacion no ensena jamas. Medido: 993 mallas
+ * de material muscular, de las que la aplicacion solo deja vivas 942 (51 caen
+ * por el casquete de la mano y por los contenedores de Z-Anatomy).
+ *
+ * Las reglas son las de RigModel, con su mismo codigo compartido: material no
+ * anatomico fuera, contenedores de grupo fuera, internos de la mano fuera, y la
+ * fascia antebraquial dentro de la capa muscular.
  */
+function layerOf(mesh: THREE.Mesh): string | null {
+  const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+  const matName = (first as THREE.Material | undefined)?.name ?? '';
+  const isGroupContainer =
+    /g0\d\d$/.test(mesh.name) ||
+    /_system/i.test(mesh.name) ||
+    /^General[_ ]terms$/i.test(mesh.name);
+  if (colorForMaterial(matName) === null || isGroupContainer) return null;
+  if (inDistalRegion(meshWorldCenter(mesh))) return null;
+  if (meshIsForearmFascia(mesh.name, matName)) return 'muscle';
+  return layerForMaterial(matName);
+}
+
 function isOnScreen(mesh: THREE.Mesh): boolean {
   if (!mesh.visible) return false;
-  if (mesh.userData.rigLayer === 'hidden') return false;
+  if (layerOf(mesh) === null) return false;
   let p: THREE.Object3D | null = mesh.parent;
   while (p) {
     if (!p.visible) return false;
@@ -201,79 +290,96 @@ function isOnScreen(mesh: THREE.Mesh): boolean {
   return true;
 }
 
-/** Cuantas mallas se encenderian para este musculo explorando ese lado. */
-function glowCount(muscleId: string, want: WantSide): number {
-  const names = resolution.meshNamesByMuscleId.get(muscleId);
-  if (!names) return 0;
-  let n = 0;
-  for (const name of names) {
-    const mesh = meshByName.get(name);
-    if (!mesh) continue;
-    if (!isOnScreen(mesh)) continue;
-    const side = sideOfMesh(name, mesh);
-    if (side !== want && side !== 'center') continue;
-    n += 1;
-  }
-  return n;
-}
+const onScreen = new Map<string, boolean>();
+for (const m of meshes) onScreen.set(m.name, isOnScreen(m));
+const liveMuscleMeshes = meshes.filter((m) => onScreen.get(m.name) && layerOf(m) === 'muscle');
 
-// --- Informe ----------------------------------------------------------------
-const credits = collectCredits();
-const ids = [...new Set(credits.map((c) => c.muscleId))].sort();
-const whereById = new Map<string, Credit[]>();
-for (const c of credits) {
-  const list = whereById.get(c.muscleId) ?? [];
-  list.push(c);
-  whereById.set(c.muscleId, list);
-}
-
+// --- Informe -----------------------------------------------------------------
 console.log('===== SE ILUMINA EL MUSCULO QUE EL PANEL NOMBRA =====');
-console.log(`${meshes.length} mallas en el rig / ${ALL_MUSCLES.length} fichas de musculo`);
-console.log(`${credits.length} acreditaciones / ${ids.length} musculos distintos nombrados`);
+console.log(
+  `${meshes.length} mallas en el rig · ${liveMuscleMeshes.length} de capa muscular vivas`,
+);
+console.log('Universo por region: hombro gratuito + payload de la region + suelo minimo.');
 console.log('');
-
-const dead: string[] = [];
-const oneSided: string[] = [];
-for (const id of ids) {
-  const r = glowCount(id, 'right');
-  const l = glowCount(id, 'left');
-  if (r === 0 && l === 0) dead.push(id);
-  else if (r === 0 || l === 0) oneSided.push(id);
-}
 
 const pad = (s: string, n: number): string => s.padEnd(n);
-if (dead.length > 0) {
-  console.log('--- NO ENCIENDE NADA (el panel lo nombra, la escena no lo muestra) ---');
-  for (const id of dead) {
-    console.log(`  ${pad(id, 32)} 0 mallas`);
-    const sites = whereById.get(id)!;
-    for (const c of sites.slice(0, 4)) console.log(`        ${c.where}`);
-    if (sites.length > 4) console.log(`        ... y ${sites.length - 4} sitio(s) mas`);
+let totalDead = 0;
+let totalOneSided = 0;
+let totalIds = 0;
+
+for (const regionId of REGION_IDS) {
+  const reg = loadRegion(regionId);
+  const universe = universeFor(reg);
+  const resolution = buildMuscleResolution(universe, meshNames);
+
+  /** Cuantas mallas se encenderian para este musculo explorando ese lado. */
+  const glowCount = (muscleId: string, want: WantSide): number => {
+    const names = resolution.meshNamesByMuscleId.get(muscleId);
+    if (!names) return 0;
+    let n = 0;
+    for (const name of names) {
+      const mesh = meshByName.get(name);
+      if (!mesh || !onScreen.get(name)) continue;
+      const side = sideOfMesh(name, mesh);
+      if (side !== want && side !== 'center') continue;
+      n += 1;
+    }
+    return n;
+  };
+
+  const credits = collectCredits(reg);
+  const ids = [...new Set(credits.map((c) => c.muscleId))].sort();
+  const whereById = new Map<string, Credit[]>();
+  for (const c of credits) {
+    const list = whereById.get(c.muscleId) ?? [];
+    list.push(c);
+    whereById.set(c.muscleId, list);
   }
-  console.log('');
-}
-if (oneSided.length > 0) {
-  console.log('--- SOLO ENCIENDE EN UN LADO (explorar el otro no muestra nada) ---');
+
+  const dead: string[] = [];
+  const oneSided: string[] = [];
+  for (const id of ids) {
+    const r = glowCount(id, 'right');
+    const l = glowCount(id, 'left');
+    if (r === 0 && l === 0) dead.push(id);
+    else if (r === 0 || l === 0) oneSided.push(id);
+  }
+  totalDead += dead.length;
+  totalOneSided += oneSided.length;
+  totalIds += ids.length;
+
+  const estado =
+    dead.length === 0 && oneSided.length === 0
+      ? 'todo se enciende en los dos lados'
+      : `${dead.length} sin encender · ${oneSided.length} a un solo lado`;
+  console.log(
+    `--- ${pad(regionId, 9)} ${String(universe.length).padStart(3)} fichas · ` +
+      `${String(ids.length).padStart(3)} musculos nombrados · ${estado}`,
+  );
+  for (const id of dead) {
+    console.log(`      NO ENCIENDE NADA  ${pad(id, 30)} 0 mallas`);
+    const sites = whereById.get(id)!;
+    for (const c of sites.slice(0, 4)) console.log(`          ${c.where}`);
+    if (sites.length > 4) console.log(`          ... y ${sites.length - 4} sitio(s) mas`);
+  }
   for (const id of oneSided) {
     console.log(
-      `  ${pad(id, 32)} derecha ${String(glowCount(id, 'right')).padStart(3)} / ` +
-        `izquierda ${String(glowCount(id, 'left')).padStart(3)}`,
+      `      SOLO UN LADO      ${pad(id, 30)} derecha ${String(glowCount(id, 'right')).padStart(3)}` +
+        ` / izquierda ${String(glowCount(id, 'left')).padStart(3)}`,
     );
-    for (const c of whereById.get(id)!.slice(0, 3)) console.log(`        ${c.where}`);
+    for (const c of whereById.get(id)!.slice(0, 3)) console.log(`          ${c.where}`);
   }
-  console.log('');
 }
 
+console.log('');
 console.log('===== RESUMEN =====');
-console.log(
-  `  ${ids.length - dead.length - oneSided.length} musculos se encienden en los dos lados`,
-);
-console.log(`  ${oneSided.length} solo en un lado`);
-console.log(`  ${dead.length} no encienden nada`);
+console.log(`  ${totalIds} acreditaciones (musculo x region) comprobadas`);
+console.log(`  ${totalOneSided} se encienden solo en un lado`);
+console.log(`  ${totalDead} no encienden nada`);
 console.log('');
 console.log(
-  dead.length === 0 && oneSided.length === 0
-    ? '  Todo musculo que el panel nombra se enciende en los dos lados.'
+  totalDead === 0 && totalOneSided === 0
+    ? '  En las ocho regiones, todo musculo que el panel nombra se enciende en los dos lados.'
     : '  Hay musculos nombrados que la escena no muestra.',
 );
-if (dead.length > 0 || oneSided.length > 0) process.exitCode = 1;
+if (totalDead > 0 || totalOneSided > 0) process.exitCode = 1;

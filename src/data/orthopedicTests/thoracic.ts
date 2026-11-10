@@ -19,6 +19,32 @@
 // compresión costal, Schepelmann) the metrics are deliberately LEFT EMPTY and
 // the test is labelled 'weak' instead of inventing numbers.
 //
+// LAS TRES PRUEBAS DEL DESFILADERO SE QUEDARON SIN CIFRA, Y ESA ES LA
+// CORRECCION. Roos, Adson y Wright llevaban las TRES el mismo 72/53, y las tres
+// notas empezaban diciendo que ese par no era suyo sino la media de todos los
+// tests provocativos de Gillard 2001. El desmentido estaba escrito y el panel
+// seguia calculando con la cifra: medido sobre el payload que se sirve
+// (supabase/functions/content/payloads/thoracic.json), las tres imprimian
+// LR+ 1,5319, LR- 0,5283 y "30% -> 39,63%", identicos, y en la fila cerrada
+// "Se 72  Es 53" y "30 -> 40% si +". Sin marca de ningun tipo, porque las dos
+// citas van `verified: true` y el aviso ambar del panel solo mira eso.
+//
+// Peor todavia: del MISMO par de numeros salian TRES veredictos de utilidad
+// distintos en filas consecutivas de la misma categoria (Roos "Descarta",
+// Adson "Equilibrado", Wright "En conjunto"). Una tabla no puede dar tres
+// respuestas a la misma pregunta.
+//
+// Asi que las tres pierden `sensitivity` y `specificity` --el panel imprime
+// "s/d" y "sin LR", que es la verdad-- y se queda la nota, que es donde esta
+// lo que SI se midio por prueba (Plewa 1998 en 53 sanos). Las cifras de Plewa
+// no se convierten en una especificidad: son tasas de falso positivo por
+// CRITERIO (pulso, parestesias, dolor), y elegir un criterio para publicar un
+// numero propio seria inventarselo. Los veredictos quedan en dos, cada uno con
+// su motivo: Roos sigue siendo de descarte con `utilityBasis` declarado, y
+// Adson pasa de "Equilibrado" --que afirma que las dos cifras se parecen, sin
+// tener ninguna-- a "En conjunto", que es literalmente lo que dice su propia
+// interpretacion.
+//
 // DEMO note: the thoracic rig drives the THORACIC SPINE only (flexión /
 // extensión / inclinación / rotación). The vertebral-fracture signs are
 // percussion maneuvers and the desfiladero tests are ARM positions, so those
@@ -119,6 +145,8 @@ const tests: OrthopedicTest[] = [
       note: 'Sin punto estimado defendible: Côté 1998 (105 pacientes, patrón de referencia Cobb ≥20° torácico) no publica sensibilidad ni especificidad en el registro público. Lo que sí sostiene: la prueba de Adams es MÁS SENSIBLE que el escoliómetro para curvas torácicas de 20° o más, y la concordancia entre dos exploradores es sustancial en la torácica pero POBRE en la lumbar. Cualquier cifra de precisión depende además del umbral del escoliómetro (5° frente a 7°) y de la edad.',
     },
     utility: 'rule-in',
+    utilityBasis:
+      'Côté 1998 no publica sensibilidad ni especificidad en el registro público, así que la etiqueta no se apoya en ninguna cifra. Se apoya en el hallazgo: la giba costal ES rotación vertebral, es decir deformidad estructural, y eso es lo que obliga a valorar radiografía. Su ausencia no descarta curvas pequeñas ni deformidades lumbares.',
     interpretation:
       'Una giba franca indica rotación vertebral, es decir deformidad estructural, y obliga a valorar radiografía con medición de Cobb. La ausencia de giba no descarta curvas pequeñas ni deformidades lumbares.',
     pearl:
@@ -188,14 +216,15 @@ const tests: OrthopedicTest[] = [
       'Sentado, con ambos hombros en abducción de 90° y rotación externa, y los codos flexionados a 90° ("manos arriba"). Se pide abrir y cerrar las manos lentamente durante tres minutos.',
     positive:
       'Reproducción de parestesias, pesadez o dolor en el miembro superior, o incapacidad de mantener los tres minutos por fatiga del lado sintomático.',
+    // SIN SENSIBILIDAD NI ESPECIFICIDAD, A PROPÓSITO. Ver la cabecera del
+    // fichero: el 72/53 que llevaban las tres pruebas del desfiladero era la
+    // media de Gillard y no la cifra de ninguna de ellas.
     metrics: {
-      sensitivity: 72,
-      specificity: 53,
-      note: 'ATENCIÓN: 72/53 es la MEDIA de TODOS los tests provocativos de Gillard 2001, no la cifra propia de este test; el resumen no publica cifras por test y las revisiones que las dan se contradicen. Lo que sí está medido por test es el comportamiento en SANOS (Plewa 1998, 53 voluntarios): el EAST altera el pulso en el 62%, da parestesias en el 36% y dolor en el 21%. Solo el criterio "tiene que interrumpir la prueba" se sostiene, con un límite superior de falsos positivos del 16%.',
+      note: 'SIN cifra propia: el 72/53 que suele atribuirse a esta prueba es la MEDIA de todos los tests provocativos de Gillard 2001, y ese resumen no publica cifras por test; las revisiones que las dan se contradicen. Lo que sí está medido por test es el comportamiento en SANOS (Plewa 1998, 53 voluntarios): el EAST altera el pulso en el 62%, da parestesias en el 36% y dolor en el 21%. Solo el criterio "tiene que interrumpir la prueba" se sostiene, con un límite superior de falsos positivos del 16%.',
     },
     utility: 'rule-out',
     utilityBasis:
-      'El 72/53 que figura arriba NO es de esta prueba: es la media de todos los tests provocativos de Gillard, así que la etiqueta no puede apoyarse en esa cifra. Se usa como prueba de descarte por el razonamiento clínico, no por un número propio: lo que está medido por prueba es su comportamiento en sanos, y de los tres criterios posibles solo "tiene que interrumpir" se sostiene.',
+      'No hay sensibilidad propia de esta prueba que respalde la etiqueta: la cifra que se le atribuye es la media de todos los tests provocativos de Gillard. Se usa como prueba de descarte por el razonamiento clínico, no por un número propio. Lo único medido por prueba es su comportamiento en sanos, y de los tres criterios posibles solo "tiene que interrumpir" se sostiene.',
     interpretation:
       'Sensible pero poco específico (SnNout): tolerar los tres minutos sin síntomas hace improbable el desfiladero neurógeno. Un positivo aislado no lo confirma. Y define ANTES qué cuentas como positivo: en voluntarios sanos, el pulso se altera en seis de cada diez y aparecen parestesias en uno de cada tres, así que esos dos criterios no sirven; el que se sostiene es tener que interrumpir la prueba.',
     pearl:
@@ -243,12 +272,14 @@ const tests: OrthopedicTest[] = [
       'Sentado, con el brazo del lado a explorar en ligera extensión y rotación externa. Se palpa el pulso radial y se pide al paciente que gire la cabeza HACIA ese lado, extienda el cuello e inspire profundamente, manteniendo la apnea.',
     positive:
       'Disminución o desaparición del pulso radial, o reproducción de los síntomas del paciente.',
+    // SIN SENSIBILIDAD NI ESPECIFICIDAD, A PROPÓSITO (ver la cabecera).
     metrics: {
-      sensitivity: 72,
-      specificity: 53,
-      note: 'ATENCIÓN: 72/53 es la MEDIA de TODOS los tests provocativos de Gillard 2001, no la cifra propia de Adson; el 85% que ese resumen da para Adson es un valor predictivo POSITIVO, no una especificidad. Lo medido por test es el comportamiento en SANOS (Plewa 1998, 53 voluntarios): el pulso se altera en el 11% y hay parestesias en el 11%, pero DOLOR en el 0% -- con el dolor como criterio, el límite superior de falsos positivos es del 7%.',
+      note: 'SIN cifra propia: el 72/53 que suele atribuirse a Adson es la MEDIA de todos los tests provocativos de Gillard 2001, y el 85% que ese resumen da para Adson es un valor predictivo POSITIVO, no una especificidad. Lo medido por test es el comportamiento en SANOS (Plewa 1998, 53 voluntarios): el pulso se altera en el 11% y hay parestesias en el 11%, pero DOLOR en el 0%; con el dolor como criterio, el límite superior de falsos positivos es del 7%.',
     },
-    utility: 'balanced',
+    // "Equilibrado" AFIRMA que las dos cifras se parecen, y aquí no hay
+    // ninguna de las dos: lo que la prueba dice de sí misma, en su propia
+    // interpretación, es que no se usa aislada. Eso es exactamente 'weak'.
+    utility: 'weak',
     interpretation:
       'Interprétalo dentro de un conjunto de tests, nunca aislado. Y sobre todo: el criterio de positividad decide el resultado. Uno de cada nueve sanos pierde pulso con esta maniobra, así que el pulso por sí solo no vale; ninguno de los 53 sanos de Plewa refirió DOLOR, de modo que el dolor reproducido sí es un hallazgo con peso.',
     pearl:
@@ -281,10 +312,9 @@ const tests: OrthopedicTest[] = [
       'Sentado. El explorador lleva pasivamente el brazo a hiperabducción y rotación externa, por encima de la cabeza, mientras palpa el pulso radial. Se mantiene hasta un minuto.',
     positive:
       'Disminución del pulso radial o reproducción de parestesias en la mano.',
+    // SIN SENSIBILIDAD NI ESPECIFICIDAD, A PROPÓSITO (ver la cabecera).
     metrics: {
-      sensitivity: 72,
-      specificity: 53,
-      note: 'ATENCIÓN: 72/53 es la MEDIA de TODOS los tests provocativos de Gillard 2001, no la cifra propia de Wright; el 92% que ese resumen da para la hiperabducción es un valor predictivo POSITIVO, no una especificidad. A diferencia de Adson y del EAST, esta maniobra NO entró en el estudio de falsos positivos en sanos, así que de ella no hay ni siquiera ese contraste.',
+      note: 'SIN cifra propia: el 72/53 que suele atribuirse a Wright es la MEDIA de todos los tests provocativos de Gillard 2001, y el 92% que ese resumen da para la hiperabducción es un valor predictivo POSITIVO, no una especificidad. A diferencia de Adson y del EAST, esta maniobra NO entró en el estudio de falsos positivos en sanos, así que de ella no hay ni siquiera ese contraste.',
     },
     utility: 'weak',
     interpretation:

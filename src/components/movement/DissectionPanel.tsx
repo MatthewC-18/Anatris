@@ -138,8 +138,31 @@ export function DissectionPanel() {
             <h3 className="mt-1.5 font-display text-lg font-bold leading-tight text-slate-50">
               {selection.label}
             </h3>
-            {selection.latin && (
+            {selection.latin ? (
               <p className="mt-0.5 text-xs italic text-slate-500">{selection.latin}</p>
+            ) : (
+              selection.layer === 'muscle' && (
+                // EL TITULO NO SIEMPRE ES UN NOMBRE CLINICO, Y SE DICE.
+                //
+                // Sin ficha, `makeSelection` rotula la tarjeta con el nombre de
+                // la malla de Blender, en ingles y crudo: "Lateral head of
+                // gastrocnemius". El panel lo presentaba igual que un nombre
+                // propio --misma tipografia, mismo sitio-- asi que el fisio no
+                // tenia modo de saber que eso no es como Anatris llama al
+                // musculo, solo como lo llama el modelo.
+                //
+                // Medido sobre las 942 mallas vivas de capa muscular del rig:
+                // con la region abierta resuelven entre 217 y 419 segun la
+                // region, y el techo del catalogo entero son 600. O sea que
+                // entre 183 y 343 mallas siguen abriendo la tarjeta con el
+                // nombre del modelo, unas por no tener ficha en ningun catalogo
+                // (342) y otras porque su ficha vive en otra region.
+                //
+                // Mientras ese hueco exista, se rotula como lo que es.
+                <p className="mt-0.5 text-[11px] text-slate-600">
+                  Nombre del modelo · sin ficha clínica disponible
+                </p>
+              )
             )}
             {selection.note && (
               <p className="mt-2.5 border-l-2 border-accent/40 pl-2.5 text-[11px] leading-snug text-slate-400">

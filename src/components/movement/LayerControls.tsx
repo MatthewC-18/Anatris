@@ -25,20 +25,54 @@ import { useEffect, useState } from 'react';
 import { layerChannel, type LayerState } from './RigModel';
 import { ChevronDownIcon, LayersIcon } from '../ui/Icons';
 
-/** The peelable layers, outer-to-inner, with their Spanish labels + swatch. */
-const LAYERS: ReadonlyArray<{ key: keyof LayerState; label: string; swatch: string }> = [
-  { key: 'skin', label: 'Piel', swatch: '#d7a88f' },
-  { key: 'muscle', label: 'Músculo', swatch: '#c23b3b' },
-  { key: 'bone', label: 'Hueso', swatch: '#eae3d2' },
-  // "Tendones" NO era lo que este interruptor enciende. La capa `connective`
-  // se define en CONNECTIVE_BASE_COLORS como tendon + ligamento + capsula
-  // articular + CARTILAGO. Medido sobre el rig preparado, de las 280 mallas que
-  // puede encender: 159 llevan material `Tendon` (57%), 77 `Cartilage`, 36
-  // `Ligament` y 8 `Articular capsule`. El 43% no es tendon, y en la rodilla lo
-  // que mas aparece al encenderlo es justamente el cartilago azulado de las
-  // superficies articulares, los colaterales y los cruzados. La muestra de
-  // color tambien se corre hacia el cartilago, que es lo que mas se ve.
-  { key: 'connective', label: 'Tendones y ligamentos', swatch: '#d4dde6' },
+/**
+ * Las capas que se pelan, de fuera hacia dentro, con su etiqueta y su muestra.
+ *
+ * `short` ES OBLIGATORIO Y NO ES UN CAPRICHO. La tira horizontal imprimia
+ * `label.split(' ')[0]`, o sea que "Tendones y ligamentos" aparecia como
+ * "Tendones" -- justo la etiqueta que el comentario de este fichero declaraba
+ * falsa, y en la variante que se usa PRECISAMENTE cuando hay una hoja abierta
+ * (tests, neuro), que es cuando el fisio mira las capas. El nombre entero solo
+ * vivia en `title`, que en una pantalla tactil no se puede ver. Asi que cada
+ * fila trae su nombre corto escrito, no recortado.
+ */
+const LAYERS: ReadonlyArray<{
+  key: keyof LayerState;
+  label: string;
+  short: string;
+  swatch: string;
+}> = [
+  { key: 'skin', label: 'Piel', short: 'Piel', swatch: '#d7a88f' },
+  { key: 'muscle', label: 'Músculo', short: 'Músculo', swatch: '#c23b3b' },
+  { key: 'bone', label: 'Hueso', short: 'Hueso', swatch: '#eae3d2' },
+  // UN SOLO INTERRUPTOR NOMBRABA EL 67% DE LO QUE ENCENDIA.
+  //
+  // "Tendones y ligamentos" encendia tambien el cartilago y la capsula. Medido
+  // sobre public/cuerpo-rig.opt.glb con los descartes del laboratorio puestos,
+  // de las 446 mallas que la capa conectiva enciende: Tendon 191 (42,8%),
+  // Cartilage 122 (27,4%), Ligament 97 (21,7%), Articular capsule 28 (6,3%) y
+  // Origin-Ligament 8 (1,8%). Un tercio no era ni tendon ni ligamento, y el
+  // fisio que buscaba el menisco, el disco o el cartilago articular no tenia
+  // ningun boton que los nombrara.
+  //
+  // Ahora son dos botones: 313 mallas en las cuerdas y 133 en las superficies
+  // (el reparto por region esta en `panelLayerForMaterial`). Y la muestra de
+  // color de cada uno es la de SU tejido, no la del promedio.
+  //
+  // El comentario anterior justificaba la etiqueta diciendo que en la rodilla
+  // aparecian "los colaterales y los cruzados". Era falso, y es justo lo que
+  // este repositorio no tolera: `npm run rig-find "cruciate|collateral|meniscus"`
+  // da 20 coincidencias y CERO cruzados; de la rodilla solo estan el colateral
+  // TIBIAL (porcion superficial y profunda) y el menisco MEDIAL con su
+  // meniscotibial. Ni cruzados, ni menisco lateral, ni colateral lateral, que
+  // es lo que ya dice `clinicalStructures.ts`.
+  { key: 'connective', label: 'Tendones y ligamentos', short: 'Tendón', swatch: '#e3e7ed' },
+  { key: 'cartilage', label: 'Cartílago y cápsula', short: 'Cartílago', swatch: '#bcd0e0' },
+  // La bolsa serosa estaba en el GLB --42 mallas, 3.902 vertices ya
+  // descargados, medido con `npm run audit-glb-waste`-- y no habia forma de
+  // encenderla, hasta el punto de que Neer, Hawkins y el arco doloroso llevaban
+  // escrito en la ficha que el laboratorio no podia ensenar lo que se pinza.
+  { key: 'bursa', label: 'Bolsas serosas', short: 'Bolsas', swatch: '#6fb3bd' },
 ] as const;
 
 /**
@@ -78,7 +112,7 @@ export function LayerControls({
     return (
       <div className="instrument pointer-events-auto flex shrink-0 items-center gap-1 px-2 py-1.5">
         <LayersIcon size={13} className="mx-1 shrink-0 text-slate-500" aria-hidden="true" />
-        {LAYERS.map(({ key, label, swatch }) => {
+        {LAYERS.map(({ key, label, short, swatch }) => {
           const on = state[key];
           return (
             <button
@@ -98,9 +132,9 @@ export function LayerControls({
                 style={{ backgroundColor: swatch, opacity: on ? 1 : 0.28 }}
                 aria-hidden="true"
               />
-              {/* El nombre completo no cabe junto a una hoja abierta; la primera
-                  palabra basta para reconocer la fila y el titulo lleva el resto. */}
-              {label.split(' ')[0]}
+              {/* El nombre corto de la tabla, no el recorte por el primer
+                  espacio: ver el bloque de LAYERS. */}
+              {short}
             </button>
           );
         })}
@@ -187,6 +221,31 @@ export function LayerControls({
             }
           >
             Toca un músculo del modelo para diseccionarlo o aislarlo, lado por lado.
+          </p>
+          {/* EL INTERRUPTOR DECIA "PIEL" APAGADA Y HABIA PIEL EN PANTALLA.
+              `applyLayers` se salta los interruptores para el casquete distal:
+              `if (lm.distalCap) { visible = true; continue; }`. Medido sobre las
+              486 mallas de piel del rig, 30 son casquete (3.271 vertices) y
+              TODAS son de mano y muñeca --Palm, Dorsum_of_hand, las caras de los
+              dedos, la foveola radial y las dos uñas--, porque `inDistalRegion`
+              es y entre 0,60 y 0,86 con |x| > 0,18. En la franja del pie
+              (y < 0,25) hay 86 parches de piel y CERO de casquete: el pie SI se
+              desnuda y la mano no, o sea un cuerpo desollado con dos manos
+              enguantadas.
+              No se quita, se DICE. El casquete existe porque el interior distal
+              del GLB es una pila de huesecillos rotos y tendones en pincho: en
+              esa region se descartan 204 mallas de anatomia (57 de musculo, 37
+              de hueso, 67 de tendon/ligamento y 43 de cartilago), y lo que
+              quedaria al apagar la piel no es una mano, es escombro. Ensenar el
+              motivo cuesta una linea; ensenar el escombro cuesta la venta. */}
+          <p
+            className={
+              embedded
+                ? 'px-4 pb-3 text-[13px] leading-relaxed text-slate-600'
+                : 'px-3.5 pb-2.5 text-[10px] leading-snug text-slate-600'
+            }
+          >
+            Las manos conservan la piel: su interior no es utilizable.
           </p>
         </>
       )}

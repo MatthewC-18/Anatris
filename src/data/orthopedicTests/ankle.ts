@@ -47,6 +47,8 @@ export const ANKLE_ORTHOPEDIC_TESTS: OrthopedicTest[] = [
       note: 'SIN cifras propias: el estudio de referencia (van Dijk, 160 traumatismos consecutivos por inversión, hallazgos quirúrgicos como patrón) NO mide el cajón por separado, sino la exploración completa. Y lo que mide es demoledor: antes de las 48 h, 71% de sensibilidad y 33% de especificidad; LA MISMA exploración a los cinco días, 96% y 84%. Esa diferencia es mayor que la que hay entre dos pruebas distintas. Combinado con dolor a la palpación del LPAA y hematoma, el cajón alcanza el 96% de sensibilidad.',
     },
     utility: 'balanced',
+    utilityBasis:
+      'El estudio de referencia no mide el cajón por separado, sino la exploración completa, así que no hay cifra propia detrás de la etiqueta. Y la del conjunto depende de la FECHA más que de la técnica: antes de las 48 horas 71% y 33%, y a los cinco días 96% y 84%.',
     interpretation:
       'Laxitud aumentada respecto al lado sano apoya lesión del LPAA; combínalo con la inclinación astragalina y la clínica.',
     pearl:

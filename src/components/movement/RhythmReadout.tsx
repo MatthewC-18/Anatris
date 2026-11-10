@@ -810,7 +810,15 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
               </p>
             )}
 
-            {showDescription && demo.note && (
+            {/* LA ADVERTENCIA DEL DEMO NO SE RECORTA POR ALTURA.
+                `showDescription` es `vh >= 780`, y existe para soltar la PROSA
+                biomecanica --un parrafo de apoyo-- cuando la columna va justa.
+                `demo.note` no es prosa de apoyo: es lo que el modelo NO esta
+                ensenando de la maniobra. En un portatil de 1366x768 la unica
+                linea que explicaba la aproximacion desaparecia, que es
+                exactamente la pantalla donde mas se agradece. Son una o dos
+                lineas; se quedan. */}
+            {demo.note && (
               <p className="mt-2 text-[10.5px] leading-snug text-slate-400">{demo.note}</p>
             )}
           </div>

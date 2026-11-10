@@ -14,31 +14,138 @@
 
 import { describe, it, expect } from 'vitest';
 import { CERVICAL_NEURO } from '../neuro/cervical';
+import { LUMBOSACRAL_NEURO } from '../neuro/lumbosacral';
 import { getBoneControl } from '../../lib/boneMap';
+import type { NerveRoot } from '../../types/neuro';
 
 const roots = CERVICAL_NEURO.roots;
 const byId = (id: string) => roots.find((r) => r.id === id)!;
 
+// LOS DOS CONJUNTOS, NO SOLO EL CERVICAL.
+//
+// Este fichero auditaba el miembro superior y dejaba el lumbosacro sin mirar,
+// que es exactamente donde estaba el defecto siguiente: su cabecera decia que
+// cadera y tobillo "are not riggable" y de ahi salian tres textos negando un
+// movimiento que el rig SI conduce. Las reglas generales corren sobre ambos.
+const ALL_SETS = [CERVICAL_NEURO, LUMBOSACRAL_NEURO];
+const ALL_ROOTS: { set: string; root: NerveRoot }[] = ALL_SETS.flatMap((s) =>
+  s.roots.map((root) => ({ set: s.id, root })),
+);
+
 describe('cervical myotome demos', () => {
   it('either demonstrates a root or says why it cannot', () => {
     // The honesty pattern the file was built on: no silent gaps.
-    for (const r of roots) {
+    for (const { set, root: r } of ALL_ROOTS) {
       const hasDemo = !!r.demo;
       const hasNote = !!r.demoNote && r.demoNote.length > 20;
-      expect(hasDemo || hasNote, `${r.id} must demo or explain`).toBe(true);
+      expect(hasDemo || hasNote, `${set}/${r.id} must demo or explain`).toBe(true);
     }
   });
 
   it('only names movements the rig can actually drive', () => {
-    for (const r of roots) {
+    for (const { set, root: r } of ALL_ROOTS) {
       if (!r.demo) continue;
       const ctrl = getBoneControl(r.demo.movementId);
-      expect(ctrl, `${r.id}: unknown movement ${r.demo.movementId}`).toBeDefined();
-      expect(ctrl?.kind, `${r.id}: ${r.demo.movementId}`).not.toBe('unsupported');
+      expect(ctrl, `${set}/${r.id}: unknown movement ${r.demo.movementId}`).toBeDefined();
+      expect(ctrl?.kind, `${set}/${r.id}: ${r.demo.movementId}`).not.toBe('unsupported');
       for (const c of r.demo.components ?? []) {
         const cc = getBoneControl(c.movementId);
-        expect(cc?.kind, `${r.id}: component ${c.movementId} must be a joint`).toBe('joint');
+        expect(cc?.kind, `${set}/${r.id}: component ${c.movementId} must be a joint`).toBe(
+          'joint',
+        );
       }
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // EL GUARDIAN QUE FALTABA: una nota no puede NEGAR lo que el rig si hace.
+  // ---------------------------------------------------------------------------
+  // El fichero vigilaba que un demo no prometiera de mas. No vigilaba lo
+  // contrario, y por ahi se colo el defecto mayor del panel: la cabecera de
+  // `lumbosacral.ts` se escribio cuando cadera y tobillo todavia no eran
+  // regiones completas, y dejo tres raices de cinco sin demo con un motivo
+  // FALSO. En pantalla se leia "la flexión de cadera no se puede reproducir
+  // aquí" a un fisio que acababa de usar el laboratorio de Cadera, donde esa
+  // misma flexión se mueve. Medido el dia del arreglo (`npm run audit-direction`
+  // y `npm run audit-angles`, los dos lados): hip-flexion 90 grados, la rodilla
+  // avanza 42,2 cm; ankle-dorsiflexion 20 grados, la punta del pie sube 6,1 cm;
+  // ankle-plantarflexion 50 grados, baja 10,6 cm.
+  //
+  // La regla es sobre la CAPACIDAD del modelo, no sobre lo que un demo concreto
+  // elige ensenar: "la flexión de muñeca, secundaria en C7, no se muestra aquí"
+  // es cierto y legitimo. Lo prohibido es decir que NO SE PUEDE.
+  const SPANISH_MOVEMENT: [RegExp, string][] = [
+    [/flexión de cadera/i, 'hip-flexion'],
+    [/extensión de cadera/i, 'hip-extension'],
+    [/abducción de cadera/i, 'hip-abduction'],
+    [/dorsiflexión( de tobillo)?/i, 'ankle-dorsiflexion'],
+    [/flexión plantar/i, 'ankle-plantarflexion'],
+    [/inversión( del pie)?/i, 'ankle-inversion'],
+    [/eversión( del pie)?/i, 'ankle-eversion'],
+    [/flexión de rodilla/i, 'knee-flexion'],
+    [/extensión de rodilla/i, 'knee-extension'],
+    [/flexión de codo/i, 'elbow-flexion'],
+    [/extensión de codo/i, 'elbow-extension'],
+    [/extensión de muñeca/i, 'wrist-extension'],
+    [/flexión de muñeca/i, 'wrist-flexion'],
+    [/abducción (de|del) hombro/i, 'glenohumeral-abduction'],
+  ];
+  /** Decir que el MODELO no puede, no que este demo no lo ensene. */
+  const DENIES = /no (se )?pued[ae]n? (reproducir|mostrar|hacer|moverse)/i;
+
+  it('ninguna nota niega un movimiento que el rig SI conduce', () => {
+    const mentiras: string[] = [];
+    for (const { set, root: r } of ALL_ROOTS) {
+      const texts = [r.demoNote, r.demo?.note].filter((t): t is string => !!t);
+      for (const text of texts) {
+        // Frase a frase: una nota puede negar un gesto y nombrar otro que si se
+        // ensena, y juntarlas en un solo texto inventaria un fallo.
+        for (const sentence of text.split(/(?<=[.;])\s+/)) {
+          if (!DENIES.test(sentence)) continue;
+          for (const [re, movementId] of SPANISH_MOVEMENT) {
+            if (!re.test(sentence)) continue;
+            const ctrl = getBoneControl(movementId);
+            if (ctrl && ctrl.kind !== 'unsupported') {
+              mentiras.push(`${set}/${r.id}: niega "${movementId}", que boneMap SI conduce`);
+            }
+          }
+        }
+      }
+    }
+    expect(
+      mentiras,
+      'una nota dice que el modelo no puede hacer un movimiento que getBoneControl conduce',
+    ).toEqual([]);
+  });
+
+  it('las tres raíces lumbosacras recuperadas demuestran su miotoma', () => {
+    // El arreglo concreto, por si alguien vuelve a quitar el demo: L2 es el
+    // iliopsoas (músculo clave ISNCSCI), L4 el tibial anterior y S1 el tríceps
+    // sural, que es lo que ASIA puntúa en esa raíz.
+    const lumbo = (id: string) => LUMBOSACRAL_NEURO.roots.find((r) => r.id === id)!;
+    expect(lumbo('L2').demo?.movementId).toBe('hip-flexion');
+    expect(lumbo('L4').demo?.movementId).toBe('ankle-dorsiflexion');
+    expect(lumbo('S1').demo?.movementId).toBe('ankle-plantarflexion');
+    // Y ninguna de las tres conserva el demoNote que las dejaba sin demo.
+    for (const id of ['L2', 'L4', 'S1']) {
+      expect(lumbo(id).demoNote, `${id} ya no necesita excusa`).toBeUndefined();
+    }
+    // L5 sí: el rig no tiene ningún hueso de los dedos del pie.
+    expect(lumbo('L5').demo).toBeUndefined();
+    expect(lumbo('L5').demoNote).toBeTruthy();
+  });
+
+  it('cada demo se queda dentro del arco que boneMap publica', () => {
+    // Un demo que pide más grados de los que el hueso recorre enseña un tope,
+    // no el movimiento: se vería la articulación parada bajo una cifra mayor.
+    for (const { set, root: r } of ALL_ROOTS) {
+      if (!r.demo) continue;
+      const ctrl = getBoneControl(r.demo.movementId);
+      if (ctrl?.kind !== 'joint') continue;
+      expect(
+        r.demo.angleDeg,
+        `${set}/${r.id}: ${r.demo.movementId} llega a ${ctrl.clinicalRange.max} grados`,
+      ).toBeLessThanOrEqual(ctrl.clinicalRange.max);
     }
   });
 

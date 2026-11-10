@@ -1,0 +1,209 @@
+{
+  "note": "Alturas de reposo del rig publicado, en metros y en el espacio de three.js (y arriba). `bones` son las posiciones de mundo de los huesos que nombran las recetas de encuadre, SOLO en el armature del lado del rig `L` (que es el que se encuadra cuando la consola abre en el lado clinico derecho: ver boneMap.rigSideFor). `segments` son las cotas minima y maxima en y de la MALLA de cada segmento, que es contra lo que se comprueba si algo se sale del encuadre. \"cabeza\" es el sobre de piel cefalica (mallas con material Skin* y nombre de region de la cabeza). Regenerar: ver el test que lo consume.",
+  "rig": "public/cuerpo-rig.opt.glb",
+  "oid": "677fd338c49dde4f0c085b76000bee1f366cf250b70efe66f539ba7807eebe88",
+  "rigSide": "L",
+  "camera": {
+    "fovDeg": 45,
+    "note": "la camara del lienzo del laboratorio (RigViewer.tsx)"
+  },
+  "bones": {
+    "femur_base": [
+      -0.0929,
+      0.8654,
+      -0.0085
+    ],
+    "patella": [
+      -0.076,
+      0.4525,
+      -0.0329
+    ],
+    "shin_flex": [
+      -0.076,
+      0.4525,
+      -0.0329
+    ],
+    "foot_flex": [
+      -0.0794,
+      0.078,
+      -0.0473
+    ],
+    "clavicle": [
+      -0.011,
+      1.396,
+      0.031
+    ],
+    "scapula": [
+      -0.154,
+      1.42,
+      -0.035
+    ],
+    "humerus_gh": [
+      -0.16,
+      1.381,
+      -0.029
+    ],
+    "forearm_flex": [
+      -0.2183,
+      1.1011,
+      -0.0349
+    ],
+    "forearm_rot": [
+      -0.242,
+      1.093,
+      -0.025
+    ],
+    "hand_flex": [
+      -0.272,
+      0.864,
+      0.016
+    ],
+    "vert_sacrum": [
+      0,
+      0.926,
+      -0.061
+    ],
+    "vert_L5": [
+      0,
+      0.986,
+      -0.032
+    ],
+    "vert_L4": [
+      0,
+      1.015,
+      -0.028
+    ],
+    "vert_L3": [
+      0,
+      1.045,
+      -0.029
+    ],
+    "vert_L2": [
+      0,
+      1.076,
+      -0.03
+    ],
+    "vert_L1": [
+      0,
+      1.106,
+      -0.036
+    ],
+    "vert_T12": [
+      0,
+      1.143,
+      -0.041
+    ],
+    "vert_T11": [
+      0,
+      1.175,
+      -0.052
+    ],
+    "vert_T10": [
+      0,
+      1.203,
+      -0.059
+    ],
+    "vert_T9": [
+      0,
+      1.234,
+      -0.065
+    ],
+    "vert_T8": [
+      0,
+      1.262,
+      -0.071
+    ],
+    "vert_T7": [
+      0,
+      1.293,
+      -0.074
+    ],
+    "vert_T6": [
+      0,
+      1.323,
+      -0.073
+    ],
+    "vert_T5": [
+      0,
+      1.351,
+      -0.069
+    ],
+    "vert_T4": [
+      0,
+      1.376,
+      -0.065
+    ],
+    "vert_T3": [
+      0,
+      1.4,
+      -0.058
+    ],
+    "vert_T2": [
+      0,
+      1.422,
+      -0.046
+    ],
+    "vert_T1": [
+      0,
+      1.438,
+      -0.037
+    ],
+    "vert_C7": [
+      0,
+      1.451,
+      -0.031
+    ],
+    "vert_C6": [
+      0,
+      1.464,
+      -0.023
+    ],
+    "vert_C5": [
+      0,
+      1.479,
+      -0.022
+    ],
+    "vert_C4": [
+      0,
+      1.494,
+      -0.019
+    ],
+    "vert_C3": [
+      0,
+      1.509,
+      -0.018
+    ],
+    "vert_C2": [
+      0,
+      1.526,
+      -0.019
+    ],
+    "vert_C1": [
+      0,
+      1.543,
+      -0.018
+    ]
+  },
+  "segments": {
+    "cabeza": [
+      1.488,
+      1.709
+    ],
+    "femur": [
+      0.43,
+      0.884
+    ],
+    "tibia": [
+      0.039,
+      0.54
+    ],
+    "humero": [
+      1.087,
+      1.405
+    ],
+    "antebrazo": [
+      0.829,
+      1.118
+    ]
+  }
+}

@@ -42,7 +42,20 @@ const C = {
   // Connective — pale, slightly bluish whites.
   ligament: 0xdfe3ea,
   capsule: 0xcdd6e2,
-  bursa: 0xc6e0e6,
+  // LA BOLSA SEROSA SE SALE DE LA FAMILIA PALIDA A PROPOSITO.
+  //
+  // Valia 0xc6e0e6, que es otro blanco azulado, y con su propio interruptor en
+  // el panel eso ya no vale: una bolsa encendida tenia que distinguirse del
+  // cartilago y del tendon que hay DEBAJO y ALREDEDOR de ella. Medido en
+  // distancia perceptual (CIE Lab, dE76) contra los tejidos que el laboratorio
+  // dibuja a la vez: el valor viejo quedaba a 7,7 del cartilago y a 9,2 del
+  // tendon, menos que la distancia que ya separa al tendon del cartilago (12,7),
+  // o sea indistinguible. Este queda a 20,6 del cartilago, 24,9 de la capsula y
+  // 31,3 del tendon, y es el minimo contra CUALQUIER color de la paleta.
+  //
+  // Se descarto el ambar sinovial (0xd9b85c), que es lo que usan algunos atlas:
+  // cae a 12,1 del amarillo del nervio, que es un color reservado.
+  bursa: 0x6fb3bd,
 
   // Vessels.
   artery: 0xcf3a2e, // bright arterial red (kept distinct from muscle)
@@ -188,7 +201,12 @@ const BONE_BASE_COLORS = new Set<number>([C.bone, C.boneCool, C.teeth]);
  * of bone + muscle turns a scattered pile of little distal bones into a
  * recognisable, connected hand/foot (the "anatómica conectada" look). We
  * deliberately do NOT include the neurovascular swarm (nerve/artery/vein),
- * fascia, bursa or skin here — those stay hidden so the biomechanics read clean.
+ * fascia or skin here — those stay hidden so the biomechanics read clean.
+ *
+ * ESTE CONJUNTO ES LA FAMILIA DE REPARACION, NO LA DEL INTERRUPTOR. El panel
+ * parte estas cuatro en dos botones (cuerdas / superficies articulares); la
+ * particion vive en `panelLayerForMaterial`, y ahi esta medido por que no se
+ * puede hacer aqui.
  */
 const CONNECTIVE_BASE_COLORS = new Set<number>([
   C.tendon,
@@ -233,6 +251,33 @@ export function materialIsConnective(name: string | undefined | null): boolean {
  */
 export function materialIsTendon(name: string | undefined | null): boolean {
   return colorForMaterial(name) === C.tendon;
+}
+
+/**
+ * True para las BOLSAS SEROSAS (material 'Bursa').
+ *
+ * Tienen capa propia desde que el panel de pruebas dejo de pedir perdon por
+ * ellas: Neer, Hawkins-Kennedy y el arco doloroso llevaban escrito que "la
+ * bolsa subacromial esta en el modelo pero su material la deja en una capa que
+ * el laboratorio no muestra nunca", y eso se leia en la region GRATIS con la
+ * que se vende el producto.
+ *
+ * LA MEDIDA. `npm run audit-glb-waste` daba la fila `Bursa 42 mallas 3902
+ * vertices 0,45% [ENCENDER?]`: ya descargadas, ya parseadas y jamas encendidas.
+ * Entre ellas la subacromial (206 vertices por lado), la subdeltoidea (189 y
+ * 187), las tres prerrotulianas, la infrarrotuliana profunda y la anserina.
+ * Ninguna cae en la region distal, asi que el casquete de la mano no tapa ni
+ * una, y ninguna la descarta el recorte del miembro ni el filtro de pinchos.
+ * Con capa, ese mismo banco pasa de 2.360 a 2.402 mallas "con capa" (+3.902
+ * vertices) y la fila desaparece del peso muerto.
+ *
+ * Se encienden 38 de las 42: el deduplicado de solapados (DUP_EPS = 4 mm, mismo
+ * hueso dominante) colapsa las TRES bolsas prerrotulianas de cada lado en una
+ * --estan a 0,8, 1,9 y 2,7 mm y las tres cuelgan de la rotula, asi que
+ * dibujadas juntas parpadean-- y conserva la subfascial, que es la del medio.
+ */
+export function materialIsBursa(name: string | undefined | null): boolean {
+  return colorForMaterial(name) === C.bursa;
 }
 
 /**
@@ -301,12 +346,12 @@ export function materialIsSkin(name: string | undefined | null): boolean {
 }
 
 /**
- * True for every tissue the movement lab SHOWS: muscle, bone, and the
- * joint-connecting connective layer. Everything else (nerve, artery, vein,
- * fascia, bursa, organ, skin, reference geometry) stays hidden.
+ * True for every tissue the movement lab CAN show: muscle, bone, the
+ * joint-connecting connective layer and the serous bursae. Everything else
+ * (nerve, artery, vein, fascia, organ, skin, reference geometry) stays hidden.
  */
 export function materialIsVisibleAnatomy(name: string | undefined | null): boolean {
-  return materialIsMuscleOrBone(name) || materialIsConnective(name);
+  return materialIsMuscleOrBone(name) || materialIsConnective(name) || materialIsBursa(name);
 }
 
 /**
@@ -346,21 +391,81 @@ export function tissueClassForMaterial(name: string | undefined | null): TissueC
 }
 
 /**
- * PEELABLE display layer a material belongs to, or null when the material is
- * never shown in the movement lab (nerve, vessel, fascia, bursa, organ, and all
- * reference geometry). The movement lab groups every visible mesh into one of
- * these four layers and lets the user toggle each on/off ("quitar capas"):
+ * TISSUE FAMILY a material belongs to, or null when the material is never shown
+ * in the movement lab (nerve, vessel, fascia, organ, and all reference
+ * geometry):
  *   skin       -> the outer envelope (Skin-* patches + Nail plates)
  *   muscle     -> the red muscle bellies + their action slips
  *   bone       -> the ivory skeleton
  *   connective -> the joint-connecting tendon/ligament/capsule/cartilage
+ *   bursa      -> the serous bursae (see materialIsBursa)
+ *
+ * ESTO NO ES LO QUE DICE EL PANEL, y la diferencia importa. Media docena de
+ * pases de REPARACION GEOMETRICA preguntan aqui de que familia es un tejido
+ * para decidir si lo religan: `skinSeamRelax`, `shoulderMuscleBinding`,
+ * `rigSpineSkin.smoothSpineConnective`, `rigPelvicOrigin`, `rigSkinRootWeight`
+ * y el recorte de `rigLimbTrim`. Lo que el usuario enciende con un interruptor
+ * lo decide `panelLayerForMaterial`, que parte esta respuesta en dos sin tocar
+ * ninguno de esos pases.
  */
-export type AnatomyLayer = 'skin' | 'muscle' | 'bone' | 'connective';
+export type AnatomyLayer = 'skin' | 'muscle' | 'bone' | 'connective' | 'bursa';
 export function layerForMaterial(name: string | undefined | null): AnatomyLayer | null {
   if (materialIsSkin(name)) return 'skin';
+  if (materialIsBursa(name)) return 'bursa';
   const t = tissueClassForMaterial(name);
   if (t === 'muscle' || t === 'bone' || t === 'connective') return t;
   return null;
+}
+
+/**
+ * LA CAPA DEL PANEL: lo que un interruptor de "Capas" enciende y apaga.
+ *
+ * Es `layerForMaterial` con UNA particion encima: lo conectivo se parte en las
+ * CUERDAS (tendon, ligamento) y las SUPERFICIES ARTICULARES (cartilago,
+ * capsula).
+ *
+ * POR QUE SE PARTE. El interruptor se llamaba "Tendones y ligamentos" y nombraba
+ * el 67% de lo que encendia. Medido sobre public/cuerpo-rig.opt.glb, con los
+ * pases de descarte del laboratorio aplicados, de las 446 mallas que la capa
+ * conectiva enciende: Tendon 191 (42,8%), Cartilage 122 (27,4%), Ligament 97
+ * (21,7%), Articular capsule 28 (6,3%), Origin-Ligament 8 (1,8%). O sea 150
+ * mallas --un tercio-- que no son ni tendon ni ligamento, y entre ellas 17
+ * VAINAS tendinosas, el cartilago costal, los discos y hasta los huesecillos
+ * del oido. El fisio que buscaba el menisco o el cartilago articular no tenia
+ * ningun interruptor que los nombrara, y el que encendia "Tendones" esperando
+ * cuerdas veia cambiar de color medio esqueleto.
+ *
+ * Partirlo deja 313 mallas (78.333 vertices) en las cuerdas --las 296 de
+ * material tendon/ligamento mas las 17 vainas, ver abajo-- y 133 (17.657) en
+ * las superficies. Ninguna mitad se queda en nada: por region, cuerdas contra
+ * superficies, hombro 96/61, tronco 37/8, cadera 34/2, rodilla 44/10, tobillo
+ * 102/52.
+ *
+ * POR QUE AQUI Y NO EN `layerForMaterial`. Porque esa respuesta la usan los
+ * pases de reparacion geometrica (ver su bloque), y sacar el cartilago de
+ * 'connective' los apagaria sobre 150 mallas sin que nadie lo pidiera: la
+ * capsula y el cartilago del hombro dejarian de recibir el gradiente
+ * escapula->humero (61 piezas solo en esa region) y los discos y el cartilago
+ * costal se caerian del re-pesado del raquis. El interruptor es cosa del panel;
+ * el religado, del tejido.
+ */
+export type PanelLayer = AnatomyLayer | 'cartilage';
+export function panelLayerForMaterial(
+  name: string | undefined | null,
+  meshName?: string | undefined | null,
+): PanelLayer | null {
+  const layer = layerForMaterial(name);
+  if (layer !== 'connective') return layer;
+  const base = colorForMaterial(name);
+  if (base !== C.cartilage && base !== C.capsule) return 'connective';
+  // LAS VAINAS TENDINOSAS VAN CON SU TENDON, aunque lleven el material de la
+  // capsula. Son 17 de las 150 superficies y el material es lo unico que las
+  // distingue mal: la vaina de los fibulares o la del abductor largo del pulgar
+  // (De Quervain) es lo que el fisio busca cuando enciende "Tendones", no
+  // cuando busca cartilago. Se cogen por nombre por el mismo motivo que en
+  // `materialIsAccessoryTissue`: ningun musculo ni ligamento del atlas lleva
+  // "sheath" en el nombre.
+  return meshName != null && /sheath/i.test(meshName) ? 'connective' : 'cartilage';
 }
 
 /**

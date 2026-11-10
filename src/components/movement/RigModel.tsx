@@ -55,11 +55,12 @@ import {
   colorForMaterialMesh,
   materialIsSkin,
   layerForMaterial,
+  panelLayerForMaterial,
   meshIsForearmFascia,
   DEEP_FLESH,
   tissueClassForMaterial,
   type TissueClass,
-  type AnatomyLayer,
+  type PanelLayer,
 } from '../../lib/materialColors';
 import { bindClaviclesToShoulderGirdle } from '../../lib/clavicleBinding';
 import { repairFaceWinding } from '../../lib/faceWinding';
@@ -419,7 +420,7 @@ const SKIN_FADE_SPEED = 6; // per-second lerp rate toward the target
  * piel se queda solida. Ver el bloque de `refreshSkinFade`.
  */
 const ghostForLayers = (st: LayerState): boolean =>
-  st.skin && (st.muscle || st.bone || st.connective);
+  st.skin && (st.muscle || st.bone || st.connective || st.cartilage || st.bursa);
 
 // ---------------------------------------------------------------------------
 // Duplicate-overlap removal.
@@ -751,7 +752,7 @@ interface DupCandidate {
 /** A kept mesh tagged with the peelable layer the DOM panel toggles it by. */
 interface LayerMesh {
   mesh: THREE.Mesh;
-  layer: AnatomyLayer;
+  layer: PanelLayer;
   /** Hand/foot skin cap: shown regardless of the skin toggle (never vanishes). */
   distalCap: boolean;
   /**
@@ -942,17 +943,26 @@ type Listener = (s: RigCommand) => void;
 // ---------------------------------------------------------------------------
 // Layer channel: the DOM layer panel peels anatomy layers on/off through this.
 //
-// Every visible rig mesh is tagged with one AnatomyLayer at load time; toggling
+// Every visible rig mesh is tagged with one PanelLayer at load time; toggling
 // a layer here flips the .visible flag on that whole set. Default is a dressed
 // body (skin ON, with muscle + bone underneath so peeling the skin instantly
 // reveals them). Connective starts OFF -- it reads as loose "wires" and the
 // hands/feet are already solved by the always-on skin cap.
+//
+// `cartilage` y `bursa` son las dos llaves nuevas, las dos APAGADAS: el arranque
+// se ve exactamente igual que antes de partir lo conectivo (que tambien arranca
+// apagado), y nadie se encuentra la escena cambiada sin haber tocado nada.
 // ---------------------------------------------------------------------------
 export interface LayerState {
   skin: boolean;
   muscle: boolean;
   bone: boolean;
+  /** Cuerdas: tendon y ligamento (ver panelLayerForMaterial). */
   connective: boolean;
+  /** Superficies articulares: cartilago y capsula. */
+  cartilage: boolean;
+  /** Bolsas serosas: subacromial, prerrotulianas, anserina... */
+  bursa: boolean;
 }
 
 type LayerListener = (s: LayerState) => void;
@@ -966,6 +976,8 @@ const LAYER_DEFAULTS: LayerState = {
   muscle: true,
   bone: true,
   connective: false,
+  cartilage: false,
+  bursa: false,
 };
 
 export const layerChannel = (() => {
@@ -1250,7 +1262,11 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // Dissection only removes muscle/connective (never bone/skin), and only
       // when that tissue is on to begin with. Bone stays through isolation too,
       // so an isolated muscle is read against the skeleton it acts on.
-      const peelable = lm.layer === 'muscle' || lm.layer === 'connective';
+      // `cartilage` entra aqui porque hasta que el panel partio lo conectivo
+      // viajaba dentro de el: partir el interruptor no cambia que se pueda
+      // diseccionar.
+      const peelable =
+        lm.layer === 'muscle' || lm.layer === 'connective' || lm.layer === 'cartilage';
       let removed = false;
       if (layerOn && peelable && lm.base !== undefined) {
         const side = lm.side ?? 'center';
@@ -1377,18 +1393,22 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         // nombre de Blender no resuelve a ninguna ficha del catalogo. Un clic
         // sobre ella se trata como un clic sobre el fondo del miembro.
         if (m.userData.rigDeepFascia === true) continue;
-        if (lyr === 'muscle' || lyr === 'connective') {
+        if (lyr === 'muscle' || lyr === 'connective' || lyr === 'cartilage') {
           const muscle = muscleByMeshName.get(m.name);
           const parsed = parseMeshName(m.name);
           const bases =
             muscle && muscle.meshBases.length ? muscle.meshBases : [parsed.base];
           const { side, sides } = surveyStructure(m, bases, parsed.side);
-          dissectChannel.setSelection(
-            makeSelection(m.name, lyr as DissectLayer, muscle, side, sides),
-          );
+          // El cartilago viajaba en la capa conectiva y se podia diseccionar
+          // como ella; partir el INTERRUPTOR no cambia eso, asi que para el
+          // sistema de diseccion sigue siendo conectivo.
+          const dl: DissectLayer = lyr === 'cartilage' ? 'connective' : (lyr as DissectLayer);
+          dissectChannel.setSelection(makeSelection(m.name, dl, muscle, side, sides));
           return;
         }
-        if (lyr === 'skin') continue; // see through the glass shell to the muscle
+        // La piel (cristal) y la bolsa serosa dejan pasar el clic a lo que hay
+        // detras: son envolturas, no la estructura que el fisio quiere abrir.
+        if (lyr === 'skin' || lyr === 'bursa') continue;
         break; // bone / other solid in front -> nothing to dissect here
       }
       dissectChannel.setSelection(null);
@@ -1401,7 +1421,9 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       const m = h.object as THREE.Mesh;
       const l = m.userData.rigLayer as string | undefined;
       if (m.userData.rigDeepFascia === true) return false;
-      return m.isMesh && m.visible && (l === 'muscle' || l === 'connective');
+      return (
+        m.isMesh && m.visible && (l === 'muscle' || l === 'connective' || l === 'cartilage')
+      );
     });
     if (over) document.body.style.cursor = 'pointer';
   }, []);
@@ -2248,12 +2270,18 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           return;
         }
         const layer = layerForMaterial(matName);
-        // Non-anatomy (nerve, vessel, fascia, bursa, organ, ...) is never shown.
+        // Non-anatomy (nerve, vessel, fascia, organ, ...) is never shown.
         if (layer === null) {
           mesh.visible = false;
           mesh.userData.rigLayer = 'hidden';
           return;
         }
+        // LA CAPA DEL INTERRUPTOR NO ES LA DEL TEJIDO. Todo lo que hay debajo
+        // --religados, gradientes, recortes-- sigue preguntando por `layer`,
+        // que es la familia de reparacion; lo que se etiqueta para el panel es
+        // `panelLayer`, que ademas separa el cartilago y la capsula de las
+        // cuerdas. Ver el bloque de `panelLayerForMaterial`.
+        const panelLayer = panelLayerForMaterial(matName, mesh.name) ?? layer;
         // BODY SKIN: the whole-body envelope. Shares the premium skin material;
         // toggled as the 'skin' layer (body skin peels; the distal cap does not).
         if (layer === 'skin') {
@@ -2448,7 +2476,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         ) {
           anchorOriginToHumerus(mesh, ELBOW_Y);
         }
-        // Muscle / bone / connective: recolor + tag with its layer.
+        // Muscle / bone / connective / cartilage / bursa: recolor + tag.
         const dom = dominantBoneName(mesh);
         // SPINE-MUSCLE SMOOTH RE-SKIN (see helper + precompute above). A spine-
         // driven muscle (dominant bone is a vertebra) is re-weighted per vertex
@@ -2466,9 +2494,15 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           }
         }
         const hex = colorForMaterialMesh(matName, mesh.name) ?? base;
-        const tissue = tissueClassForMaterial(matName);
+        // La bolsa serosa es una bolsa de liquido, no un bloque opaco: va con el
+        // acabado de lo conectivo (brillante, roughness 0,30) y no con el de
+        // 'other' (mate, 0,60), que la dejaria como una pastilla de tiza.
+        // `tissueClassForMaterial` no se toca porque la leen media docena de
+        // bancos y pases ajenos a este fichero.
+        const tissue: TissueClass =
+          panelLayer === 'bursa' ? 'connective' : tissueClassForMaterial(matName);
         swap(mesh, flatMat(hex, tissue));
-        mesh.userData.rigLayer = layer;
+        mesh.userData.rigLayer = panelLayer;
         mesh.userData.rigDistalCap = false;
         // Tag muscles with their dissection plane (1..3) so the Capas panel can
         // peel them superficial -> deep (see lib/muscleDepth). Muscle tissue only.
@@ -2511,7 +2545,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // a 5-versus-0 count is a naming quirk or something genuinely one-sided,
       // and hiding all of it would delete real anatomy.
       {
-        interface Piece { mesh: THREE.Mesh; layer: AnatomyLayer; c: THREE.Vector3; verts: number }
+        interface Piece { mesh: THREE.Mesh; layer: PanelLayer; c: THREE.Vector3; verts: number }
         const bySide = new Map<string, { L: Piece[]; R: Piece[] }>();
         for (const side of ['R', 'L'] as Side[]) {
           const root = shoulderRootFor(side);
@@ -2519,7 +2553,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           scene.traverse((o) => {
             const mesh = o as THREE.SkinnedMesh;
             if (!mesh.isMesh || !mesh.isSkinnedMesh || !mesh.visible) return;
-            const layer = mesh.userData.rigLayer as AnatomyLayer | 'hidden' | undefined;
+            const layer = mesh.userData.rigLayer as PanelLayer | 'hidden' | undefined;
             if (!layer || layer === 'hidden' || layer === 'skin') return;
             if (!belongsTo(mesh, root)) return;
             const key = structureKey(mesh.name);
@@ -2580,7 +2614,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
     scene.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
-      const lyr = mesh.userData.rigLayer as AnatomyLayer | 'hidden' | undefined;
+      const lyr = mesh.userData.rigLayer as PanelLayer | 'hidden' | undefined;
       if (lyr === undefined) return;
       // The forearm's digital muscles used to be re-culled here BY NAME on every
       // mount. That outlived its reason: the prepare pass trims them to the limb
@@ -2614,7 +2648,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // body; see dissectSideOfMesh for why the name alone cannot be trusted.
       let base: string | undefined;
       let side: ParsedSide | undefined;
-      if (lyr === 'muscle' || lyr === 'connective') {
+      if (lyr === 'muscle' || lyr === 'connective' || lyr === 'cartilage') {
         const parsed = parseMeshName(mesh.name);
         base = parsed.base;
         side = dissectSideOfMesh(mesh, parsed.side);

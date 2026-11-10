@@ -9,7 +9,7 @@
 // own CameraControls, and a one-shot auto-fit onto the rig once it streams in.
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
   AdaptiveDpr,
   AdaptiveEvents,
@@ -20,6 +20,7 @@ import {
 } from '@react-three/drei';
 import * as THREE from 'three';
 import { RigModel, rigChannel, type RigCommand } from './RigModel';
+import { RigLoadingScreen } from './RigLoadingScreen';
 import { RigOverlays } from './RigOverlays';
 import { ShoulderRhythmArc } from './ShoulderRhythmArc';
 import { NeuroSkinLayer } from './NeuroSkinLayer';
@@ -567,59 +568,32 @@ function NavigationRig({ compact }: { compact: boolean }) {
 }
 
 /**
- * A partir de aqui la espera se explica.
+ * EL CARTEL NO SE RETIRA HASTA QUE HAY UN FOTOGRAMA DE VERDAD.
  *
- * Estaba en 6000 ms, y medido en /rodilla/movimiento la carga completa tarda mas
- * que eso: la frase de contexto aparecia al sexto segundo, cuando el usuario ya
- * habia decidido que la aplicacion estaba colgada. Si el texto es verdad, lo es
- * desde el principio.
+ * `onReady` dice que el rig esta cargado y vestido, no que se vea. MEDIDO con
+ * el reloj de arranque sobre el build de produccion (`vite preview`, modelo en
+ * la cache del service worker): `listo` --que es cuando se llama a `onReady`--
+ * cae a los 8.068 ms, y el PRIMER FOTOGRAMA EN PANTALLA 3.714 ms despues, a los
+ * 11.782. Ese tramo es compilacion de shaders y subida a la GPU, y mientras
+ * dura el hilo principal no suelta.
+ *
+ * En esa carrera el cartel se quito a la vez que aparecia el cuerpo porque el
+ * navegador no pudo pintar nada en medio, pero la condicion dependia de una
+ * suerte: basta con que React alcance a pintar el arbol sin cartel un
+ * fotograma antes para dejar el escenario NEGRO Y SIN NINGUN INDICADOR durante
+ * lo que tarde el primer dibujo. Dos fotogramas pintados por el bucle de R3F lo
+ * cierran: al segundo `useFrame`, el dibujo del primero ya esta presentado.
  */
-const RIG_SLOW_MS = 1200;
-
-function RigLoaderOverlay({ progress }: { progress: number }) {
-  const pct = Math.min(100, Math.round(progress));
-  // A silent spinner that sits there for ten seconds reads as a hung app. Once
-  // the wait is long enough to worry someone, say what is being waited for and
-  // that it only happens once -- the service worker keeps the rig afterwards.
-  const [slow, setSlow] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setSlow(true), RIG_SLOW_MS);
-    return () => clearTimeout(t);
-  }, []);
-  return (
-    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-ink-950/80 backdrop-blur-sm animate-fade-in">
-      <div className="flex flex-col items-center gap-5">
-        <div className="relative h-12 w-12">
-          <div className="absolute inset-0 rounded-full border-2 border-slate-700" />
-          <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-accent animate-spin" />
-          <div className="absolute inset-2 rounded-full bg-accent/10" />
-        </div>
-        <div className="flex flex-col items-center gap-2">
-          <span className="font-display text-sm font-medium tracking-wide text-slate-200">
-            Cargando rig biomecánico
-          </span>
-          {/* NO EL NOMBRE DEL FICHERO DEL DESARROLLADOR. "cuerpo-rig.glb" no le
-              dice nada a un fisio y sale en camara en cualquier plano de carga
-              en frio. */}
-          <span className="font-mono text-xs text-slate-500">
-            Hueso, músculo y piel · {pct}%
-          </span>
-        </div>
-        <div className="h-1 w-56 overflow-hidden rounded-full bg-slate-800">
-          <div
-            className="shimmer-bar h-full animate-shimmer rounded-full transition-[width] duration-300 ease-out"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        {slow && (
-          <p className="max-w-[18rem] text-center text-xs leading-relaxed text-slate-500">
-            Cuerpo completo, 9 MB. Se descarga una sola vez y queda guardado
-            para las siguientes visitas.
-          </p>
-        )}
-      </div>
-    </div>
-  );
+function PrimerFotograma({ onPainted }: { onPainted: () => void }) {
+  const n = useRef(0);
+  const hecho = useRef(false);
+  useFrame(() => {
+    if (hecho.current) return;
+    if (++n.current < 2) return;
+    hecho.current = true;
+    onPainted();
+  });
+  return null;
 }
 
 /**
@@ -679,8 +653,18 @@ export function RigViewer({
 }: { refitKey?: string | number; region?: string | null } = {}) {
   // Read OUT HERE, not inside the Suspense boundary: a reporter that only mounts
   // once the rig has resolved can never show anything but 0 while it loads.
-  const { progress } = useProgress();
-  const [ready, setReady] = useState(false);
+  // `loaded`/`total`/`item` ademas del porcentaje: el gestor de carga es uno
+  // para toda la aplicacion, asi que la pantalla necesita saber DE QUE RECURSO
+  // son las cifras y si el flujo midio exactamente lo que declaro (ver
+  // `flujoExacto` en RigLoadingScreen).
+  const { progress, loaded, total, item } = useProgress();
+  // Dos condiciones, no una: el rig esta PREPARADO (onReady) y ademas se ha
+  // PINTADO (ver PrimerFotograma, con la medida de los 3,7 s que separan una
+  // cosa de la otra). `forzado` es el seguro de los 40 s.
+  const [prepared, setPrepared] = useState(false);
+  const [painted, setPainted] = useState(false);
+  const [forzado, setForzado] = useState(false);
+  const ready = forzado || (prepared && painted);
   const compact = useIsCompact();
   // `?hd=1`: resolucion de grabacion. Se lee una vez, no por fotograma.
   const [hd] = useState(wantsHd);
@@ -699,7 +683,7 @@ export function RigViewer({
   // prevent. A failsafe must be longer than the thing it is insuring against;
   // 40 s only trips when something is genuinely wrong.
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 40000);
+    const t = setTimeout(() => setForzado(true), 40000);
     return () => clearTimeout(t);
   }, []);
 
@@ -756,7 +740,8 @@ export function RigViewer({
         <ambientLight intensity={0.12} />
 
         <Suspense fallback={null}>
-          <RigModel onReady={() => setReady(true)} />
+          <RigModel onReady={() => setPrepared(true)} />
+          <PrimerFotograma onPainted={() => setPainted(true)} />
           <RigOverlays />
           <ShoulderRhythmArc />
           {/* Paints the selected root's dermatome on the body's own skin. Idle
@@ -776,7 +761,15 @@ export function RigViewer({
 
       {ready && <RefitButton />}
 
-      {!ready && <RigLoaderOverlay progress={progress} />}
+      {!ready && (
+        <RigLoadingScreen
+          progress={progress}
+          loaded={loaded}
+          total={total}
+          item={item}
+          compact={compact}
+        />
+      )}
     </div>
   );
 }
