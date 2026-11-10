@@ -41,7 +41,7 @@ import {
 } from '../../lib/rigLimbTrim';
 import { sinkForearmFascia } from '../../lib/rigForearmFascia';
 import { applyBakedSkinWeights } from '../../lib/rigSkinWeightBake';
-import { stamp as bootStamp } from '../../lib/bootClock';
+import { stamp as bootStamp, fase as bootFase } from '../../lib/bootClock';
 // Religados del brazo, compartidos con el banco de render (scripts/lib/rigPose.mts).
 import {
   armHeights,
@@ -1862,6 +1862,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         }
         return repaired;
       };
+      bootFase('espejo: preparar');
       const repairedCount = repairMirroredMeshes();
       if (repairedCount > 0) {
         // Left in on purpose: this is the only visible sign the repair fired, and
@@ -1877,6 +1878,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // piel fantasma. El sitio bueno no se inventa, se copia del GLB de
       // Explorar, que trae esas mismas mallas bien colocadas. Va ANTES del
       // recorte y antes de capturar el reposo.
+      bootFase('repairMirroredMeshes');
       const unmangled = unmangleForearmMeshes(scene);
       if (unmangled.missing.length > 0) {
         // Una reexportacion que renombre o arregle estas mallas deja filas
@@ -1899,6 +1901,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // ella en esquirlas de uno o dos milimetros. Eso es el moteado rosa que
       // salia en el pecho, el abdomen y la frente ya en reposo. Va lo primero
       // porque es el unico pase que mueve POSICIONES; los demas, pesos.
+      bootFase('unmangleForearmMeshes');
       inflateSkinShell(scene);
 
       // FACE WINDING. Z-Anatomy mirrors one half of the body, and a mirror
@@ -1908,6 +1911,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // beside their light-skinned twins, with the same material instance. Runs
       // after the rebuild above so those meshes are judged in their final state.
       // See src/lib/faceWinding.ts.
+      bootFase('inflateSkinShell');
       const winding = repairFaceWinding(scene);
       if (winding.flipped > 0) {
         // eslint-disable-next-line no-console
@@ -1921,6 +1925,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // that holds the shoulder off the chest was the one bone in the girdle that
       // could not move -- the scapula rotated out from under a clavicle bolted to
       // the spine. See src/lib/clavicleBinding.ts for the measurements.
+      bootFase('repairFaceWinding');
       const clavicleBind = bindClaviclesToShoulderGirdle(scene);
       // ANTERIOR SHOULDER SKIN. The deltopectoral triangle and the infraclavicular
       // fossa ship bound to a thoracic vertebra, so the shoulder tore open when the
@@ -2015,6 +2020,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
     // BUSCAR donde. La tabla trae esa busqueda ya hecha contra el GLB
     // publicado; si no cuadra, `applyBakedSkinWeights` devuelve null y los dos
     // pases corren de verdad.
+    bootFase('hombro + cadera + tobillo + raquis');
     if (!applyBakedSkinWeights(scene)) {
       redistributeSkinRootWeight(scene, (mesh) => {
         const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
@@ -2050,6 +2056,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // RECORTE MEDIDO DEL ANTEBRAZO (src/lib/rigLimbTrim.ts). Recorta los
       // triangulos que se salen del miembro y devuelve las mallas que no tienen
       // arreglo, para ocultarlas mas abajo. Compartido con el banco de render.
+      bootFase('horneado de pesos');
       const limbOutliers = trimForearmOutliers(scene, { elbowY: ELBOW_Y, wristY: WRIST_Y, upperArmY: UPPER_ARM_Y });
 
       const latsGeoms = new Map<string, number>();
@@ -2420,9 +2427,11 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // humero, la mitad del peso en el antebrazo). Esa piel se arrastraba
       // hasta 5,7 cm al doblar el codo y destapaba el biceps. Va aqui, al
       // final, para que no deshaga ningun religado anterior.
+      bootFase('EL RECORRIDO GRANDE');
       reweightArmAboveElbow(scene, { elbowY: ELBOW_Y, wristY: WRIST_Y, upperArmY: UPPER_ARM_Y });
 
       // Remove the doubled Z-Anatomy bones that Z-fight into a speckled mess.
+      bootFase('reweightArmAboveElbow');
       hideOverlapDuplicates(dupCandidates);
       // Dedup losers become permanently hidden (never resurrected by a toggle).
       for (const c of dupCandidates) if (!c.mesh.visible) c.mesh.userData.rigLayer = 'hidden';
@@ -2502,6 +2511,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       }
       scene.userData.__rigPrepared = true;
     }
+    bootFase('dedup + simetria de brazos');
     bootStamp('prep1');
 
     // ---- Always (first pass OR remount): rebuild the tagged layer set from the

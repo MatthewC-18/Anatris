@@ -64,6 +64,7 @@ const ETIQUETA: Record<BootStamp, string> = {
 
 interface Reloj {
   t: Partial<Record<BootStamp, number>>;
+  fases: { nombre: string; t: number }[];
   on: boolean;
 }
 
@@ -78,7 +79,7 @@ function host(): Reloj {
     } catch {
       on = false;
     }
-    w.__bootClock = { t: {}, on };
+    w.__bootClock = { t: {}, fases: [], on };
   }
   return w.__bootClock;
 }
@@ -101,6 +102,31 @@ export function stamp(name: BootStamp): void {
       report();
     }));
   }
+}
+
+/**
+ * Marca un paso DENTRO de la preparacion.
+ *
+ * El tramo "PASES DE PREPARACION" es el mas gordo del arranque y dentro hay 25
+ * pases. Sin partirlo, cualquier plan para bajarlo se discute en vez de medirse.
+ * Se imprime en su propia tabla al llegar el primer fotograma.
+ */
+export function fase(nombre: string): void {
+  const h = host();
+  if (!h.on) return;
+  h.fases.push({ nombre, t: performance.now() });
+}
+
+/** Los pasos de la preparacion, ya en ms por tramo. */
+export function fases(): { paso: string; ms: number }[] {
+  const h = host();
+  const out: { paso: string; ms: number }[] = [];
+  let prev = h.t.prep0;
+  for (const f of h.fases) {
+    if (prev !== undefined) out.push({ paso: f.nombre, ms: Math.round(f.t - prev) });
+    prev = f.t;
+  }
+  return out;
 }
 
 /** Devuelve los tramos medidos, en ms, sin huecos ni solapes. */
@@ -131,6 +157,14 @@ export function report(): { tramo: string; ms: number; acumulado: number }[] {
   const total = s.reduce((a, b) => a + b.ms, 0);
   // eslint-disable-next-line no-console
   console.table(s.map((r) => ({ ...r, '%': `${Math.round((100 * r.ms) / (total || 1))}%` })));
+  const f = fases();
+  if (f.length > 0) {
+    const tp = f.reduce((a, b) => a + b.ms, 0);
+    // eslint-disable-next-line no-console
+    console.table(
+      f.map((r) => ({ ...r, '%': `${Math.round((100 * r.ms) / (tp || 1))}%` })).sort((a, b) => b.ms - a.ms),
+    );
+  }
   // eslint-disable-next-line no-console
   console.log(`ARRANQUE: ${(total / 1000).toFixed(2)} s hasta el primer fotograma`);
   return s;

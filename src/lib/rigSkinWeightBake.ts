@@ -45,12 +45,30 @@ export interface BakeReport {
   missingBones: string[];
 }
 
-/** Apagar el horneado: para el verificador, que compara tabla contra pases. */
+/**
+ * Apagar el horneado.
+ *
+ * Dos interruptores, y los dos existen para poder MEDIR:
+ *  - `ANATRIS_NO_BAKE=1` en Node, que es como el verificador corre los pases de
+ *    verdad para compararlos con la tabla.
+ *  - `?nobake=1` en el navegador, que es como se mide el A/B del arranque en el
+ *    MISMO build y en el mismo minuto. Sin eso habria que comparar dos builds
+ *    hechos en momentos distintos, y esta maquina da 5,8 s o 14,2 s para el
+ *    mismo trabajo segun lo ocupada que este: una comparacion asi no vale nada.
+ */
 export function bakeDisabled(): boolean {
   try {
-    // En Node (banco y verificador). En el navegador no existe `process`.
-    return (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
-      ?.ANATRIS_NO_BAKE === '1';
+    if (
+      (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+        ?.ANATRIS_NO_BAKE === '1'
+    ) {
+      return true;
+    }
+  } catch {
+    /* sin process: navegador */
+  }
+  try {
+    return typeof location !== 'undefined' && location.search.includes('nobake=1');
   } catch {
     return false;
   }
