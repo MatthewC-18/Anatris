@@ -35,7 +35,8 @@
     "build-forearm-unmangle": "tsx --tsconfig tsconfig.scripts.json scripts/build-forearm-unmangle.mts",
     "rig-find": "tsx --tsconfig tsconfig.scripts.json scripts/rig-find.mts",
     "measure-test-poses": "tsx --tsconfig tsconfig.scripts.json scripts/measure-test-poses.mts",
-    "audit-test-poses": "tsx --tsconfig tsconfig.scripts.json scripts/audit-test-poses.mts"
+    "audit-test-poses": "tsx --tsconfig tsconfig.scripts.json scripts/audit-test-poses.mts",
+    "audit-tendon-cover": "tsx --tsconfig tsconfig.scripts.json scripts/audit-tendon-cover.mts"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

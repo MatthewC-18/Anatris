@@ -215,6 +215,79 @@ export function materialIsConnective(name: string | undefined | null): boolean {
 }
 
 /**
+ * True when a material is TENDON, que es el subconjunto de lo conectivo que NO
+ * se puede apagar sin amputar un musculo.
+ *
+ * POR QUE EXISTE ESTA PREGUNTA APARTE. La mitad distal de un antebrazo ES
+ * tendon: los vientres del flexor y del extensor acaban hacia la mitad del
+ * segmento y lo que llega a la muneca son sus cuerdas. El laboratorio arrancaba
+ * con la capa conectiva apagada, asi que de la mitad del antebrazo para abajo no
+ * quedaba mas que el radio y el cubito al aire, entre un brazo con musculo y una
+ * mano con piel solida. Medido en pantalla sobre el eje del antebrazo: ocultando
+ * piel y hueso, el pixel a t=0,45 y t=0,75 es FONDO (rgb 32,10,12 y 0,0,0); con
+ * lo conectivo encendido se llena (rgb 121,122,124). `npm run audit-tendon-cover`
+ * lo mide sin camara, por sectores, sobre el GLB.
+ *
+ * Asi que el tendon viaja con su musculo (capa `muscle`) y el interruptor se
+ * queda con ligamento, capsula y cartilago, que si son opcionales.
+ */
+export function materialIsTendon(name: string | undefined | null): boolean {
+  return colorForMaterial(name) === C.tendon;
+}
+
+/**
+ * Color de la CARNE PROFUNDA: lo que se ve por el hueco entre dos vientres.
+ *
+ * Mas oscuro y mas mate que cualquier vientre (los vientres del rig viven entre
+ * 0xa13042 y 0xce725a), porque su papel es ser fondo: tiene que cerrar el
+ * miembro sin competir con el musculo que hay delante ni leerse como un vientre
+ * mas.
+ */
+export const DEEP_FLESH = 0x7e2c30;
+
+/**
+ * La FASCIA ANTEBRAQUIAL, que es la unica pieza de fascia que el laboratorio
+ * tiene que ensenar.
+ *
+ * EL DEFECTO, MEDIDO. En /hombro/movimiento, contando por filas de pantalla lo
+ * que hay dentro del contorno de cada segmento (la medida esta en
+ * `npm run audit-tendon-cover` y en la sonda de navegador que la acompana):
+ *
+ *   segmento      musculo   palido (hueso/tendon)   hueco al fondo
+ *   brazo            86%            13%                  0,5%
+ *   muslo            86%            12%                  0,3%
+ *   ANTEBRAZO        52%            37%                 10,8%
+ *
+ * O sea: el antebrazo era el UNICO segmento que ensenaba hueso pelado --una
+ * varilla de marfil entre un brazo con musculo y una mano con piel solida-- y
+ * el unico que dejaba ver el escenario a traves del miembro. No era la piel
+ * fantasma (ocultarla no cambiaba el pixel: 150,126,120 -> 148,123,120) ni el
+ * recorte del antebrazo (las mallas dibujan el 100% de sus triangulos) ni los
+ * tendones (encenderlos solo subia lo palido).
+ *
+ * La causa es anatomica: entre el grupo flexor y el extensor hay un hueco que
+ * en el cuerpo cierra la FASCIA ANTEBRAQUIAL, y el laboratorio la tenia apagada
+ * con el resto de la fascia. Encendiendola tal cual sale peor --es marfil, y
+ * convierte los dos brazos en mangas blancas--, asi que se enciende pintada de
+ * CARNE PROFUNDA y empujada por detras: donde hay vientre, gana el vientre;
+ * donde habia hueco, ahora hay carne.
+ *
+ * Medido con la fascia puesta: el antebrazo pasa a 83% de musculo y 0% de
+ * palido, que es el reparto del brazo y del muslo.
+ *
+ * El resto de la fascia (la lata del muslo, la cervical, la toracolumbar) sigue
+ * apagada: no cierra ningun hueco y si taparia musculo.
+ */
+export function meshIsForearmFascia(
+  meshName: string | undefined | null,
+  materialName?: string | undefined | null,
+): boolean {
+  if (!meshName) return false;
+  if (materialName != null && materialName !== 'Fascia') return false;
+  return /^Antebrachial_fascia/i.test(meshName);
+}
+
+/**
  * True when a material is the SKIN envelope (Skin-1..8 patches + finger/toe
  * Nail plates). The body hides these globally (heavy overdraw, occludes the
  * muscles/bones the lab animates), but the movement lab shows them for the

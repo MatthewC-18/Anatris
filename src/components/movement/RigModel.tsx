@@ -52,6 +52,8 @@ import {
   colorForMaterialMesh,
   materialIsSkin,
   layerForMaterial,
+  meshIsForearmFascia,
+  DEEP_FLESH,
   tissueClassForMaterial,
   type TissueClass,
   type AnatomyLayer,
@@ -1299,6 +1301,12 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         const m = hit.object as THREE.Mesh;
         if (!m.isMesh || !m.visible) continue;
         const lyr = m.userData.rigLayer as string | undefined;
+        // La fascia antebraquial viaja en la capa `muscle` para que no se pueda
+        // apagar por separado (ver meshIsForearmFascia), pero NO es una
+        // estructura que se diseque: quitarla vuelve a abrir el antebrazo, y su
+        // nombre de Blender no resuelve a ninguna ficha del catalogo. Un clic
+        // sobre ella se trata como un clic sobre el fondo del miembro.
+        if (m.userData.rigDeepFascia === true) continue;
         if (lyr === 'muscle' || lyr === 'connective') {
           const muscle = muscleByMeshName.get(m.name);
           const parsed = parseMeshName(m.name);
@@ -1322,6 +1330,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
     const over = e.intersections.some((h) => {
       const m = h.object as THREE.Mesh;
       const l = m.userData.rigLayer as string | undefined;
+      if (m.userData.rigDeepFascia === true) return false;
       return m.isMesh && m.visible && (l === 'muscle' || l === 'connective');
     });
     if (over) document.body.style.cursor = 'pointer';
@@ -1550,6 +1559,33 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
             );
       };
       bodySkinMatRef.current = bodySkinMat;
+      /**
+       * El material de la fascia antebraquial: carne profunda, mate, y empujada
+       * un paso hacia atras en el buffer de profundidad.
+       *
+       * El empuje hace falta porque la fascia y la superficie de los vientres
+       * son COINCIDENTES: medido sobre el rig, el radio maximo de la fascia y el
+       * del musculo coinciden en todo el antebrazo (0,063 vs 0,062 en el codo;
+       * 0,039 vs 0,035 en la muneca). Sin `polygonOffset` las dos superficies se
+       * pelean por el mismo pixel y el antebrazo parpadea entre carne y fascia
+       * al girar la camara.
+       */
+      let deepFasciaMatCache: THREE.MeshStandardMaterial | null = null;
+      const deepFasciaMat = (): THREE.MeshStandardMaterial => {
+        if (deepFasciaMatCache) return deepFasciaMatCache;
+        deepFasciaMatCache = new THREE.MeshStandardMaterial({
+          color: DEEP_FLESH,
+          roughness: 0.85,
+          metalness: 0,
+          envMapIntensity: 0.08,
+          side: THREE.DoubleSide,
+          polygonOffset: true,
+          polygonOffsetFactor: 2,
+          polygonOffsetUnits: 2,
+        });
+        return deepFasciaMatCache;
+      };
+
       const swap = (mesh: THREE.Mesh, next: THREE.Material): void => {
         const old = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         mesh.material = next;
@@ -2068,6 +2104,27 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
             mesh.visible = false;
             mesh.userData.rigLayer = 'hidden';
           }
+          return;
+        }
+        // LA FASCIA ANTEBRAQUIAL, PINTADA DE CARNE: lo unico que cierra el
+        // antebrazo. El porque y las cifras estan en `meshIsForearmFascia`
+        // (src/lib/materialColors.ts) y se vigilan con `npm run audit-tendon-cover`.
+        // Resumen: el antebrazo era el unico segmento con hueso pelado (37% del
+        // contorno) y con el escenario viendose a traves (10,8%); el brazo y el
+        // muslo estan en 12-13% y 0,3-0,5%. El hueco entre el grupo flexor y el
+        // extensor lo cierra esta fascia, que estaba apagada con el resto de la
+        // fascia del cuerpo. Encendida en su marfil convierte los brazos en
+        // mangas blancas, asi que va con el color de carne profunda y empujada
+        // por detras: donde hay vientre gana el vientre, donde habia hueco hay
+        // carne. Viaja con la capa `muscle` porque es la envoltura de ese
+        // musculo, no una capa que el usuario quiera apagar por separado.
+        if (meshIsForearmFascia(mesh.name, matName)) {
+          swap(mesh, deepFasciaMat());
+          mesh.userData.rigLayer = 'muscle';
+          mesh.userData.rigDistalCap = false;
+          mesh.userData.rigDeepFascia = true;
+          // Detras de los vientres, nunca delante.
+          mesh.renderOrder = -1;
           return;
         }
         const layer = layerForMaterial(matName);
