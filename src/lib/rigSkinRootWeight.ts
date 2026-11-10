@@ -237,6 +237,10 @@ export function redistributeSkinRootWeight(
     if (!own) continue;
 
     let touched = 0;
+    // QUE VERTICES se tocaron, no solo cuantos. Lo necesita el horneado
+    // (scripts/build-skin-weight-bake.mts): sin la lista hay que volver a correr
+    // la busqueda espacial para saber que guardar, que es justo lo que cuesta.
+    const settled = new Uint8Array(pos.count);
     for (let i = 0; i < pos.count; i++) {
       let root = 0;
       for (let k = 0; k < 4; k++) {
@@ -290,12 +294,14 @@ export function redistributeSkinRootWeight(
       }
       si.setXYZW(i, idx[0], idx[1], idx[2], idx[3]);
       sw.setXYZW(i, wts[0], wts[1], wts[2], wts[3]);
+      settled[i] = 1;
       touched++;
     }
     if (!touched) continue;
     si.needsUpdate = true;
     sw.needsUpdate = true;
     mesh.userData.skinRootSpread = true;
+    mesh.userData.skinRootSettled = settled;
     report.vertices += touched;
     report.meshes++;
   }

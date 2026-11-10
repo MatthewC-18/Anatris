@@ -40,6 +40,7 @@ import {
   trimForearmOutliers,
 } from '../../lib/rigLimbTrim';
 import { sinkForearmFascia } from '../../lib/rigForearmFascia';
+import { applyBakedSkinWeights } from '../../lib/rigSkinWeightBake';
 import { stamp as bootStamp } from '../../lib/bootClock';
 // Religados del brazo, compartidos con el banco de render (scripts/lib/rigPose.mts).
 import {
@@ -2008,14 +2009,22 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
     // hueso que no gira y la del muslo, pegada a ella, 77% del femur: al
     // flexionar la cadera no se estiraban, se separaban en placas planas.
     // Va DESPUES de blendPelvicOrigins, porque la piel hereda del musculo.
-    redistributeSkinRootWeight(scene, (mesh) => {
-      const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-      const layer = layerForMaterial((first as THREE.Material | undefined)?.name ?? null);
-      return layer === 'skin' || layer === 'muscle' || layer === 'connective'
-        ? layer
-        : 'other';
-    });
-    relaxSkinSeams(scene);
+    // LOS DOS PASES CAROS, HORNEADOS (src/lib/rigSkinWeightBake.ts). Entre los
+    // dos escriben 7.926 vertices de 1.000.527 y cuestan 3,4 s de los 6,8-7,6 s
+    // que tarda esta preparacion, porque lo que cuesta no es escribir sino
+    // BUSCAR donde. La tabla trae esa busqueda ya hecha contra el GLB
+    // publicado; si no cuadra, `applyBakedSkinWeights` devuelve null y los dos
+    // pases corren de verdad.
+    if (!applyBakedSkinWeights(scene)) {
+      redistributeSkinRootWeight(scene, (mesh) => {
+        const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+        const layer = layerForMaterial((first as THREE.Material | undefined)?.name ?? null);
+        return layer === 'skin' || layer === 'muscle' || layer === 'connective'
+          ? layer
+          : 'other';
+      });
+      relaxSkinSeams(scene);
+    }
       if (muscleGrade.skipped.length > 0) {
         // eslint-disable-next-line no-console
         console.warn(

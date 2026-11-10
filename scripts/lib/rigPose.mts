@@ -52,6 +52,7 @@ import {
 import { trimForearmOutliers } from '../../src/lib/rigLimbTrim.ts';
 import { layerForMaterial, meshIsForearmFascia } from '../../src/lib/materialColors.ts';
 import { sinkForearmFascia } from '../../src/lib/rigForearmFascia.ts';
+import { applyBakedSkinWeights } from '../../src/lib/rigSkinWeightBake.ts';
 import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../src/lib/biomech/scapulaWrap.ts';
 
 const D2R = Math.PI / 180;
@@ -234,14 +235,31 @@ export function createRigPoser(
   // hueso que no gira y la del muslo, pegada a ella, 77% del femur: al
   // flexionar la cadera no se estiraban, se separaban en placas planas.
   // Va DESPUES de blendPelvicOrigins, porque la piel hereda del musculo.
-  redistributeSkinRootWeight(scene, (mesh) => {
-    const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-    const layer = layerForMaterial((first as THREE.Material | undefined)?.name ?? null);
-    return layer === 'skin' || layer === 'muscle' || layer === 'connective'
-      ? layer
-      : 'other';
-  });
-  relaxSkinSeams(scene);
+  // LOS DOS PASES CAROS, HORNEADOS (src/lib/rigSkinWeightBake.ts). Escriben
+  // 7.926 vertices de 1.000.527 y cuestan 3,4 s buscando donde escribirlos. La
+  // tabla trae el resultado medido; si no cuadra con el GLB, `applyBaked...`
+  // devuelve null y los dos pases corren de verdad.
+  if (!applyBakedSkinWeights(scene)) {
+    redistributeSkinRootWeight(scene, (mesh) => {
+      const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      const layer = layerForMaterial((first as THREE.Material | undefined)?.name ?? null);
+      return layer === 'skin' || layer === 'muscle' || layer === 'connective'
+        ? layer
+        : 'other';
+    });
+    relaxSkinSeams(scene);
+  }
+  // GANCHO DEL HORNEADO. `scripts/build-skin-weight-bake.mts` tiene que leer los
+  // pesos EXACTAMENTE aqui, no al final de la cadena: `reweightArmAboveElbow`
+  // corre despues y reescribe vertices del codo, y no es idempotente -- si la
+  // tabla guardara su resultado, el runtime lo volveria a pasar por el. Medido:
+  // 601 vertices de las seis mallas del codo, hasta 0,237 de diferencia de peso.
+  // Solo existe en el banco; nada de esto viaja al navegador.
+  {
+    const gancho = (globalThis as { __anatrisBakeSnapshot?: (s: THREE.Object3D) => void })
+      .__anatrisBakeSnapshot;
+    if (gancho) gancho(scene);
+  }
   // Y los religados del brazo, que hasta ahora SOLO hacia la aplicacion.
   //
   // Sin esto, las hojas de revision mentian: a 145 grados de flexion de codo
