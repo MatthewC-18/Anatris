@@ -411,6 +411,16 @@ const SELECTION_EMISSIVE = 0x7dd3fc;
 const SELECTION_RIM_K = 0.9;
 const SKIN_FADE_SPEED = 6; // per-second lerp rate toward the target
 
+/**
+ * Cuando el PANEL DE CAPAS pide ver a traves de la piel.
+ *
+ * Piel puesta y ademas algo de debajo encendido = el usuario quiere las dos
+ * cosas, asi que la piel pasa a cristal. Solo "Piel" = un cuerpo vestido, y la
+ * piel se queda solida. Ver el bloque de `refreshSkinFade`.
+ */
+const ghostForLayers = (st: LayerState): boolean =>
+  st.skin && (st.muscle || st.bone || st.connective);
+
 // ---------------------------------------------------------------------------
 // Duplicate-overlap removal.
 //
@@ -1176,6 +1186,29 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
   const bodySkinMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const skinFadeRef = useRef(0);
   const skinFadeTargetRef = useRef(0);
+  /** Lo pide el movimiento: hay musculos encendidos o el demo forzo el cristal. */
+  const ghostByCmdRef = useRef(false);
+
+  // EL PANEL DE CAPAS PROMETIA MUSCULO Y ENSENABA UN MANIQUI.
+  //
+  // El cristal de la piel se decidia SOLO dentro de `apply(cmd)`, o sea solo
+  // cuando un movimiento enciende musculos. Pero el laboratorio arranca con
+  // Piel + Musculo + Hueso ENCENDIDOS (LAYER_DEFAULTS) y sin ningun movimiento
+  // en marcha, asi que la piel se quedaba OPACA y con `depthWrite`: los 895
+  // vientres estaban `visible: true` y no se veia ni uno. Medido en el
+  // navegador tras pasar por Tests: 456 de las 486 mallas de piel a opacidad
+  // 1,00. El sintoma era que apagar "Piel" revelaba el musculo y volver a
+  // encenderla lo tapaba, que es justo lo que un panel de capas NO debe hacer:
+  // tres interruptores encendidos tienen que ensenar las tres capas.
+  //
+  // Ahora el cristal lo pide tambien el PANEL: si la piel esta puesta y ademas
+  // se pide ver algo de debajo (musculo, hueso o conectivo), la piel pasa a
+  // cristal. Con solo "Piel" encendida vuelve a ser solida, que es lo que ese
+  // estado promete -- un cuerpo vestido.
+  /** El cristal lo pueden pedir el movimiento y el panel; manda cualquiera. */
+  const refreshSkinFade = useCallback((st: LayerState = layerChannel.get()): void => {
+    skinFadeTargetRef.current = ghostByCmdRef.current || ghostForLayers(st) ? 1 : 0;
+  }, []);
 
   const applyLayers = useCallback((st: LayerState = layerChannel.get()) => {
     // Structures peeled away (or the single one isolated) by the click-to-dissect
@@ -1227,7 +1260,9 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       }
       lm.mesh.visible = layerOn && !removed;
     }
-  }, []);
+    // Y la piel, a cristal o a solida segun lo que el panel acabe de prometer.
+    refreshSkinFade(st);
+  }, [refreshSkinFade]);
 
   // ---- Click-to-dissect: pick a muscle, then peel it away (see dissectChannel).
   // Runtime mesh name -> clinical Muscle, so a click resolves to a real muscle
@@ -2630,8 +2665,8 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // Glass skin: fade the body skin out while muscles are highlighted (or when
       // a demo forces it) so the movement reads through, and back to solid when
       // nothing is active. The useFrame below eases toward this target.
-      skinFadeTargetRef.current =
-        (cmd.highlight?.length ?? 0) > 0 || cmd.ghostSkin ? 1 : 0;
+      ghostByCmdRef.current = (cmd.highlight?.length ?? 0) > 0 || !!cmd.ghostSkin;
+      refreshSkinFade();
 
       // Reset everything we touched last time back to rest.
       for (const b of touchedRef.current) {
