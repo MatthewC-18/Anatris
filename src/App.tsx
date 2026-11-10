@@ -453,19 +453,20 @@ export default function App() {
         // MOVEMENT lab: the live 3D model with the shoulder rig + control panel.
         <div className="flex min-h-0 flex-1">
           <main className="relative min-w-0 flex-1">
-            {status === 'error' ? (
-              <IndexError message={error} />
-            ) : status === 'loading' ? (
-              <IndexLoading />
-            ) : (
-              <MovementView
-                region={region}
-                byMesh={byMesh}
-                regionMeshes={regionMeshes}
-                resolution={resolution}
-                onOpenEvidence={openEvidence}
-              />
-            )}
+            {/* EL LABORATORIO NO ESPERA AL INDICE DE EXPLORAR, Y NO DEBIA.
+                Esto estaba envuelto en `status === 'loading' ? <IndexLoading/>`,
+                es decir: el modo Movimiento se quedaba en "Cargando indice
+                anatomico..." --pantalla vacia-- hasta que bajaba
+                /anatomy-index.json. Ese indice describe el modelo de EXPLORAR
+                (public/modelo-opt.dec.glb, 6.316 mallas), no el rig del
+                laboratorio (public/cuerpo-rig.opt.glb, 2.659). Y MovementView
+                no lo usa: sus props `byMesh`, `regionMeshes` y `resolution` son
+                opcionales y no se leen en ninguna linea del fichero, como dice
+                su propia cabecera.
+                Visto en pantalla: al cambiar de pestana con el panel ya cargado,
+                el laboratorio entero desaparecia y volvia el cartel del indice,
+                y con el una recarga completa del rig. */}
+            <MovementView region={region} onOpenEvidence={openEvidence} />
           </main>
         </div>
       ) : mode === 'learn' && concept ? (
