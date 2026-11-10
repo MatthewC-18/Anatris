@@ -121,6 +121,23 @@ export interface RigPoser {
  * @param apply mirror the runtime's extras (wrap / carry / aim / lats). Off shows
  *              the raw GLB behaviour.
  */
+/**
+ * GANCHO DEL HORNEADO -- SOLO BANCO. En el navegador no existe.
+ *
+ * `scripts/build-skin-weight-bake.mts` y `scripts/measure-weight-stages.mts`
+ * instalan `globalThis.__anatrisBakeSnapshot` y leen los pesos EN PUNTOS
+ * EXACTOS de la cadena. El momento importa: `reweightArmAboveElbow` corre
+ * despues de los dos pases caros, reescribe vertices del codo y no es
+ * idempotente; una tabla con su resultado dentro se lo comeria dos veces
+ * (medido: 601 vertices, hasta 0,237 de diferencia de peso).
+ */
+function marca(etiqueta: string, scene: THREE.Object3D): void {
+  const gancho = (
+    globalThis as { __anatrisBakeSnapshot?: (e: string, s: THREE.Object3D) => void }
+  ).__anatrisBakeSnapshot;
+  if (gancho) gancho(etiqueta, scene);
+}
+
 export function createRigPoser(
   scene: THREE.Object3D,
   movementId: string,
@@ -167,6 +184,7 @@ export function createRigPoser(
   });
   inflateSkinShell(scene);
   repairFaceWinding(scene);
+  marca('bloque:antes', scene);
   bindClaviclesToShoulderGirdle(scene);
   bridgeShoulderSkin(scene);
   gradeShoulderMuscleBinding(scene);
@@ -235,6 +253,7 @@ export function createRigPoser(
   // hueso que no gira y la del muslo, pegada a ella, 77% del femur: al
   // flexionar la cadera no se estiraban, se separaban en placas planas.
   // Va DESPUES de blendPelvicOrigins, porque la piel hereda del musculo.
+  marca('bloque:despues', scene);
   // LOS DOS PASES CAROS, HORNEADOS (src/lib/rigSkinWeightBake.ts). Escriben
   // 7.926 vertices de 1.000.527 y cuestan 3,4 s buscando donde escribirlos. La
   // tabla trae el resultado medido; si no cuadra con el GLB, `applyBaked...`
@@ -255,11 +274,7 @@ export function createRigPoser(
   // tabla guardara su resultado, el runtime lo volveria a pasar por el. Medido:
   // 601 vertices de las seis mallas del codo, hasta 0,237 de diferencia de peso.
   // Solo existe en el banco; nada de esto viaja al navegador.
-  {
-    const gancho = (globalThis as { __anatrisBakeSnapshot?: (s: THREE.Object3D) => void })
-      .__anatrisBakeSnapshot;
-    if (gancho) gancho(scene);
-  }
+  marca('peso:despues', scene);
   // Y los religados del brazo, que hasta ahora SOLO hacia la aplicacion.
   //
   // Sin esto, las hojas de revision mentian: a 145 grados de flexion de codo
@@ -278,7 +293,9 @@ export function createRigPoser(
   // brazo. Oculta lo que no tiene arreglo, igual que la aplicacion.
   // Y el reparto por vertice que devuelve al humero la piel y la fascia del
   // brazo que venian mezcladas con el antebrazo (ver rigArmRebind).
+  marca('brazo:antes', scene);
   reweightArmAboveElbow(scene);
+  marca('brazo:despues', scene);
   for (const m of trimForearmOutliers(scene)) m.visible = false;
 
   scene.updateMatrixWorld(true);

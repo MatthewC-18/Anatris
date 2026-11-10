@@ -132,9 +132,12 @@ async function cargar(path: string): Promise<THREE.Group> {
 process.env.ANATRIS_NO_BAKE = '1';
 
 let hecha = false;
-(globalThis as { __anatrisBakeSnapshot?: (s: THREE.Object3D) => void }).__anatrisBakeSnapshot = (
-  s,
-) => {
+(globalThis as {
+  __anatrisBakeSnapshot?: (e: string, s: THREE.Object3D) => void;
+}).__anatrisBakeSnapshot = (etiqueta, s) => {
+  // La cadena marca cinco puntos (ver `marca` en scripts/lib/rigPose.mts). Este
+  // horneado solo quiere el de despues de los dos pases caros.
+  if (etiqueta !== 'peso:despues') return;
   if (hecha) return;
   hecha = true;
   const lista: { mesh: THREE.SkinnedMesh; vis: { vi: number; f: number }[] }[] = [];
