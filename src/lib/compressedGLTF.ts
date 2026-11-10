@@ -7,7 +7,7 @@
 // claimed -- measured in a real browser (scripts/measure-first-load.mts), the
 // landing page is 1.9 MB and paints in 0.43 s, and the big models are fetched
 // only when a 3D view actually opens, one at a time. What is left is the model
-// itself: 27.3 MB for the atlas, 18.2 MB for the rig.
+// itself: 27.3 MB for the atlas, 15.7 MB for the rig.
 //
 // Both are already decimated (~56%) and meshopt-encoded, so the usual next step
 // is to decimate further -- and that costs visible surface quality. It is not
@@ -15,7 +15,7 @@
 // all:
 //
 //   modelo-opt.dec.glb   27.3 MB  ->  15.5 MB gzipped   (56%)
-//   cuerpo-rig.opt.glb   18.2 MB  ->  10.7 MB gzipped   (59%)
+//   cuerpo-rig.opt.glb   15.7 MB  ->   8.9 MB gzipped   (57%)
 //
 // meshopt is DESIGNED to be paired with transport compression -- it reorders
 // vertex data so a general-purpose compressor can finish the job -- and neither
@@ -98,7 +98,7 @@ async function drain(res: Response, url: string, expected: number): Promise<Arra
 
 async function fetchModelBytes(url: string): Promise<ArrayBuffer> {
   // If main.tsx already started this download (see modelWarm.ts), take it rather
-  // than asking for the same 11 MB a second time. It may be the compressed copy
+  // than asking for the same 9 MB a second time. It may be the compressed copy
   // or the plain one, depending on what the server had.
   const claimed = claimWarmModel(url);
   const warm = claimed ? await claimed : null;
@@ -144,7 +144,7 @@ async function fetchModelBytes(url: string): Promise<ArrayBuffer> {
  *    the browser inflated it before we ever saw it. `vite preview` does exactly
  *    this. The old code handed those bytes to DecompressionStream, which threw,
  *    and the load fell back to fetching the PLAIN 19 MB file -- so every load
- *    through such a server was downloading 11 MB and then 19 MB more, measured.
+ *    through such a server was downloading 9 MB and then 16 MB more, measured.
  *    Now they are used as they are.
  *  - HTML. `vite dev` rewrites unknown paths to index.html and answers 200, so
  *    `res.ok` is true for a 5 KB page. That is the null case, and the caller

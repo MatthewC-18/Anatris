@@ -1,5 +1,5 @@
 // Qué modelo se adelanta en cada ruta. Equivocarse aquí no da un error: da
-// 11 MB descargados para nada (o los dos segundos de espera de vuelta), y en
+// 9 MB descargados para nada (o los dos segundos de espera de vuelta), y en
 // ninguno de los dos casos se nota mirando la aplicación.
 //
 // Los slugs ya cambiaron una vez (`/estudiar` -> `/repasar`), que es justo lo
@@ -37,7 +37,7 @@ describe('modelWarm', () => {
   });
 
   it('pone el .gz en la ruta y no en la query', () => {
-    expect(gzUrl(RIG_URL)).toBe('/cuerpo-rig.opt.glb.gz?v=7');
+    expect(gzUrl(RIG_URL)).toBe('/cuerpo-rig.opt.glb.gz?v=8');
     expect(gzUrl(ATLAS_URL)).toBe('/modelo-opt.dec.glb.gz');
   });
 });

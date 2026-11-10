@@ -613,7 +613,7 @@ function RigLoaderOverlay({ progress }: { progress: number }) {
         </div>
         {slow && (
           <p className="max-w-[18rem] text-center text-xs leading-relaxed text-slate-500">
-            Cuerpo completo, 11 MB. Se descarga una sola vez y queda guardado
+            Cuerpo completo, 9 MB. Se descarga una sola vez y queda guardado
             para las siguientes visitas.
           </p>
         )}

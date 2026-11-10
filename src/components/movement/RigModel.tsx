@@ -142,13 +142,38 @@ import { pathologyById } from '../../data/pathologies';
 // v13: OPTIMIZED LOAD. Runtime loads cuerpo-rig.opt.glb, decoded transparently by
 // drei's useGLTF. The 101 MB source is decimated ~57% (3.4M -> 1.5M tris, weld +
 // meshopt simplify, 0.5%-AABB error bound) then meshopt-encoded WITHOUT position
-// quantization -> 18.2 MB (from 101 MB source / 29.5 MB pre-decimation). No dedup,
+// quantization -> 18.2 MB (from 101 MB source / 29.5 MB pre-decimation; v14 lo deja
+// en 15,7). No dedup,
 // no quantize: all 1920 meshes, 106 MATERIAL NAMES and the 5 SHARED skins survive,
 // and a validation pass confirmed 0 region-cull re-classifications with a 1.7 mm
 // max mesh-center shift, so the distal hand/foot skin-cap and every cull behave as
 // before. Regenerate: `node scripts/decimate-glb.mjs public/cuerpo-rig.glb
 // public/cuerpo-rig.opt.glb 0.4 --no-quantize`. See scripts/decimate-glb.mjs +
-// scripts/validate-decimation.mjs. Uncompressed public/cuerpo-rig.glb is the source.
+// scripts/validate-decimation.mjs. Uncompressed rig-src/cuerpo-rig.glb is the source.
+//
+// v14: FUERA LO QUE NO SE PUEDE ENSENAR. El laboratorio solo enciende cuatro
+// capas --piel, musculo, hueso, conectivo-- y la capa la decide el NOMBRE DEL
+// MATERIAL (`layerForMaterial`). Las venas, las arterias, las flechas de
+// referencia y dos bolsas de grupo vacias no caen en ninguna, asi que quedaban
+// ocultas al arrancar Y NO HABIA BOTON QUE LAS ENCENDIERA: pagaban la descarga
+// entera para no verse jamas. Fuera 119 mallas y 137.729 vertices (13,8%):
+// 18,21 -> 15,65 MB en disco, 10,7 -> 8,9 MB por la red. Y no se pierden, que el
+// atlas de Explorar tiene su PROPIO modelo (modelo-opt.dec.glb), donde vasos,
+// nervios y organos si se encienden capa a capa.
+//   Los NERVIOS se quedan (90 mallas, 5,7%): la pestana Neuro de hoy va con
+// esquemas, pero ensenar el radial en el 3D es justo lo que esto querra hacer.
+// La fascia y las bolsas serosas tambien: la fascia antebraquial estaba apagada
+// y el antebrazo se veia como un tubo de hueso pelado, asi que ese cubo es de
+// ENCENDER, no de borrar.
+//   Rehacer: `npm run strip-rig` y luego `npm run audit-rig-strip`, que compara
+// los dos ficheros vertice a vertice. Medido en esta poda: posicion, skinIndex y
+// skinWeight IDENTICOS byte a byte en 862.798 vertices, 0 caras volteadas de
+// 1.221.797 triangulos, normales a 0,0029 grados de media (peor 0,541), mismos
+// 48 huesos en el mismo orden y ni una malla visible de mas ni de menos. El
+// anterior esta en rig-src/cuerpo-rig.opt.v13-prevasos.bak.glb.
+//   OJO AL REEXPORTAR: la poda se hace SOBRE el .opt.glb, no sobre la fuente, asi
+// que volver a correr decimate-glb.mjs trae los vasos de vuelta. El orden es
+// decimate -> strip -> audit.
 // v5: two Spine_Armature helper bones (latshum_l/r) + re-weighted latissimus
 // insertion fibers so the lats' humeral insertion follows the abducting arm
 // (belly stays spine-skinned); driven in apply() -> driveLatsHelpers (glTF drops

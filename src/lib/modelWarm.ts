@@ -7,7 +7,7 @@
 // archivo sea grande -- eso viene después -- sino porque hasta entonces nadie lo
 // había pedido. La cadena era: bundle de entrada -> resolver la ruta -> cargar el
 // trozo diferido de MovementView -> RigViewer -> Suspense -> RigModel -> y ahí,
-// por fin, el `fetch`. Dos segundos de red ociosa con 11 MB por traer.
+// por fin, el `fetch`. Dos segundos de red ociosa con 9 MB por traer.
 //
 // Este módulo rompe esa cadena: sabiendo la ruta inicial se sabe ya qué modelo
 // hará falta, así que la descarga empieza en paralelo con el JavaScript en vez de
@@ -22,13 +22,13 @@
 // vercel.json cachea los .glb un día, así que una segunda petición normalmente
 // saldría de la caché -- pero "normalmente" no es una garantía (en `vite dev` no
 // sale, y un modo privado o una caché llena tampoco), y el precio de equivocarse
-// es descargar 11 MB dos veces. Entregar el `Response` no depende de nada.
+// es descargar 9 MB dos veces. Entregar el `Response` no depende de nada.
 
 import type { AppMode } from '../components/TopBar';
 import { parseRoute } from './routing';
 
 /** El rig con piel del laboratorio de movimiento. */
-export const RIG_URL = '/cuerpo-rig.opt.glb?v=7';
+export const RIG_URL = '/cuerpo-rig.opt.glb?v=8';
 /** El atlas estático de Explorar / Aprender. */
 export const ATLAS_URL = '/modelo-opt.dec.glb';
 
@@ -105,7 +105,7 @@ export function claimWarmModel(url: string): Promise<WarmModel | null> | undefin
  * Qué modelo hace falta en un modo, o null si ninguno.
  *
  * `repasar` no tiene 3D y la portada tampoco: ahí no se adelanta nada, porque
- * 11 MB que nadie va a usar son peores que los dos segundos que ahorran.
+ * 9 MB que nadie va a usar son peores que los dos segundos que ahorran.
  */
 export function modelForMode(mode: AppMode): string | null {
   if (mode === 'movement') return RIG_URL;
@@ -128,7 +128,7 @@ export function modelForPath(pathname: string): string | null {
  * Adelanta el modelo que hará falta en `mode`.
  *
  * NO se llama al arrancar sin más: se llama cuando el visitante ya ha pasado el
- * aviso médico. Precargar antes significaba traer 11 MB para alguien que todavía
+ * aviso médico. Precargar antes significaba traer 9 MB para alguien que todavía
  * está leyendo el aviso y puede cerrarlo -- ancho de banda pagado por nadie. Aun
  * esperando, se adelanta a toda la cadena de componentes diferidos, que es de
  * donde salían los dos segundos.

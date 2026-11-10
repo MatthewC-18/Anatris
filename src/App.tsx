@@ -203,10 +203,10 @@ export default function App() {
   // Medido: la petición del rig arrancaba a los dos segundos de abrir el
   // laboratorio, porque hasta entonces nadie la había hecho -- primero el
   // bundle, luego la ruta, luego el trozo diferido de MovementView, luego
-  // RigViewer, luego Suspense, y por fin RigModel pedía 11 MB. Sabiendo el modo
+  // RigViewer, luego Suspense, y por fin RigModel pedía 9 MB. Sabiendo el modo
   // ya se sabe qué archivo hace falta, así que se pide en paralelo con el resto.
   //
-  // Condicionado a `accepted` y `entered` a propósito: 11 MB traídos para
+  // Condicionado a `accepted` y `entered` a propósito: 9 MB traídos para
   // alguien que todavía está leyendo el aviso médico, y que puede cerrarlo, son
   // ancho de banda que paga el proyecto y no usa nadie. Ver src/lib/modelWarm.ts.
   useEffect(() => {
