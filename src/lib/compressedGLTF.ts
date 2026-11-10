@@ -36,6 +36,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { claimWarmModel, gzUrl } from './modelWarm';
+import { stamp } from './bootClock';
 
 export interface LoadedGLTF {
   scene: THREE.Group;
@@ -176,12 +177,14 @@ function load(url: string): Promise<void> {
   manager.itemStart(url);
   const promise = (async () => {
     const buf = await fetchModelBytes(url);
+    stamp('bytes');
     const loader = new GLTFLoader();
     // Both models require EXT_meshopt_compression; KHR_mesh_quantization is
     // handled by three itself. This is the same decoder drei's useGLTF installs,
     // set here because we hand the loader bytes rather than a URL.
     loader.setMeshoptDecoder(MeshoptDecoder);
     const gltf = await loader.parseAsync(buf, '');
+    stamp('parse');
     cache.set(url, { state: 'done', value: { scene: gltf.scene as THREE.Group } });
   })()
     .catch((error: unknown) => {

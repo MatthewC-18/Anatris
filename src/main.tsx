@@ -7,7 +7,12 @@ import { RecoveryGate } from './components/account/SetPasswordModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { applyAccessFromUrl } from './auth/devAccess';
 import { initAnalytics } from './lib/analytics';
+import { stamp as bootStamp } from './lib/bootClock';
 import './index.css';
+
+// El cronometro del arranque (src/lib/bootClock.ts). Va lo primero para que su
+// tramo de cabecera incluya todo lo que viene despues. No arrastra dependencias.
+bootStamp('arranque');
 
 // Owner "all-access" unlock via ?acceso=<code>. Runs before render so the
 // entitlement is correct on first paint. No-op for normal visitors.

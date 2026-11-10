@@ -17,7 +17,7 @@
 // Fully reversible: bones are restored to their captured rest pose on unmount.
 // ASCII-only source; no `any`.
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useCompressedGLTF } from '../../lib/compressedGLTF';
 import { RIG_URL as WARM_RIG_URL } from '../../lib/modelWarm';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
@@ -40,6 +40,7 @@ import {
   trimForearmOutliers,
 } from '../../lib/rigLimbTrim';
 import { sinkForearmFascia } from '../../lib/rigForearmFascia';
+import { stamp as bootStamp } from '../../lib/bootClock';
 // Religados del brazo, compartidos con el banco de render (scripts/lib/rigPose.mts).
 import {
   armHeights,
@@ -1038,6 +1039,13 @@ export const rigChannel = (() => {
 // ---------------------------------------------------------------------------
 export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Element {
   const { scene } = useCompressedGLTF(RIG_URL);
+  // El reloj del arranque: aqui Suspense ya ha soltado y React esta renderizando.
+  bootStamp('render');
+  // Y aqui React ya ha COMETIDO el arbol: lo que haya entre las dos marcas es
+  // el renderizado de los hermanos mas el montaje de la escena en R3F.
+  useLayoutEffect(() => {
+    bootStamp('commit');
+  }, []);
 
   // Forearm twist bones, built during mesh preparation and driven in apply().
   // Kept in a ref because they are created after the rest-pose memo below has
@@ -1367,9 +1375,39 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
   // panel can toggle whole tissues. Non-anatomical reference geometry and the
   // broken distal internals are tagged 'hidden' (permanently off).
   const preparedRef = useRef(false);
-  useEffect(() => {
+  // POR QUE ESTE PASE VA EN useLayoutEffect Y NO EN useEffect.
+  //
+  // Un efecto pasivo corre DESPUES de que el navegador pinte. Y lo que el
+  // navegador tenia delante para pintar era la escena cruda: el GLB de
+  // Z-Anatomy trae ~1.300 MeshPhysicalMaterial (clearcoat, specular), que es
+  // justo lo que este pase sustituye por UN MeshStandardMaterial compartido.
+  // Asi que el primer fotograma compilaba una tormenta de shaders que iba a
+  // tirar a la basura dos lineas despues, con el cartel de carga encima: nadie
+  // la veia y todos la pagaban.
+  //
+  // MEDIDO en el navegador con el build de produccion (medianas de 4 corridas,
+  // src/lib/bootClock.ts, `?perf=1`):
+  //
+  //   tramo                          useEffect   useLayoutEffect
+  //   bytes (red/cache + inflado)       1.195 ms      880 ms
+  //   GLB parseado (meshopt)              943 ms      804 ms
+  //   R3F monta la escena               1.151 ms      990 ms
+  //   el navegador pinta el rig CRUDO   3.779 ms        0 ms   <--
+  //   pases de preparacion              8.101 ms    6.826 ms
+  //   primer fotograma                    876 ms    2.688 ms   <-- vuelve parte
+  //   TOTAL                            14.215 ms   11.411 ms
+  //
+  // El tramo de 3.779 ms desaparece entero; 1.812 ms vuelven en el primer
+  // fotograma, que es el shader de los materiales DEFINITIVOS (muchos menos
+  // programas). El ahorro estructural defendible son esos ~1,9 s; el resto de
+  // la diferencia es ruido entre corridas.
+  //
+  // El precio es que el pase bloquea el pintado. No cambia nada para el
+  // usuario: el cartel de carga ya estaba delante hasta `onReady`.
+  useLayoutEffect(() => {
     if (preparedRef.current) return;
     preparedRef.current = true;
+    bootStamp('prep0');
     // World matrices must be current before we read mesh centers for dedup.
     scene.updateMatrixWorld(true);
 
@@ -2455,6 +2493,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       }
       scene.userData.__rigPrepared = true;
     }
+    bootStamp('prep1');
 
     // ---- Always (first pass OR remount): rebuild the tagged layer set from the
     // per-mesh userData tags, then apply the current layer toggles. ----
@@ -2507,6 +2546,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as unknown as { __rigScene?: THREE.Object3D }).__rigScene = scene;
     applyLayers(layerChannel.get());
+    bootStamp('listo');
     // Signal the viewer that the rig is loaded AND styled, so it can dismiss the
     // loader. Gating on drei's load progress alone hangs on a CACHED reload.
     onReady?.();
