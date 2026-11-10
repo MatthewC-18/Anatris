@@ -39,7 +39,8 @@
     "audit-tendon-cover": "tsx --tsconfig tsconfig.scripts.json scripts/audit-tendon-cover.mts",
     "build-skin-weight-bake": "tsx --tsconfig tsconfig.scripts.json scripts/build-skin-weight-bake.mts",
     "audit-skin-weight-bake": "tsx --tsconfig tsconfig.scripts.json scripts/audit-skin-weight-bake.mts",
-    "measure-weight-stages": "tsx scripts/measure-weight-stages.mts"
+    "measure-weight-stages": "tsx scripts/measure-weight-stages.mts",
+    "audit-glb-waste": "tsx --tsconfig tsconfig.scripts.json scripts/audit-glb-waste.mts"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",
