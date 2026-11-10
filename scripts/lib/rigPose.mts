@@ -50,7 +50,8 @@ import {
   reweightArmAboveElbow,
 } from '../../src/lib/rigArmRebind.ts';
 import { trimForearmOutliers } from '../../src/lib/rigLimbTrim.ts';
-import { layerForMaterial } from '../../src/lib/materialColors.ts';
+import { layerForMaterial, meshIsForearmFascia } from '../../src/lib/materialColors.ts';
+import { sinkForearmFascia } from '../../src/lib/rigForearmFascia.ts';
 import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../src/lib/biomech/scapulaWrap.ts';
 
 const D2R = Math.PI / 180;
@@ -151,6 +152,18 @@ export function createRigPoser(
   // cuarto distal hueco. Va aqui por el mismo motivo que en la aplicacion, y
   // compartido para que la hoja de revision ensene el mismo antebrazo.
   unmangleForearmMeshes(scene);
+  // Y LA FASCIA DEL ANTEBRAZO, HUNDIDA 10 mm (src/lib/rigForearmFascia.ts): en
+  // la aplicacion es lo que cierra el hueco por el que se veia el hueso sin
+  // aplanar los vientres. Es un pase de POSICIONES, asi que va en el mismo
+  // bloque; compartido para que la hoja de revision mida el mismo antebrazo que
+  // ve el usuario.
+  scene.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    if (!meshIsForearmFascia(mesh.name, (first as THREE.Material | undefined)?.name)) return;
+    sinkForearmFascia(mesh);
+  });
   inflateSkinShell(scene);
   repairFaceWinding(scene);
   bindClaviclesToShoulderGirdle(scene);

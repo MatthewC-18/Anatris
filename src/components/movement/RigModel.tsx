@@ -39,6 +39,7 @@ import {
   inWristCuff,
   trimForearmOutliers,
 } from '../../lib/rigLimbTrim';
+import { sinkForearmFascia } from '../../lib/rigForearmFascia';
 // Religados del brazo, compartidos con el banco de render (scripts/lib/rigPose.mts).
 import {
   armHeights,
@@ -2123,7 +2124,12 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           mesh.userData.rigLayer = 'muscle';
           mesh.userData.rigDistalCap = false;
           mesh.userData.rigDeepFascia = true;
-          // Detras de los vientres, nunca delante.
+          // Detras de los vientres, nunca delante. El orden de dibujo NO basta
+          // --no cambia la prueba de profundidad-- asi que ademas se hunde la
+          // geometria 10 mm hacia dentro: sin eso el antebrazo se convierte en
+          // un tubo rojo liso y el relieve de los vientres cae un 72%. Las
+          // cifras medidas estan en `sinkForearmFascia`.
+          sinkForearmFascia(mesh);
           mesh.renderOrder = -1;
           return;
         }

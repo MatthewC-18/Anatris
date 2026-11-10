@@ -29,7 +29,9 @@
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import * as THREE from 'three';
 import { DEEP_FLESH, layerForMaterial, meshIsForearmFascia } from '../materialColors';
+import { FASCIA_SINK_M, sinkForearmFascia } from '../rigForearmFascia';
 
 /** Luminancia relativa aproximada de un hex sRGB, 0..255. */
 function lum(hex: number): number {
@@ -90,8 +92,9 @@ describe('la fascia que cierra el antebrazo', () => {
   });
 });
 
+const src = readFileSync('src/components/movement/RigModel.tsx', 'utf8');
+
 describe('como la monta RigModel', () => {
-  const src = readFileSync('src/components/movement/RigModel.tsx', 'utf8');
 
   it('decide la fascia ANTES de descartar lo que no tiene capa', () => {
     // `layerForMaterial('Fascia')` es null, asi que si la rama se pusiera
@@ -124,5 +127,73 @@ describe('como la monta RigModel', () => {
     // ficha del catalogo.
     expect(src).toContain('if (m.userData.rigDeepFascia === true) continue;');
     expect(src).toContain('if (m.userData.rigDeepFascia === true) return false;');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('hundir la fascia para que sea fondo', () => {
+  /** Un cilindro de prueba con normales radiales, como las de la fascia real. */
+  function tubo(): THREE.Mesh {
+    const g = new THREE.BufferGeometry();
+    const pos: number[] = [];
+    const nor: number[] = [];
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      const c = Math.cos(a);
+      const s = Math.sin(a);
+      pos.push(c * 0.05, i * 0.001, s * 0.05);
+      nor.push(c, 0, s);
+    }
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    return new THREE.Mesh(g, new THREE.MeshStandardMaterial());
+  }
+
+  const radio = (m: THREE.Mesh, i: number) => {
+    const p = m.geometry.attributes.position as THREE.BufferAttribute;
+    return Math.hypot(p.getX(i), p.getZ(i));
+  };
+
+  it('mete la superficie hacia dentro los 10 mm medidos', () => {
+    const m = tubo();
+    expect(radio(m, 0)).toBeCloseTo(0.05, 6);
+    expect(sinkForearmFascia(m)).toBe(true);
+    expect(FASCIA_SINK_M).toBe(0.01);
+    for (let i = 0; i < 24; i++) expect(radio(m, i)).toBeCloseTo(0.04, 6);
+  });
+
+  it('no encoge dos veces si la preparacion se repite', () => {
+    // RigModel corre su efecto sobre el GLB cacheado de useGLTF: si el efecto
+    // vuelve a montarse, la segunda pasada veria una fascia ya hundida y la
+    // meteria DENTRO del hueso.
+    const m = tubo();
+    expect(sinkForearmFascia(m)).toBe(true);
+    expect(sinkForearmFascia(m)).toBe(false);
+    expect(radio(m, 0)).toBeCloseTo(0.04, 6);
+  });
+
+  it('se rinde si no hay normales, en vez de recalcularlas', () => {
+    // Las normales de este GLB son Int8 cuantizadas: `computeVertexNormals()`
+    // sin borrar antes el atributo las deja a cero y la malla sale NEGRA.
+    const m = tubo();
+    m.geometry.deleteAttribute('normal');
+    expect(sinkForearmFascia(m)).toBe(false);
+    expect(radio(m, 0)).toBeCloseTo(0.05, 6);
+  });
+
+  it('RigModel la hunde dentro de la rama de la fascia', () => {
+    const i = src.indexOf('meshIsForearmFascia(mesh.name, matName)');
+    const corte = src.slice(i, i + 900);
+    expect(corte).toContain('sinkForearmFascia(mesh)');
+    expect(corte.indexOf('sinkForearmFascia(mesh)')).toBeLessThan(corte.indexOf('return;'));
+  });
+
+  it('el banco de render aplica el MISMO hundimiento', () => {
+    // Si la hoja de revision mide una fascia sin hundir, miente en las dos
+    // direcciones (ver [[render-harness-fidelity]]).
+    const pose = readFileSync('scripts/lib/rigPose.mts', 'utf8');
+    expect(pose).toContain('sinkForearmFascia(mesh)');
+    expect(pose).toContain('meshIsForearmFascia(mesh.name');
   });
 });
