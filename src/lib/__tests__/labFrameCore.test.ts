@@ -311,12 +311,63 @@ describe('la guía rápida no habla inglés', () => {
 describe('la piel de la cabeza no fantasmea', () => {
   const model = readFileSync('src/components/movement/RigModel.tsx', 'utf8');
 
-  it('el fantasma se apaga por altura anatómica entre dos cotas medidas', () => {
-    // Medido sobre el GLB: la piel del cuello llega a y=1,498 y la de la cara
-    // empieza por encima (Eyebrow 1,617, Frontal 1,625, Parietal 1,686).
-    expect(model).toMatch(/HEAD_SOLID_Y0 = 1\.5/);
-    expect(model).toMatch(/HEAD_SOLID_Y1 = 1\.58/);
+  it('la rampa del fantasma cae por DEBAJO de la mandíbula, no encima', () => {
+    // LA REGLA, NO EL NÚMERO. Lo que no puede volver a pasar es que la rampa
+    // se solape con la banda dental: ahí estuvo (1,50..1,58 contra unos
+    // dientes y una mandíbula que ocupan y 1,496..1,579) y la cara salía
+    // desdentada, con la piel sobre los incisivos al 4% de solidez.
+    //
+    // Cotas medidas sobre public/cuerpo-rig.opt.glb:
+    //   mandíbula + dientes      y 1,496 .. 1,579
+    //   piel del cuello          y 1,402 .. 1,563   (30 piezas)
+    // La rampa tiene que terminar en o antes del borde inferior de la
+    // mandíbula, y empezar dentro de la piel del cuello para que no haya un
+    // salto de material a la vista.
+    const MANDIBULA_Y0 = 1.496;
+    const CUELLO_Y0 = 1.402;
+    const y0 = Number(/HEAD_SOLID_Y0 = ([\d.]+)/.exec(model)?.[1]);
+    const y1 = Number(/HEAD_SOLID_Y1 = ([\d.]+)/.exec(model)?.[1]);
+    expect(Number.isFinite(y0)).toBe(true);
+    expect(Number.isFinite(y1)).toBe(true);
+    expect(y1).toBeLessThanOrEqual(MANDIBULA_Y0);
+    expect(y0).toBeGreaterThanOrEqual(CUELLO_Y0);
+    expect(y0).toBeLessThan(y1);
     expect(model).toContain('smoothstep(uHeadY0, uHeadY1, vAnatY)');
+  });
+
+  it('la órbita se vacía por nombre Y por cota, nunca solo por nombre', () => {
+    // El modelo no trae globo ocular (ni esclera, ni córnea, ni iris), así que
+    // detrás de la abertura palpebral solo hay músculo rojo y en pantalla se
+    // lee como dos ojos encendidos. Se apagan los siete extraoculares de cada
+    // lado, que no mueven ningún segmento ni los nombra ninguna prueba.
+    //
+    // El filtro NO puede ser solo el nombre: "rectus" también está en el recto
+    // femoral, el del abdomen y los capitales, y "retina" es el principio de
+    // "retinaculum" (44 mallas de rodilla y tobillo). Por eso exige además la
+    // cota orbitaria.
+    expect(model).toContain('OCULAR_NAME.test(mesh.name)');
+    expect(model).toMatch(/c\.y > ORBIT_Y0 && c\.y < ORBIT_Y1/);
+    const re = /const OCULAR_NAME =\s*([\s\S]*?);/.exec(model)?.[1] ?? '';
+    expect(re).not.toMatch(/retina[^c]/);
+    // Los que tienen que caer y los que NO.
+    const ocular = new RegExp(
+      /^(Superior|Inferior|Medial|Lateral)_rectus_muscle|^(Superior|Inferior)_oblique_muscle|^Levator_palpebrae/
+        .source,
+      'i',
+    );
+    for (const n of ['Lateral_rectus_musclel', 'Superior_oblique_muscler', 'Levator_palpebrae_superiorisl']) {
+      expect(ocular.test(n)).toBe(true);
+    }
+    for (const n of [
+      'Rectus_femorisl',
+      'Rectus_abdominis_muscle',
+      'Rectus_lateralis_capitis_musclel',
+      'Lateral_patellar_retinaculuml',
+      'Flexor_retinaculum_of_anklel',
+      'External_oblique_muscle',
+    ]) {
+      expect(ocular.test(n)).toBe(false);
+    }
   });
 
   it('la altura es la de la pose de LIGADO, no la animada', () => {

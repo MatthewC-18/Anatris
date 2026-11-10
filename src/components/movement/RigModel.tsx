@@ -386,16 +386,51 @@ const BODY_SKIN_GHOST_EMISSIVE = 0.12;
  * rojo y hueso blanco-- en cada plano del laboratorio, que es exactamente el
  * fotograma que descalifica un video.
  *
- * Asi que el fantasma se apaga por altura entre estas dos cotas. Medidas sobre
- * `public/cuerpo-rig.opt.glb`: la piel del cuello llega hasta y=1,498
- * (`Posterior_region_of_neck`, `Carotid_triangle`, `Submental_triangle`) y la
- * de la cara empieza por encima (`Eyebrow` 1,617, `Temporal` 1,611, `Frontal`
- * 1,625, `Parietal` 1,686). El degradado cae en la mandibula, 8 cm, asi que no
- * hay salto de material ni costura en el cuello --el defecto que tiene hoy la
- * muneca, donde si hay dos materiales distintos a 1,5 cm.
+ * Asi que el fantasma se apaga por altura entre estas dos cotas.
+ *
+ * LA RAMPA VA EN EL CUELLO, NO EN LA MANDIBULA, Y ESO COSTO UNA CORRIDA.
+ *
+ * Estuvo en 1,50 .. 1,58 con este argumento: dejar el degradado "en la
+ * mandibula, 8 cm, asi que no hay salto de material ni costura en el cuello".
+ * El razonamiento era bueno y la cota, equivocada. Medido sobre
+ * `public/cuerpo-rig.opt.glb`, los dientes y la mandibula ocupan
+ * y 1,496 .. 1,579: EXACTAMENTE la misma banda que la rampa. Con
+ * `smoothstep(1.50, 1.58, y)` la piel sobre los incisivos inferiores (y=1,503)
+ * salia al 4% de solidez, o sea 96% de cristal, y la cara aparecia
+ * DESDENTADA: craneo palido arriba, dientes y mandibula al aire en el medio.
+ * Se vio en pantalla en /hombro/movimiento en cuanto el encuadre dejo de
+ * cortar la cabeza por la boca (ver src/lib/labFraming.ts) -- antes el defecto
+ * estaba ahi y lo tapaba otro defecto.
+ *
+ * Y la cota del cuello tampoco era la que decia el comentario: la piel
+ * cervical no llega a 1,498 sino a 1,563 (30 piezas, de 1,402 a 1,563). O sea
+ * que SI hay piel a los dos lados de una rampa puesta en el cuello, que era lo
+ * que el comentario buscaba y creia imposible.
+ *
+ * Las cotas de ahora: la rampa entera por DEBAJO del borde inferior de la
+ * mandibula (1,496), dentro del tramo que la piel del cuello cubre sin
+ * interrupcion. Con 1,43 .. 1,49 TODA la mandibula y todos los dientes quedan
+ * al 100% de solidez --no al 99%: la rampa termina 6 mm por debajo del borde
+ * inferior del hueso-- y el fantasma sigue vivo hasta 1,43, que deja leer el
+ * vientre del esternocleidomastoideo y los escalenos, que es lo que un
+ * laboratorio cervical necesita ver por debajo de la piel.
  */
-const HEAD_SOLID_Y0 = 1.5; // por debajo: fantasma completo
-const HEAD_SOLID_Y1 = 1.58; // por encima: piel solida
+const HEAD_SOLID_Y0 = 1.43; // por debajo: fantasma completo
+const HEAD_SOLID_Y1 = 1.49; // por encima: piel solida (toda la mandibula y la cara)
+
+/**
+ * Los siete musculos de cada orbita, por nombre. Ver el bloque que los apaga.
+ *
+ * `Rectus_` con guion bajo detras del lado (`Superior_rectus_muscle`) y nunca
+ * `Rectus_femoris` ni `Rectus_abdominis` ni `Rectus_lateralis_capitis`, que
+ * empiezan por la palabra. Y sin `retina`, que es el principio de
+ * `retinaculum`.
+ */
+const OCULAR_NAME =
+  /^(Superior|Inferior|Medial|Lateral)_rectus_muscle|^(Superior|Inferior)_oblique_muscle|^Levator_palpebrae/i;
+/** La banda orbitaria del GLB, medida: y 1,585..1,625. Con holgura. */
+const ORBIT_Y0 = 1.55;
+const ORBIT_Y1 = 1.68;
 
 // EL RESALTE DE SELECCION DE LA DISECCION, y por que el comentario de antes
 // era falso. Decia "sin repintar el color propio del musculo" y ponia el
@@ -2275,6 +2310,43 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           mesh.visible = false;
           mesh.userData.rigLayer = 'hidden';
           return;
+        }
+        // LA ORBITA SE VACIA: EL MODELO NO TIENE OJO, Y SIN OJO LO QUE SE VE ES
+        // MUSCULO ROJO EN LA CUENCA.
+        //
+        // La cara de este GLB tiene abertura palpebral por diseno y NO trae
+        // globo ocular: buscado en la escena, no existe ni esclera, ni cornea,
+        // ni iris, ni cristalino. Detras de la abertura solo estan los siete
+        // musculos de cada orbita --los cuatro rectos, los dos oblicuos y el
+        // elevador del parpado-- con el rojo de la capa muscular. Medido en el
+        // navegador sobre /hombro/movimiento: el frente de la cuenca lo ocupan
+        // `Orbital_part_of_orbicularis_oculi` (#bc3850), `Levator_palpebrae`
+        // (#be384c), `Inferior_rectus` (#b84f36) y `Lateral_rectus` (#b33549),
+        // todos a opacidad 1. En pantalla eso no se lee como anatomia: se lee
+        // como dos ojos rojos encendidos, que es el fotograma que descalifica
+        // un video de demostracion.
+        //
+        // Son musculos extraoculares: no mueven ningun segmento, no entran en
+        // ningun arco, ninguna prueba ortopedica y ningun miotoma los nombra.
+        // En un laboratorio de fisioterapia no pintan nada. El GLB ya los dejo
+        // fuera del religado por ese motivo (ver la nota v12 de la cabecera,
+        // "37 visceral non-locomotor muscles ... inner eye/ear"), pero seguian
+        // dibujandose.
+        //
+        // SE FILTRA POR NOMBRE **Y** POR SITIO, nunca solo por nombre: "rectus"
+        // tambien esta en el recto femoral, el recto del abdomen y los rectos
+        // capitales, y "retina" es un trozo de "retinaculum" (44 mallas de
+        // rodilla y tobillo caerian con un filtro perezoso). La cota exige ojo:
+        // la banda orbitaria del GLB es y 1,585..1,625.
+        if (OCULAR_NAME.test(mesh.name)) {
+          const g = mesh.geometry;
+          if (!g.boundingSphere) g.computeBoundingSphere();
+          const c = g.boundingSphere!.center.clone().applyMatrix4(mesh.matrixWorld);
+          if (c.y > ORBIT_Y0 && c.y < ORBIT_Y1) {
+            mesh.visible = false;
+            mesh.userData.rigLayer = 'hidden';
+            return;
+          }
         }
         // LA CAPA DEL INTERRUPTOR NO ES LA DEL TEJIDO. Todo lo que hay debajo
         // --religados, gradientes, recortes-- sigue preguntando por `layer`,
