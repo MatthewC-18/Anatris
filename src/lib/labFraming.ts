@@ -37,16 +37,13 @@ export const REGION_FRAME_BONES: Record<string, readonly string[]> = {
   // vertebrae, because a regional range is read against the segment above and
   // below it, never in isolation.
   //
-  // LO QUE A LA CERVICAL NO SE LE PUEDE ARREGLAR DESDE AQUI. Medido: su
-  // encuadre de apertura va de y=1,274 a 1,669 y la coronilla esta en 1,709,
-  // asi que se corta el ultimo centimetro y medio del craneo (entra el 82% de
-  // la cabeza). La causa es que el rig NO TIENE NINGUN HUESO por encima de
-  // `vert_C1` (1,543) mientras la piel llega a 1,709, y una lista de huesos no
-  // puede apuntar a algo que no existe. Las salidas medidas son todas peores:
-  // alargar la lista hasta T12 sube el borde a 1,708 pero convierte el primer
-  // plano cervical en un plano de raquis entero (0,394 -> 0,730 m de escena,
-  // un 85% mas). Hace falta un margen superior por region en `padBox`
-  // (RigViewer), o un ancla que no sea un hueso. No se toca a ciegas.
+  // LA CORONILLA DE LA CERVICAL NO SE ARREGLA CON ESTA LISTA. Medido: con
+  // estos huesos el cuadro va de y=1,274 a 1,669 y la coronilla esta en 1,709
+  // (entraba el 82% de la cabeza). El rig no tiene ningun hueso por encima de
+  // `vert_C1`, y alargar la lista hasta T12 sube el borde a 1,708 pero
+  // convierte el primer plano cervical en un plano de raquis entero (0,394 ->
+  // 0,730 m de escena). Se resuelve con un margen superior propio de la
+  // region: ver REGION_FRAME_HEADROOM, mas abajo.
   cervical: ['vert_C1', 'vert_C2', 'vert_C3', 'vert_C4', 'vert_C5', 'vert_C6', 'vert_C7',
              'vert_T1', 'vert_T2', 'vert_T3'],
   // La toracica tambien sube hasta `vert_C1` por la misma razon que el hombro:
@@ -191,6 +188,33 @@ export const REGION_FRAME_CORE: Record<string, readonly string[]> = {
   // SE ACABA (el pie va de 0,000 a 0,090) y la tibia entra al 100%, asi que es
   // el encuadre correcto y no el defecto de la rodilla.
 };
+
+/**
+ * MARGEN EXTRA POR ENCIMA DE LA CAJA, en metros, para las regiones cuyo punto
+ * mas alto de interes NO es un hueso.
+ *
+ * El rig no tiene ningun hueso por encima de `vert_C1` (y=1,543) y la piel del
+ * craneo llega a 1,709. Una lista de huesos no puede apuntar a algo que no
+ * existe, asi que el encuadre cervical --que es el unico que abre tan cerrado
+ * sobre el cuello-- cortaba la coronilla: medido, el cuadro iba de y=1,274 a
+ * 1,669 y entraba el 82% de la cabeza. Alargar la lista de huesos lo arregla a
+ * costa de convertir el primer plano cervical en un plano de raquis entero
+ * (0,394 -> 0,730 m de escena), que es peor.
+ *
+ * Subir el techo de la caja 6 cm antes de ajustar la camara sube el borde
+ * superior exactamente esos 6 cm (la mitad por el centro, la mitad por el
+ * alto): de 1,669 a 1,729, con 2 cm de aire sobre la coronilla, y la escena
+ * pasa de 0,395 a 0,455 m. El hombro y la toracica no lo necesitan: sus cajas
+ * ya suben hasta `vert_C1` con su margen proporcional, que es mayor.
+ */
+export const REGION_FRAME_HEADROOM: Record<string, number> = {
+  cervical: 0.06,
+};
+
+/** El margen superior extra de una region, o 0. */
+export function regionFrameHeadroom(region: string | null | undefined): number {
+  return region ? (REGION_FRAME_HEADROOM[region] ?? 0) : 0;
+}
 
 /** Huesos del encuadre de APERTURA de una region (o su lista completa). */
 export function regionFrameCore(region: string | null | undefined): readonly string[] | null {

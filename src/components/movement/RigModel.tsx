@@ -419,6 +419,31 @@ const HEAD_SOLID_Y0 = 1.43; // por debajo: fantasma completo
 const HEAD_SOLID_Y1 = 1.49; // por encima: piel solida (toda la mandibula y la cara)
 
 /**
+ * POR DETRAS, LA RAMPA SUBE: LA NUCA ES CUELLO HASTA EL OCCIPITAL.
+ *
+ * Con la piel solida desde 1,49 quedaba una franja roja detras de la oreja, a
+ * la vista en el plano lateral con el que abre la cervical. MEDIDO lanzando
+ * rayos de perfil contra la cabeza y el cuello (44 x 52, de y=1,40 a 1,62):
+ * 30 de 1.483 rayos tocan musculo antes que piel, y 26 de esos 30 son UNA
+ * malla, `Ascending_part_of_trapezius_muscle`, en una rendija de un centimetro
+ * de ancho (z de -0,068 a -0,048) y seis de alto (y de 1,478 a 1,558). No falta
+ * piel: ahi el trapecio SOBRESALE de ella unos milimetros. Bajo la piel de
+ * cristal eso no se nota, porque el musculo se ve de todos modos; bajo piel
+ * solida es una herida.
+ *
+ * La mandibula y los dientes, que son lo que obliga a que la rampa de delante
+ * acabe en 1,49, estan DELANTE (z > 0). Detras, entre 1,49 y el occipital, lo
+ * que hay es cuello: trapecio, esplenio, semiespinoso. Asi que la rampa se
+ * sube 10 cm solo por detras (queda en 1,53 .. 1,59), con una transicion en z
+ * que termina antes de llegar a la oreja. La rendija queda entera dentro del
+ * cristal y el trapecio se lee como el resto de los musculos del cuello.
+ */
+const NAPE_LIFT = 0.1;
+/** Por detras de esta z (m), la subida entera; por delante de NAPE_Z1, ninguna. */
+const NAPE_Z0 = -0.062;
+const NAPE_Z1 = -0.036;
+
+/**
  * Los siete musculos de cada orbita, por nombre. Ver el bloque que los apaga.
  *
  * `Rectus_` con guion bajo detras del lado (`Superior_rectus_muscle`) y nunca
@@ -1673,22 +1698,31 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         sh.uniforms.uGhostFloor = { value: BODY_SKIN_GHOST_FRESNEL_FLOOR };
         sh.uniforms.uHeadY0 = { value: HEAD_SOLID_Y0 };
         sh.uniforms.uHeadY1 = { value: HEAD_SOLID_Y1 };
+        sh.uniforms.uNapeLift = { value: NAPE_LIFT };
+        sh.uniforms.uNapeZ0 = { value: NAPE_Z0 };
+        sh.uniforms.uNapeZ1 = { value: NAPE_Z1 };
         // LA ALTURA ANATOMICA, NO LA DE PANTALLA. Se toma de `position` (la
         // pose de ligado) y no de `transformed` (la pose ya animada), para que
         // la mascara de la cabeza no se mueva cuando el cuello se flexiona:
         // con la pose animada, 50 deg de flexion bajan la coronilla 8,6 cm y
         // el menton 2,5 cm, y parte de la cara volveria a fantasmear.
         sh.vertexShader =
-          'varying float vAnatY;\n' +
+          'varying float vAnatY;\nvarying float vAnatZ;\n' +
           sh.vertexShader.replace(
             '#include <begin_vertex>',
-            ['#include <begin_vertex>', 'vAnatY = ( modelMatrix * vec4( position, 1.0 ) ).y;'].join(
-              '\n',
-            ),
+            [
+              '#include <begin_vertex>',
+              'vec4 anatPos = modelMatrix * vec4( position, 1.0 );',
+              'vAnatY = anatPos.y;',
+              // La z de la pose de ligado, por lo mismo que la y: la mascara es
+              // anatomica y no tiene que moverse cuando el cuello se flexiona.
+              'vAnatZ = anatPos.z;',
+            ].join('\n'),
           );
         sh.fragmentShader =
           'uniform float uGhost;\nuniform float uGhostPow;\nuniform float uGhostFloor;\n' +
           'uniform float uHeadY0;\nuniform float uHeadY1;\nvarying float vAnatY;\n' +
+          'uniform float uNapeLift;\nuniform float uNapeZ0;\nuniform float uNapeZ1;\nvarying float vAnatZ;\n' +
           sh.fragmentShader
             // El emisivo se calcula AQUI y no en `dithering_fragment` porque
             // ahi gl_FragColor ya lo lleva sumado y no se puede descontar.
@@ -1700,7 +1734,8 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
                 '#include <emissivemap_fragment>',
                 'float ghostFres = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));',
                 'float ghostK = mix(uGhostFloor, 1.0, pow(ghostFres, uGhostPow));',
-                'float headSolid = smoothstep(uHeadY0, uHeadY1, vAnatY);',
+                'float napeLift = uNapeLift * (1.0 - smoothstep(uNapeZ0, uNapeZ1, vAnatZ));',
+                'float headSolid = smoothstep(uHeadY0 + napeLift, uHeadY1 + napeLift, vAnatY);',
                 'totalEmissiveRadiance *= ghostK * (1.0 - headSolid);',
               ].join('\n'),
             )

@@ -29,6 +29,7 @@ import {
   REGION_FRAME_BONES,
   REGION_FRAME_CORE,
   regionFrameCore,
+  regionFrameHeadroom,
 } from '../labFraming';
 import { VIEW_META } from '../anatomyMeta';
 import { REGIONS } from '../../data/regiones';
@@ -120,7 +121,7 @@ describe('el encuadre de apertura, recalculado sobre el rig publicado', () => {
    * cambia es que lado de la caja hace de ancho de pantalla y cual de
    * profundidad.
    */
-  const openFrame = (core: readonly string[], view: 'frontal' | 'lateral') => {
+  const openFrame = (core: readonly string[], view: 'frontal' | 'lateral', headroom = 0) => {
     const min = [Infinity, Infinity, Infinity];
     const max = [-Infinity, -Infinity, -Infinity];
     for (const b of core) {
@@ -146,6 +147,8 @@ describe('el encuadre de apertura, recalculado sobre el rig publicado', () => {
       min[i] -= lift;
       max[i] += lift;
     }
+    // El techo propio de la region, despues del margen (REGION_FRAME_HEADROOM).
+    max[1] += headroom;
     const size = max.map((v, i) => v - min[i]);
     const pad = Math.max(...size) * 0.07; // padOf
     const width = (view === 'frontal' ? size[0] : size[2]) + 2 * pad;
@@ -217,15 +220,45 @@ describe('el encuadre de apertura, recalculado sobre el rig publicado', () => {
     }
   });
 
-  it('la cervical sigue perdiendo la coronilla, y es un limite del rig', () => {
-    // NO es un arreglo pendiente de este fichero: por encima de `vert_C1`
-    // (1,543) el rig no tiene ningun hueso, y la coronilla esta en 1,709, asi
-    // que ninguna lista de huesos puede empujar el borde hasta ahi sin
-    // convertir el primer plano cervical en un plano de raquis entero (medido:
-    // hasta T12 el borde llega a 1,708 y la escena pasa de 0,394 a 0,730 m).
-    // Se vigila que no EMPEORE mientras no haya margen superior por region.
-    const f = openFrame(regionFrameCore('cervical')!, 'lateral');
-    expect(inside(SEG.cabeza, f)).toBeGreaterThan(0.8);
+  it('la cervical mete la coronilla con su margen superior, no con mas huesos', () => {
+    // Por encima de `vert_C1` (1,543) el rig no tiene ningun hueso y la
+    // coronilla esta en 1,709. SIN el margen el cuadro se queda en 1,669 y
+    // entra el 82% de la cabeza: es el defecto, y se comprueba que el calculo
+    // lo reproduce para que el arreglo no sea una casualidad del banco.
+    const sin = openFrame(regionFrameCore('cervical')!, 'lateral');
+    expect(sin.top).toBeLessThan(SEG.cabeza[1]);
+    expect(inside(SEG.cabeza, sin)).toBeLessThan(0.9);
+    // CON el margen de la region entra entera...
+    const con = openFrame(regionFrameCore('cervical')!, 'lateral', regionFrameHeadroom('cervical'));
+    expect(con.top).toBeGreaterThan(SEG.cabeza[1]);
+    expect(inside(SEG.cabeza, con)).toBe(1);
+    // ...y sigue siendo un primer plano de cuello, no un plano de raquis: la
+    // salida de alargar la lista hasta T12 daba 0,730 m de escena.
+    expect(con.visible).toBeLessThan(0.5);
+    // El borde de abajo no se mueve: el margen es SOLO hacia arriba.
+    expect(con.bottom).toBeCloseTo(sin.bottom, 3);
+  });
+
+  it('solo la cervical lleva margen superior', () => {
+    // El hombro y la toracica ya suben hasta `vert_C1` con su margen
+    // proporcional; darles ademas este los alejaria sin motivo.
+    expect(regionFrameHeadroom('cervical')).toBeGreaterThan(0);
+    for (const r of ['shoulder', 'thoracic', 'lumbar', 'elbow', 'hip', 'knee', 'ankle', null]) {
+      expect(regionFrameHeadroom(r)).toBe(0);
+    }
+  });
+
+  it('en rodilla y codo hay un hueso FUERA del cuadro de apertura, por diseno', () => {
+    // Es lo que hacia que el guardian reabriera el plano: `femur_base` (la
+    // cadera) queda por encima del borde superior del cuadro de rodilla y
+    // `humerus_gh` (el hombro) por encima del de codo. Estan en la lista
+    // completa de la region, asi que el guardian los veia fuera de cuadro y, en
+    // cuanto el arco pasaba de 8 grados, ampliaba la caja hasta meterlos: la
+    // vista volvia al muslo entero justo al empezar a mover.
+    const rodilla = openFrame(regionFrameCore('knee')!, 'lateral');
+    expect(BONES.femur_base[1]).toBeGreaterThan(rodilla.top);
+    const codo = openFrame(regionFrameCore('elbow')!, 'lateral');
+    expect(BONES.humerus_gh[1]).toBeGreaterThan(codo.top);
   });
 
   it('la cadera y el tobillo no tienen el defecto, y se quedan como estaban', () => {
@@ -243,6 +276,27 @@ describe('el encuadre de apertura, recalculado sobre el rig publicado', () => {
 
 describe('RigViewer encuadra un solo lado y con margen proporcional', () => {
   const src = readFileSync('src/components/movement/RigViewer.tsx', 'utf8');
+
+  it('el guardian solo sigue a los huesos que el movimiento ha desplazado', () => {
+    // Un hueso que ya estaba fuera de cuadro al encuadrar lo esta por diseno
+    // (ver el test de rodilla y codo, mas arriba). Lo que el guardian tiene que
+    // seguir es lo que el gesto SACA: el pie en la flexion de rodilla, la mano
+    // en la abduccion. Se compara contra la foto tomada al encuadrar.
+    expect(src).toContain('framedAt.current = new Map(');
+    const guardian = src.slice(src.indexOf('// SOLO LO QUE EL MOVIMIENTO HA DESPLAZADO.'));
+    const i = guardian.indexOf('framedAt.current.get(id)');
+    const j = guardian.indexOf('keptBox.current.containsPoint(p)');
+    expect(i).toBeGreaterThan(0);
+    // Y se descarta ANTES de mirar la caja: si no, el hueso quieto y fuera de
+    // cuadro seguiria ampliandola.
+    expect(i).toBeLessThan(j);
+    expect(guardian.slice(i, j)).toContain('MOVED_SQ');
+    expect(src).toMatch(/const MOVED_SQ = 0\.01 \* 0\.01;/);
+  });
+
+  it('la apertura aplica el margen superior de la region', () => {
+    expect(src).toContain('box.max.y += regionFrameHeadroom(region)');
+  });
 
   it('filtra por el armature del lado activo', () => {
     // Los nombres base casan en los DOS armatures: medido, los 6 del hombro
@@ -332,7 +386,36 @@ describe('la piel de la cabeza no fantasmea', () => {
     expect(y1).toBeLessThanOrEqual(MANDIBULA_Y0);
     expect(y0).toBeGreaterThanOrEqual(CUELLO_Y0);
     expect(y0).toBeLessThan(y1);
-    expect(model).toContain('smoothstep(uHeadY0, uHeadY1, vAnatY)');
+    expect(model).toContain('smoothstep(uHeadY0 + napeLift, uHeadY1 + napeLift, vAnatY)');
+  });
+
+  it('por detrás la rampa sube: la nuca es cuello hasta el occipital', () => {
+    // MEDIDO lanzando rayos de perfil (44 x 52, de y=1,40 a 1,62): 30 de 1.483
+    // tocan músculo antes que piel y 26 son UNA malla, el trapecio, en una
+    // rendija de 1 cm de ancho (z de -0,068 a -0,048) y 6 de alto (y de 1,478 a
+    // 1,558), donde sobresale de la piel. Bajo piel sólida era una franja roja
+    // detrás de la oreja en el plano lateral de la cervical.
+    const lift = Number(/const NAPE_LIFT = ([\d.]+)/.exec(model)?.[1]);
+    const z0 = Number(/const NAPE_Z0 = (-?[\d.]+)/.exec(model)?.[1]);
+    const z1 = Number(/const NAPE_Z1 = (-?[\d.]+)/.exec(model)?.[1]);
+    const y0 = Number(/HEAD_SOLID_Y0 = ([\d.]+)/.exec(model)?.[1]);
+    const y1 = Number(/HEAD_SOLID_Y1 = ([\d.]+)/.exec(model)?.[1]);
+    for (const v of [lift, z0, z1, y0, y1]) expect(Number.isFinite(v)).toBe(true);
+    // La subida es SOLO por detrás: termina antes de z = 0, que es donde
+    // empiezan la mandíbula y los dientes (delante). Si llegara a la cara,
+    // volvería el defecto de la cara desdentada.
+    expect(z1).toBeLessThan(0);
+    expect(z0).toBeLessThan(z1);
+    // La rendija entera queda dentro del cristal completo o de su rampa: su
+    // borde más adelantado (z = -0,048) cae dentro de la transición, y por
+    // detrás de z0 la rampa empieza por encima de su techo (1,558 - 0,03).
+    expect(z0).toBeLessThanOrEqual(-0.048);
+    expect(z1).toBeGreaterThan(-0.048);
+    expect(y0 + lift).toBeGreaterThanOrEqual(1.558 - 0.03);
+    // Y no se come el cráneo: por detrás la piel vuelve a ser sólida antes de
+    // la altura de las órbitas (1,591).
+    expect(y1 + lift).toBeLessThanOrEqual(1.6);
+    expect(model).toContain('uNapeLift * (1.0 - smoothstep(uNapeZ0, uNapeZ1, vAnatZ))');
   });
 
   it('la órbita se vacía por nombre Y por cota, nunca solo por nombre', () => {
@@ -373,7 +456,10 @@ describe('la piel de la cabeza no fantasmea', () => {
   it('la altura es la de la pose de LIGADO, no la animada', () => {
     // Con la pose animada, 50 grados de flexión cervical bajan la coronilla
     // 8,6 cm y parte de la cara volvería a fantasmear.
-    expect(model).toContain('vAnatY = ( modelMatrix * vec4( position, 1.0 ) ).y;');
+    expect(model).toContain('vec4 anatPos = modelMatrix * vec4( position, 1.0 );');
+    expect(model).toContain('vAnatY = anatPos.y;');
+    // La z también es la de ligado: la máscara de la nuca es anatómica.
+    expect(model).toContain('vAnatZ = anatPos.z;');
   });
 
   it('el emisivo va multiplicado por el Fresnel, no sumado plano', () => {

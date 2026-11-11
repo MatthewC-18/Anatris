@@ -32,6 +32,7 @@ import {
   extraFrameBonesFor,
   regionFrameBones,
   regionFrameCore,
+  regionFrameHeadroom,
 } from '../../lib/labFraming';
 import { rigSideFor } from '../../lib/boneMap';
 import { movementById } from '../../data/romByRegion';
@@ -95,6 +96,12 @@ const RIG_DPR_HD: [number, number] = [1, 2];
  * re-frame. The visible result was the arm sliding out of the left edge partway
  * through an abduction sweep, which is exactly the frame a user is studying.
  */
+/**
+ * Cuanto tiene que haberse movido un hueso desde el encuadre para que el
+ * guardian lo siga: 1 cm, al cuadrado. Ver el bloque del guardian en AutoFit.
+ */
+const MOVED_SQ = 0.01 * 0.01;
+
 function AutoFit({
   refitKey,
   region,
@@ -109,6 +116,8 @@ function AutoFit({
   const lastKey = useRef<string | number | undefined>(undefined);
   /** La caja que la camara tiene puesta ahora mismo. Solo crece. */
   const keptBox = useRef<THREE.Box3 | null>(null);
+  /** Donde estaba cada hueso vigilado cuando se encuadro. Ver el guardian. */
+  const framedAt = useRef<Map<string, THREE.Vector3>>(new Map());
   /** Fuerza otra pasada de encuadre cuando el usuario pulsa Reencuadrar. */
   const [nudge, setNudge] = useState(0);
 
@@ -173,9 +182,9 @@ function AutoFit({
   // Las posiciones de mundo de un conjunto de nombres base de hueso, SOLO en el
   // armature del lado activo. Los huesos del raquis no llevan sufijo de lado,
   // asi que los que no cuelgan de ningun `*_Armature_{R|L}` entran siempre.
-  const bonePoints = useCallback(
-    (names: Set<string>): THREE.Vector3[] => {
-      const out: THREE.Vector3[] = [];
+  const boneMarks = useCallback(
+    (names: Set<string>): { id: string; p: THREE.Vector3 }[] => {
+      const out: { id: string; p: THREE.Vector3 }[] = [];
       scene.traverse((o) => {
         if (!(o as THREE.Bone).isBone) return;
         // Z-Anatomy duplicates carry a numeric tail ("scapula_1").
@@ -192,11 +201,15 @@ function AutoFit({
         }
         if (suffix != null && suffix !== rigSuffix) return;
         const p = o.getWorldPosition(new THREE.Vector3());
-        if (isFinite(p.x)) out.push(p);
+        if (isFinite(p.x)) out.push({ id: o.uuid, p });
       });
       return out;
     },
     [scene, rigSuffix],
+  );
+  const bonePoints = useCallback(
+    (names: Set<string>): THREE.Vector3[] => boneMarks(names).map((m) => m.p),
+    [boneMarks],
   );
 
   // La caja con su margen: el proporcional (los huesos son el EJE del miembro;
@@ -278,6 +291,9 @@ function AutoFit({
         if (wanted) {
           for (const p of bonePoints(new Set([...wanted, ...demoBones]))) box.expandByPoint(p);
           padBox(box);
+          // El techo propio de la region, para lo que no es un hueso (la
+          // coronilla en la cervical). Ver REGION_FRAME_HEADROOM.
+          if (!box.isEmpty()) box.max.y += regionFrameHeadroom(region);
         }
 
         // Fall back to the whole body: an unknown region, or a rig whose bones
@@ -296,6 +312,14 @@ function AutoFit({
         if (box.isEmpty() || !isFinite(box.min.x)) return;
         framed.current = true;
         keptBox.current = box.clone();
+        // La foto de DONDE ESTA cada hueso vigilado en este encuadre: el
+        // guardian solo sigue a los que se muevan desde aqui.
+        framedAt.current = new Map(
+          boneMarks(new Set([...(regionFrameBones(region) ?? []), ...demoBones])).map((m) => [
+            m.id,
+            m.p,
+          ]),
+        );
         const pad = padOf(box);
         void controls.fitToBox(box, true, {
           paddingTop: pad,
@@ -311,7 +335,7 @@ function AutoFit({
       cancelAnimationFrame(raf1);
       if (raf2) cancelAnimationFrame(raf2);
     };
-  }, [controls, scene, fitKey, nudge, bonePoints, padBox, padOf, clampDolly, demoBones, region]);
+  }, [controls, scene, fitKey, nudge, bonePoints, boneMarks, padBox, padOf, clampDolly, demoBones, region]);
 
   // EL GUARDIAN DE ENCUADRE: la camara AMPLIA, y solo amplia.
   //
@@ -354,7 +378,25 @@ function AutoFit({
       const ndc = new THREE.Vector3();
       const need = keptBox.current.clone();
       let grew = false;
-      for (const p of bonePoints(names)) {
+      for (const { id, p } of boneMarks(names)) {
+        // SOLO LO QUE EL MOVIMIENTO HA DESPLAZADO.
+        //
+        // MEDIDO, Y ERA EL MISMO DEFECTO QUE EL NUCLEO VENIA A ARREGLAR, por
+        // otra puerta. La rodilla abre centrada en la rodilla (cuadro de
+        // y 0,188 a 0,717), pero la lista completa de la region lleva
+        // `femur_base`, que esta en y=0,865: la CADERA, por encima del borde
+        // superior. En cuanto la flexion pasaba de 8 grados el guardian lo veia
+        // fuera de cuadro y ampliaba la caja hasta meterlo, asi que la vista
+        // volvia a ser un plano de muslo entero justo al empezar a mover. En el
+        // codo, lo mismo con `humerus_gh` (el hombro).
+        //
+        // Ese hueso no se ha movido: estaba fuera de cuadro EN EL ENCUADRE, por
+        // diseno. Lo que hay que seguir es lo que el gesto SACA de cuadro. Asi
+        // que solo cuenta el hueso que esta a mas de 1 cm de donde estaba
+        // cuando se encuadro: en la flexion de rodilla, el pie; en la abduccion
+        // de hombro, el antebrazo y la mano.
+        const was = framedAt.current.get(id);
+        if (was && was.distanceToSquared(p) < MOVED_SQ) continue;
         if (keptBox.current.containsPoint(p)) continue;
         ndc.copy(p).project(camera);
         // 0,88 y no 1,0: un hueso pegado al borde ya esta medio tapado por el
@@ -384,7 +426,7 @@ function AutoFit({
       window.setTimeout(clampDolly, 450);
     };
     return rigChannel.subscribe(onCmd);
-  }, [controls, camera, region, demoBones, bonePoints, padBox, padOf, clampDolly]);
+  }, [controls, camera, region, demoBones, boneMarks, padBox, padOf, clampDolly]);
 
   return null;
 }
