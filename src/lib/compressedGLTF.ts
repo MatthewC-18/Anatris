@@ -37,6 +37,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { claimWarmModel, gzUrl } from './modelWarm';
 import { stamp } from './bootClock';
+import { nextPaint, setModelPhase } from './modelPhase';
 
 export interface LoadedGLTF {
   scene: THREE.Group;
@@ -175,9 +176,18 @@ function load(url: string): Promise<void> {
   // downloaded: parsing 2.8M triangles is not instant and the bar should not sit
   // full while it happens.
   manager.itemStart(url);
+  setModelPhase(url, 'fetching');
   const promise = (async () => {
     const buf = await fetchModelBytes(url);
     stamp('bytes');
+    setModelPhase(url, 'parsing');
+    // UN FOTOGRAMA ANTES DE EMPEZAR A PARSEAR. Desde aqui hasta que el modelo
+    // se ve, el hilo principal no suelta (parseo, montaje, preparacion y subida
+    // a la GPU, unos diez segundos medidos en el laboratorio). La pantalla de
+    // carga acaba de enterarse de que la descarga termino y tiene que pasarle
+    // su animacion al compositor ANTES de que empiece el bloqueo; sin esta
+    // cesion el cambio no llegaba a pintarse. Cuesta dos fotogramas (~33 ms).
+    await nextPaint();
     const loader = new GLTFLoader();
     // Both models require EXT_meshopt_compression; KHR_mesh_quantization is
     // handled by three itself. This is the same decoder drei's useGLTF installs,
@@ -186,9 +196,11 @@ function load(url: string): Promise<void> {
     const gltf = await loader.parseAsync(buf, '');
     stamp('parse');
     cache.set(url, { state: 'done', value: { scene: gltf.scene as THREE.Group } });
+    setModelPhase(url, 'done');
   })()
     .catch((error: unknown) => {
       cache.set(url, { state: 'error', error });
+      setModelPhase(url, 'error');
       manager.itemError(url);
     })
     .finally(() => {

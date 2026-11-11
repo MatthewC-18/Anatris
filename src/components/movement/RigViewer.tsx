@@ -20,7 +20,7 @@ import {
 } from '@react-three/drei';
 import * as THREE from 'three';
 import { RigModel, rigChannel, type RigCommand } from './RigModel';
-import { RigLoadingScreen } from './RigLoadingScreen';
+import { RigLoadingScreen, noteRigPainted, noteRigReady } from './RigLoadingScreen';
 import { RigOverlays } from './RigOverlays';
 import { ShoulderRhythmArc } from './ShoulderRhythmArc';
 import { NeuroSkinLayer } from './NeuroSkinLayer';
@@ -671,6 +671,17 @@ export function RigViewer({
   const [painted, setPainted] = useState(false);
   const [forzado, setForzado] = useState(false);
   const ready = forzado || (prepared && painted);
+  // LA PANTALLA DE CARGA SE DESVANECE, NO SE ARRANCA. Se desmontaba en el mismo
+  // render en que aparecia el cuerpo: un corte seco despues de diez segundos de
+  // espera. Ahora, cuando el laboratorio ya esta pintado debajo, la pantalla se
+  // queda medio segundo mas en estado `leaving` (opacidad a cero, por CSS) y
+  // solo entonces se retira del arbol.
+  const [loaderGone, setLoaderGone] = useState(false);
+  useEffect(() => {
+    if (!ready) return;
+    const t = setTimeout(() => setLoaderGone(true), 520);
+    return () => clearTimeout(t);
+  }, [ready]);
   const compact = useIsCompact();
   // `?hd=1`: resolucion de grabacion. Se lee una vez, no por fotograma.
   const [hd] = useState(wantsHd);
@@ -746,8 +757,21 @@ export function RigViewer({
         <ambientLight intensity={0.12} />
 
         <Suspense fallback={null}>
-          <RigModel onReady={() => setPrepared(true)} />
-          <PrimerFotograma onPainted={() => setPainted(true)} />
+          {/* Los dos instantes se le cuentan tambien a la pantalla de carga,
+              que guarda lo que tarda cada tramo en ESTE equipo para
+              coreografiar la siguiente visita (ver RigLoadingScreen). */}
+          <RigModel
+            onReady={() => {
+              noteRigReady();
+              setPrepared(true);
+            }}
+          />
+          <PrimerFotograma
+            onPainted={() => {
+              noteRigPainted();
+              setPainted(true);
+            }}
+          />
           <RigOverlays />
           <ShoulderRhythmArc />
           {/* Paints the selected root's dermatome on the body's own skin. Idle
@@ -772,13 +796,14 @@ export function RigViewer({
         </div>
       )}
 
-      {!ready && (
+      {!loaderGone && (
         <RigLoadingScreen
           progress={progress}
           loaded={loaded}
           total={total}
           item={item}
           compact={compact}
+          leaving={ready}
         />
       )}
     </div>
