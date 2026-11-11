@@ -381,6 +381,7 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
           region={region}
           refitKey={patientMode ? 'paciente' : 'clinico'}
           stageActions={patientMode ? null : patientButton}
+          hud={!patientMode}
         />
 
         {patientMode && (

@@ -48,6 +48,7 @@ import {
 import type { RomMuscleRole } from '../../types/rom';
 import { attachRim, paintEmber, setRim } from '../../lib/rigRim';
 import { ROLE_TONE } from '../../lib/romRolePalette';
+import { calloutChannel, type CalloutItem } from './calloutChannel';
 
 // El tono del papel sale de UNA tabla (src/lib/romRolePalette.ts), compartida
 // con la leyenda del panel: tres copias de estos cuatro hexadecimales
@@ -630,12 +631,29 @@ export function RigOverlays(): JSX.Element {
         { role: RomMuscleRole; level: number; implicated: boolean }
       >();
       const list = resolution ? cmd.highlight ?? [] : [];
+      // Y de paso, a quien se le pone ETIQUETA. Las etiquetas vivas del
+      // escenario (LabCallouts) necesitan saber donde esta cada musculo que se
+      // enciende, y eso se resuelve AQUI: las mismas mallas, del mismo lado,
+      // con el mismo resolutor. Una segunda resolucion en otro fichero seria la
+      // forma mas segura de que la etiqueta y el brillo dejaran de coincidir.
+      // La guia apunta a la malla mas grande del musculo, que es su vientre.
+      const callouts: CalloutItem[] = [];
       for (const h of list) {
         const level = h.level ?? 1;
+        let belly: THREE.Mesh | null = null;
+        let bellyR = -1;
         forMuscleMeshes(h.muscleId, (mesh) => {
           if (!targets.has(mesh)) targets.set(mesh, { role: h.role, level, implicated: false });
+          // `sideOfMesh` ya ha calculado la esfera de esta malla.
+          const r = mesh.geometry.boundingSphere?.radius ?? 0;
+          if (r > bellyR) {
+            bellyR = r;
+            belly = mesh;
+          }
         });
+        if (belly) callouts.push({ id: h.muscleId, role: h.role, level, mesh: belly });
       }
+      calloutChannel.set(callouts);
       // LAS ESTRUCTURAS NO MUSCULARES (ligamento, menisco, capsula, labrum).
       //
       // No pasan por `resolution`, que es un indice de MUSCULOS: se resuelven
@@ -790,6 +808,8 @@ export function RigOverlays(): JSX.Element {
 
     return () => {
       unsub();
+      // Sin laboratorio no hay nada que etiquetar.
+      calloutChannel.set([]);
       // Restore every glowing mesh and dispose its clone -- again, only the meshes
       // still wearing ours.
       for (const [mesh, entry] of glowRef.current) {

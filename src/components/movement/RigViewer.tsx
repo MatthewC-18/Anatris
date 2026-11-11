@@ -21,6 +21,8 @@ import {
 import * as THREE from 'three';
 import { RigModel, rigChannel, type RigCommand } from './RigModel';
 import { RigLoadingScreen, noteRigPainted, noteRigReady } from './RigLoadingScreen';
+import { LabCalloutPlate, LabCalloutProjector } from './LabCallouts';
+import { StageArcTrack, StageReadout } from './StageReadout';
 import { RigOverlays } from './RigOverlays';
 import { ShoulderRhythmArc } from './ShoulderRhythmArc';
 import { NeuroSkinLayer } from './NeuroSkinLayer';
@@ -693,11 +695,18 @@ export function RigViewer({
   refitKey,
   region,
   stageActions,
+  hud = true,
 }: {
   refitKey?: string | number;
   region?: string | null;
   /** Acciones de vista que el laboratorio anade a la barra del escenario. */
   stageActions?: React.ReactNode;
+  /**
+   * La lectura del movimiento sobre el escenario: angulo, fase, regla del arco
+   * y etiquetas vivas de los musculos. Se apaga en el modo paciente, que es una
+   * vista limpia con su propia barra en lenguaje llano.
+   */
+  hud?: boolean;
 } = {}) {
   // Read OUT HERE, not inside the Suspense boundary: a reporter that only mounts
   // once the rig has resolved can never show anything but 0 while it loads.
@@ -821,6 +830,9 @@ export function RigViewer({
           <NeuroSkinLayer />
           <AutoFit refitKey={refitKey} region={region} />
           <DoubleClickFocus />
+          {/* Proyecta el ancla de cada musculo activo y coloca su etiqueta.
+              No pinta nada: la lamina es DOM, hermana del lienzo. */}
+          {hud && <LabCalloutProjector />}
         </Suspense>
 
         <NavigationRig compact={compact} />
@@ -830,6 +842,16 @@ export function RigViewer({
           in front, both pointer-events-none so the canvas stays fully draggable. */}
       <div className="pointer-events-none absolute inset-0 rig-stage-glow" />
       <div className="pointer-events-none absolute inset-0 rig-vignette" />
+
+      {/* LA LECTURA DEL MOVIMIENTO, SOBRE EL CUERPO. Solo con el laboratorio ya
+          pintado: sobre la pantalla de carga no hay gesto que leer. */}
+      {ready && hud && (
+        <>
+          <LabCalloutPlate region={region} />
+          <StageReadout compact={compact} />
+          <StageArcTrack compact={compact} />
+        </>
+      )}
 
       {ready && (
         <div className="stage-bar absolute inset-x-0 bottom-0 z-30">

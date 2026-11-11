@@ -602,6 +602,120 @@
     pointer-events: auto;
   }
 
+  /* ------------------------------------------------------------------------
+   * LA LECTURA DEL ESCENARIO (StageReadout.tsx) Y LAS ETIQUETAS VIVAS
+   * (LabCallouts.tsx)
+   *
+   * Lo que cambia durante un gesto --el angulo, la fase, que musculo trabaja y
+   * cuanto-- se escribe JUNTO AL CUERPO, no en una columna aparte. Todo es
+   * tipografia suelta sobre el escenario: la legibilidad la da una sombra del
+   * color del fondo detras de cada letra, no una caja.
+   * --------------------------------------------------------------------- */
+  .stage-angle {
+    text-shadow: 0 2px 16px rgb(var(--c-page) / 0.9);
+  }
+  /* VELOS, NO CAJAS. Con un encuadre cerrado el cuerpo llena el escenario y no
+     queda fondo libre: la lectura de arriba y la regla de abajo caen ENCIMA del
+     modelo (medido en el hombro en reposo: la regla cruzaba el torax y sus
+     cifras no se leian). Se resuelve oscureciendo el escenario por detras con
+     un degradado que se desvanece, sin borde ni radio: se lee como la sombra
+     del margen de una lamina, no como un panel. */
+  .stage-veil-top {
+    background: radial-gradient(
+      ellipse 100% 100% at 0% 0%,
+      rgb(var(--c-page) / 0.86) 0%,
+      rgb(var(--c-page) / 0.6) 42%,
+      rgb(var(--c-page) / 0) 72%
+    );
+  }
+  .stage-veil-bottom {
+    background: linear-gradient(
+      to top,
+      rgb(var(--c-page) / 0.94) 0%,
+      rgb(var(--c-page) / 0.8) 45%,
+      rgb(var(--c-page) / 0) 100%
+    );
+  }
+  /* El cursor de la regla del arco sigue al gesto sin saltos entre dos
+     avisos del canal. */
+  .stage-cursor {
+    transition: left 90ms linear;
+  }
+
+  /* La etiqueta de un musculo: nombre y cifra. La cifra va siempre del lado de
+     la guia, asi que en la columna derecha la fila se invierte. */
+  .lab-callout {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0 9px;
+    white-space: nowrap;
+    pointer-events: auto;
+    font-size: 0.75rem;
+    line-height: 1;
+    color: rgb(var(--c-fg));
+    text-shadow:
+      0 1px 7px rgb(var(--c-page) / 0.95),
+      0 0 2px rgb(var(--c-page) / 0.9);
+    transition: opacity 200ms ease;
+    will-change: transform;
+    /* El mismo velo, a la medida de una linea: una etiqueta puede caer sobre el
+       brazo cuando el encuadre es cerrado, y un porcentaje ambar sobre musculo
+       rojo no se lee solo con la sombra de la letra. */
+    padding-top: 5px;
+    padding-bottom: 5px;
+    background: linear-gradient(
+      90deg,
+      rgb(var(--c-page) / 0) 0%,
+      rgb(var(--c-page) / 0.7) 14%,
+      rgb(var(--c-page) / 0.7) 86%,
+      rgb(var(--c-page) / 0) 100%
+    );
+  }
+  .lab-callout[data-lado='der'] {
+    flex-direction: row-reverse;
+  }
+  .lab-callout-name {
+    font-weight: 500;
+  }
+  .lab-callout:hover .lab-callout-name {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .lab-callout-pct {
+    min-width: 2.1rem;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .lab-callout[data-lado='der'] .lab-callout-pct {
+    text-align: left;
+  }
+  /* La guia lleva el color del PAPEL del musculo (motor, freno, asistente,
+     estabilizador): se lo pone el componente en `color`. */
+  .lab-leader {
+    transition: opacity 200ms ease;
+  }
+  .lab-leader path {
+    fill: none;
+    stroke-width: 1.25;
+    stroke-linecap: round;
+  }
+  .lab-leader-ring {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.25;
+    opacity: 0.75;
+  }
+  .lab-leader-core {
+    fill: currentColor;
+  }
+
   /* Machined range slider: thin recessed track, cyan fill to the thumb, and a
      milled thumb that lifts on hover. --fill is set inline (0..100). */
   .range-clinical {
