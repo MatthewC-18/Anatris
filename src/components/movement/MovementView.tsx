@@ -1,13 +1,41 @@
 // src/components/movement/MovementView.tsx
 //
 // "Movimiento" mode body: the skinned biomechanical rig (cuerpo-rig.glb) with a
-// region-aware control panel overlaid. The rig drives REAL skeletal deformation
+// region-aware control panel beside it. The rig drives REAL skeletal deformation
 // for the shoulder, elbow, knee and the 25-vertebra spine, replacing the old
 // rigid-bone-rotation prototype that only abducted the shoulder.
 //
 // The legacy props (byMesh / regionMeshes / resolution) are kept in the
 // signature so the App call site is unchanged, but the rig lab is self-contained
 // and does not consume them.
+//
+// -----------------------------------------------------------------------------
+// UN ESCENARIO Y DOS MARGENES
+// -----------------------------------------------------------------------------
+// El laboratorio era un lienzo a sangre con instrumentos FLOTANDO encima: una
+// tarjeta de cristal a la izquierda con cajas dentro, una pila de pastillas y
+// tarjetas a la derecha, otra pastilla arriba y otra abajo. Se leia como
+// cualquier panel de control: "tarjetas dentro de tarjetas". Y costaba dos
+// defectos reales: los paneles TAPABAN el modelo (el brazo en abduccion pasaba
+// por debajo de la tarjeta izquierda) y cada funcion vivia en un sitio y con una
+// forma distinta, asi que no habia un modelo mental que aprender.
+//
+// Ahora es la lamina de un atlas (ver "LAMINA" en src/index.css y
+// docs/sistema-lamina.md):
+//
+//   MARGEN IZQUIERDO  lo que se LEE del movimiento y los mandos que lo mueven.
+//   ESCENARIO         el cuerpo, con su rectangulo propio. Nada lo tapa.
+//   MARGEN DERECHO    lo que se le HACE al cuerpo: capas, tests, neuro, y al
+//                     pie la estructura que se acaba de tocar.
+//
+// Los margenes estan acoplados (en el flujo, no en `absolute`), asi que el
+// modelo se encuadra en el hueco que de verdad queda libre y ningun panel puede
+// volver a solaparse con otro: la geometria que antes vigilaba un test a base
+// de sumar rems (labOverlayGeometry) ya no existe.
+//
+// Por debajo de `lg` la lamina no cabe y el laboratorio es escena + hoja (ver
+// MobileLabSheet). El modo paciente esconde los dos margenes y deja el cuerpo
+// a pantalla completa.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { consumeFocusTest } from '../../lib/caseEvidence';
@@ -37,7 +65,6 @@ import {
   PremiumTeaser,
   useFeatureGate,
 } from '../account/PremiumGate';
-import type { PremiumFeature } from '../../auth/entitlements';
 import type { AnatomyEntry } from '../../types/anatomy';
 import type { MuscleResolution } from '../../lib/muscleResolver';
 import { CloseIcon, PersonIcon } from '../ui/Icons';
@@ -51,6 +78,9 @@ interface MovementViewProps {
   onOpenEvidence?: () => void;
 }
 
+/** Las herramientas del margen derecho. Una a la vista cada vez. */
+type Tool = 'capas' | 'tests' | 'neuro';
+
 export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   const setRegion = useAnatomyStore((s) => s.setRegion);
   const hasDrivable = romForRegion(region).some((m) => isDrivable(m.id));
@@ -62,18 +92,13 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   const neuroGate = useFeatureGate('neuro');
   const patientGate = useFeatureGate('patient-mode');
 
-  // The right column shows ONE expandable sheet at a time (tests or neuro) plus
-  // the layer peel. Whichever sheet is open takes the FULL column height and
-  // hides the layer panel and the other sheet's collapsed button. Reset on
-  // region change so switching joints starts collapsed.
-  const [rightPanel, setRightPanel] = useState<'none' | 'tests' | 'neuro'>('none');
-  useEffect(() => setRightPanel('none'), [region]);
-  // Las capas NO desaparecen al abrir una hoja: con la columna ocupada pasan a
-  // una TIRA horizontal encima de ella. Desmontarlas dejaba al fisio sin los
-  // cuatro interruptores justo durante la demostracion de un test o de un
-  // miotoma, que es cuando mas falta hacen, y sin forma de volver a encender la
-  // piel si la habia apagado antes.
-  const layersAsStrip = rightPanel !== 'none';
+  // LA HERRAMIENTA DEL MARGEN DERECHO. Una a la vez, siempre en el mismo sitio y
+  // con la misma forma: una pestana. Antes eran tres cosas distintas --dos
+  // pastillas que se desplegaban en hojas y una tarjeta-- y abrir una escondia
+  // las otras. Vuelve a Capas al cambiar de region, para que cada articulacion
+  // empiece igual.
+  const [tool, setTool] = useState<Tool>('capas');
+  useEffect(() => setTool('capas'), [region]);
 
   // Reset any click-to-dissect peel when the studied region changes or the lab
   // unmounts, so a new joint always opens with the full model. Releasing the
@@ -93,7 +118,7 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   // change so switching joints always returns to the clinician view.
   const [patientMode, setPatientMode] = useState(false);
   useEffect(() => setPatientMode(false), [region]);
-  // Y SE DESHACE LA DISECCION AL ENTRAR. El modo paciente esconde la tarjeta de
+  // Y SE DESHACE LA DISECCION AL ENTRAR. El modo paciente esconde la ficha de
   // diseccion junto con el resto de los mandos clinicos, pero el pelado seguia
   // aplicado al modelo: se giraba la pantalla hacia el paciente para ensenarle
   // su hombro y el paciente veia un cuerpo al que le falta un musculo, sin que
@@ -101,7 +126,7 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   // vista limpia; eso incluye el cuerpo entero.
   // Y LAS CAPAS, POR LA MISMA RAZON. El pelado de piel/musculo/hueso vivia en
   // otro canal y se quedaba puesto: con la piel y el musculo apagados, girar la
-  // pantalla hacia el paciente le ensena un ESQUELETO, y en esa vista los cuatro
+  // pantalla hacia el paciente le ensena un ESQUELETO, y en esa vista los
   // interruptores estan escondidos con el resto de los mandos clinicos, asi que
   // el fisio ya no tiene como devolver la piel sin salir del modo.
   useEffect(() => {
@@ -114,9 +139,9 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   // ---------------------------------------------------------------------------
   // COMPACT LAYOUT
   // ---------------------------------------------------------------------------
-  // Below lg the floating-instrument layout is abandoned entirely rather than
-  // shrunk: see the note at the top of MobileLabSheet for why a 21.5rem column
-  // and a right-hand stack cannot share 390px with the body they annotate.
+  // Below lg the three-column plate is abandoned entirely rather than shrunk:
+  // see the note at the top of MobileLabSheet for why two margins cannot share
+  // 390px with the body they annotate.
   const compact = useIsCompact();
   const [sheetTab, setSheetTab] = useState<LabTab>('movimiento');
   const [detent, setDetent] = useState<SheetDetent>('peek');
@@ -135,19 +160,40 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   // LLEGADA DESDE UN CASO CLINICO: /<region>/movimiento?prueba=<id>.
   //
   // El parametro se lee UNA vez y se borra de la direccion. Tiene que ser aqui
-  // y no dentro del panel porque el panel se monta en dos sitios (la columna
-  // de escritorio y la pestana de la hoja movil) y el primero que lo leyera
-  // dejaria al otro sin nada. Ademas hay que ABRIR el panel, que no es cosa
-  // suya.
+  // y no dentro del panel porque el panel se monta en dos sitios (el margen
+  // derecho de escritorio y la pestana de la hoja movil) y el primero que lo
+  // leyera dejaria al otro sin nada. Ademas hay que ABRIR el panel, que no es
+  // cosa suya.
   const [focusTestId, setFocusTestId] = useState<string | null>(null);
   useEffect(() => {
     const id = consumeFocusTest();
     if (!id) return;
     setFocusTestId(id);
-    setRightPanel('tests');
+    setTool('tests');
     setSheetTab('tests');
     setDetent('full');
   }, []);
+
+  const testsPanel = (
+    <OrthopedicTestsPanel
+      key={`tests-${region ?? 'shoulder'}`}
+      region={region}
+      open
+      bare
+      onOpenChange={() => {}}
+      onOpenEvidence={onOpenEvidence}
+      focusTestId={focusTestId}
+    />
+  );
+  const neuroPanel = (
+    <NeuroPanel
+      key={`neuro-${region ?? 'shoulder'}`}
+      region={region}
+      open
+      bare
+      onOpenChange={() => {}}
+    />
+  );
 
   const sheetTabs = useMemo<LabTabDef[]>(() => {
     const tabs: LabTabDef[] = [
@@ -169,17 +215,7 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
         label: 'Tests',
         locked: !testsGate.unlocked,
         onLocked: testsGate.requestUpgrade,
-        render: () => (
-          <OrthopedicTestsPanel
-            key={`tests-${region ?? 'shoulder'}`}
-            region={region}
-            open
-            bare
-            onOpenChange={() => {}}
-            onOpenEvidence={onOpenEvidence}
-            focusTestId={focusTestId}
-          />
-        ),
+        render: () => testsPanel,
       },
     ];
     if (hasNeuro(region)) {
@@ -188,35 +224,30 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
         label: 'Neuro',
         locked: !neuroGate.unlocked,
         onLocked: neuroGate.requestUpgrade,
-        render: () => (
-          <NeuroPanel
-            key={`neuro-${region ?? 'shoulder'}`}
-            region={region}
-            open
-            bare
-            onOpenChange={() => {}}
-          />
-        ),
+        render: () => neuroPanel,
       });
     }
     return tabs;
-  }, [region, onOpenEvidence, testsGate, neuroGate]);
+    // `testsPanel` y `neuroPanel` se recrean en cada render con las mismas
+    // claves; lo que decide si la lista cambia es lo de abajo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [region, onOpenEvidence, testsGate, neuroGate, focusTestId]);
 
   if (!hasDrivable) {
     return (
       <div className="flex h-full items-center justify-center px-6">
         <div className="max-w-md text-center">
-          <p className="font-display text-base font-semibold text-slate-200">
+          <p className="font-display text-base font-semibold text-fg">
             El laboratorio de movimiento aún no cubre esta región
           </p>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-fg3">
             Ya están disponibles hombro, codo, cadera, rodilla, tobillo y
             columna. Empieza por el hombro para ver el rig en acción.
           </p>
           <button
             type="button"
             onClick={() => setRegion('shoulder')}
-            className="mt-4 rounded-lg bg-accent/20 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/30"
+            className="btn btn-line mt-4"
           >
             Ir al hombro
           </button>
@@ -241,7 +272,7 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
               type="button"
               onClick={() => setPatientMode(true)}
               title="Vista simplificada para mostrar al paciente"
-              className="pointer-events-auto absolute top-3 right-3 z-30 flex min-h-[36px] items-center gap-2 rounded-full border border-slate-700/80 bg-ink-950/85 px-3.5 text-xs font-medium text-slate-200 shadow-lg backdrop-blur"
+              className="instrument pointer-events-auto absolute top-3 right-3 z-30 flex min-h-[36px] items-center gap-2 px-3 text-xs font-medium text-fg2"
             >
               <PersonIcon size={13} />
               Paciente
@@ -251,7 +282,7 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
               type="button"
               onClick={patientGate.requestUpgrade}
               title="Modo paciente: vista simplificada a pantalla completa (Premium)"
-              className="pointer-events-auto absolute top-3 right-3 z-30 flex min-h-[36px] items-center gap-2 rounded-full border border-amber-500/30 bg-ink-950/85 px-3.5 text-xs font-medium text-amber-200 shadow-lg backdrop-blur"
+              className="instrument pointer-events-auto absolute top-3 right-3 z-30 flex min-h-[36px] items-center gap-2 px-3 text-xs font-medium text-amber-200"
             >
               <PersonIcon size={13} />
               Paciente
@@ -274,255 +305,190 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
     );
   }
 
-  return (
-    <div className="relative h-full w-full">
-      <RigViewer region={region} />
-
-      {/* PATIENT-MODE toggle. In the clinician view it's a discreet pill top-center;
-          in patient mode it becomes the "Salir" button top-right (the right stack is
-          hidden, so that corner is free). */}
-      {patientMode ? (
-        <button
-          type="button"
-          onClick={() => setPatientMode(false)}
-          className="instrument pointer-events-auto absolute top-4 right-4 z-40 flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-slate-200 transition-colors hover:text-white"
-        >
-          <CloseIcon size={14} />
-          Salir del modo paciente
-        </button>
-      ) : !patientGate.unlocked ? (
-        // Locked: the pill stays VISIBLE with a lock so the free user sees the
-        // capability exists; clicking it goes straight to pricing.
-        <button
-          type="button"
-          onClick={patientGate.requestUpgrade}
-          title="Modo paciente: vista simplificada a pantalla completa (Premium)"
-          className={`pointer-events-auto absolute top-3 left-3 z-30 flex items-center gap-2 rounded-full border border-amber-500/30 bg-ink-950/85 px-4 py-1.5 text-xs font-medium text-amber-200 shadow-lg backdrop-blur transition-colors hover:bg-amber-400/10 sm:left-1/2 sm:-translate-x-1/2 ${
-            rightPanel !== 'none' ? 'hidden sm:flex' : ''
-          }`}
-        >
-          <PersonIcon size={13} />
-          Modo paciente
-          <LockGlyph />
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setPatientMode(true)}
-          title="Vista simplificada para mostrar al paciente"
-          // Top-LEFT on phones (the RhythmReadout there is hidden < sm, so the
-          // corner is free) to avoid overlapping the top-right Tests pill;
-          // top-center from sm up. Hidden on phones while a right sheet
-          // (tests/neuro) is open so it never sits under that sheet's header.
-          className={`pointer-events-auto absolute top-3 left-3 z-30 flex -translate-x-0 items-center gap-2 rounded-full border border-slate-700/80 bg-ink-950/85 px-4 py-1.5 text-xs font-medium text-slate-200 shadow-lg backdrop-blur transition-colors hover:border-slate-600 hover:text-white sm:left-1/2 sm:-translate-x-1/2 ${
-            rightPanel !== 'none' ? 'hidden sm:flex' : ''
-          }`}
-        >
-          <PersonIcon size={13} />
-          Modo paciente
-        </button>
-      )}
-
-      {/* LEFT COLUMN — ONE instrument, two sections. The clinical readout (sector
-          goniometer + rhythm + protagonist muscle) is the top section and the
-          movement console the bottom one, divided by a hairline.
-
-          They used to be two separate frosted cards stacked with a gap, which
-          broke the design system's one-surface-per-corner rule and, worse,
-          printed the same facts twice: the gesture appeared in both headers AND
-          in the sector label, the angle in both the dial and the console header,
-          the arc range in both the sector card and the console. Between the
-          duplicates and the double chrome the column filled ~80% of a laptop
-          screen and stopped being readable. One surface, one identity, each fact
-          once.
-
-          The readout stays drag-through (pointer-events-none) so the model can
-          still be rotated over it; only the console takes the pointer. Below
-          `sm` the readout is hidden and the console carries its own header.
-
-          Patient mode replaces the whole column with the big centered bar. */}
-      {patientMode ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
-          <MovementControls key={region ?? 'shoulder'} region={region} patientMode />
-        </div>
-      ) : (
-        <div className="pointer-events-none absolute top-3 bottom-3 left-3 z-20 flex w-[21.5rem] max-w-[calc(100vw-1.5rem)] flex-col justify-end">
-          <div className="instrument pointer-events-none flex min-h-0 flex-col overflow-hidden animate-scale-in">
-            <div className="hidden min-h-0 flex-1 overflow-hidden sm:flex sm:flex-col">
-              <RhythmReadout region={region} embedded />
-            </div>
-            <div className="hairline hidden shrink-0 sm:block" />
-            <div className="shrink-0">
-              <MovementControls key={region ?? 'shoulder'} region={region} embedded />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Clinician-only overlays: click-to-dissect card + the right-side stack
-          (tests / neuro / layer peel). All hidden in patient mode. */}
-      {!patientMode && (
-        <>
-          {/* LA TARJETA DE DISECCION VA EN EL HUECO, no en el centro de la
-              ventana.
-
-              Estaba centrada con `left-1/2 -translate-x-1/2` y mide hasta 30rem
-              (480 px). Medido sobre las anchuras reales: la columna izquierda
-              ocupa hasta 356 px (left-3 + 21.5rem) y la hoja de tests abierta
-              arranca en ancho menos 400 px (right-4 + 24rem). A 1024 px de
-              ventana la tarjeta llegaba a 752 px y la hoja empezaba en 624: 128
-              px de solape, y con z-30 contra z-20 la tarjeta quedaba ENCIMA de
-              la hoja de tests. Por el otro lado pasaba lo mismo con la consola
-              (84 px). El solape desaparecia a los 1280 px, asi que en un
-              portatil de 13 pulgadas la diseccion tapaba justo el panel que se
-              estaba usando.
-
-              Ahora el contenedor abarca el hueco libre --desde el borde de la
-              columna izquierda hasta el de la pila derecha, que es mas ancha
-              cuando hay una hoja abierta-- y la tarjeta se centra ahi dentro,
-              encogiendose con `max-w-full` cuando el hueco es menor que ella.
-              Por debajo de `sm` no hay columnas flotantes y sigue centrada y
-              elevada para librar la barra de mandos. */}
-          <div
-            className={`pointer-events-none absolute bottom-24 left-1/2 z-30 flex -translate-x-1/2 justify-center sm:bottom-3 lg:left-[22.25rem] lg:translate-x-0 ${
-              rightPanel === 'none' ? 'lg:right-4' : 'lg:right-[25rem]'
-            }`}
-          >
-            <DissectionPanel />
-          </div>
-          <div className="pointer-events-none absolute top-4 right-4 bottom-4 z-20 flex flex-col items-end gap-3">
-            {layersAsStrip && <LayerControls strip />}
-            {rightPanel !== 'neuro' &&
-              (testsGate.unlocked ? (
-                <OrthopedicTestsPanel
-                  key={`tests-${region ?? 'shoulder'}`}
-                  region={region}
-                  open={rightPanel === 'tests'}
-                  onOpenChange={(o) => setRightPanel(o ? 'tests' : 'none')}
-                  onOpenEvidence={onOpenEvidence}
-                  focusTestId={focusTestId}
-                />
-              ) : (
-                <LockedSheet
-                  feature="orthopedic-tests"
-                  label="Tests ortopédicos"
-                  icon={<TestTubeGlyph />}
-                  open={rightPanel === 'tests'}
-                  onOpenChange={(o) => setRightPanel(o ? 'tests' : 'none')}
-                  lines={[
-                    'Sensibilidad, especificidad y razones de verosimilitud con su estudio de origen.',
-                    'Demostración del test en el modelo 3D y nomograma de Fagan.',
-                    'Clusters diagnósticos y modo examen para autoevaluarte.',
-                  ]}
-                />
-              ))}
-            {rightPanel !== 'tests' &&
-              hasNeuro(region) &&
-              (neuroGate.unlocked ? (
-                <NeuroPanel
-                  key={`neuro-${region ?? 'shoulder'}`}
-                  region={region}
-                  open={rightPanel === 'neuro'}
-                  onOpenChange={(o) => setRightPanel(o ? 'neuro' : 'none')}
-                />
-              ) : (
-                <LockedSheet
-                  feature="neuro"
-                  label="Neuro: dermatomas y miotomas"
-                  icon={<NerveGlyph />}
-                  open={rightPanel === 'neuro'}
-                  onOpenChange={(o) => setRightPanel(o ? 'neuro' : 'none')}
-                  lines={[
-                    'Dermatoma, miotoma y reflejo de cada raíz nerviosa.',
-                    'El miotoma demostrado sobre el rig, raíz por raíz.',
-                    'Mapa esquemático de dermatomas para el examen neurológico.',
-                  ]}
-                />
-              ))}
-            {!layersAsStrip && <LayerControls />}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------------------
- * LockedSheet
- * ---------------------------------------------------------------------------
- * Stands in for a premium right-side panel. Deliberately mirrors the real
- * panel's collapsed pill (same position, same shape, same slot in the stack) so
- * the free user sees the tool EXISTS and where it lives — then expands into a
- * teaser that says what it does. Hiding it instead would make the free app look
- * complete, which is exactly why nobody upgraded.
- * ------------------------------------------------------------------------ */
-function LockedSheet({
-  feature,
-  label,
-  icon,
-  lines,
-  open,
-  onOpenChange,
-}: {
-  feature: PremiumFeature;
-  label: string;
-  icon: React.ReactNode;
-  lines: string[];
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => onOpenChange(true)}
-        className="instrument pointer-events-auto flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-amber-200 transition-colors hover:text-amber-100"
-      >
-        {icon}
-        {label}
-        <LockGlyph />
-      </button>
-    );
+  // Las pestanas del margen derecho. Las bloqueadas NO se esconden ni saltan a
+  // precios: se quedan en su sitio con el candado y, al abrirlas, cuentan lo que
+  // hacen. Esconderlas haria que la version gratuita pareciera completa, que es
+  // justo por lo que nadie se suscribia.
+  const tools: { id: Tool; label: string; locked: boolean }[] = [
+    { id: 'capas', label: 'Capas', locked: false },
+    { id: 'tests', label: 'Tests', locked: !testsGate.unlocked },
+  ];
+  if (hasNeuro(region)) {
+    tools.push({ id: 'neuro', label: 'Neuro', locked: !neuroGate.unlocked });
   }
+  const activeTool: Tool = tools.some((t) => t.id === tool) ? tool : 'capas';
+
+  // EL BOTON DEL MODO PACIENTE VA EN LA BARRA DEL ESCENARIO, junto a
+  // Reencuadrar: las dos son acciones sobre la VISTA, no sobre el cuerpo. Era
+  // una pastilla flotando arriba en el centro, encima del modelo.
+  const patientButton = patientGate.unlocked ? (
+    <button
+      type="button"
+      onClick={() => setPatientMode(true)}
+      title="Vista simplificada a pantalla completa para mostrar al paciente"
+      className="btn btn-quiet btn-sm"
+    >
+      <PersonIcon size={13} />
+      Modo paciente
+    </button>
+  ) : (
+    // Locked: stays VISIBLE with a lock so the free user sees the capability
+    // exists; clicking it goes straight to pricing.
+    <button
+      type="button"
+      onClick={patientGate.requestUpgrade}
+      title="Modo paciente: vista simplificada a pantalla completa (Premium)"
+      className="btn btn-quiet btn-sm text-amber-200/90 hover:text-amber-100"
+    >
+      <PersonIcon size={13} />
+      Modo paciente
+      <LockGlyph />
+    </button>
+  );
 
   return (
-    <div className="instrument pointer-events-auto w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-4 py-3">
-        <h2 className="flex items-center gap-2 font-display text-sm font-semibold text-slate-50">
-          {icon}
-          {label}
-        </h2>
-        <button
-          type="button"
-          onClick={() => onOpenChange(false)}
-          aria-label="Cerrar"
-          className="-mr-1 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100/[0.06] hover:text-slate-200"
+    // LOS TRES HIJOS OCUPAN SIEMPRE LA MISMA POSICION, aunque dos de ellos se
+    // escondan en el modo paciente. No es estetica: `RigViewer` es el segundo
+    // hijo en las dos vistas, asi que React conserva su instancia al entrar y
+    // salir del modo. Si los margenes se montaran alrededor de otro arbol, el
+    // lienzo se desmontaria y el cuerpo volveria a cargarse entero: diez
+    // segundos de espera por pulsar un boton.
+    <div className="flex h-full w-full">
+      {patientMode ? null : (
+        <aside
+          aria-label="Lectura y mandos del movimiento"
+          className="margin margin-l w-[19rem] shrink-0 xl:w-[21.5rem]"
         >
-          <CloseIcon size={15} />
-        </button>
+          {/* UNA columna, dos secciones: arriba lo que se lee (goniometro,
+              ritmo, musculo protagonista) y abajo la consola que lo mueve,
+              partidas por un filo. La lectura se encoge y la consola no: tiene
+              su alto acotado dentro de MovementControls. */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <RhythmReadout region={region} embedded />
+          </div>
+          <div className="rule" />
+          <div className="shrink-0">
+            <MovementControls key={region ?? 'shoulder'} region={region} embedded />
+          </div>
+        </aside>
+      )}
+
+      <div className="relative min-w-0 flex-1">
+        {/* `refitKey` cambia con el modo: al esconderse los margenes el lienzo
+            pasa de la columna central a la ventana entera, y sin reencuadrar el
+            cuerpo se queda con el encuadre de un lienzo que ya no existe. */}
+        <RigViewer
+          region={region}
+          refitKey={patientMode ? 'paciente' : 'clinico'}
+          stageActions={patientMode ? null : patientButton}
+        />
+
+        {patientMode && (
+          <>
+            <button
+              type="button"
+              onClick={() => setPatientMode(false)}
+              className="instrument pointer-events-auto absolute top-4 right-4 z-40 flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-fg2 transition-colors hover:text-fg"
+            >
+              <CloseIcon size={14} />
+              Salir del modo paciente
+            </button>
+            <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
+              <MovementControls key={region ?? 'shoulder'} region={region} patientMode />
+            </div>
+          </>
+        )}
       </div>
-      <div className="hairline" />
-      <div className="p-3">
-        <PremiumTeaser feature={feature} title={label} lines={lines} compact />
-      </div>
+
+      {patientMode ? null : (
+        <aside
+          aria-label="Herramientas del laboratorio"
+          className="margin margin-r w-[19rem] shrink-0 xl:w-[23rem]"
+        >
+          <div role="tablist" aria-label="Herramientas" className="tabs shrink-0 px-4">
+            {tools.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                id={`lab-tool-${t.id}`}
+                aria-selected={activeTool === t.id}
+                aria-controls="lab-tool-panel"
+                onClick={() => setTool(t.id)}
+                className={`tab ${t.locked ? 'text-amber-200/80 hover:text-amber-100' : ''}`}
+              >
+                {t.label}
+                {t.locked && <LockGlyph />}
+              </button>
+            ))}
+          </div>
+
+          {/* LAS CAPAS NO DESAPARECEN AL CAMBIAR DE HERRAMIENTA: pasan a una
+              tira bajo las pestanas. Desmontarlas dejaba al fisio sin los
+              interruptores justo durante la demostracion de un test o de un
+              miotoma, que es cuando mas falta hacen, y sin forma de volver a
+              encender la piel si la habia apagado antes. */}
+          {activeTool !== 'capas' && (
+            <>
+              <LayerControls strip />
+              <div className="rule" />
+            </>
+          )}
+
+          <div
+            role="tabpanel"
+            id="lab-tool-panel"
+            aria-labelledby={`lab-tool-${activeTool}`}
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
+          >
+            {activeTool === 'capas' && <LayerControls embedded />}
+            {activeTool === 'tests' &&
+              (testsGate.unlocked ? (
+                testsPanel
+              ) : (
+                <div className="sec">
+                  <PremiumTeaser
+                    feature="orthopedic-tests"
+                    title="Tests ortopédicos"
+                    lines={[
+                      'Sensibilidad, especificidad y razones de verosimilitud con su estudio de origen.',
+                      'Demostración del test en el modelo 3D y nomograma de Fagan.',
+                      'Clusters diagnósticos y modo examen para autoevaluarte.',
+                    ]}
+                    compact
+                  />
+                </div>
+              ))}
+            {activeTool === 'neuro' &&
+              (neuroGate.unlocked ? (
+                neuroPanel
+              ) : (
+                <div className="sec">
+                  <PremiumTeaser
+                    feature="neuro"
+                    title="Neuro: dermatomas y miotomas"
+                    lines={[
+                      'Dermatoma, miotoma y reflejo de cada raíz nerviosa.',
+                      'El miotoma demostrado sobre el rig, raíz por raíz.',
+                      'Mapa esquemático de dermatomas para el examen neurológico.',
+                    ]}
+                    compact
+                  />
+                </div>
+              ))}
+          </div>
+
+          {/* LA ESTRUCTURA QUE SE ACABA DE TOCAR, AL PIE DEL MARGEN. Era una
+              tarjeta de hasta 30rem flotando sobre el borde inferior del
+              modelo: tapaba justo lo que se acababa de pinchar, caia encima del
+              boton de Reencuadrar y habia que sumar rems para que no pisara la
+              hoja de tests. Acoplada aqui no tapa nada, no se solapa con nada y
+              esta siempre en el mismo sitio, sea cual sea la herramienta
+              abierta. Se pinta sola cuando hay algo seleccionado, retirado o
+              aislado. */}
+          <DissectionPanel docked />
+        </aside>
+      )}
     </div>
-  );
-}
-
-function TestTubeGlyph() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path d="M9 3h6M10 3v13a2 2 0 0 0 4 0V3" strokeLinecap="round" />
-      <path d="M10 12h4" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function NerveGlyph() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path d="M5 4c4 0 3 8 7 8s3-8 7-8" strokeLinecap="round" />
-      <path d="M5 20c4 0 3-8 7-8" strokeLinecap="round" />
-    </svg>
   );
 }

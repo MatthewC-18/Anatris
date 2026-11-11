@@ -402,8 +402,9 @@ export default function App() {
         onOpenAuth={() => setAuthOpen(true)}
       />
 
-      {/* Persistent educational disclaimer. */}
-      <div className="shrink-0 px-3 py-1 sm:px-4">
+      {/* Persistent educational disclaimer: una linea bajo la barra, con el
+          mismo filo que separa todo lo demas. */}
+      <div className="shrink-0 border-b border-line/75 px-3 py-[3px] sm:px-4">
         <MedicalDisclaimerBanner />
       </div>
 

@@ -42,7 +42,8 @@
     "measure-weight-stages": "tsx scripts/measure-weight-stages.mts",
     "audit-glb-waste": "tsx --tsconfig tsconfig.scripts.json scripts/audit-glb-waste.mts",
     "strip-rig": "node scripts/strip-rig-glb.mjs public/cuerpo-rig.opt.glb public/cuerpo-rig.opt.glb.new",
-    "audit-rig-strip": "tsx --tsconfig tsconfig.scripts.json scripts/audit-rig-strip.mts"
+    "audit-rig-strip": "tsx --tsconfig tsconfig.scripts.json scripts/audit-rig-strip.mts",
+    "audit-surfaces": "tsx scripts/audit-surfaces.mts"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

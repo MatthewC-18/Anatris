@@ -617,21 +617,21 @@ function RefitButton() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-  // ABAJO AL CENTRO, Y NO ARRIBA A LA DERECHA.
+  // EN LA BARRA DEL ESCENARIO, abajo al centro.
   //
-  // Ahi estaba, y MEDIDO en el navegador no se podia pulsar: el panel de capas
-  // (Piel / Musculo / Hueso / Tendones) ocupa `top-4 right-4` con `z-20` sobre
-  // el mismo contenedor, asi que `elementFromPoint` en el centro del boton
-  // devolvia el boton "Tendones". El clic entraba, pero en el otro boton. Abajo
-  // al centro el lienzo esta libre (comprobado a 560 px y 720 px de ancho de
-  // escenario) y `z-30` lo pone por encima de los dos paneles laterales.
+  // Estuvo arriba a la derecha y MEDIDO en el navegador no se podia pulsar: el
+  // panel de capas ocupaba esa esquina por encima y `elementFromPoint` en el
+  // centro del boton devolvia otro boton. Luego fue una pastilla flotante abajo
+  // al centro, que es donde caia tambien la tarjeta de diseccion. Ahora los
+  // paneles estan acoplados en los margenes (ver MovementView) y el pie del
+  // escenario es solo de las acciones de vista: no hay nada que pueda taparlo.
   return (
     <button
       type="button"
       onClick={() => frameChannel.refit()}
       title="Volver al encuadre de la región (R)"
       aria-label="Reencuadrar la vista"
-      className="absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-slate-700/70 bg-ink-950/75 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-300 backdrop-blur-sm transition-colors hover:border-accent/60 hover:text-accent"
+      className="btn btn-quiet btn-sm"
     >
       <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" aria-hidden>
         <path
@@ -642,7 +642,7 @@ function RefitButton() {
         />
       </svg>
       Reencuadrar
-      <span className="font-mono text-[9px] text-slate-500">R</span>
+      <span className="kbd">R</span>
     </button>
   );
 }
@@ -650,7 +650,13 @@ function RefitButton() {
 export function RigViewer({
   refitKey,
   region,
-}: { refitKey?: string | number; region?: string | null } = {}) {
+  stageActions,
+}: {
+  refitKey?: string | number;
+  region?: string | null;
+  /** Acciones de vista que el laboratorio anade a la barra del escenario. */
+  stageActions?: React.ReactNode;
+} = {}) {
   // Read OUT HERE, not inside the Suspense boundary: a reporter that only mounts
   // once the rig has resolved can never show anything but 0 while it loads.
   // `loaded`/`total`/`item` ademas del porcentaje: el gestor de carga es uno
@@ -759,7 +765,12 @@ export function RigViewer({
       <div className="pointer-events-none absolute inset-0 rig-stage-glow" />
       <div className="pointer-events-none absolute inset-0 rig-vignette" />
 
-      {ready && <RefitButton />}
+      {ready && (
+        <div className="stage-bar absolute inset-x-0 bottom-0 z-30">
+          <RefitButton />
+          {stageActions}
+        </div>
+      )}
 
       {!ready && (
         <RigLoadingScreen

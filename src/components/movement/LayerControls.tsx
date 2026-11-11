@@ -110,8 +110,11 @@ export function LayerControls({
   // volver a encenderla salvo cerrar la hoja.
   if (strip) {
     return (
-      <div className="instrument pointer-events-auto flex shrink-0 items-center gap-1 px-2 py-1.5">
-        <LayersIcon size={13} className="mx-1 shrink-0 text-slate-500" aria-hidden="true" />
+      // Sin superficie: va acoplada bajo las pestanas del margen derecho. Con
+      // `flex-wrap` porque a 19rem de margen los seis nombres no caben en una
+      // fila, y cortar uno seria volver al defecto del nombre recortado.
+      <div className="pointer-events-auto flex shrink-0 flex-wrap items-center gap-x-1 px-3 py-1.5">
+        <LayersIcon size={13} className="mr-1 shrink-0 text-fg3" aria-hidden="true" />
         {LAYERS.map(({ key, label, short, swatch }) => {
           const on = state[key];
           return (

@@ -20,6 +20,17 @@
 //   most common width -- a visitor saw neither the modes nor any way to
 //   subscribe. What yields instead is chrome nobody navigates by: "Acerca de"
 //   and "Legal" now live in the account menu and the Guía hub.
+//
+// SIN CAJAS (sistema LAMINA, ver src/index.css):
+//   La barra era una fila de siete recuadros con borde --buscador, guia,
+//   premium, un contenedor redondeado con los cuatro modos dentro, la cuenta--
+//   y esa fila de pastillas era lo primero que hacia que la aplicacion se
+//   pareciera a cualquier otra. Ahora se lee como una linea de texto:
+//   marca / region / modos, y a la derecha las utilidades. Los MODOS son
+//   pestanas subrayadas apoyadas en el filo de la barra, y van a la izquierda,
+//   pegados a la region, porque juntos dicen donde estas: "Hombro, Movimiento".
+//   El unico control con contorno es "Hazte Premium", a proposito: es la unica
+//   puerta de venta siempre a la vista y tiene que seguir pareciendo un boton.
 
 import { useEffect, useRef, useState } from 'react';
 import { useAnatomyStore } from '../store/anatomyStore';
@@ -172,11 +183,11 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
   };
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800/60 bg-ink-950/90 px-3 sm:gap-3 sm:px-4">
+    <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line/75 bg-page px-3 sm:gap-3 sm:px-4">
       {/* Wordmark (mark only on phones to save header width). */}
       <div className="flex shrink-0 items-center gap-2">
-        <BrandMark className="h-5 w-5 text-slate-200" title="Anatris" />
-        <h1 className="hidden font-display text-base font-bold tracking-tight text-slate-50 sm:inline">
+        <BrandMark className="h-5 w-5 text-fg" title="Anatris" />
+        <h1 className="hidden font-display text-[15px] font-bold tracking-tight text-fg sm:inline">
           Anatris
         </h1>
       </div>
@@ -200,10 +211,8 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
                   aria-expanded={spineOpen}
                   aria-current={spineActive ? 'true' : undefined}
                   className={[
-                    'flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                    spineActive
-                      ? 'bg-slate-800/60 text-slate-100'
-                      : 'text-slate-500 hover:text-slate-300',
+                    'btn btn-quiet btn-sm',
+                    spineActive ? 'font-semibold text-fg' : '',
                   ].join(' ')}
                 >
                   {m.label}
@@ -224,7 +233,7 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
                 {spineOpen && (
                   <div
                     role="menu"
-                    className="absolute left-0 top-full z-50 mt-1 min-w-[9rem] overflow-hidden rounded-xl border border-slate-800/80 bg-ink-950/95 p-1 shadow-xl backdrop-blur"
+                    className="instrument absolute left-0 top-full z-50 mt-1 min-w-[9rem] overflow-hidden p-1"
                   >
                     {SPINE_SUBREGIONS.map((sub) => {
                       const isActive = sub.region === activeRegion;
@@ -239,10 +248,10 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
                             setSpineOpen(false);
                           }}
                           className={[
-                            'block w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors',
+                            'block w-full rounded px-3 py-2 text-left text-sm font-medium transition-colors',
                             isActive
-                              ? 'bg-accent/20 text-accent'
-                              : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200',
+                              ? 'text-brand'
+                              : 'text-fg2 hover:bg-fg/[0.06] hover:text-fg',
                           ].join(' ')}
                         >
                           {sub.label}
@@ -271,12 +280,9 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
                 clearSelection();
               }}
               className={[
-                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-slate-800/60 text-slate-100'
-                  : m.enabled
-                    ? 'text-slate-500 hover:text-slate-300'
-                    : 'cursor-not-allowed text-slate-700',
+                'btn btn-quiet btn-sm',
+                isActive ? 'font-semibold text-fg' : '',
+                m.enabled ? '' : 'cursor-not-allowed',
               ].join(' ')}
             >
               {m.label}
@@ -286,22 +292,37 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
         })}
       </nav>
 
+      {/* Los modos: pestanas subrayadas desde lg, desplegable por debajo. Van
+          estiradas a todo el alto de la barra para que el subrayado de la activa
+          pise el filo inferior de la cabecera, no uno propio. */}
+      <div
+        role="tablist"
+        aria-label="Modo de trabajo"
+        className="ml-2 hidden shrink-0 items-stretch gap-5 self-stretch lg:flex xl:ml-4"
+      >
+        {MODE_ITEMS.map((m) => (
+          <ModeButton key={m.id} id={m.id} label={m.label} mode={mode} setMode={setMode} />
+        ))}
+      </div>
+
       {/* Spacer pushes everything after it to the right. */}
       <div className="min-w-0 flex-1" />
+
+      <CompactModeMenu mode={mode} setMode={setMode} />
 
       {/* Search trigger */}
       <button
         type="button"
         onClick={() => setPaletteOpen(true)}
         aria-label="Buscar estructura"
-        className="hidden shrink-0 items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-900/60 px-2.5 py-1.5 text-sm text-slate-500 transition-colors hover:border-slate-700 hover:text-slate-300 md:flex"
+        className="btn btn-quiet hidden shrink-0 md:inline-flex"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           <circle cx="11" cy="11" r="7" />
           <path d="M21 21l-4.3-4.3" strokeLinecap="round" />
         </svg>
-        <span className="hidden min-[1860px]:inline">Buscar estructura</span>
-        <span className="kbd ml-1">{shortcutLabel()}</span>
+        <span className="hidden xl:inline">Buscar</span>
+        <span className="kbd">{shortcutLabel()}</span>
       </button>
 
       {/* Guía: always-visible "where is everything?" hub (all breakpoints). */}
@@ -309,7 +330,7 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
         type="button"
         onClick={openGuide}
         aria-label="Guía de la aplicación"
-        className="relative flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-800/80 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:border-accent/40 hover:text-accent"
+        className="btn btn-quiet relative shrink-0"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           <circle cx="12" cy="12" r="9" />
@@ -319,7 +340,7 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
         <span className="hidden lg:inline">Guía</span>
         {!guideSeen && (
           <span
-            className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-ink-950 bg-accent"
+            className="absolute right-0.5 top-1 h-1.5 w-1.5 rounded-full bg-brand"
             aria-hidden="true"
           />
         )}
@@ -327,30 +348,19 @@ export function TopBar({ mode, setMode, setOverlay, onOpenAuth }: TopBarProps) {
 
       {/* Upgrade entry point: shown while the user is on the free tier, from `sm`
           up. This is the ONLY always-reachable sales surface in the app shell.
-          Drawn as an ordinary bordered control rather than an accent-washed
-          chip: a permanently lit promo button in the toolbar of a clinical tool
-          reads as an ad, and it was the loudest thing in the header. */}
+          Drawn as an outlined control rather than an accent-washed chip: a
+          permanently lit promo button in the toolbar of a clinical tool reads
+          as an ad. It is also the ONLY outlined control in the bar, so it still
+          reads as the one thing here that is a call to action. */}
       {!entitlement.isPremium && (
         <button
           type="button"
           onClick={() => setOverlay('pricing')}
-          className="hidden shrink-0 rounded-lg border border-slate-800/80 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:border-slate-700 hover:text-slate-100 sm:block"
+          className="btn btn-line btn-sm hidden shrink-0 sm:inline-flex"
         >
           Hazte Premium
         </button>
       )}
-
-      {/* Mode switcher: segmented control from lg up, dropdown below. */}
-      <CompactModeMenu mode={mode} setMode={setMode} />
-      <div
-        role="tablist"
-        aria-label="Modo de trabajo"
-        className="hidden shrink-0 items-center gap-0.5 rounded-xl border border-slate-800/60 bg-slate-900/60 p-1 lg:flex"
-      >
-        {MODE_ITEMS.map((m) => (
-          <ModeButton key={m.id} id={m.id} label={m.label} mode={mode} setMode={setMode} />
-        ))}
-      </div>
 
       {/* Account / subscription. Also carries Acerca de / Legal, which used to
           take ~140px of header width for links nobody navigates by. */}
@@ -381,11 +391,7 @@ function ModeButton({
       role="tab"
       aria-selected={isActive}
       onClick={() => setMode(id)}
-      className={`rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors xl:px-3 ${
-        isActive
-          ? 'bg-accent/20 text-accent'
-          : 'text-slate-400 hover:text-slate-200'
-      }`}
+      className="tab h-full"
     >
       {label}
     </button>
@@ -460,18 +466,16 @@ function CompactRegionMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Región: ${activeLabel}`}
-        className="flex items-center gap-1.5 rounded-lg bg-slate-800/60 px-2.5 py-1.5 text-sm font-medium text-slate-100"
+        className="btn btn-quiet gap-2 font-display text-[15px] font-semibold text-fg"
       >
-        <span className="hidden text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:inline">
-          Región
-        </span>
+        <span className="kicker hidden sm:inline">Región</span>
         {activeLabel}
         <Chevron open={open} />
       </button>
       {open && (
         <div
           role="menu"
-          className="absolute left-0 top-full z-50 mt-1 max-h-[70vh] min-w-[11rem] overflow-y-auto rounded-xl border border-slate-800/80 bg-ink-950/95 p-1 shadow-xl backdrop-blur"
+          className="instrument absolute left-0 top-full z-50 mt-1 max-h-[70vh] min-w-[11rem] overflow-y-auto p-1"
         >
           {MOBILE_REGIONS.map((r) => {
             const isActive = r.region === active;
@@ -489,10 +493,8 @@ function CompactRegionMenu() {
                   setOpen(false);
                 }}
                 className={[
-                  'flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-accent/20 text-accent'
-                    : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100',
+                  'flex w-full items-center gap-1.5 rounded px-3 py-2 text-left text-sm font-medium transition-colors',
+                  isActive ? 'text-brand' : 'text-fg2 hover:bg-fg/[0.06] hover:text-fg',
                 ].join(' ')}
               >
                 <span className="flex-1">{r.label}</span>
@@ -527,18 +529,16 @@ function CompactModeMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Modo: ${label}`}
-        className="flex items-center gap-1.5 rounded-lg border border-slate-800/60 bg-slate-900/60 px-2.5 py-1.5 text-sm font-medium text-accent"
+        className="btn btn-quiet gap-2 font-medium text-brand"
       >
-        <span className="hidden text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:inline">
-          Modo
-        </span>
+        <span className="kicker hidden sm:inline">Modo</span>
         {label}
         <Chevron open={open} />
       </button>
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-1 min-w-[9rem] overflow-hidden rounded-xl border border-slate-800/80 bg-ink-950/95 p-1 shadow-xl backdrop-blur"
+          className="instrument absolute right-0 top-full z-50 mt-1 min-w-[9rem] overflow-hidden p-1"
         >
           {MODE_ITEMS.map((m) => {
             const isActive = m.id === mode;
@@ -553,10 +553,8 @@ function CompactModeMenu({
                   setOpen(false);
                 }}
                 className={[
-                  'block w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-accent/20 text-accent'
-                    : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100',
+                  'block w-full rounded px-3 py-2 text-left text-sm font-medium transition-colors',
+                  isActive ? 'text-brand' : 'text-fg2 hover:bg-fg/[0.06] hover:text-fg',
                 ].join(' ')}
               >
                 {m.label}

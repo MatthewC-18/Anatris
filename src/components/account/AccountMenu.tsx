@@ -40,7 +40,7 @@ export function AccountMenu({
       <button
         type="button"
         onClick={onOpenAuth}
-        className="shrink-0 rounded-lg border border-slate-800/80 px-3 py-1.5 text-sm font-medium text-slate-300 transition-colors hover:border-slate-700 hover:text-slate-100"
+        className="btn btn-quiet shrink-0"
       >
         <span className="sm:hidden">Entrar</span>
         <span className="hidden sm:inline">Iniciar sesión</span>
@@ -66,18 +66,17 @@ export function AccountMenu({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-lg border border-slate-800/80 px-2 py-1.5 text-sm transition-colors hover:border-slate-700"
+        className="btn btn-quiet gap-2 px-1.5"
       >
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/20 text-xs font-bold text-accent">
           {initial}
         </span>
+        {/* El plan, como etiqueta y no como ficha de color: el tono va en la
+            letra. Una pastilla tintada junto al avatar era otra caja mas en
+            una barra que ya no tiene ninguna. */}
         <span
-          className={`hidden rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide lg:inline ${
-            isTrialing
-              ? 'bg-amber-500/20 text-amber-300'
-              : isPremium
-                ? 'bg-emerald-600/20 text-emerald-300'
-                : 'bg-slate-800 text-slate-400'
+          className={`tag hidden lg:inline ${
+            isTrialing ? 'text-amber-300' : isPremium ? 'text-emerald-300' : ''
           }`}
         >
           {isTrialing ? 'Prueba' : isPremium ? 'Premium' : 'Free'}
@@ -85,7 +84,7 @@ export function AccountMenu({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-60 overflow-hidden rounded-xl border border-slate-800/80 bg-ink-950/95 p-1 shadow-xl backdrop-blur">
+        <div className="instrument absolute right-0 top-full z-50 mt-1 w-60 overflow-hidden p-1">
           <div className="px-3 py-2">
             <p className="truncate text-sm font-medium text-slate-200">
               {snapshot.user.email}

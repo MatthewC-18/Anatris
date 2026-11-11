@@ -40,12 +40,12 @@ export function MedicalDisclaimerBanner(): JSX.Element {
   return (
     <div
       title={full}
-      // On a phone this strip sits between the toolbar and the 3D scene, and the
-      // bordered amber box read as an alert competing with the model for a
-      // notice the user already accepted at the gate. Below `sm` it drops to
-      // plain type on the background; from `sm` up it keeps the boxed treatment
-      // where there is room for it.
-      className="flex items-center gap-2 px-1 py-0.5 text-[11px] leading-snug text-amber-200/70 sm:rounded-lg sm:border sm:border-amber-900/40 sm:bg-amber-950/20 sm:px-3 sm:py-1 sm:text-amber-200/75"
+      // SIN CAJA, EN NINGUN ANCHO. Era un recuadro ambar con borde bajo la
+      // cabecera de cada pantalla: una alerta permanente compitiendo con el
+      // modelo por un aviso que el usuario ya leyo y acepto en la puerta. Es
+      // una linea de texto con su signo, que es lo que tiene que ser para
+      // seguir a la vista sin gritar.
+      className="flex items-center gap-2 px-1 text-[11px] leading-snug text-amber-200/60"
     >
       <span aria-hidden className="shrink-0">
         {WARN}

@@ -116,7 +116,18 @@
        bg-ink-950 over this, so the tool is unaffected. */
     background-color: rgb(var(--c-page));
     color: rgb(var(--c-fg));
-    font-family: '"IBM Plex Sans"', system-ui, sans-serif;
+    /* LA TIPOGRAFIA DE LA APLICACION NO SE ESTABA CARGANDO, Y NADIE LO VEIA.
+       Aqui decia `'"IBM Plex Sans"'`: unas comillas dentro de otras, que en
+       CSS no nombran la familia IBM Plex Sans sino una familia que se llama,
+       literalmente, "IBM Plex Sans" CON las comillas. Esa no existe, asi que
+       todo el texto que hereda de body --casi toda la aplicacion-- caia a
+       `system-ui`: Segoe UI en Windows, San Francisco en un Mac. Medido en el
+       navegador con `document.fonts`: 18 caras de IBM Plex Sans declaradas y
+       CERO cargadas; el valor calculado de body era
+       `"\"IBM Plex Sans\"", system-ui, sans-serif`.
+       (En tailwind.config.js la misma escritura SI es correcta, porque alli
+       las comillas de fuera son de JavaScript. Aqui son de CSS.) */
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     overflow: hidden; /* the app manages its own scroll regions */
@@ -140,41 +151,29 @@
 }
 
 @layer components {
-  /* Frosted-glass panel surfaces used by floating UI. Same recipe as .instrument
-     (see below) so every floating surface in the app -- lab console, viewer
-     toolbar, hover HUD, command palette -- reads as one material; only the corner
-     radius is left to the call site. */
+  /* SUPERFICIES FLOTANTES: SOLO PARA LO QUE DE VERDAD FLOTA.
+     Un menu, la paleta de comandos, un tooltip, un modal. Todo lo demas vive
+     en un MARGEN acoplado (ver "LAMINA" mas abajo) y no lleva superficie.
+
+     Eran cristal esmerilado: dos degradados, desenfoque de 18-22 px, sombra de
+     60 px y 16 px de radio. Con un panel de esos en cada esquina y cajas
+     dentro, la aplicacion se leia como cualquier panel de control generado:
+     "tarjetas dentro de tarjetas". Ahora son una lamina opaca de grafito con un
+     filo de 1 px, que es lo minimo para que un menu se separe de lo que tapa.
+     Los dos nombres se conservan porque hay un centenar de sitios que los
+     usan; la diferencia entre ellos ya solo es la sombra. */
   .glass {
-    background:
-      linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.035) 0%,
-        rgba(255, 255, 255, 0) 42%
-      ),
-      linear-gradient(180deg, rgba(17, 25, 42, 0.78), rgba(7, 11, 20, 0.8));
-    backdrop-filter: blur(18px) saturate(145%);
-    -webkit-backdrop-filter: blur(18px) saturate(145%);
-    border: 1px solid rgba(148, 163, 184, 0.12);
-    box-shadow:
-      0 16px 40px -14px rgba(0, 0, 0, 0.7),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    background: rgb(15 17 20 / 0.96);
+    border: 1px solid rgb(var(--c-line) / 0.9);
+    box-shadow: 0 10px 28px -12px rgba(0, 0, 0, 0.7);
   }
 
   .glass-strong {
-    background:
-      linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.045) 0%,
-        rgba(255, 255, 255, 0) 42%
-      ),
-      linear-gradient(180deg, rgba(17, 25, 42, 0.93), rgba(7, 11, 20, 0.95));
-    backdrop-filter: blur(22px) saturate(150%);
-    -webkit-backdrop-filter: blur(22px) saturate(150%);
-    border: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgb(15 17 20 / 0.98);
+    border: 1px solid rgb(var(--c-line));
     box-shadow:
-      0 24px 60px -18px rgba(0, 0, 0, 0.75),
-      0 2px 10px rgba(0, 0, 0, 0.35),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      0 18px 44px -16px rgba(0, 0, 0, 0.8),
+      0 2px 8px rgba(0, 0, 0, 0.3);
   }
 
   /* Subtle radial atmosphere behind the 3D canvas. */
@@ -236,7 +235,7 @@
    * ---------------------------------------------------------------------- */
   .instrument {
     @apply glass-strong;
-    border-radius: 1rem;
+    border-radius: 0.375rem;
   }
 
   /* Section divider inside an instrument: a hairline that fades at both ends, so
@@ -255,12 +254,352 @@
   /* Micro label above a value. The whole hierarchy is kicker + value, which is
      what replaces the old "everything in a titled card" pattern. */
   .kicker {
-    font-size: 0.5625rem;
-    font-weight: 600;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.625rem;
+    font-weight: 500;
     line-height: 1;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: rgb(100 116 139);
+    color: rgb(var(--c-fg3));
+  }
+
+  /* =========================================================================
+   * LAMINA
+   * =========================================================================
+   * El sistema de la aplicacion: UN ESCENARIO Y DOS MARGENES, como la lamina de
+   * un atlas. El cuerpo ocupa el centro; lo que se lee de el va en el margen
+   * izquierdo y lo que se le hace, en el derecho. Los margenes estan ACOPLADOS
+   * al borde de la ventana y separados del escenario por un filo de 1 px: no
+   * flotan, no tienen sombra, no tienen radio y no tapan el modelo.
+   *
+   * LA REGLA QUE LO SOSTIENE: DENTRO DE UN MARGEN NO HAY CAJAS. Nada de un
+   * borde redondeado con fondo alrededor de un grupo de cosas. La jerarquia la
+   * hacen el rotulo (kicker), el filo, el tamano de la cifra y el espacio en
+   * blanco. Para destacar algo se usa una regla a la izquierda (.note) o el
+   * peso de la letra, nunca un recuadro. `npm run audit-surfaces` cuenta las
+   * cajas que quedan, fichero a fichero.
+   *
+   * Los controles tampoco son pastillas con borde: las pestanas se subrayan
+   * (.tab), las opciones se marcan (.opt), los botones secundarios son texto
+   * (.btn-quiet) y solo la accion principal de cada margen lleva relleno
+   * (.btn-primary). El radio de todo control es 4 px.
+   *
+   * La especificacion entera, con las recetas de antes y despues, esta en
+   * docs/sistema-lamina.md.
+   * ====================================================================== */
+
+  /* El margen: una columna acoplada. `margin-l` y `margin-r` solo ponen el filo
+     del lado del escenario. */
+  .margin {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: rgb(var(--c-page));
+  }
+  .margin-l {
+    border-right: 1px solid rgb(var(--c-line) / 0.75);
+  }
+  .margin-r {
+    border-left: 1px solid rgb(var(--c-line) / 0.75);
+  }
+
+  /* Una seccion del margen. Se separa de la siguiente por espacio y por la
+     cabecera de la siguiente, no por un recuadro. */
+  .sec {
+    padding: 0.875rem 1rem;
+  }
+  .sec + .sec {
+    padding-top: 0.25rem;
+  }
+
+  /* Cabecera de seccion: rotulo y un filo que corre hasta el borde. Lo que
+     vaya a la derecha (una accion, una cuenta) se pone DESPUES del filo. */
+  .sec-head {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    min-height: 1.25rem;
+    margin-bottom: 0.625rem;
+  }
+  .sec-rule {
+    flex: 1 1 0%;
+    height: 1px;
+    min-width: 0.75rem;
+    background: rgb(var(--c-line) / 0.9);
+  }
+
+  /* Filo simple, de lado a lado. `.hairline` (el que se desvanece en los
+     extremos) queda para las superficies flotantes. */
+  .rule {
+    height: 1px;
+    flex-shrink: 0;
+    background: rgb(var(--c-line) / 0.75);
+  }
+
+  /* La cifra del instrumento: grande, tabular y apretada. */
+  .readout {
+    font-family: Sora, system-ui, sans-serif;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: rgb(var(--c-fg));
+  }
+  /* Cifras y unidades pequenas, en la voz mono. */
+  .num {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* PESTANAS: texto y un subrayado. La fila lleva el filo de base y la activa
+     lo pisa con 2 px de acento. Sirve para los modos de la barra superior y
+     para las herramientas del margen derecho. */
+  .tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 1.125rem;
+    border-bottom: 1px solid rgb(var(--c-line) / 0.75);
+  }
+  .tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.625rem 0;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    color: rgb(var(--c-fg3));
+    transition: color 140ms ease;
+  }
+  .tab:hover {
+    color: rgb(var(--c-fg2));
+  }
+  .tab[aria-selected='true'],
+  .tab[aria-current='page'],
+  .tab.is-active {
+    color: rgb(var(--c-fg));
+  }
+  .tab[aria-selected='true']::after,
+  .tab[aria-current='page']::after,
+  .tab.is-active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: rgb(var(--c-brand));
+  }
+  .tab:disabled,
+  .tab[aria-disabled='true'] {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  /* OPCION: una fila de lista con su marca. Para elegir UNA entre varias
+     (el movimiento, el lado, la fase). La marca es un punto, no una pastilla. */
+  .opt {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    width: 100%;
+    min-height: 1.875rem;
+    padding: 0.25rem 0;
+    text-align: left;
+    font-size: 0.8125rem;
+    line-height: 1.25;
+    color: rgb(var(--c-fg2));
+    transition: color 140ms ease;
+  }
+  .opt::before {
+    content: '';
+    flex-shrink: 0;
+    width: 0.4375rem;
+    height: 0.4375rem;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px rgb(var(--c-fg3) / 0.8);
+    transition:
+      background-color 140ms ease,
+      box-shadow 140ms ease;
+  }
+  .opt:hover {
+    color: rgb(var(--c-fg));
+  }
+  .opt[aria-checked='true'],
+  .opt[aria-selected='true'],
+  .opt.is-active {
+    color: rgb(var(--c-fg));
+    font-weight: 600;
+  }
+  .opt[aria-checked='true']::before,
+  .opt[aria-selected='true']::before,
+  .opt.is-active::before {
+    background: rgb(var(--c-brand));
+    box-shadow: 0 0 0 3px rgb(var(--c-brand) / 0.18);
+  }
+  .opt:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  /* BOTONES. Cuatro, y no hay mas:
+       .btn-primary  la accion principal de un margen (una sola por vista)
+       .btn-line     una accion secundaria que tiene que verse como boton
+       .btn-quiet    todo lo demas: texto que responde al pasar
+       .btn-icon     modificador: cuadrado, solo icono */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2rem;
+    padding: 0 0.75rem;
+    border-radius: 0.25rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    transition:
+      background-color 140ms ease,
+      color 140ms ease,
+      box-shadow 140ms ease;
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  .btn-primary {
+    background: rgb(var(--c-brand-fill));
+    color: rgb(var(--c-brand-on));
+    font-weight: 600;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: rgb(var(--c-brand-deep));
+  }
+  .btn-line {
+    color: rgb(var(--c-fg2));
+    box-shadow: inset 0 0 0 1px rgb(var(--c-line));
+  }
+  .btn-line:hover:not(:disabled) {
+    color: rgb(var(--c-fg));
+    box-shadow: inset 0 0 0 1px rgb(var(--c-fg3) / 0.7);
+  }
+  .btn-quiet {
+    color: rgb(var(--c-fg2));
+  }
+  .btn-quiet:hover:not(:disabled) {
+    color: rgb(var(--c-fg));
+    background: rgb(var(--c-fg) / 0.06);
+  }
+  .btn-icon {
+    width: 2rem;
+    padding: 0;
+  }
+  .btn-sm {
+    height: 1.625rem;
+    padding: 0 0.5rem;
+    font-size: 0.75rem;
+  }
+  .btn-sm.btn-icon {
+    width: 1.625rem;
+    padding: 0;
+  }
+
+  /* NOTA: lo que antes era una caja de aviso. Una regla a la izquierda y texto.
+     El tono va en la regla, no en un fondo. */
+  .note {
+    padding-left: 0.75rem;
+    border-left: 2px solid rgb(var(--c-line));
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: rgb(var(--c-fg2));
+  }
+  .note-brand {
+    border-left-color: rgb(var(--c-brand) / 0.7);
+  }
+  .note-warn {
+    border-left-color: rgb(245 158 11 / 0.7);
+  }
+  .note-lock {
+    border-left-color: rgb(245 158 11 / 0.7);
+    color: rgb(252 211 77 / 0.9);
+  }
+
+  /* ETIQUETA: un dato corto en mono, sin borde ni fondo ("PREMIUM",
+     "MANGUITO ROTADOR", "C5-C6"). Las separa un punto medio, no una pastilla. */
+  .tag {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--c-fg3));
+  }
+
+  /* MEDIDOR: una barra de 2 px. El valor va en --v (0..100) y el color es el
+     `color` del elemento, para que herede el del papel del musculo. */
+  .meter {
+    position: relative;
+    height: 2px;
+    background: rgb(var(--c-line));
+  }
+  .meter::after {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: calc(var(--v, 0) * 1%);
+    background: currentColor;
+  }
+
+  /* CAMPO: una linea para escribir, sin caja. */
+  .field {
+    width: 100%;
+    height: 2rem;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid rgb(var(--c-line));
+    border-radius: 0;
+    font-size: 0.8125rem;
+    color: rgb(var(--c-fg));
+    transition: border-color 140ms ease;
+  }
+  .field::placeholder {
+    color: rgb(var(--c-fg3));
+  }
+  .field:focus {
+    outline: none;
+    border-bottom-color: rgb(var(--c-brand));
+  }
+
+  /* ANOTACION DE LAMINA: texto suelto sobre el escenario, como el pie de una
+     plancha ("HOMBRO · PLANO FRONTAL · DERECHO"). Nunca lleva fondo. */
+  .stage-note {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgb(var(--c-fg3));
+    text-shadow: 0 1px 6px rgb(var(--c-page) / 0.9);
+  }
+
+  /* BARRA DEL ESCENARIO: las acciones de vista (reencuadrar, vistas, modo
+     paciente) en una fila al pie del escenario. Sin pastilla: un velo que sube
+     desde el borde inferior para que el texto se lea sobre el modelo. */
+  .stage-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 1.5rem 0.75rem 0.5rem;
+    background: linear-gradient(to top, rgb(var(--c-page) / 0.85), rgb(var(--c-page) / 0));
+    pointer-events: none;
+  }
+  .stage-bar > * {
+    pointer-events: auto;
   }
 
   /* Machined range slider: thin recessed track, cyan fill to the thumb, and a
@@ -388,7 +727,7 @@
     min-width: 1.25rem;
     height: 1.25rem;
     padding: 0 0.35rem;
-    font-family: '"IBM Plex Mono"', monospace;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
     font-size: 0.6875rem;
     line-height: 1;
     color: rgba(226, 232, 240, 0.75);

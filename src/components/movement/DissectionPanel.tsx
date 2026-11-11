@@ -59,7 +59,13 @@ function entryCaption(e: HiddenEntry): string {
   return e.scope === 'both' ? e.label : `${e.label}, ${SCOPE_LABEL[e.scope]}`;
 }
 
-export function DissectionPanel() {
+/**
+ * @param docked Acoplada al pie del margen derecho del laboratorio: sin
+ * superficie propia, a todo el ancho del margen y con un filo encima. Es como
+ * se usa en escritorio (ver MovementView). Sin la bandera sigue siendo la
+ * tarjeta flotante de la vista compacta, donde no hay margen donde acoplarla.
+ */
+export function DissectionPanel({ docked = false }: { docked?: boolean } = {}) {
   const [state, setState] = useState<DissectState>(() => dissectChannel.get());
   useEffect(() => dissectChannel.subscribe(setState), []);
 
@@ -111,7 +117,13 @@ export function DissectionPanel() {
     // `max-w-full` para que el contenedor pueda estrecharla cuando el hueco
     // entre la consola y la hoja abierta es menor que sus 30rem. Ver la nota de
     // MovementView: sin esto la tarjeta se salia del hueco y tapaba la hoja.
-    <div className="instrument pointer-events-auto w-[min(94vw,30rem)] max-w-full overflow-hidden animate-slide-up">
+    <div
+      className={
+        docked
+          ? 'pointer-events-auto w-full shrink-0 overflow-hidden border-t border-line/75'
+          : 'instrument pointer-events-auto w-[min(94vw,30rem)] max-w-full overflow-hidden animate-slide-up'
+      }
+    >
       {selection && (
         <>
           {/* Identity: kicker + plane on one line, the name below it. */}
