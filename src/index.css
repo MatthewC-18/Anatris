@@ -574,6 +574,34 @@
     border-bottom-color: rgb(var(--c-brand));
   }
 
+  /* EL VIDEO DE CARGA (src/components/LoaderVideo.tsx). Recorta a su caja y se
+     funde con el fondo por una mascara radial: el clip es negro alrededor del
+     cuerpo y la pagina casi negra, asi que sin borde no hay rectangulo. */
+  .loader-video {
+    display: block;
+    object-fit: cover;
+    pointer-events: none;
+    user-select: none;
+    -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 58%, transparent 100%);
+    mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 58%, transparent 100%);
+  }
+
+  /* LA ESPERA DEL ESCENARIO: el video de carga con su rotulo debajo (App.tsx,
+     Explorar). Sin caja: el escenario entero es la lamina. */
+  .stage-wait {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+  .stage-wait .loader-video {
+    width: min(92%, 46rem);
+    aspect-ratio: 16 / 9;
+    max-height: 62%;
+  }
+
   /* ANOTACION DE LAMINA: texto suelto sobre el escenario, como el pie de una
      plancha ("HOMBRO · PLANO FRONTAL · DERECHO"). Nunca lleva fondo. */
   .stage-note {

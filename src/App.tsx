@@ -77,6 +77,7 @@ const Viewer3D = lazy(() =>
   import('./components/Viewer3D').then((m) => ({ default: m.Viewer3D })),
 );
 import { ViewToolbar } from './components/ViewToolbar';
+import { LoaderVideo } from './components/LoaderVideo';
 const SelectionPanel = lazy(() =>
   import('./components/SelectionPanel').then((m) => ({ default: m.SelectionPanel })),
 );
@@ -1044,9 +1045,13 @@ function InfoIcon() {
  * rotulo, titulo y una nota con la regla a la izquierda, y SIEMPRE traen una
  * salida.
  * ------------------------------------------------------------------------ */
+// Y CON EL VIDEO DE CARGA, el mismo que el laboratorio y Explorar
+// (src/components/LoaderVideo.tsx): una espera es una espera en toda la
+// aplicacion, y el rotulo dice cual es.
 function StageWait({ children }: { children: React.ReactNode }) {
   return (
-    <div className="viewer-bg flex h-full items-center justify-center">
+    <div className="viewer-bg stage-wait h-full">
+      <LoaderVideo />
       <p role="status" className="stage-note text-fg2">
         {children}
       </p>
