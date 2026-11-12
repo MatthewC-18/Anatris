@@ -21,7 +21,7 @@
 // Son anotaciones de lamina (`pointer-events: none`): el modelo se sigue
 // pudiendo girar por debajo.
 
-import { useLabLive, type LabLive } from './useLabLive';
+import { useLabDemo, useLabLive, type LabDemo, type LabLive } from './useLabLive';
 import { useNeuroSkin } from './neuroSkinChannel';
 import { useActiveDemo } from './demoChannel';
 import { NEURO_BY_REGION } from '../../data/neuro';
@@ -111,20 +111,34 @@ function NeuroStageReadout({ figure, compact }: { figure: PlateFigure; compact: 
                 >
                   {r.label}
                 </span>
-                <span className="font-display text-[15px] font-semibold text-fg">{r.dermatome.area}</span>
+                <span
+                  className={`font-display font-semibold text-fg ${
+                    compact ? 'text-[13px] leading-snug' : 'text-[15px]'
+                  }`}
+                >
+                  {r.dermatome.area}
+                </span>
               </p>
+              {/* EN EL MOVIL, SOLO LA RAIZ Y SU TERRITORIO. A 375 px el punto
+                  clave, el miotoma y el reflejo caian encima de la cara del
+                  modelo (visto en el navegador), y los tres ya estan en la fila
+                  de la raiz, en la hoja de abajo. */}
+              {!compact && (
               <dl className="mt-1.5 grid max-w-[24rem] grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[12px] leading-snug">
                 <dt className="kicker self-center">Punto clave</dt>
                 <dd className="text-fg2">{r.dermatome.keyPointShort ?? r.dermatome.keyPoint}</dd>
                 <dt className="kicker self-center">Miotoma</dt>
                 <dd className="text-fg2">{r.myotome.action}</dd>
-                {r.reflex && (
-                  <>
-                    <dt className="kicker self-center">Reflejo</dt>
-                    <dd className="text-fg2">{r.reflex.name}</dd>
-                  </>
-                )}
+                {/* LA FALTA DE REFLEJO TAMBIEN ES UN DATO. C8, T1 y L5 no tienen
+                    reflejo propio en la exploracion de rutina, y esa ausencia es
+                    lo que se apunta (la comparacion de NeuroPanel lo dice igual).
+                    Omitir la fila hacia que pareciera un dato que faltaba. */}
+                <dt className="kicker self-center">Reflejo</dt>
+                <dd className={r.reflex ? 'text-fg2' : 'text-fg3'}>
+                  {r.reflex ? r.reflex.name : 'Sin reflejo propio'}
+                </dd>
               </dl>
+              )}
             </div>
           ))}
         </div>
@@ -133,11 +147,50 @@ function NeuroStageReadout({ figure, compact }: { figure: PlateFigure; compact: 
   );
 }
 
+/**
+ * LA LECTURA DE UN DEMO CUYO GESTO NO ESTA CARGADO (ver `useLabDemo`): el
+ * nombre de la maniobra, el lado, el angulo en grande y lo que evalua. Sin arco
+ * no hay fase ni regla, pero el rig se esta moviendo y lo que se mueve se dice.
+ */
+function DemoStageReadout({ live, compact }: { live: LabDemo; compact: boolean }) {
+  const { demo, angle, side } = live;
+  return (
+    <div
+      className={`stage-veil-top pointer-events-none absolute left-0 top-0 z-10 ${
+        compact ? 'pb-10 pl-3 pr-16 pt-2.5' : 'pb-14 pl-5 pr-24 pt-4'
+      }`}
+    >
+      <p className="stage-note">
+        <span className="text-fg2">{demo.label}</span>
+        <span>{` · ${SIDE_LABEL[side]}`}</span>
+      </p>
+      <div className={`flex items-end gap-3 ${compact ? 'mt-1' : 'mt-2'}`}>
+        <p className="flex items-start" aria-label={`${Math.round(angle)} grados`}>
+          <span className={`readout stage-angle ${compact ? 'text-[2.25rem]' : 'text-[3.5rem]'}`}>
+            {grados(angle)}
+          </span>
+          <span className={`readout text-fg3 ${compact ? 'text-lg' : 'mt-1 text-2xl'}`}>°</span>
+        </p>
+        {demo.structure && (
+          <p
+            className={`max-w-[18rem] font-display font-semibold leading-snug text-fg ${
+              compact ? 'pb-0.5 text-[13px]' : 'pb-1.5 text-[15px]'
+            }`}
+          >
+            {demo.structure}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function StageReadout({ compact = false }: { compact?: boolean }) {
   const neuro = useNeuroChart();
   const live = useLabLive();
+  const demoOnly = useLabDemo();
   if (neuro) return <NeuroStageReadout figure={neuro} compact={compact} />;
-  if (!live) return null;
+  if (!live) return demoOnly ? <DemoStageReadout live={demoOnly} compact={compact} /> : null;
   const { movement, at, angle, gestureName, isSpine, side, demo } = live;
 
   // Durante un demo lo que se ensena tiene nombre propio (la prueba, el

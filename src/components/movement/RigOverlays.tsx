@@ -30,7 +30,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF, type CameraControls } from '@react-three/drei';
 import * as THREE from 'three';
 
-import { rigChannel, type RigCommand } from './RigModel';
+import { layerChannel, rigChannel, type RigCommand } from './RigModel';
 import { buildMuscleResolution, type MuscleResolution } from '../../lib/muscleResolver';
 import { baseMaterialOf, cloneOverlayMaterial } from '../../lib/rigMaterialStack';
 import { parseMeshName, type ParsedSide } from '../../lib/parseMeshName';
@@ -686,12 +686,22 @@ export function RigOverlays(): JSX.Element {
         }
       }
       // Devolver las que ya no hacen falta a como estaban.
+      let devueltas = 0;
       for (const [mesh, was] of forced) {
         if (wantedStructureMeshes.has(mesh)) continue;
         delete mesh.userData.demoStructure;
         mesh.visible = was;
         forced.delete(mesh);
+        devueltas++;
       }
+      // "COMO ESTABAN" PUEDE HABER CAMBIADO. `was` es la visibilidad de cuando
+      // empezo el demo; si mientras corria se encendio su capa (la bolsa
+      // subacromial en Neer, con "Bolsas serosas"), al parar se apagaba justo la
+      // del lado del demo con la capa encendida (hallado en la revision de la
+      // tanda 2a). Quien sabe la visibilidad de AHORA es RigModel, por capa y por
+      // diseccion: un aviso sin cambios a `layerChannel` le hace volver a
+      // aplicarla, ya sin la marca del demo.
+      if (devueltas > 0) layerChannel.set({});
 
       const implicatedIds = resolution ? cmd.implicated ?? [] : [];
       for (const id of implicatedIds) {
@@ -836,11 +846,14 @@ export function RigOverlays(): JSX.Element {
       markerRef.current = null;
       disposeGroup(resistanceRef.current);
       resistanceRef.current = null;
+      const habia = forcedVisibleRef.current.size;
       for (const [mesh, was] of forcedVisibleRef.current) {
         delete mesh.userData.demoStructure;
         mesh.visible = was;
       }
       forcedVisibleRef.current.clear();
+      // Lo mismo al desmontar: la visibilidad buena es la de las capas de ahora.
+      if (habia > 0) layerChannel.set({});
     };
     // resolution/meshByName are read from refs (populated post-load), so they are
     // intentionally not deps; the retry effect rebroadcasts once they are ready.

@@ -29,12 +29,19 @@
 //    never allowed to carry data. That is the whole palette; the loose #ffb877
 //    and the rose stop-button are gone.
 //
-// 2. FOUR TYPE SIZES: 14px for a test name, 13px for prose, 11px for metadata
-//    and every number (mono, tabular). Nothing smaller ships -- an 8px legend on
-//    a clinical figure is decoration pretending to be information.
+// 2. FOUR TYPE SIZES: 18px for the figure that answers (the post-test, the
+//    pre-test), 14px for a test name, 13px for prose, 11px for metadata and
+//    every small number (mono, tabular). Nothing smaller ships -- an 8px legend
+//    on a clinical figure is decoration pretending to be information. Por eso
+//    las piezas de LAMINA que vienen a 10 px (`.kicker`, `.tag`) se usan aqui
+//    con `text-[11px]`: la voz es la del sistema y el suelo es el del panel.
 //
-// 3. NO BOX INSIDE A BOX. The panel is one instrument surface. Everything within
-//    is separated by hairlines and space. No nested rounded cards, no gradients.
+// 3. NO HAY CAJAS (sistema LAMINA, docs/sistema-lamina.md). El panel ya no es
+//    una superficie flotante: vive en la pestana "Tests" del margen derecho, sin
+//    fondo propio. Una seccion empieza con rotulo + filo; un aviso es una regla
+//    a la izquierda (`.note`); una cifra se destaca por tamano (`.readout`); una
+//    barra es un `.meter` de 2 px; un interruptor es texto que se enciende en el
+//    color de estado (`btn-quiet` + `aria-pressed`), no una pastilla con borde.
 //
 // 4. SAY IT ONCE. Utility used to be encoded three times per row (edge bar,
 //    dot, word). The edge bar and the word remain; the dot is gone.
@@ -43,11 +50,15 @@
 //    COLLAPSED row. It used to be a small button buried under the metrics of an
 //    expanded card, which is the last place a new user looks.
 //
-// LAYOUT: a full-height right-side sheet (fills its column, so little scrolling).
+// LAYOUT: en `bare` (como se monta hoy, en el margen derecho de escritorio y en
+// la hoja movil) el panel no tiene scroll propio: lo hace la pestana que lo
+// contiene, y lo que tiene que verse mientras se recorre la lista (el resultado
+// del conjunto) va pegado al pie con `sticky`. El margen mide 19rem (304 px)
+// entre 1024 y 1279 px de ventana: todo lo de aqui se ha cuadrado a ese ancho.
 // Data: src/data/orthopedicTests. Type: OrthopedicTest. UI Spanish LATAM; code
 // ASCII.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { testsForRegion } from '../../data/orthopedicTests';
 import {
   clusterLrPositive,
@@ -107,8 +118,8 @@ const UTILITY: Record<
   },
   weak: {
     word: 'En conjunto',
-    text: 'text-slate-400',
-    bar: 'border-slate-600/70',
+    text: 'text-fg2',
+    bar: 'border-fg3/70',
     tip: 'Poca precisión aislado: úsalo dentro de un grupo de tests.',
   },
 };
@@ -234,12 +245,25 @@ export function utilityBacked(test: OrthopedicTest): boolean {
   }
 }
 
-/** Lo que se lee al pasar por encima de una etiqueta sin cifra que la respalde. */
-function unbackedTip(test: OrthopedicTest): string {
-  return (
-    'Uso propuesto por la fuente; sin sensibilidad ni especificidad publicadas que lo respalden. ' +
-    (test.utilityBasis ?? '')
-  ).trim();
+/**
+ * Lo que se lee al pasar por encima de una etiqueta sin cifra que la respalde.
+ *
+ * DICE QUE CIFRA FALTA, NO "NINGUNA". Decia siempre "sin sensibilidad ni
+ * especificidad publicadas", y de las 13 pruebas del catalogo cuya etiqueta no
+ * tiene respaldo, dos SI publican una de las dos: elbow/tinel-cubital
+ * (sensibilidad 70) y hip/hip-faber (sensibilidad 82), las dos "Equilibrado",
+ * que es la etiqueta que necesita las dos cifras. El titulo negaba un dato que
+ * la misma fila ensenaba al lado ("Se 82").
+ */
+export function unbackedTip(test: OrthopedicTest): string {
+  const { sensitivity: se, specificity: es } = test.metrics;
+  const falta =
+    se == null && es == null
+      ? 'sin sensibilidad ni especificidad publicadas que lo respalden'
+      : se == null
+        ? 'sin la sensibilidad publicada que lo respaldaría'
+        : 'sin la especificidad publicada que lo respaldaría';
+  return `Uso propuesto por la fuente; ${falta}. ${test.utilityBasis ?? ''}`.trim();
 }
 
 /**
@@ -254,17 +278,62 @@ function isPredictable(test: OrthopedicTest): boolean {
   return test.metrics.sensitivity != null || test.metrics.specificity != null;
 }
 
+/** Sin tildes y en minusculas (la misma normalizacion que `fold` de movementFunctions). */
+function foldText(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+/**
+ * ¿ENCUENTRA EL BUSCADOR ESTA PRUEBA? Por nombre, alias, estructura o grupo, y
+ * CON O SIN TILDE.
+ *
+ * Comparaba en minusculas pero con las tildes puestas, asi que quien escribe
+ * como se escribe en un buscador ("aprehension", "valgo de codo", "cubital")
+ * no encontraba "Prueba de aprehensión" ni "Neuropatía del cubital": la lista
+ * quedaba vacia con la prueba delante. MEDIDO sobre el catalogo entero (las 80
+ * pruebas de los ocho ficheros de src/data/orthopedicTests): 66 llevan alguna
+ * tilde en el nombre, el alias, la estructura o el grupo, y 41 en el propio
+ * nombre. Lo vigila src/components/movement/__tests__/testSearch.test.ts.
+ */
+export function testMatchesQuery(t: OrthopedicTest, query: string): boolean {
+  const q = foldText(query.trim());
+  if (!q) return true;
+  return [t.name, t.target, t.category, ...(t.aka ?? [])].some((s) => foldText(s).includes(q));
+}
+
 // ---------------------------------------------------------------------------
 // Small presentational pieces.
 // ---------------------------------------------------------------------------
 
-/** A micro caption. One component, so the size and colour cannot drift. */
-function Kicker({ children }: { children: React.ReactNode }) {
+/**
+ * A micro caption: el rotulo de LAMINA (`.kicker`, mono y versalitas) subido a
+ * 11 px por la regla 2 del panel. Un solo componente, para que el tamano y el
+ * color no se separen.
+ */
+function Kicker({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <span className={`kicker text-[11px] ${className}`}>{children}</span>;
+}
+
+/**
+ * Rotulo + filo: empieza un bloque dentro de la ficha abierta (la post-test,
+ * el examen). Es la `.sec-head` del sistema sin su margen inferior, porque
+ * dentro de una fila el aire lo pone la fila. Lo que va a la derecha (un
+ * veredicto) se pone DESPUES del filo.
+ */
+function SubHead({ label, children }: { label: string; children?: React.ReactNode }) {
   return (
-    <span className="text-[11px] uppercase tracking-[0.08em] text-slate-500">
+    <div className="flex items-center gap-2.5">
+      <Kicker>{label}</Kicker>
+      <span className="sec-rule" />
       {children}
-    </span>
+    </div>
   );
+}
+
+/** El valor de un `.meter` (0..100) va en la variable `--v`. */
+function meterStyle(value: number | null | undefined): React.CSSProperties {
+  const v = value != null && isFinite(value) ? Math.min(100, Math.max(0, value)) : 0;
+  return { '--v': v } as React.CSSProperties;
 }
 
 /** One slim labelled 0..100 metric bar (sensibilidad / especificidad). */
@@ -275,18 +344,14 @@ function MetricBar({
 }: {
   label: string;
   value: number | undefined;
+  /** Clase de COLOR DE TEXTO: el `.meter` pinta su relleno con `currentColor`. */
   color: string;
 }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="w-[5.5rem] shrink-0 text-[11px] text-slate-400">{label}</span>
-      <span className="relative h-1 flex-1 overflow-hidden rounded-full bg-slate-800">
-        <span
-          className={`absolute inset-y-0 left-0 rounded-full ${color}`}
-          style={{ width: `${value ?? 0}%` }}
-        />
-      </span>
-      <span className="w-10 shrink-0 text-right font-mono text-[11px] tabular-nums text-slate-300">
+      <span className="w-[5.5rem] shrink-0 text-[11px] text-fg2">{label}</span>
+      <span className={`meter flex-1 ${color}`} style={meterStyle(value)} aria-hidden="true" />
+      <span className="num w-10 shrink-0 text-right text-[11px] text-fg">
         {value != null ? `${value}%` : 's/d'}
       </span>
     </div>
@@ -298,7 +363,7 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
   return (
     <div>
       <Kicker>{label}</Kicker>
-      <p className="mt-0.5 text-[13px] leading-relaxed text-slate-300">{children}</p>
+      <p className="mt-1 text-[13px] leading-relaxed text-fg2">{children}</p>
     </div>
   );
 }
@@ -345,8 +410,8 @@ function FaganBlock({
   const sensIsPerfect = lrNeg === 0;
   const especIsZero = lrNeg == null && metrics.specificity === 0 && metrics.sensitivity != null;
   return (
-    <div className="border-t border-slate-800/70 pt-2.5">
-      <Kicker>Probabilidad post-test</Kicker>
+    <div className="pt-1">
+      <SubHead label="Probabilidad post-test" />
       {/* EL AVISO VA AQUI, no solo abajo junto a la cita.
           Este bloque es el que mas autoridad aparenta de todo el panel: coge
           una probabilidad previa y devuelve una posterior con un decimal. Si la
@@ -356,11 +421,13 @@ function FaganBlock({
           decirlo donde ya no cambia nada. Una linea, sin alarmismo: el dato
           sigue siendo util, pero el usuario sabe de que pie cojea. */}
       {unverified && (
-        <p className="mt-1 text-[11px] leading-snug text-amber-500/90">
+        <p className="mt-1.5 text-[11px] leading-snug text-amber-500/90">
           Calculado con cifras aún no comprobadas contra la fuente primaria.
         </p>
       )}
-      <div className="mt-2 grid grid-cols-2 gap-4">
+      {/* Dos columnas partidas por un filo vertical, no dos fichas: la receta
+          de "una ficha de estadistica -> cifra y rotulo" de LAMINA. */}
+      <div className="mt-2 grid grid-cols-2 divide-x divide-line/75">
         <FaganResult
           title="Si sale positivo"
           pretest={pretest}
@@ -379,7 +446,7 @@ function FaganBlock({
       {/* LA ESPECIFICIDAD DEL 100% NO ES CERTEZA. Aqui la cifra no se puede
           calcular, asi que se explica por que en vez de imprimir un 100%. */}
       {postPos == null && lrPos != null && (
-        <p className="mt-2 text-[11px] leading-snug text-slate-400">
+        <p className="mt-2 text-[11px] leading-snug text-fg2">
           Con especificidad del 100% la razón de verosimilitud es infinita y la
           probabilidad post-test no se puede calcular: el estudio no tuvo ni un
           falso positivo, pero en una muestra finita eso no significa certeza.
@@ -387,11 +454,11 @@ function FaganBlock({
             <>
               {' '}
               Con el extremo bajo del intervalo publicado, un positivo lleva{' '}
-              <span className="font-mono tabular-nums text-slate-300">
+              <span className="num text-fg">
                 {Math.round(pretest)}%
               </span>{' '}
               a{' '}
-              <span className="font-mono tabular-nums text-emerald-300">
+              <span className="num text-emerald-300">
                 {Math.round(conservative)}%
               </span>
               .
@@ -404,7 +471,7 @@ function FaganBlock({
           imprimia "30% -> 0%" y "LR- 0.00", o sea un negativo que descarta la
           lesion con certeza absoluta. Ver postProb. */}
       {sensIsPerfect && (
-        <p className="mt-2 text-[11px] leading-snug text-slate-400">
+        <p className="mt-2 text-[11px] leading-snug text-fg2">
           Con sensibilidad del 100% la razón de verosimilitud negativa sale 0 y la
           probabilidad post-test de un negativo no se puede calcular: en esa muestra
           no hubo ni un falso negativo, pero una muestra sin falsos negativos no es
@@ -418,21 +485,21 @@ function FaganBlock({
           serie TODOS los sujetos con ecografia negativa dieron positivo. El
           panel imprimia "s/d" en la mitad negativa y no decia por que. */}
       {especIsZero && (
-        <p className="mt-2 text-[11px] leading-snug text-slate-400">
+        <p className="mt-2 text-[11px] leading-snug text-fg2">
           Con especificidad del 0% ninguna de las dos mitades se sostiene. En esa
           serie todos los sujetos sanos dieron positivo, así que la razón de
           verosimilitud negativa se iría a infinito (un negativo sólo aparecía en
           enfermos), y eso es un artefacto de los pocos negativos de la muestra, no
           un hallazgo: por eso no se cifra. Y por lo mismo un positivo{' '}
-          <span className="text-slate-300">no sube la sospecha</span>: la prueba no
+          <span className="text-fg">no sube la sospecha</span>: la prueba no
           separa a quien tiene la lesión de quien no.
         </p>
       )}
       {/* Y si la LR+ baja de 1 por cualquier otra combinacion, se dice igual. */}
       {posLowersSuspicion && !especIsZero && (
-        <p className="mt-2 text-[11px] leading-snug text-slate-400">
+        <p className="mt-2 text-[11px] leading-snug text-fg2">
           La razón de verosimilitud positiva es menor que 1, así que un positivo{' '}
-          <span className="text-slate-300">no sube la sospecha</span>: la deja por
+          <span className="text-fg">no sube la sospecha</span>: la deja por
           debajo de tu probabilidad pre-test. El valor de esta prueba está en el
           negativo.
         </p>
@@ -464,23 +531,24 @@ function FaganResult({
       ? 'text-emerald-300'
       : tone === 'sky'
         ? 'text-sky-300'
-        : 'text-slate-300';
+        : 'text-fg2';
+  // El `.meter` pinta su relleno con el color del texto del elemento.
   const bar =
-    tone === 'emerald' ? 'bg-emerald-400' : tone === 'sky' ? 'bg-sky-400' : 'bg-slate-500';
+    tone === 'emerald' ? 'text-emerald-400' : tone === 'sky' ? 'text-sky-400' : 'text-fg3';
   return (
-    <div>
-      <span className="block text-[11px] text-slate-400">{title}</span>
-      <span className="mt-1 flex items-baseline gap-1.5 font-mono tabular-nums">
-        <span className="text-[11px] text-slate-500">{Math.round(pretest)}%</span>
-        <span className="text-[11px] text-slate-600">→</span>
-        <span className={`text-lg font-semibold leading-none ${text}`}>
+    // Media columna de una fila partida por un filo: aire a cada lado del filo
+    // y nada en el borde exterior.
+    <div className="min-w-0 px-3 first:pl-0 last:pr-0">
+      <span className="block text-[11px] text-fg2">{title}</span>
+      <span className="mt-1 flex items-baseline gap-1.5">
+        <span className="num text-[11px] text-fg3">{Math.round(pretest)}%</span>
+        <span className="num text-[11px] text-fg3">→</span>
+        <span className={`readout text-lg ${text}`}>
           {value != null ? `${Math.round(value)}%` : 's/d'}
         </span>
       </span>
-      <span className="mt-1.5 flex h-1 w-full overflow-hidden rounded-full bg-slate-800">
-        <span className={`h-full rounded-full ${bar}`} style={{ width: `${value ?? 0}%` }} />
-      </span>
-      <span className="mt-1 block font-mono text-[11px] text-slate-500">{lr}</span>
+      <span className={`meter mt-1.5 block ${bar}`} style={meterStyle(value)} aria-hidden="true" />
+      <span className="num mt-1 block text-[11px] text-fg3">{lr}</span>
     </div>
   );
 }
@@ -499,23 +567,28 @@ function LevelChoice({
   picked: Level | null;
   onPick: (l: Level) => void;
 }) {
+  const labelId = useId();
+  // ELEGIR UNA DE DOS ES UNA OPCION (`.opt`), NO DOS PASTILLAS. Y se dice con
+  // `role="radio"`: la eleccion solo se distinguia por el color del borde, asi
+  // que un lector de pantalla oia dos botones iguales y nunca cual estaba
+  // marcado.
   const btn = (l: Level, text: string) => (
     <button
       type="button"
+      role="radio"
+      aria-checked={picked === l}
       onClick={() => onPick(l)}
-      className={`flex-1 rounded border px-2 py-1 text-[11px] font-medium transition-colors ${
-        picked === l
-          ? 'border-accent/50 bg-accent/10 text-accent'
-          : 'border-slate-700 text-slate-400 hover:text-slate-200'
-      }`}
+      className="opt w-auto flex-1 text-[13px]"
     >
       {text}
     </button>
   );
   return (
     <div className="flex items-center gap-2.5">
-      <span className="w-[5.5rem] shrink-0 text-[11px] text-slate-400">{label}</span>
-      <div className="flex flex-1 gap-1.5">
+      <span id={labelId} className="w-[5.5rem] shrink-0 text-[11px] text-fg2">
+        {label}
+      </span>
+      <div role="radiogroup" aria-labelledby={labelId} className="flex flex-1 gap-3">
         {btn('alta', 'Alta')}
         {btn('baja', 'Baja')}
       </div>
@@ -561,8 +634,8 @@ function AxisResult({
   if (actual === undefined) {
     return (
       <div className="flex items-center justify-between text-[11px]">
-        <span className="text-slate-400">{label}</span>
-        <span className="text-slate-500">sin dato reportado</span>
+        <span className="text-fg2">{label}</span>
+        <span className="text-fg3">sin dato reportado</span>
       </div>
     );
   }
@@ -571,18 +644,18 @@ function AxisResult({
   return (
     <div>
       <div className="flex items-center justify-between text-[11px]">
-        <span className="text-slate-400">{label}</span>
+        <span className="text-fg2">{label}</span>
         <span className="flex items-center gap-1.5">
           <span className={ok ? 'text-emerald-300' : 'text-amber-300'}>
             {ok ? <CheckIcon size={12} /> : <CloseIcon size={12} />}
           </span>
-          <span className="font-mono tabular-nums text-slate-200">
+          <span className="num text-fg">
             {value}% ({actual})
           </span>
         </span>
       </div>
       {meaning && (
-        <p className="mt-0.5 text-[10px] leading-snug text-slate-500">{meaning}</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-fg3">{meaning}</p>
       )}
     </div>
   );
@@ -604,7 +677,7 @@ function ExamBlock({
   const hasSens = sensActual !== undefined;
   const hasEspec = especActual !== undefined;
   const u = UTILITY[test.utility];
-  const wordClass = utilityBacked(test) ? u.text : 'text-slate-400';
+  const wordClass = utilityBacked(test) ? u.text : 'text-fg2';
 
   // SIN CIFRA NO HAY PREGUNTA, y hasta ahora habia pregunta y premio.
   //
@@ -618,13 +691,13 @@ function ExamBlock({
   // que SI declaran, que es el uso y su motivo.
   if (!hasSens && !hasEspec) {
     return (
-      <div className="border-t border-slate-800/70 pt-2.5">
-        <Kicker>Aquí no hay perfil que predecir</Kicker>
-        <p className="mt-1 text-[13px] leading-relaxed text-slate-300">
+      <div className="pt-1">
+        <SubHead label="Aquí no hay perfil que predecir" />
+        <p className="mt-1.5 text-[13px] leading-relaxed text-fg2">
           Esta prueba no publica sensibilidad ni especificidad, así que no se puede
           acertar ni fallar su perfil. Lo que sí declara es cómo se usa, y por qué:
         </p>
-        <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+        <p className="mt-1.5 text-[11px] leading-relaxed text-fg2">
           <span className={wordClass}>Uso: {u.word}.</span>{' '}
           {test.utilityBasis ?? u.tip}
         </p>
@@ -650,17 +723,16 @@ function ExamBlock({
         ? 'Revisa el perfil'
         : 'Revisa ese eje';
     return (
-      <div className="border-t border-slate-800/70 pt-2.5">
-        <div className="flex items-center justify-between">
-          <Kicker>Tu predicción</Kicker>
+      <div className="pt-1">
+        <SubHead label="Tu predicción">
           <span
-            className={`text-[11px] font-medium ${
+            className={`shrink-0 text-[11px] font-medium ${
               bothOk ? 'text-emerald-300' : 'text-amber-300'
             }`}
           >
             {verdict}
           </span>
-        </div>
+        </SubHead>
         <div className="mt-1.5 space-y-1">
           <AxisResult
             label="Sensibilidad"
@@ -677,7 +749,7 @@ function ExamBlock({
             value={test.metrics.specificity}
           />
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+        <p className="mt-2 text-[11px] leading-relaxed text-fg2">
           <span className={wordClass}>Uso: {u.word}.</span>{' '}
           {utilityBacked(test) ? u.tip : unbackedTip(test)}
         </p>
@@ -688,9 +760,9 @@ function ExamBlock({
   const canReveal =
     (!hasSens || prediction.sens != null) && (!hasEspec || prediction.espec != null);
   return (
-    <div className="border-t border-slate-800/70 pt-2.5">
-      <Kicker>Predice antes de ver los números</Kicker>
-      <div className="mt-2 space-y-1.5">
+    <div className="pt-1">
+      <SubHead label="Predice antes de ver los números" />
+      <div className="mt-1.5 space-y-0.5">
         {hasSens ? (
           <LevelChoice
             label="Sensibilidad"
@@ -698,7 +770,7 @@ function ExamBlock({
             onPick={(l) => onPredict('sens', l)}
           />
         ) : (
-          <p className="text-[11px] text-slate-500">Esta prueba no reporta sensibilidad.</p>
+          <p className="py-1 text-[11px] text-fg3">Esta prueba no reporta sensibilidad.</p>
         )}
         {hasEspec ? (
           <LevelChoice
@@ -707,14 +779,17 @@ function ExamBlock({
             onPick={(l) => onPredict('espec', l)}
           />
         ) : (
-          <p className="text-[11px] text-slate-500">Esta prueba no reporta especificidad.</p>
+          <p className="py-1 text-[11px] text-fg3">Esta prueba no reporta especificidad.</p>
         )}
       </div>
       <button
         type="button"
         onClick={onReveal}
         disabled={!canReveal}
-        className="mt-2.5 w-full rounded border border-accent/40 px-2.5 py-1.5 text-[11px] font-medium text-accent transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:border-slate-800 disabled:text-slate-600 disabled:hover:bg-transparent"
+        // La accion que cierra la pregunta: un boton que se ve como boton
+        // (`btn-line`), no una pastilla de acento. Apagado hasta que estan
+        // contestados los ejes que la prueba publica.
+        className="btn btn-line btn-sm mt-2.5 text-[11px] w-full text-brand disabled:cursor-not-allowed"
       >
         Revelar
       </button>
@@ -744,30 +819,27 @@ function writeHelpSeen(): void {
 function HelpStep({ n, children }: { n: number; children: React.ReactNode }) {
   return (
     <li className="flex gap-2.5">
-      <span className="w-4 shrink-0 font-mono text-[11px] tabular-nums text-slate-600">
-        {n}
-      </span>
-      <span className="text-[13px] leading-relaxed text-slate-300">{children}</span>
+      <span className="num w-4 shrink-0 text-[11px] text-fg3">{n}</span>
+      <span className="text-[13px] leading-relaxed text-fg2">{children}</span>
     </li>
   );
 }
 
 function HelpCard({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <div className="border-b border-slate-800/70 px-4 py-3">
-      <div className="flex items-center justify-between gap-2">
+    // Una seccion del margen con su rotulo y su filo, no una tarjeta: la guia
+    // se lee en el mismo plano que la lista que explica.
+    <section className="sec">
+      <div className="sec-head">
         <Kicker>Cómo leer estos tests</Kicker>
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="text-[11px] text-slate-400 transition-colors hover:text-slate-100"
-        >
+        <span className="sec-rule" />
+        <button type="button" onClick={onDismiss} className="btn btn-quiet btn-sm text-[11px]">
           Entendido
         </button>
       </div>
-      <ol className="mt-2.5 space-y-2">
+      <ol className="space-y-2">
         <HelpStep n={1}>
-          Ajusta la <span className="text-slate-100">probabilidad pre-test</span>: que
+          Ajusta la <span className="text-fg">probabilidad pre-test</span>: que
           tan probable crees la lesión antes de explorar.
         </HelpStep>
         {/* Y LO QUE NO TRAE CIFRAS SE DICE AQUI TAMBIEN. De las 80 pruebas, 21
@@ -779,7 +851,7 @@ function HelpCard({ onDismiss }: { onDismiss: () => void }) {
           <span className="text-emerald-300">especificidad</span> cuando su fuente las
           publica. Un negativo descarta cuando la sensibilidad es alta; un positivo
           confirma cuando la especificidad lo es. Donde la fuente no da la cifra verás{' '}
-          <span className="font-mono text-slate-400">s/d</span>, y la palabra de uso en
+          <span className="num text-fg2">s/d</span>, y la palabra de uso en
           gris: es un uso propuesto, no un perfil medido.
         </HelpStep>
         <HelpStep n={3}>
@@ -787,7 +859,7 @@ function HelpCard({ onDismiss }: { onDismiss: () => void }) {
           abrirla verás también el caso negativo.
         </HelpStep>
         <HelpStep n={4}>
-          <span className="text-slate-100">Combinar</span> suma varias pruebas y calcula
+          <span className="text-fg">Combinar</span> suma varias pruebas y calcula
           la certeza si todas resultan positivas.
         </HelpStep>
         {/* LA PROMESA, AJUSTADA A LO QUE EL MODELO PUEDE HACER. Decia "resalta
@@ -797,20 +869,21 @@ function HelpCard({ onDismiss }: { onDismiss: () => void }) {
             sistema de capas de este modelo y cada prueba lo dice en su ficha en
             vez de dejar que el usuario crea que no se enciende por un fallo. */}
         <HelpStep n={5}>
-          <span className="text-accent">Demostrar</span> reproduce la maniobra sobre el
-          modelo 3D: la posición, la rotación y la resistencia que la definen. Resalta
-          además la estructura evaluada cuando el modelo la tiene (músculo, ligamento,
-          menisco, cápsula); cuando no —nervios y arterias no están en sus capas— la
-          ficha lo dice en lugar de encender algo parecido.
+          <span className="text-brand">Demostrar</span> (el botón de play de cada
+          fila) reproduce la maniobra sobre el modelo 3D: la posición, la rotación y la
+          resistencia que la definen. Resalta además la estructura evaluada cuando el
+          modelo la tiene (músculo, ligamento, menisco, cápsula, bolsa serosa); cuando
+          no (nervios y arterias no están en sus capas), la ficha lo dice en lugar de
+          encender algo parecido.
         </HelpStep>
         <HelpStep n={6}>
-          <span className="text-slate-100">Examen</span> oculta los números y te pide
+          <span className="text-fg">Examen</span> oculta los números y te pide
           predecir si cada prueba es sensible o específica antes de enseñártelos. Sirve
           para comprobar si sabrías <em>elegir</em> la prueba adecuada, no solo leerla.
           Las pruebas sin cifras publicadas no entran: ahí no hay perfil que acertar.
         </HelpStep>
       </ol>
-    </div>
+    </section>
   );
 }
 
@@ -877,20 +950,32 @@ function TestRow({
       // confirman y azul en las que descartan, que es exactamente lo que el modo
       // examen pide predecir: se veia el color antes de contestar, asi que la
       // pregunta no medía nada. Mientras la cifra esta oculta, el filo es gris.
+      // Sin fondo al abrirla ni al marcarla: la fila abierta se lee por su
+      // regla de color a la izquierda, que baja hasta el final de la ficha, y
+      // la marcada por su casilla. Un tinte alrededor de la ficha entera era
+      // un recuadro sin borde, que es lo que LAMINA quita. El velo al pasar si
+      // queda: es la respuesta de algo que se pulsa.
       className={`border-l-2 transition-colors ${
-        hideMetrics || !backed ? 'border-slate-700/70' : u.bar
-      } ${
-        selected ? 'bg-accent/[0.06]' : expanded ? 'bg-slate-800/20' : 'hover:bg-slate-800/20'
-      }`}
+        hideMetrics || !backed ? 'border-line' : u.bar
+      } ${expanded ? '' : 'hover:bg-fg/[0.03]'}`}
     >
-      <div className="flex items-center gap-2 py-2 pl-3 pr-2">
+      {/* LOS ICONOS VAN SOLO EN LA LINEA DEL NOMBRE. Antes las cuatro lineas
+          de la fila vivian en una columna que compartia ancho con guardar, play
+          y desplegar (26 + 32 + 21 px y tres huecos de 8), y a 19rem de margen
+          quedaban unos 145 px para el texto: el nombre se cortaba con puntos
+          suspensivos y la linea de cifras "30 → 44% si +  Se 72  Es 88" (unos
+          170 px en mono de 11 px, mas con "(no sube)") se salia por encima de
+          los botones. Cuentas hechas con las medidas de las clases, no en
+          pantalla. Ahora el nombre parte en dos lineas si hace falta y el
+          resto ocupa el ancho entero de la fila. */}
+      <div className="flex items-start gap-2 pl-3 pr-1 pt-2">
         {clusterMode && (
           <input
             type="checkbox"
             checked={selected}
             onChange={onToggleSelect}
             aria-label={`Añadir ${test.name} al conjunto`}
-            className="accent-accent"
+            className="mt-2 accent-brand"
           />
         )}
 
@@ -898,91 +983,15 @@ function TestRow({
           type="button"
           onClick={onToggle}
           aria-expanded={expanded}
-          className="flex min-w-0 flex-1 flex-col text-left"
+          className="min-w-0 flex-1 py-1 text-left"
         >
-          <span className="flex items-baseline justify-between gap-2">
-            <span className="truncate text-sm font-medium text-slate-100">{test.name}</span>
-            {/* LA INSIGNIA DE USO, EN GRIS CUANDO NINGUNA CIFRA LA RESPALDA.
-                "Confirma" con el titulo "Alta especificidad (SpPin): un
-                positivo confirma" se pintaba igual en una prueba con
-                especificidad del 99% que en cuatro que no publican ninguna
-                cifra. En gris, subrayada de puntos y con el motivo en el
-                titulo, la fila dice lo que es: un uso propuesto por la fuente,
-                no un perfil medido. Y las dos cifras de la misma fila ya lo
-                corroboran, porque salen como "Se s/d  Es s/d". */}
-            <span
-              className={`shrink-0 text-[11px] ${
-                hideMetrics
-                  ? 'text-slate-600'
-                  : backed
-                    ? u.text
-                    : 'cursor-help border-b border-dotted border-slate-600 text-slate-400'
-              }`}
-              title={
-                hideMetrics
-                  ? 'Predice el uso antes de revelar'
-                  : backed
-                    ? u.tip
-                    : unbackedTip(test)
-              }
-            >
-              {hideMetrics ? '?' : u.word}
-            </span>
+          <span
+            className={`text-sm leading-snug text-fg ${
+              selected ? 'font-semibold' : 'font-medium'
+            }`}
+          >
+            {test.name}
           </span>
-
-          {/* WHAT THE TEST IS FOR, on the closed row. The list used to show a
-              name, a structure and a pile of numbers, so you had to open a card
-              to find out what the maneuver even looks for -- and in exam mode you
-              were asked to judge it without that. `purpose` is one line and
-              exists for exactly this. */}
-          <span className="mt-1 block truncate text-[11px] text-slate-400">
-            {test.purpose}
-          </span>
-
-          <span className="mt-1 flex items-center gap-2 truncate text-[11px] text-slate-500">
-            <span className="truncate">{test.target}</span>
-            {test.demo?.examinerForce === 'resists' && (
-              <span className="shrink-0 text-amber-400/90">Resistido</span>
-            )}
-            {test.demo?.examinerForce === 'applies' && (
-              <span className="shrink-0 text-sky-400/90">Pasivo</span>
-            )}
-          </span>
-
-          {/* The pretest -> posttest transition, on every row. This is what turns
-              the list from a reference table into a decision aid: the slider at
-              the top visibly moves every test at once. */}
-          {!hideMetrics && (
-            <span className="mt-1 flex items-center gap-3 font-mono text-[11px] tabular-nums">
-              {postPos != null ? (
-                <span
-                  className="flex items-baseline gap-1"
-                  title={
-                    postPosRaises
-                      ? 'A dónde llega tu sospecha si la prueba sale positiva.'
-                      : 'Su razón de verosimilitud positiva es menor que 1: un positivo no sube la sospecha, la deja por debajo de la probabilidad pre-test.'
-                  }
-                >
-                  <span className="text-slate-600">{Math.round(pretest)}</span>
-                  <span className="text-slate-700">→</span>
-                  <span
-                    className={`font-semibold ${
-                      postPosRaises ? 'text-emerald-300' : 'text-slate-400'
-                    }`}
-                  >
-                    {Math.round(postPos)}%
-                  </span>
-                  <span className="ml-0.5 text-slate-600">
-                    {postPosRaises ? 'si +' : 'si + (no sube)'}
-                  </span>
-                </span>
-              ) : (
-                <span className="text-slate-600">sin LR</span>
-              )}
-              <span className="text-sky-300/80">Se {sens ?? 's/d'}</span>
-              <span className="text-emerald-300/80">Es {espec ?? 's/d'}</span>
-            </span>
-          )}
         </button>
 
         {/* Save to "Mi colección" — reachable without expanding, because the
@@ -1009,10 +1018,13 @@ function TestRow({
                   ? 'Colocar la posición en el modelo 3D (la fuerza del explorador se dibuja, no se simula)'
                   : 'Reproducir la maniobra en el modelo 3D'
             }
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors ${
-              demoing
-                ? 'border-accent bg-accent/20 text-accent'
-                : 'border-slate-700 text-slate-400 hover:border-accent/60 hover:text-accent'
+            // Un boton cuadrado de 4 px de radio, no un circulo con borde. En
+            // reposo se ve como boton (`btn-line`) porque es la funcion estrella
+            // y tiene que encontrarse sin abrir nada; mientras el demo corre se
+            // rellena (`btn-primary`): solo puede correr uno a la vez, asi que
+            // nunca hay dos rellenos en la lista.
+            className={`btn btn-icon shrink-0 ${
+              demoing ? 'btn-primary' : 'btn-line hover:text-brand'
             }`}
           >
             {demoing ? <StopIcon size={12} /> : <PlayIcon size={12} />}
@@ -1026,12 +1038,14 @@ function TestRow({
             esta sin terminar". Las razones son reales y medidas (el rig gira
             articulaciones y no traslada; los seis movimientos de cadera mueven
             un solo hueso; un reflejo o un pulso no son una postura), y van en
-            `noDemo`. Aqui ocupa el sitio del play, en gris y sin pulsar. */}
+            `noDemo`. Aqui ocupa el sitio del play, en gris y sin pulsar: "3D"
+            tachado, sin el circulo de trazos (que era una pastilla vacia) y a
+            11 px, el suelo del panel (antes iba a 9). */}
         {!test.demo && test.noDemo && (
           <span
             title={test.noDemo}
             aria-label={`Sin demostración en 3D: ${test.noDemo}`}
-            className="flex h-8 w-8 shrink-0 cursor-help items-center justify-center rounded-full border border-dashed border-slate-800 text-[9px] font-semibold tracking-wide text-slate-600"
+            className="num flex h-8 w-8 shrink-0 cursor-help items-center justify-center text-[11px] text-fg3/70 line-through"
           >
             3D
           </span>
@@ -1042,7 +1056,7 @@ function TestRow({
           onClick={onToggle}
           aria-expanded={expanded}
           aria-label={expanded ? `Cerrar ${test.name}` : `Abrir ${test.name}`}
-          className="shrink-0 p-1 text-slate-600 transition-colors hover:text-slate-300"
+          className="btn btn-quiet btn-sm btn-icon mt-[3px] shrink-0 text-fg3"
         >
           <ChevronDownIcon
             size={13}
@@ -1051,24 +1065,124 @@ function TestRow({
         </button>
       </div>
 
+      {/* EL RESTO DE LA FILA, A TODO EL ANCHO. Pulsarlo abre la ficha igual que
+          el nombre; el teclado y el lector de pantalla ya tienen el nombre y el
+          chevron (los dos con `aria-expanded`), asi que esto no es un tercer
+          boton sino un blanco mas grande para el raton y el dedo; el texto se
+          sigue leyendo en orden, debajo del nombre. */}
+      <div onClick={onToggle} className="cursor-pointer pb-2 pl-3 pr-2">
+        {/* WHAT THE TEST IS FOR, on the closed row. The list used to show a
+            name, a structure and a pile of numbers, so you had to open a card
+            to find out what the maneuver even looks for -- and in exam mode you
+            were asked to judge it without that. `purpose` is one line and
+            exists for exactly this; a 19rem le caben dos. Con la ficha abierta
+            se calla: "Objetivo" la repite entera justo debajo (regla 4: decirlo
+            una vez). */}
+        {!expanded && (
+          // Recorte a dos lineas con el estilo en linea, como en NeuroRootRow:
+          // alli se anoto que la utilidad `line-clamp` de Tailwind no tomaba.
+          <span
+            className="mt-0.5 block overflow-hidden text-[11px] leading-snug text-fg2"
+            style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}
+          >
+            {test.purpose}
+          </span>
+        )}
+
+        <span className="mt-1 flex items-center gap-2 text-[11px] text-fg3">
+          <span className="truncate">{test.target}</span>
+          {test.demo?.examinerForce === 'resists' && (
+            <span className="shrink-0 text-amber-400/90">Resistido</span>
+          )}
+          {test.demo?.examinerForce === 'applies' && (
+            <span className="shrink-0 text-sky-400/90">Pasivo</span>
+          )}
+        </span>
+
+        {/* LA INSIGNIA DE USO VA CON LAS CIFRAS QUE LA SOSTIENEN. Iba en la
+            linea del nombre, a la derecha, quitandole ancho; aqui abre la
+            linea de las cifras, que es lo que afirma ("Confirma" es alta
+            especificidad, "Descarta" alta sensibilidad), y la frase se lee de
+            un tiron: "Confirma · 30 → 72% si + · Se 64 · Es 95".
+            En gris, subrayada de puntos y con el motivo en el titulo cuando
+            ninguna cifra la respalda: "Confirma" con el titulo "Alta
+            especificidad (SpPin): un positivo confirma" se pintaba igual en
+            una prueba con especificidad del 99% que en cuatro que no publican
+            ninguna cifra. La fila dice lo que es: un uso propuesto por la
+            fuente, no un perfil medido. */}
+        <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[11px]">
+          <span
+            className={
+              hideMetrics
+                ? 'text-fg3'
+                : backed
+                  ? u.text
+                  : 'cursor-help border-b border-dotted border-fg3 text-fg2'
+            }
+            title={
+              hideMetrics
+                ? 'Predice el uso antes de revelar'
+                : backed
+                  ? u.tip
+                  : unbackedTip(test)
+            }
+          >
+            {hideMetrics ? 'Uso ?' : u.word}
+          </span>
+          {/* The pretest -> posttest transition, on every row. This is what
+              turns the list from a reference table into a decision aid: the
+              slider at the top visibly moves every test at once. */}
+          {!hideMetrics &&
+            (postPos != null ? (
+              <span
+                className="num flex items-baseline gap-1"
+                title={
+                  postPosRaises
+                    ? 'A dónde llega tu sospecha si la prueba sale positiva.'
+                    : 'Su razón de verosimilitud positiva es menor que 1: un positivo no sube la sospecha, la deja por debajo de la probabilidad pre-test.'
+                }
+              >
+                <span className="text-fg3">{Math.round(pretest)}</span>
+                <span className="text-fg3">→</span>
+                <span
+                  className={`font-semibold ${
+                    postPosRaises ? 'text-emerald-300' : 'text-fg2'
+                  }`}
+                >
+                  {Math.round(postPos)}%
+                </span>
+                <span className="ml-0.5 text-fg3">
+                  {postPosRaises ? 'si +' : 'si + (no sube)'}
+                </span>
+              </span>
+            ) : (
+              <span className="num text-fg3">sin LR</span>
+            ))}
+          {!hideMetrics && (
+            <>
+              <span className="num text-sky-300/80">Se {sens ?? 's/d'}</span>
+              <span className="num text-emerald-300/80">Es {espec ?? 's/d'}</span>
+            </>
+          )}
+        </span>
+      </div>
+
       {expanded && (
         <div className="space-y-3 pb-4 pl-3 pr-2 pt-1">
           {!hideMetrics && (
-            <div className="space-y-1.5">
-              <MetricBar label="Sensibilidad" value={sens} color="bg-sky-400" />
-              <MetricBar label="Especificidad" value={espec} color="bg-emerald-400" />
-              <p className="pl-[6.5rem] font-mono text-[11px] text-slate-500">
+            <div className="space-y-2">
+              <MetricBar label="Sensibilidad" value={sens} color="text-sky-400" />
+              <MetricBar label="Especificidad" value={espec} color="text-emerald-400" />
+              <p className="num pl-[6.125rem] text-[11px] text-fg3">
                 LR+ {lrLabel(lrPos)} · LR− {lrLabel(lrNeg, 2)}
-                {derived && <span className="ml-1.5 text-slate-600">aprox.</span>}
+                {derived && <span className="ml-1.5 text-fg3">aprox.</span>}
               </p>
             </div>
           )}
-          {hideMetrics && (
-            <p className="font-mono text-[11px] text-slate-600">Métricas ocultas</p>
-          )}
+          {hideMetrics && <p className="num text-[11px] text-fg3">Métricas ocultas</p>}
 
           {test.aka && test.aka.length > 0 && (
-            <p className="text-[11px] text-slate-500">También: {test.aka.join(', ')}</p>
+            <p className="text-[11px] text-fg3">También: {test.aka.join(', ')}</p>
           )}
           <Detail label="Objetivo">{test.purpose}</Detail>
           <Detail label="Maniobra">{test.maneuver}</Detail>
@@ -1095,11 +1209,11 @@ function TestRow({
           {test.demo?.examinerForce === 'resists' && (
             <div className="border-l-2 border-amber-400/60 pl-3">
               <Kicker>Prueba resistida</Kicker>
-              <ol className="mt-1 space-y-1 text-[13px] leading-relaxed text-slate-300">
+              <ol className="mt-1 space-y-1 text-[13px] leading-relaxed text-fg2">
                 <li>1. El paciente sostiene la posición y empuja.</li>
                 <li>2. Aplica resistencia en el segmento distal, oponiéndote al movimiento.</li>
               </ol>
-              <p className="mt-1 text-[11px] text-slate-500">
+              <p className="mt-1 text-[11px] text-fg3">
                 En Demostrar verás la mano del fisio resistiendo sobre el modelo.
               </p>
             </div>
@@ -1114,11 +1228,11 @@ function TestRow({
           {test.demo?.examinerForce === 'applies' && (
             <div className="border-l-2 border-sky-400/60 pl-3">
               <Kicker>Prueba pasiva</Kicker>
-              <ol className="mt-1 space-y-1 text-[13px] leading-relaxed text-slate-300">
+              <ol className="mt-1 space-y-1 text-[13px] leading-relaxed text-fg2">
                 <li>1. El paciente permanece relajado: no empuja.</li>
                 <li>2. La fuerza la aplicas tú sobre el segmento distal.</li>
               </ol>
-              <p className="mt-1 text-[11px] text-slate-500">
+              <p className="mt-1 text-[11px] text-fg3">
                 Una contracción del paciente enmascara el hallazgo. En Demostrar verás
                 dónde se apoya la mano del fisio.
               </p>
@@ -1144,7 +1258,7 @@ function TestRow({
           )}
 
           {test.demo?.note && (
-            <p className="text-[11px] text-slate-500">En el modelo: {test.demo.note}</p>
+            <p className="text-[11px] leading-snug text-fg3">En el modelo: {test.demo.note}</p>
           )}
           {/* LA PROMESA, Y SU LIMITE. La ayuda dice que Demostrar resalta la
               estructura evaluada, y durante anos 42 de los 64 demos no
@@ -1156,33 +1270,31 @@ function TestRow({
               play, es lo que evita que el alumno crea que vio una estructura
               que el modelo no tiene. */}
           {(test.demo?.highlightStructureIds ?? []).length > 0 && (
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] leading-snug text-fg3">
               Se resalta:{' '}
-              {(test.demo?.highlightStructureIds ?? [])
-                .map((id) => structureLabel(id))
-                .filter((l): l is string => l != null)
-                .join(' · ')}
+              <span className="text-fg2">
+                {(test.demo?.highlightStructureIds ?? [])
+                  .map((id) => structureLabel(id))
+                  .filter((l): l is string => l != null)
+                  .join(' · ')}
+              </span>
             </p>
           )}
+          {/* El limite del modelo es un aviso: regla ambar a la izquierda
+              (`.note-warn`), no texto ambar suelto. */}
           {test.demo?.cannotShow && (
-            <p className="text-[11px] leading-relaxed text-amber-200/70">
-              {test.demo.cannotShow}
-            </p>
+            <p className="note note-warn text-[11px]">{test.demo.cannotShow}</p>
           )}
           {!test.demo && test.noDemo && (
-            <p className="text-[11px] leading-relaxed text-amber-200/70">
-              Sin demostración en 3D: {test.noDemo}
-            </p>
+            <p className="note note-warn text-[11px]">Sin demostración en 3D: {test.noDemo}</p>
           )}
           {!hideMetrics && test.metrics.note && (
-            <p className="text-[11px] leading-relaxed text-slate-400">{test.metrics.note}</p>
+            <p className="text-[11px] leading-relaxed text-fg2">{test.metrics.note}</p>
           )}
           {/* La perla se guarda hasta revelar: varias dicen literalmente "muy
               especifico" o "poco sensible", que es la respuesta. */}
           {!hideMetrics && test.pearl && (
-            <p className="border-l-2 border-slate-700 pl-3 text-[13px] leading-relaxed text-slate-400">
-              {test.pearl}
-            </p>
+            <p className="note text-[13px] leading-relaxed">{test.pearl}</p>
           )}
           {/* LA FICHA DE LA FUENTE, no solo su nombre.
               Una sensibilidad del 94% no significa lo mismo medida sobre 24
@@ -1195,11 +1307,14 @@ function TestRow({
               (`standard`). Los tres campos son opcionales: una fuente que no
               los traiga se dibuja exactamente como antes. */}
           <div className="space-y-1.5 pt-0.5">
+            {test.cite.length > 0 && (
+              <SubHead label={test.cite.length > 1 ? 'Fuentes' : 'Fuente'} />
+            )}
             {test.cite.map((c) => {
               const ref = getReference(c.ref as ReferenceId);
               if (!ref) return null;
               return (
-                <div key={c.ref} className="text-[11px] leading-snug text-slate-500">
+                <div key={c.ref} className="text-[11px] leading-snug text-fg3">
                   <p>
                     {formatReference(ref)}
                     {!c.verified && (
@@ -1216,11 +1331,9 @@ function TestRow({
                       ocultas, imprimirlo era regalar la respuesta dos lineas
                       mas abajo de la pregunta. La cita --autor y ano-- se queda:
                       saber de donde sale el dato no lo adelanta. */}
-                  {!hideMetrics && c.locator && (
-                    <p className="text-slate-400">{c.locator}</p>
-                  )}
+                  {!hideMetrics && c.locator && <p className="text-fg2">{c.locator}</p>}
                   {(ref.sample || ref.standard) && (
-                    <p className="text-slate-600">
+                    <p className="text-fg3">
                       {ref.sample}
                       {ref.sample && ref.standard ? ' · ' : ''}
                       {ref.standard}
@@ -1380,19 +1493,10 @@ export function OrthopedicTestsPanel({
 
   // Name, alias and target all match, because a physio looking for "Neer" and a
   // student looking for "supraespinoso" are both looking for the same row.
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return tests.filter((t) => {
-      if (only3d && !t.demo) return false;
-      if (!q) return true;
-      return (
-        t.name.toLowerCase().includes(q) ||
-        t.target.toLowerCase().includes(q) ||
-        t.category.toLowerCase().includes(q) ||
-        (t.aka ?? []).some((a) => a.toLowerCase().includes(q))
-      );
-    });
-  }, [tests, query, only3d]);
+  const visible = useMemo(
+    () => tests.filter((t) => (!only3d || t.demo != null) && testMatchesQuery(t, query)),
+    [tests, query, only3d],
+  );
 
   const demoCount = useMemo(() => tests.filter((t) => t.demo).length, [tests]);
 
@@ -1410,25 +1514,37 @@ export function OrthopedicTestsPanel({
 
   // Combined post-test if every selected test is positive (product of LR+,
   // assuming conditional independence -- flagged in the UI).
-  const cluster = useMemo(() => {
+  const cluster = useMemo((): {
+    count: number;
+    /** null: ninguna de las marcadas trae razon de verosimilitud. */
+    lr: number | null;
+    post: number | null;
+    /** Las marcadas que NO entran en el producto, por nombre. */
+    skipped: string[];
+  } | null => {
     if (selected.size === 0) return null;
     let lr = 1;
     let known = 0;
+    const skipped: string[] = [];
     for (const id of selected) {
-      const m = byId.get(id)?.metrics;
-      if (!m) continue;
-      const l = lrPosNum(m);
-      if (l == null) continue;
+      const t = byId.get(id);
+      if (!t) continue;
+      const l = lrPosNum(t.metrics);
+      if (l == null) {
+        skipped.push(t.name);
+        continue;
+      }
       // Una LR+ infinita (especificidad 100% en una muestra finita) arrastraba
       // el producto a 1e6, es decir al 100%, con el mismo error que la ficha
       // individual. Si una de las pruebas elegidas la trae, el conjunto no se
       // puede cifrar y se dice.
-      if (!isFinite(l)) return { count: selected.size, lr: Infinity, post: null };
+      if (!isFinite(l)) return { count: selected.size, lr: Infinity, post: null, skipped: [] };
       lr *= l;
       known += 1;
     }
-    if (known === 0) return null;
-    return { count: selected.size, lr, post: postProb(pretest, lr) };
+    // Antes devolvia null y el bloque entero desaparecia (ver el render).
+    if (known === 0) return { count: selected.size, lr: null, post: null, skipped };
+    return { count: selected.size, lr, post: postProb(pretest, lr), skipped };
   }, [selected, byId, pretest]);
 
   // CUANDO EL CONJUNTO SE HA MEDIDO, se usa la cifra del estudio y no el
@@ -1569,13 +1685,26 @@ export function OrthopedicTestsPanel({
     // Tiene que ser `setFromConsole` y no `set`: `set` es un PARCHE y dejaria
     // puestos justo los campos que solo pone un demo; `setFromConsole` limpia
     // components/ghostSkin/resistance/demo/structures de una pieza.
+    //
+    // Y LOS MARCADORES VUELVEN. El demo empuja `showMarkers: false` y
+    // `setFromConsole` no lo toca (no es un campo de demo, ver DEMO_ONLY_RESET
+    // en RigModel): con la consola desmontada --la hoja movil, pestana Tests--
+    // parar el demo dejaba el modelo sin marcadores hasta volver a la pestana
+    // Movimiento. El panel Neuro ya los devolvia; este no. Con la consola
+    // montada da igual: ella vuelve a empujar su propio valor justo despues.
     const release = () => {
       demoChannel.stop(DEMO_NS + demoId);
       const pose = readPose(region);
       rigChannel.setFromConsole(
         pose
-          ? { movementId: pose.movementId, side: pose.side, angleDeg: pose.angleDeg, highlight: [] }
-          : { movementId: null, angleDeg: 0, highlight: [], implicated: [] },
+          ? {
+              movementId: pose.movementId,
+              side: pose.side,
+              angleDeg: pose.angleDeg,
+              highlight: [],
+              showMarkers: true,
+            }
+          : { movementId: null, angleDeg: 0, highlight: [], implicated: [], showMarkers: true },
       );
     };
 
@@ -1613,11 +1742,11 @@ export function OrthopedicTestsPanel({
       <button
         type="button"
         onClick={() => onOpenChange(true)}
-        className="instrument pointer-events-auto flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-slate-200 transition-colors hover:text-white"
+        className="instrument pointer-events-auto flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-fg2 transition-colors hover:text-fg"
       >
         <TestTubeIcon />
         Tests ortopédicos
-        <span className="font-mono text-[11px] tabular-nums text-slate-400">
+        <span className="num text-[11px] text-fg3">
           {tests.length}
         </span>
       </button>
@@ -1639,84 +1768,35 @@ export function OrthopedicTestsPanel({
           : 'instrument pointer-events-auto flex min-h-0 w-[24rem] max-w-[calc(100vw-2rem)] flex-1 flex-col overflow-hidden'
       }
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 border-b border-slate-800/70 px-4 py-3">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-1.5 font-display text-sm font-semibold text-slate-50">
+      {/* LA CABECERA NO REPITE LA PESTANA. Montado en `bare`, el panel vive
+          bajo una pestana que ya dice "Tests": el titulo "Tests ortopedicos"
+          con su icono era la misma palabra dos veces, una encima de la otra, y
+          costaba una linea entera del margen. Solo la variante flotante, que no
+          tiene pestana, conserva titulo y boton de cerrar. */}
+      {!bare && (
+        <div className="flex items-center justify-between gap-3 px-4 pt-3">
+          <h2 className="flex items-center gap-1.5 font-display text-sm font-semibold text-fg">
             <TestTubeIcon />
             Tests ortopédicos
           </h2>
-          <p className="mt-0.5 text-[11px] text-slate-500">
-            {examMode
-              ? 'Modo examen: predice el perfil y revela'
-              : `${tests.length} pruebas, ${demoCount} con maniobra en 3D`}
-          </p>
-          {/* A mode that changes what the panel shows has to say so where it can
-              be READ. Both buttons carried their explanation in a `title`, which
-              never appears on a touch screen and never appears at a glance --
-              "Examen y guía no sé para qué es". */}
-          {examMode && (
-            <div className="mt-1.5 border-l-2 border-sky-400/60 pl-2">
-              <p className="text-[11px] leading-snug text-sky-100/80">
-                Los números están ocultos a propósito. Lee qué hace cada prueba, predice
-                si es <span className="text-sky-200">sensible</span> (un negativo
-                descarta) o <span className="text-sky-200">específica</span> (un positivo
-                confirma), y compáralo con la cifra real.
-              </p>
-              {answered > 0 && (
-                <p className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
-                  <span className="tabular-nums">
-                    {correct}/{answered} acertadas
-                  </span>
-                  <button
-                    type="button"
-                    onClick={resetPredictions}
-                    className="rounded px-1.5 py-0.5 text-sky-300/90 underline decoration-sky-400/40 underline-offset-2 transition-colors hover:text-sky-200"
-                  >
-                    Empezar de nuevo
-                  </button>
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <HeaderToggle
-            active={examMode}
-            onClick={toggleExam}
-            label="Examen"
-            title="Modo examen: oculta las cifras y te pide predecir el perfil de cada prueba antes de verlas"
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            aria-label="Cerrar tests"
+            className="btn btn-quiet btn-sm btn-icon -mr-1 text-fg3"
           >
-            <ExamIcon />
-          </HeaderToggle>
-          <HeaderToggle
-            active={showHelp}
-            onClick={() => setShowHelp((s) => !s)}
-            label="Guía"
-            title="Cómo se usa este panel: pre-test, sensibilidad y especificidad, combinar pruebas, demostrar la maniobra"
-          >
-            <InfoIcon />
-          </HeaderToggle>
-          {!bare && (
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              aria-label="Cerrar tests"
-              className="-mr-1 rounded p-1.5 text-slate-500 transition-colors hover:text-slate-200"
-            >
-              <CloseIcon size={15} />
-            </button>
-          )}
+            <CloseIcon size={15} />
+          </button>
         </div>
-      </div>
+      )}
 
-      {/* Pretest slider: the control every number in the list answers to. */}
-      <div className="border-b border-slate-800/70 px-4 py-3">
-        <div className="flex items-baseline justify-between">
+      {/* Pretest slider: the control every number in the list answers to. La
+          cifra va grande (`.readout`) porque es la que mueve todas las demas. */}
+      <section className="sec">
+        <div className="sec-head">
           <Kicker>Probabilidad pre-test</Kicker>
-          <span className="font-mono text-base font-semibold tabular-nums text-slate-100">
-            {Math.round(pretest)}%
-          </span>
+          <span className="sec-rule" />
+          <span className="readout text-lg">{Math.round(pretest)}%</span>
         </div>
         <input
           type="range"
@@ -1726,80 +1806,154 @@ export function OrthopedicTestsPanel({
           value={pretest}
           onChange={(e) => setPretest(Number(e.target.value))}
           aria-label="Probabilidad pre-test"
-          className="mt-2 w-full accent-accent"
+          className="w-full accent-brand"
         />
-        <div className="mt-1 flex items-center justify-between gap-2">
-          <span className="text-[11px] text-slate-500">
-            Tu sospecha antes de explorar.
-          </span>
+        <p className="mt-1 text-[11px] text-fg3">Tu sospecha antes de explorar.</p>
+
+        {/* LOS TRES MODOS, A LA VISTA Y JUNTOS. Examen y Guia eran dos
+            pastillas en la esquina de la cabecera y Combinar otra mas al lado
+            del deslizador: tres sitios para tres interruptores de lo mismo (que
+            ensena el panel). Ahora son una fila de texto que se enciende en el
+            color de estado, con `aria-pressed`. Combinar no aparece en examen
+            porque los dos se excluyen: las cifras combinadas daban la
+            respuesta. */}
+        <div className="-mx-2 mt-2 flex items-center gap-0.5">
           {!examMode && (
-            <button
-              type="button"
+            <ModeToggle
+              active={clusterMode}
               onClick={() => {
                 setClusterMode((c) => !c);
                 setSelected(new Set());
               }}
-              className={`flex shrink-0 items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                clusterMode
-                  ? 'border-accent/50 bg-accent/10 text-accent'
-                  : 'border-slate-700 text-slate-400 hover:text-slate-200'
-              }`}
+              label="Combinar"
+              title="Combinar: marca varias pruebas positivas y calcula la probabilidad conjunta"
             >
-              {clusterMode && <CheckIcon size={10} />}
-              Combinar
-            </button>
+              <ClusterIcon />
+            </ModeToggle>
           )}
+          <ModeToggle
+            active={examMode}
+            onClick={toggleExam}
+            label="Examen"
+            title="Modo examen: oculta las cifras y te pide predecir el perfil de cada prueba antes de verlas"
+          >
+            <ExamIcon />
+          </ModeToggle>
+          <span className="flex-1" />
+          <ModeToggle
+            active={showHelp}
+            onClick={() => setShowHelp((s) => !s)}
+            label="Guía"
+            title="Cómo se usa este panel: pre-test, sensibilidad y especificidad, combinar pruebas, demostrar la maniobra"
+          >
+            <InfoIcon />
+          </ModeToggle>
         </div>
-      </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-2 border-b border-slate-800/70 px-4 py-2">
+        {/* A mode that changes what the panel shows has to say so where it can
+            be READ. Both buttons carried their explanation in a `title`, which
+            never appears on a touch screen and never appears at a glance --
+            "Examen y guía no sé para qué es". Una nota con la regla del color
+            de estado, no un recuadro. Y "sensible" va en el azul de la
+            sensibilidad y "especifica" en el verde de la especificidad (regla
+            1): las dos palabras iban en azul. */}
+        {examMode && (
+          <div className="note note-brand mt-2.5 text-[11px] leading-snug">
+            <p>
+              Los números están ocultos a propósito. Lee qué hace cada prueba, predice
+              si es <span className="text-sky-300">sensible</span> (un negativo
+              descarta) o <span className="text-emerald-300">específica</span> (un
+              positivo confirma), y compáralo con la cifra real.
+            </p>
+            {answered > 0 && (
+              <p className="mt-1 flex items-center gap-2">
+                <span className="text-fg">
+                  <span className="num">
+                    {correct}/{answered}
+                  </span>{' '}
+                  acertadas
+                </span>
+                <button
+                  type="button"
+                  onClick={resetPredictions}
+                  className="btn btn-quiet btn-sm text-[11px] text-brand"
+                >
+                  Empezar de nuevo
+                </button>
+              </p>
+            )}
+          </div>
+        )}
+      </section>
+
+      <div className="rule" />
+
+      {/* Filters. Rotulo con la cuenta de lo que se ve, el filtro de 3D
+          despues del filo y el buscador como una linea (`.field`), no como una
+          caja. */}
+      <section className="sec">
+        <div className="sec-head">
+          <Kicker>
+            {visible.length === tests.length
+              ? `${tests.length} pruebas`
+              : `${visible.length} de ${tests.length}`}
+          </Kicker>
+          <span className="sec-rule" />
+          <button
+            type="button"
+            onClick={() => setOnly3d((v) => !v)}
+            aria-pressed={only3d}
+            title="Mostrar solo las pruebas con maniobra en el modelo 3D"
+            className={`btn btn-quiet btn-sm -mr-2 shrink-0 text-[11px] ${only3d ? 'text-brand' : ''}`}
+          >
+            <PlayIcon size={10} />
+            Solo 3D
+            <span className="num text-[11px] text-fg3">{demoCount}</span>
+          </button>
+        </div>
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Buscar prueba, estructura o grupo"
           aria-label="Buscar prueba"
-          className="min-w-0 flex-1 rounded border border-slate-800 bg-slate-900/60 px-2.5 py-1.5 text-[13px] text-slate-100 outline-none transition-colors placeholder:text-slate-600 focus:border-accent/60"
+          className="field"
         />
-        <button
-          type="button"
-          onClick={() => setOnly3d((v) => !v)}
-          aria-pressed={only3d}
-          title="Mostrar solo las pruebas con maniobra en el modelo 3D"
-          className={`flex shrink-0 items-center gap-1.5 rounded border px-2 py-1.5 text-[11px] font-medium transition-colors ${
-            only3d
-              ? 'border-accent/50 bg-accent/10 text-accent'
-              : 'border-slate-700 text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <PlayIcon size={10} />
-          3D
-        </button>
-      </div>
+      </section>
 
       {/* Scrollable body */}
       <div className={bare ? '' : 'min-h-0 flex-1 overflow-y-auto'}>
         {showHelp && <HelpCard onDismiss={dismissHelp} />}
 
+        {/* UN FILTRO SIN RESULTADOS NO ES UN CALLEJON: se puede deshacer desde
+            aqui, sin volver arriba a vaciar el campo y apagar el 3D. */}
         {groups.length === 0 && (
-          <p className="px-4 py-6 text-center text-[13px] text-slate-500">
-            Ninguna prueba coincide con el filtro.
-          </p>
+          <div className="px-4 py-6 text-center">
+            <p className="text-[13px] text-fg3">Ninguna prueba coincide con el filtro.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setQuery('');
+                setOnly3d(false);
+              }}
+              className="btn btn-quiet btn-sm mt-2 text-[11px] text-brand"
+            >
+              Quitar el filtro
+            </button>
+          </div>
         )}
 
         {groups.map(([category, list]) => (
           <section key={category} className="pt-3">
-            <div className="mb-1 flex items-center gap-2 px-4">
-              <h3 className="text-[11px] uppercase tracking-[0.08em] text-slate-400">
-                {category}
-              </h3>
-              <span className="h-px flex-1 bg-slate-800/70" />
-              <span className="font-mono text-[11px] tabular-nums text-slate-600">
-                {list.length}
-              </span>
+            {/* Rotulo + filo + cuenta. El nombre del grupo puede partir en dos
+                lineas: "Epicondilalgia medial (codo de golfista)" son 41
+                caracteres y en versalitas de 11 px no caben en 19rem. */}
+            <div className="mb-1.5 flex items-center gap-2.5 px-4">
+              <h3 className="kicker min-w-0 text-[11px] leading-snug">{category}</h3>
+              <span className="sec-rule" />
+              <span className="num text-[11px] text-fg3">{list.length}</span>
             </div>
-            <div className="pl-2 pr-1">
+            <div className="pl-4 pr-2">
               {list.map((t) => (
                 <TestRow
                   key={t.id}
@@ -1834,13 +1988,13 @@ export function OrthopedicTestsPanel({
             <button
               type="button"
               onClick={onOpenEvidence}
-              className="mb-2.5 inline-flex items-center gap-1.5 text-[11px] font-medium text-accent transition-opacity hover:opacity-80"
+              className="btn btn-quiet btn-sm -ml-2 mb-2 text-[11px] text-brand"
             >
               <BookIcon />
               Ver toda la evidencia
             </button>
           )}
-          <p className="text-[11px] leading-relaxed text-slate-600">
+          <p className="text-[11px] leading-relaxed text-fg3">
             Valores orientativos de la literatura, por verificar contra la fuente
             primaria. Interpreta cada prueba dentro del cuadro clínico y en conjunto,
             no de forma aislada.
@@ -1848,127 +2002,184 @@ export function OrthopedicTestsPanel({
         </div>
       </div>
 
-      {/* Conjunto MEDIDO: gana al estimado siempre que exista. */}
-      {clusterMode && measured && (
-        <div className="border-t border-slate-800/70 px-4 py-3">
-          <div className="flex items-baseline justify-between">
-            <Kicker>{measured.cluster.name}</Kicker>
-            <span className="flex items-baseline gap-1.5 font-mono tabular-nums">
-              <span className="text-[11px] text-slate-500">{Math.round(pretest)}%</span>
-              <span className="text-[11px] text-slate-600">→</span>
-              <span className="text-lg font-semibold leading-none text-emerald-300">
-                {measured.post != null ? `${Math.round(measured.post)}%` : 's/d'}
-              </span>
-            </span>
-          </div>
-          <span className="mt-2 flex h-1 w-full overflow-hidden rounded-full bg-slate-800">
-            <span
-              className="h-full rounded-full bg-emerald-400"
-              style={{ width: `${measured.post ?? 0}%` }}
-            />
-          </span>
-          {/* LO QUE LA FUENTE PUBLICA, y solo eso. El conjunto de Laslett trae
-              sensibilidad y especificidad; el de Wainner trae unicamente la
-              razon de verosimilitud, porque su resumen no publica las otras dos.
-              Imprimir "Sensibilidad undefined%" era el resultado de suponer que
-              todo conjunto medido las trae. */}
-          {measured.cluster.sensitivity != null && measured.cluster.specificity != null ? (
-            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
-              Sensibilidad {measured.cluster.sensitivity}% y especificidad{' '}
-              {measured.cluster.specificity}% con {measured.cluster.minPositive} o más
-              positivas. Cifra de estudio, no estimada.
-            </p>
-          ) : (
-            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
-              LR+ {lrLabel(measured.lr)} con {measured.cluster.minPositive} o más
-              positivas. Cifra de estudio, no estimada; la fuente no publica
-              sensibilidad ni especificidad del conjunto.
+      {/* EL RESULTADO DEL CONJUNTO, PEGADO AL PIE.
+          En la variante flotante este bloque vivia debajo de una lista con
+          scroll propio, asi que siempre se veia. En `bare` el scroll es el de
+          la pestana que contiene el panel (MovementView y MobileLabSheet), y
+          el bloque quedaba DESPUES de toda la lista y del aviso final: se
+          marcaba la casilla de una prueba de arriba y la probabilidad
+          conjunta aparecia fuera de la vista, varias pantallas mas abajo, sin
+          que nada lo dijera. Ahora se pega al pie del scroll (`sticky`), con
+          fondo de pagina y un filo encima, como el pie de una lamina; y en
+          modo Combinar sin nada marcado dice que hay que marcar, en vez de
+          no estar. Acotado a 45vh en escritorio: con el conjunto medido y sus
+          tres avisos no puede tapar la lista que se esta marcando.
+          EN LA HOJA MOVIL, 7,5 rem. Con 45vh el pie podia medir mas que el
+          area visible de la hoja plegada (180 px a 375 x 812) y la tapaba
+          entera: la lista, el pre-test y los interruptores Combinar y Examen
+          quedaban debajo (hallado en la revision de la tanda 2a). Con 7,5 rem
+          se ven siempre el titular y la barra, las notas se desplazan dentro
+          del pie y a la lista le queda sitio.
+          La SOMBRA de abajo, del color de la pagina, tapa el relleno inferior
+          de la hoja movil (`pb-safe`, 1 rem como minimo): el pie se pega por
+          encima de ese relleno y por la franja que quedaba asomaba la lista
+          (visto a 375 px). Una sombra y no un ::after porque el pie tiene su
+          propio scroll, que recortaria cualquier hijo que saliera de el. */}
+      {clusterMode && (
+        <div className="sticky bottom-0 z-10 max-h-[7.5rem] overflow-y-auto border-t border-line/75 bg-page px-4 py-3 shadow-[0_max(1rem,env(safe-area-inset-bottom))_0_0_rgb(var(--c-page))] lg:max-h-[45vh]">
+          {!measured && !cluster && (
+            <p className="text-[11px] leading-snug text-fg2">
+              Marca con la casilla las pruebas que salieron positivas: aquí verás la
+              probabilidad de que la lesión esté presente si lo son todas a la vez.
             </p>
           )}
-          {/* POR QUE LA CIFRA BAJA AL MARCAR UNA PRUEBA MAS.
-              Por debajo del minimo del conjunto, el panel ESTIMA multiplicando
-              razones de verosimilitud; al alcanzarlo, pasa a la cifra MEDIDA
-              del estudio, que es menor porque las pruebas del conjunto provocan
-              la misma articulacion y no son independientes. Sin esta linea, el
-              fisio marca la tercera positiva, ve caer la probabilidad de 79% a
-              65% y da por hecho que la aplicacion se equivoca. */}
-          {cluster?.post != null && measured.post != null && cluster.post > measured.post && (
-            <p className="mt-1.5 text-[11px] leading-snug text-amber-500/90">
-              Con menos positivas el panel ESTIMABA {Math.round(cluster.post)}%
-              multiplicando razones de verosimilitud. Esa estimación era optimista:
-              estas pruebas provocan la misma articulación y no son independientes.
-              Manda la cifra medida.
-            </p>
-          )}
-          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
-            {measured.cluster.note}
-          </p>
-        </div>
-      )}
 
-      {/* Combined result (only when combining with a selection). */}
-      {clusterMode && !measured && cluster && (
-        <div className="border-t border-slate-800/70 px-4 py-3">
-          <div className="flex items-baseline justify-between">
-            <Kicker>
-              {cluster.count} prueba{cluster.count > 1 ? 's' : ''} positiva
-              {cluster.count > 1 ? 's' : ''} a la vez
-            </Kicker>
-            <span className="flex items-baseline gap-1.5 font-mono tabular-nums">
-              <span className="text-[11px] text-slate-500">{Math.round(pretest)}%</span>
-              <span className="text-[11px] text-slate-600">→</span>
-              <span className="text-lg font-semibold leading-none text-emerald-300">
-                {cluster.post != null ? `${Math.round(cluster.post)}%` : 's/d'}
-              </span>
-            </span>
-          </div>
-          <span className="mt-2 flex h-1 w-full overflow-hidden rounded-full bg-slate-800">
-            <span
-              className="h-full rounded-full bg-emerald-400"
-              style={{ width: `${cluster.post ?? 0}%` }}
-            />
-          </span>
-          {cluster.post == null && (
-            <p className="mt-1.5 text-[11px] leading-snug text-slate-400">
-              Una de las pruebas elegidas tiene especificidad del 100% en su
-              estudio, así que el producto de razones de verosimilitud no se
-              puede cifrar: no hubo falsos positivos en esa muestra, pero eso no
-              es certeza.
-            </p>
+          {/* Conjunto MEDIDO: gana al estimado siempre que exista. */}
+          {measured && (
+            <div>
+              <div className="flex items-baseline justify-between gap-3">
+                <Kicker className="min-w-0 leading-snug">{measured.cluster.name}</Kicker>
+                <span className="flex shrink-0 items-baseline gap-1.5">
+                  <span className="num text-[11px] text-fg3">{Math.round(pretest)}%</span>
+                  <span className="num text-[11px] text-fg3">→</span>
+                  <span className="readout text-lg text-emerald-300">
+                    {measured.post != null ? `${Math.round(measured.post)}%` : 's/d'}
+                  </span>
+                </span>
+              </div>
+              <span
+                className="meter mt-2 block text-emerald-400"
+                style={meterStyle(measured.post)}
+                aria-hidden="true"
+              />
+              {/* LO QUE LA FUENTE PUBLICA, y solo eso. El conjunto de Laslett trae
+                  sensibilidad y especificidad; el de Wainner trae unicamente la
+                  razon de verosimilitud, porque su resumen no publica las otras dos.
+                  Imprimir "Sensibilidad undefined%" era el resultado de suponer que
+                  todo conjunto medido las trae. */}
+              {measured.cluster.sensitivity != null && measured.cluster.specificity != null ? (
+                <p className="mt-1.5 text-[11px] leading-relaxed text-fg2">
+                  Sensibilidad {measured.cluster.sensitivity}% y especificidad{' '}
+                  {measured.cluster.specificity}% con {measured.cluster.minPositive} o más
+                  positivas. Cifra de estudio, no estimada.
+                </p>
+              ) : (
+                <p className="mt-1.5 text-[11px] leading-relaxed text-fg2">
+                  LR+ {lrLabel(measured.lr)} con {measured.cluster.minPositive} o más
+                  positivas. Cifra de estudio, no estimada; la fuente no publica
+                  sensibilidad ni especificidad del conjunto.
+                </p>
+              )}
+              {/* POR QUE LA CIFRA BAJA AL MARCAR UNA PRUEBA MAS.
+                  Por debajo del minimo del conjunto, el panel ESTIMA multiplicando
+                  razones de verosimilitud; al alcanzarlo, pasa a la cifra MEDIDA
+                  del estudio, que es menor porque las pruebas del conjunto provocan
+                  la misma articulacion y no son independientes. Sin esta linea, el
+                  fisio marca la tercera positiva, ve caer la probabilidad de 79% a
+                  65% y da por hecho que la aplicacion se equivoca. */}
+              {cluster?.post != null && measured.post != null && cluster.post > measured.post && (
+                <p className="mt-1.5 text-[11px] leading-snug text-amber-500/90">
+                  Con menos positivas el panel ESTIMABA {Math.round(cluster.post)}%
+                  multiplicando razones de verosimilitud. Esa estimación era optimista:
+                  estas pruebas provocan la misma articulación y no son independientes.
+                  Manda la cifra medida.
+                </p>
+              )}
+              <p className="mt-1 text-[11px] leading-relaxed text-fg3">
+                {measured.cluster.note}
+              </p>
+            </div>
           )}
-          {/* LA CIFRA MEDIDA, ANTES DE ALCANZAR EL UMBRAL. Esta estimación es la
-              más optimista de las dos y hasta ahora se publicaba sola: el aviso
-              que explica por qué baja al marcar una positiva más vivía dentro
-              del bloque del conjunto ya aplicado. Ahora la referencia del
-              estudio acompaña a la estimación desde la primera prueba marcada
-              del conjunto. */}
-          {partial && partial.post != null && (
-            <p className="mt-1.5 text-[11px] leading-snug text-amber-500/90">
-              Estas pruebas forman {partial.cluster.name}, y ese conjunto SÍ está
-              medido: con {partial.cluster.minPositive} o más positivas el estudio
-              lleva tu {Math.round(pretest)}% a{' '}
-              <span className="font-mono tabular-nums">
-                {Math.round(partial.post)}%
-              </span>{' '}
-              (LR+ {lrLabel(partial.lr, 2)}). Te{' '}
-              {partial.missing === 1 ? 'falta 1 positiva' : `faltan ${partial.missing} positivas`}
-              , así que lo de arriba es una estimación: multiplica razones de
-              verosimilitud como si las pruebas fueran independientes, y estas
-              provocan la misma articulación.
-            </p>
+
+          {/* Combined result (only when combining with a selection). */}
+          {!measured && cluster && (
+            <div>
+              <div className="flex items-baseline justify-between gap-3">
+                <Kicker className="min-w-0 leading-snug">
+                  {cluster.count} prueba{cluster.count > 1 ? 's' : ''} positiva
+                  {cluster.count > 1 ? 's' : ''} a la vez
+                </Kicker>
+                <span className="flex shrink-0 items-baseline gap-1.5">
+                  <span className="num text-[11px] text-fg3">{Math.round(pretest)}%</span>
+                  <span className="num text-[11px] text-fg3">→</span>
+                  <span className="readout text-lg text-emerald-300">
+                    {cluster.post != null ? `${Math.round(cluster.post)}%` : 's/d'}
+                  </span>
+                </span>
+              </div>
+              <span
+                className="meter mt-2 block text-emerald-400"
+                style={meterStyle(cluster.post)}
+                aria-hidden="true"
+              />
+              {/* NINGUNA DE LAS MARCADAS TRAE CON QUE CALCULAR. Antes el bloque
+                  entero desaparecia: se marcaba una prueba sin cifras (21 de las
+                  80 del catalogo no publican ni sensibilidad ni especificidad) y
+                  no pasaba nada, que se lee como un fallo del boton. */}
+              {cluster.lr == null && (
+                <p className="mt-1.5 text-[11px] leading-snug text-fg2">
+                  Ninguna de las pruebas marcadas publica razón de verosimilitud (ni
+                  sensibilidad y especificidad para calcularla), así que no hay nada que
+                  combinar.
+                </p>
+              )}
+              {cluster.lr != null && cluster.post == null && (
+                <p className="mt-1.5 text-[11px] leading-snug text-fg2">
+                  Una de las pruebas elegidas tiene especificidad del 100% en su
+                  estudio, así que el producto de razones de verosimilitud no se
+                  puede cifrar: no hubo falsos positivos en esa muestra, pero eso no
+                  es certeza.
+                </p>
+              )}
+              {/* Y LA CUENTA NO MIENTE SOBRE CUANTAS ENTRAN. El rotulo decia "3
+                  pruebas positivas a la vez" y el producto se hacia con las que
+                  traen razon de verosimilitud, saltandose en silencio las demas:
+                  el fisio creia ver la suma de tres y era la de dos. */}
+              {cluster.lr != null && cluster.skipped.length > 0 && (
+                <p className="mt-1.5 text-[11px] leading-snug text-fg2">
+                  Sin razón de verosimilitud, no entra{cluster.skipped.length > 1 ? 'n' : ''}{' '}
+                  en el cálculo: {cluster.skipped.join(', ')}.
+                </p>
+              )}
+              {/* LA CIFRA MEDIDA, ANTES DE ALCANZAR EL UMBRAL. Esta estimación es la
+                  más optimista de las dos y hasta ahora se publicaba sola: el aviso
+                  que explica por qué baja al marcar una positiva más vivía dentro
+                  del bloque del conjunto ya aplicado. Ahora la referencia del
+                  estudio acompaña a la estimación desde la primera prueba marcada
+                  del conjunto. */}
+              {partial && partial.post != null && (
+                <p className="mt-1.5 text-[11px] leading-snug text-amber-500/90">
+                  Estas pruebas forman {partial.cluster.name}, y ese conjunto SÍ está
+                  medido: con {partial.cluster.minPositive} o más positivas el estudio
+                  lleva tu {Math.round(pretest)}% a{' '}
+                  <span className="num">{Math.round(partial.post)}%</span>{' '}
+                  (LR+ {lrLabel(partial.lr, 2)}). Te{' '}
+                  {partial.missing === 1 ? 'falta 1 positiva' : `faltan ${partial.missing} positivas`}
+                  , así que lo de arriba es una estimación: multiplica razones de
+                  verosimilitud como si las pruebas fueran independientes, y estas
+                  provocan la misma articulación.
+                </p>
+              )}
+              {cluster.lr != null && (
+                <p className="mt-1.5 text-[11px] leading-relaxed text-fg3">
+                  LR+ combinado {lrLabel(cluster.lr)}. Asume independencia entre pruebas: es
+                  una aproximación docente, no un valor de estudio.
+                </p>
+              )}
+            </div>
           )}
-          <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">
-            LR+ combinado {lrLabel(cluster.lr)}. Asume independencia entre pruebas: es
-            una aproximación docente, no un valor de estudio.
-          </p>
         </div>
       )}
     </div>
   );
 }
 
-/** Header segmented toggle. One component so the two never drift apart. */
-function HeaderToggle({
+/**
+ * Interruptor de modo (Combinar, Examen, Guia). Un solo componente para que
+ * los tres no se separen. LAMINA: texto que responde (`btn-quiet`), encendido
+ * en el color de estado y con `aria-pressed`; no una pastilla con borde.
+ */
+function ModeToggle({
   active,
   onClick,
   label,
@@ -1988,11 +2199,7 @@ function HeaderToggle({
       aria-pressed={active}
       aria-label={label}
       title={title}
-      className={`flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-medium transition-colors ${
-        active
-          ? 'border-accent/50 bg-accent/10 text-accent'
-          : 'border-slate-700 text-slate-400 hover:text-slate-200'
-      }`}
+      className={`btn btn-quiet btn-sm gap-1.5 text-[11px] ${active ? 'text-brand' : ''}`}
     >
       {children}
       {label}
@@ -2005,6 +2212,17 @@ function TestTubeIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
       <path d="M9 3h6M10 3v13a2.5 2.5 0 0 0 5 0V3" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M10 10h5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Tres pruebas que se juntan: el icono de Combinar. */
+function ClusterIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="7" cy="8" r="3" />
+      <circle cx="17" cy="8" r="3" />
+      <circle cx="12" cy="16.5" r="3" />
     </svg>
   );
 }

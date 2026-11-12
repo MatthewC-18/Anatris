@@ -29,6 +29,11 @@
 // attention colour and carries the caveats. Cyan stays interactive: it is only on
 // the button that selects the level.
 //
+// LAMINA (docs/sistema-lamina.md): una seccion con rotulo y filo, barras de 2 px
+// (`.meter`, del color del pigmento), avisos con regla ambar a la izquierda
+// (`.note-warn`) y las tres acciones como texto que responde (`btn-quiet`), no
+// como pastillas con borde.
+//
 // UI Spanish LATAM; code and comments ASCII/English.
 
 import { pigmentFor, type PlateFigure } from '../../data/neuro/plate';
@@ -62,16 +67,14 @@ function Bar({ figure, entry, max }: { figure: PlateFigure; entry: RootScore; ma
       : `${entry.affectedAxes} de ${axes} ejes alterados`;
   return (
     <div className="flex items-center gap-2.5" title={`${entry.root.label}: ${state}`}>
-      <span className="w-7 shrink-0 font-mono text-[11px] font-bold text-slate-300">
-        {entry.root.label}
-      </span>
-      <span className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800">
-        <span
-          className="absolute inset-y-0 left-0 rounded-full"
-          style={{ width: `${pct}%`, backgroundColor: pigment }}
-        />
-      </span>
-      <span className="w-16 shrink-0 text-right text-[11px] text-slate-500">
+      <span className="num w-7 shrink-0 text-[11px] font-bold text-fg">{entry.root.label}</span>
+      {/* El `.meter` pinta su relleno con `currentColor`: el pigmento de la raiz. */}
+      <span
+        className="meter flex-1"
+        style={{ color: pigment, '--v': pct } as React.CSSProperties}
+        aria-hidden="true"
+      />
+      <span className="w-16 shrink-0 text-right text-[11px] text-fg3">
         {entry.score === 0
           ? entry.examinedAxes === 0
             ? 'sin datos'
@@ -121,34 +124,17 @@ export function NeuroScreenReadout({
     .filter((m, i, all) => all.findIndex((x) => x.nerve === m.nerve) === i);
 
   return (
-    <div className="border-t border-slate-800/60 px-4 py-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] uppercase tracking-[0.08em] text-slate-500">
-          Qué nivel lo explica
-        </span>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
-            onClick={onCopy}
-            title="Copiar el tamizaje como texto para la historia clínica"
-            className="rounded border border-slate-700 px-2 py-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-slate-200"
-          >
-            {copyFailed ? 'No se pudo' : copied ? 'Copiado' : 'Copiar'}
-          </button>
-          <button
-            type="button"
-            onClick={onClear}
-            title="Borrar todo lo registrado en este tamizaje"
-            className="rounded border border-slate-700 px-2 py-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-slate-200"
-          >
-            Limpiar
-          </button>
-        </div>
+    <section className="sec">
+      <div className="sec-head">
+        <span className="kicker text-[11px]">Qué nivel lo explica</span>
+        <span className="sec-rule" />
       </div>
 
       {leading ? (
-        <div className="mt-2.5">
-          <div className="flex items-baseline gap-2">
+        <div>
+          {/* `flex-wrap`: a 19rem el nivel, su patron y "Ver en el cuerpo" no
+              caben en una linea cuando hay empate ("C6 / C7"). */}
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             {/* One dot per level named, so a tie does not show a single colour for
                 two roots -- which read as C7 having been painted C6's pigment. */}
             <span className="mt-[3px] flex shrink-0 gap-1" aria-hidden="true">
@@ -160,30 +146,35 @@ export function NeuroScreenReadout({
                 />
               ))}
             </span>
-            <span className="font-mono text-base font-bold leading-none text-slate-100">
+            {/* 14 px, el tamano mayor del panel (regla 1 de NeuroPanel): iba a
+                16 px, un cuarto tamano. */}
+            <span className="num text-sm font-bold leading-none text-fg">
               {tied ? contenders.map((c) => c.root.label).join(' / ') : leading.root.label}
             </span>
             {/* Extent describes ONE level, so it is dropped on a tie: "C6 / C7 ·
                 hallazgo aislado" read as the pair being one isolated finding. */}
             {!tied && (
-              <span className="text-[11px] text-slate-500">
-                {EXTENT_COPY[leading.extent].label}
-              </span>
+              <span className="text-[11px] text-fg3">{EXTENT_COPY[leading.extent].label}</span>
             )}
+            {/* "VER EN LA LAMINA" YA NO SE VEIA EN LA LAMINA. La carta de
+                dermatomas esta ahora sobre el cuerpo (NeuroSkinLayer) y el
+                esquema plano va plegado al final del panel: el boton elegia la
+                raiz, el cuerpo la pintaba y el texto mandaba a mirar un dibujo
+                cerrado. Dice donde aparece. */}
             <button
               type="button"
               onClick={() => onShowLevel(tied ? contenders.map((c) => c.root.id) : [leading.root.id])}
               title={
                 tied
-                  ? 'Comparar los dos niveles en la lámina'
-                  : 'Resaltar este nivel en la lámina'
+                  ? 'Pintar los dos niveles sobre el cuerpo para compararlos'
+                  : 'Pintar este nivel sobre el cuerpo'
               }
-              className="ml-auto shrink-0 rounded border border-slate-700 px-2 py-0.5 text-[11px] font-medium text-slate-400 transition-colors hover:border-accent/60 hover:text-accent"
+              className="btn btn-quiet btn-sm -mr-2 ml-auto shrink-0 text-[11px] text-brand"
             >
-              Ver en la lámina
+              Ver en el cuerpo
             </button>
           </div>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-slate-300">
+          <p className="mt-1.5 text-[13px] leading-relaxed text-fg2">
             {tied
               ? 'Los hallazgos no separan estos dos niveles.'
               : EXTENT_COPY[leading.extent].note}
@@ -193,7 +184,7 @@ export function NeuroScreenReadout({
         // The section asks a question in its own heading, so it always answers it.
         // Leaving this blank read as a broken panel on a screen whose only finding
         // was a brisk reflex.
-        <p className="mt-2.5 text-[13px] leading-relaxed text-slate-400">
+        <p className="text-[13px] leading-relaxed text-fg2">
           Ningún nivel explica lo registrado hasta ahora.
         </p>
       )}
@@ -209,28 +200,54 @@ export function NeuroScreenReadout({
           then ruling out only the first one's nerve would leave half the
           differential unstated. */}
       {mimics.length > 0 && (
-        <div className="mt-3 border-t border-slate-800/70 pt-2.5">
-          <span className="text-[11px] uppercase tracking-[0.08em] text-slate-500">
-            Antes de cerrarlo, descarta
-          </span>
+        <div className="mt-3">
+          <div className="flex items-center gap-2.5">
+            <span className="kicker text-[11px]">Antes de cerrarlo, descarta</span>
+            <span className="sec-rule" />
+          </div>
           {mimics.map((m) => (
-            <p key={m.nerve} className="mt-0.5 text-[13px] leading-relaxed text-slate-300">
-              <span className="text-slate-200">{m.nerve}.</span> {m.discriminator}
+            <p key={m.nerve} className="mt-1 text-[13px] leading-relaxed text-fg2">
+              <span className="text-fg">{m.nerve}.</span> {m.discriminator}
             </p>
           ))}
         </div>
       )}
 
       {caveats.map((c) => (
-        <div key={c.id} className="mt-3 border-l-2 border-amber-500/40 pl-2.5">
-          <span className="block text-[13px] font-semibold text-amber-200/90">{c.label}</span>
-          <span className="block text-[13px] leading-relaxed text-slate-400">{c.detail}</span>
+        <div key={c.id} className="note note-warn mt-3 text-[13px] leading-relaxed">
+          <span className="block font-semibold text-amber-200/90">{c.label}</span>
+          <span className="block">{c.detail}</span>
         </div>
       ))}
 
-      <p className="mt-3 text-[11px] leading-snug text-slate-600">
+      <p className="mt-3 text-[11px] leading-snug text-fg3">
         Pesa lo que registraste en un miembro. No es un diagnóstico.
       </p>
-    </div>
+
+      {/* LAS ACCIONES VAN AL PIE, despues de leer. Estaban en la cabecera, a la
+          derecha del rotulo, y a 19rem "QUE NIVEL LO EXPLICA" mas dos botones
+          con borde no cabian en una linea (unos 160 px de rotulo en versalitas
+          de 11 px y 110 de botones contra 272 libres). Copiar es lo que se hace
+          cuando el tamizaje esta completo, asi que su sitio natural es el
+          final. */}
+      <div className="-mx-2 mt-2 flex items-center gap-0.5">
+        <button
+          type="button"
+          onClick={onCopy}
+          title="Copiar el tamizaje como texto para la historia clínica"
+          className={`btn btn-quiet btn-sm text-[11px] ${copyFailed ? 'text-amber-300' : 'text-brand'}`}
+        >
+          {copyFailed ? 'No se pudo copiar' : copied ? 'Copiado' : 'Copiar para la historia'}
+        </button>
+        <button
+          type="button"
+          onClick={onClear}
+          title="Borrar todo lo registrado en este tamizaje"
+          className="btn btn-quiet btn-sm text-[11px]"
+        >
+          Limpiar
+        </button>
+      </div>
+    </section>
   );
 }

@@ -36,7 +36,11 @@
 //
 // Inherits the panel's doctrine (see NeuroPanel.tsx): three type sizes, the
 // segmental pigment as the only data colour, cyan for interactive state, amber for
-// what needs attention, and no box inside a box.
+// what needs attention, and no box inside a box. Desde el sistema LAMINA
+// (docs/sistema-lamina.md) eso se dice con sus piezas: el rotulo es `.kicker`
+// (subido a 11 px, el suelo del panel), la escala es una regla subrayada (`.tab`)
+// y no una fila de pastillas, el play es un boton cuadrado (`.btn-icon`) y la
+// raiz se identifica con su punto de pigmento, no con una ficha tenida.
 //
 // Kept free of three.js on purpose, so it can be rendered standalone and looked at
 // (scripts/harness). UI Spanish LATAM; code and comments ASCII/English.
@@ -129,13 +133,20 @@ export function HammerGlyph() {
   );
 }
 
-export function Kicker({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="text-[11px] uppercase tracking-[0.08em] text-slate-500">{children}</span>
-  );
+/** El rotulo de LAMINA (`.kicker`) a 11 px: la regla 1 del panel no baja de ahi. */
+export function Kicker({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <span className={`kicker text-[11px] ${className}`}>{children}</span>;
 }
 
-/** The root's identity chip: mono, in its segmental pigment. */
+/**
+ * La identidad de la raiz: su nombre en mono y un punto de su pigmento.
+ *
+ * Era una ficha de 36x24 con borde y fondo tenido del pigmento, es decir una
+ * pastilla de color por fila, que es lo que LAMINA quita. El pigmento sigue
+ * diciendo lo mismo (es la misma raiz en el cuerpo, en el esquema y en la
+ * lista: regla 2 del panel), pero en un punto, que es una muestra y no un
+ * recuadro.
+ */
 export function RootChip({
   root,
   pigment,
@@ -146,15 +157,13 @@ export function RootChip({
   on: boolean;
 }) {
   return (
-    <span
-      className="flex h-6 w-9 shrink-0 items-center justify-center rounded-md border font-mono text-[11px] font-bold transition-colors"
-      style={{
-        borderColor: on ? pigment : 'rgba(148,163,184,0.28)',
-        backgroundColor: on ? `${pigment}33` : 'rgba(15,22,38,0.6)',
-        color: on ? '#e2e8f0' : '#94a3b8',
-      }}
-    >
-      {root}
+    <span className="flex w-10 shrink-0 items-center gap-1.5">
+      <span
+        className="h-2 w-2 shrink-0 rounded-full transition-opacity"
+        style={{ backgroundColor: pigment, opacity: on ? 1 : 0.6 }}
+        aria-hidden="true"
+      />
+      <span className={`num text-[11px] font-bold ${on ? 'text-fg' : 'text-fg2'}`}>{root}</span>
     </span>
   );
 }
@@ -198,7 +207,11 @@ function Scale<T extends number>({
   const picked = options.find((o) => o.value === value);
   return (
     <div className="mt-1.5">
-      <div role="group" aria-label={legend} className="flex gap-1">
+      {/* LA ESCALA ES UNA REGLA, NO SEIS PASTILLAS. Los grados se leen sobre un
+          filo de base, como las marcas de un goniometro, y el elegido se
+          subraya en el color de estado (`.tab` + `is-active`). Cada grado ocupa
+          su parte del ancho, asi que el blanco tactil no encoge. */}
+      <div role="group" aria-label={legend} className="tabs gap-0">
         {options.map((o) => {
           const on = value === o.value;
           return (
@@ -209,13 +222,9 @@ function Scale<T extends number>({
               aria-pressed={on}
               aria-label={`${legend}: ${o.hint}`}
               title={o.hint}
-              className={`min-w-0 flex-1 rounded border px-1 py-1 text-[11px] font-medium tabular-nums transition-colors ${
-                o.label ? '' : 'font-mono'
-              } ${
-                on
-                  ? 'border-accent/50 bg-accent/10 text-accent'
-                  : 'border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200'
-              }`}
+              className={`tab min-w-0 flex-1 justify-center py-1.5 text-[11px] ${
+                o.label ? '' : 'num'
+              } ${on ? 'is-active font-semibold' : ''}`}
             >
               {o.label ?? o.value}
             </button>
@@ -226,11 +235,11 @@ function Scale<T extends number>({
       {/* ONE line, two jobs: the scale's anchors until a grade is picked, then what
           that grade means. Teaches the scale without costing height. */}
       {picked ? (
-        <p className="mt-1 text-[11px] leading-snug text-accent/90">{picked.hint}</p>
+        <p className="mt-1 text-[11px] leading-snug text-brand">{picked.hint}</p>
       ) : (
-        <div className="mt-1 flex items-baseline justify-between gap-2 text-[11px] leading-snug text-slate-600">
+        <div className="mt-1 flex items-baseline justify-between gap-2 text-[11px] leading-snug text-fg3">
           <span>{anchors.left}</span>
-          {anchors.middle && <span className="text-slate-500">{anchors.middle}</span>}
+          {anchors.middle && <span className="text-fg2">{anchors.middle}</span>}
           <span>{anchors.right}</span>
         </div>
       )}
@@ -292,17 +301,17 @@ export function StateDots({ root, finding }: { root: NerveRoot; finding: RootFin
     >
       {axes.map((a) =>
         a.absent ? (
-          <span key={a.key} aria-hidden="true" className="h-[1.5px] w-2 rounded-full bg-slate-600" />
+          <span key={a.key} aria-hidden="true" className="h-[1.5px] w-2 rounded-full bg-fg3/70" />
         ) : (
           <span
             key={a.key}
             aria-hidden="true"
             className={`h-1.5 w-1.5 rounded-full border ${
               !a.graded
-                ? 'border-slate-700'
+                ? 'border-fg3/70'
                 : a.abnormal
                   ? 'border-amber-400 bg-amber-400'
-                  : 'border-slate-600 bg-slate-600'
+                  : 'border-fg3 bg-fg3'
             }`}
           />
         ),
@@ -326,11 +335,11 @@ function Lane({
 }) {
   return (
     <div className="flex gap-2.5">
-      <span className="mt-[2px] shrink-0 text-slate-500">{glyph}</span>
+      <span className="mt-[1px] shrink-0 text-fg3">{glyph}</span>
       <div className="min-w-0 flex-1">
         <Kicker>{label}</Kicker>
-        <p className="text-[11px] leading-snug text-slate-500">{what}</p>
-        <div className="mt-0.5 text-[13px] leading-relaxed text-slate-300">{children}</div>
+        <p className="mt-1 text-[11px] leading-snug text-fg3">{what}</p>
+        <div className="mt-0.5 text-[13px] leading-relaxed text-fg2">{children}</div>
       </div>
     </div>
   );
@@ -353,38 +362,41 @@ function Lane({
  */
 export function HowToUse({ onDismiss }: { onDismiss: () => void }) {
   const rows: [React.ReactNode, string, string][] = [
-    [<PinGlyph key="s" color="#94a3b8" />, 'Dermatoma', 'la piel que inerva una raíz'],
+    [<PinGlyph key="s" color="currentColor" />, 'Dermatoma', 'la piel que inerva una raíz'],
     [<MotionGlyph key="m" />, 'Miotoma', 'el movimiento que gobierna'],
     [<HammerGlyph key="r" />, 'Reflejo', 'la respuesta al percutir su tendón'],
   ];
   return (
-    <div className="border-b border-slate-800/70 px-4 py-3">
-      <div className="flex items-center justify-between gap-2">
+    // Una seccion con rotulo y filo, en el plano de la lista que explica.
+    <section className="sec">
+      <div className="sec-head">
         <Kicker>Cómo se explora una raíz</Kicker>
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="text-[11px] text-slate-400 transition-colors hover:text-slate-100"
-        >
+        <span className="sec-rule" />
+        <button type="button" onClick={onDismiss} className="btn btn-quiet btn-sm text-[11px]">
           Entendido
         </button>
       </div>
-      <ul className="mt-2 space-y-1">
+      <ul className="space-y-1">
         {rows.map(([glyph, term, meaning]) => (
           <li key={term} className="flex items-baseline gap-2 text-[13px] leading-snug">
-            <span className="mt-[3px] shrink-0 text-slate-500">{glyph}</span>
-            <span className="text-slate-300">
-              <span className="font-semibold text-slate-200">{term}</span>: {meaning}.
+            <span className="mt-[3px] shrink-0 text-fg3">{glyph}</span>
+            <span className="text-fg2">
+              <span className="font-semibold text-fg">{term}</span>: {meaning}.
             </span>
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-[13px] leading-relaxed text-slate-400">
-        Abre una raíz para verlas con su escala, pulsa el botón redondo para ver el
-        movimiento en el modelo, y toca la lámina para saltar de un territorio a su
-        raíz. Si registras lo que exploras, el panel te dice qué nivel lo explica.
+      {/* LA GUIA DESCRIBE LA PANTALLA QUE HAY. Decia "pulsa el boton redondo"
+          (el play ya es cuadrado) y "toca la lamina para saltar de un
+          territorio a su raiz", cuando la carta esta ahora sobre el cuerpo y
+          sus rotulos eligen raiz igual que la lista (neuroPickBus). */}
+      <p className="mt-2 text-[13px] leading-relaxed text-fg2">
+        Abre una raíz para verlas con su escala, pulsa su botón de play para ver el
+        movimiento en el modelo, y toca el nombre de una raíz sobre el cuerpo para
+        elegirla igual que en la lista. Si registras lo que exploras, el panel te
+        dice qué nivel lo explica.
       </p>
-    </div>
+    </section>
   );
 }
 
@@ -418,58 +430,47 @@ export function NeuroRootRow({
   const reflexWord = root.reflex ? shortReflex(root.reflex.name) : null;
   return (
     <div
-      className="border-l-2 pl-3 pr-2 transition-colors"
-      style={{
-        borderColor: picked ? pigment : 'rgba(51,65,85,0.7)',
-        backgroundColor: picked ? 'rgba(30,41,59,0.28)' : undefined,
-      }}
+      // La raiz elegida se lee por su regla de pigmento a la izquierda, que
+      // baja hasta el final de su detalle. Llevaba ademas un fondo tenido
+      // (un recuadro sin borde alrededor de la fila abierta): fuera.
+      className={`border-l-2 pl-3 pr-1 transition-colors ${picked ? '' : 'border-line'}`}
+      style={picked ? { borderColor: pigment } : undefined}
     >
-      <div className="flex items-center gap-2 py-2">
+      {/* LA FILA A 19rem: LOS BOTONES SOLO EN LA LINEA DEL MOVIMIENTO.
+          Antes las dos lineas de la fila (movimiento y, debajo, punto clave y
+          reflejo) compartian ancho con los puntos de estado, el play y el
+          chevron. En el margen de 304 px, con la lista sangrada bajo su rotulo,
+          la fila tiene 254 px; quitando el nombre de la raiz (48 con su hueco),
+          los puntos (28), el play (32), el chevron (26) y los huecos, quedaban
+          unos 96 px de texto: "Abducción del hombro y flexión de codo." se
+          cortaba a las dos lineas y "Articulación acromioclavicular" (unos
+          170 px a 11 px, con `whitespace-nowrap`) se salia por debajo de los
+          botones. Cuentas hechas con las medidas de las clases, no en
+          pantalla. Ahora el movimiento tiene 132 px y parte las lineas que
+          necesite (sin recorte: es lo mas importante que dice la fila), y la
+          segunda linea, con los puntos de estado a la derecha, ocupa todo el
+          ancho bajo el texto. */}
+      <div className="flex items-start gap-2 pt-2">
         <button
           type="button"
           onClick={onPick}
           aria-expanded={expanded}
           aria-pressed={picked}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          className="flex min-w-0 flex-1 items-start gap-2 py-1 text-left"
         >
-          <RootChip root={root.label} pigment={pigment} on={picked} />
-          <span className="min-w-0 flex-1">
-            {/* Two lines, not one: truncating this to "Abduccion del hombro y
-                fl..." hid the single most important thing the row says. Inline
-                clamp because Tailwind's line-clamp did not take here (noted in
-                docs/movement-lab-premium-roadmap.md). */}
-            <span
-              className="block overflow-hidden text-sm font-semibold leading-snug text-slate-100"
-              style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}
-            >
-              {root.myotome.action}
-            </span>
-            <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500">
-              {/* The KEY POINT holds its width and the reflex name gives way: with
-                  it the other way round, "Braquiorradial o estilorradial" shrank
-                  C6's key point to "Pul...", which is the one word on the row a
-                  student is trying to memorise. */}
-              <span className="shrink-0 whitespace-nowrap">
-                {root.dermatome.keyPointShort ?? root.dermatome.keyPoint}
-              </span>
-              {reflexWord && (
-                <>
-                  <span className="text-slate-700">·</span>
-                  <span className="flex min-w-0 items-center gap-1">
-                    <HammerGlyph />
-                    <span className="truncate">{reflexWord}</span>
-                  </span>
-                </>
-              )}
-            </span>
+          <span className="mt-[3px]">
+            <RootChip root={root.label} pigment={pigment} on={picked} />
+          </span>
+          <span className="min-w-0 flex-1 text-sm font-semibold leading-snug text-fg">
+            {root.myotome.action}
           </span>
         </button>
 
-        <StateDots root={root} finding={finding} />
-
         {/* The rig demo lives HERE, not inside the detail: it is the reason the
             panel is premium and the last place a new user looks is inside a card
-            they have not opened yet. Same round control the tests panel uses. */}
+            they have not opened yet. Same control the tests panel uses: un boton
+            cuadrado que se ve como boton en reposo (`btn-line`) y se rellena
+            mientras corre (`btn-primary`). Era un circulo con borde. */}
         {root.demo && (
           <button
             type="button"
@@ -484,19 +485,52 @@ export function NeuroRootRow({
                 ? 'Detener el movimiento'
                 : 'Ver este movimiento en el modelo 3D'
             }
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors ${
-              demoing
-                ? 'border-accent bg-accent/20 text-accent'
-                : 'border-slate-700 text-slate-400 hover:border-accent/60 hover:text-accent'
+            className={`btn btn-icon shrink-0 ${
+              demoing ? 'btn-primary' : 'btn-line hover:text-brand'
             }`}
           >
             {demoing ? <StopIcon size={12} /> : <PlayIcon size={12} />}
           </button>
         )}
-        <ChevronDownIcon
-          size={12}
-          className={`shrink-0 text-slate-600 transition-transform ${expanded ? 'rotate-180' : ''}`}
-        />
+        {/* EL CHEVRON PROMETIA UN CLIC QUE NO HACIA NADA. Era un icono suelto
+            fuera del boton de la fila: tenia forma de "desplegar" y pulsarlo no
+            desplegaba. Ahora responde igual que la fila; el teclado y el lector
+            ya tienen el boton de la fila (con `aria-expanded`), asi que este no
+            entra en el orden de tabulacion. */}
+        <button
+          type="button"
+          onClick={onPick}
+          tabIndex={-1}
+          aria-hidden="true"
+          className="btn btn-quiet btn-sm btn-icon mt-[3px] shrink-0 text-fg3"
+        >
+          <ChevronDownIcon
+            size={12}
+            className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
+          />
+        </button>
+      </div>
+
+      {/* La segunda linea, a todo el ancho bajo el texto (sangrada 48 px, lo
+          que mide el nombre de la raiz con su hueco). Pulsarla elige la raiz
+          igual que el movimiento: es un blanco mas grande, no un tercer boton. */}
+      <div onClick={onPick} className="flex cursor-pointer items-center gap-2 pb-2 pl-12 pr-1">
+        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-fg3">
+          {/* The KEY POINT holds and the reflex name gives way: with it the
+              other way round, "Braquiorradial o estilorradial" shrank C6's key
+              point to "Pul...", which is the one word on the row a student is
+              trying to memorise. Y si no caben los dos, el reflejo baja a la
+              linea siguiente; el martillo ya los separa, sin punto medio que
+              quede colgando. */}
+          <span className="min-w-0">{root.dermatome.keyPointShort ?? root.dermatome.keyPoint}</span>
+          {reflexWord && (
+            <span className="flex min-w-0 items-center gap-1">
+              <HammerGlyph />
+              <span className="truncate">{reflexWord}</span>
+            </span>
+          )}
+        </span>
+        <StateDots root={root} finding={finding} />
       </div>
 
       {expanded && (
@@ -532,25 +566,30 @@ export function NeuroRootRow({
                 explora por abduccion de hombro, pero se PUNTUA por los flexores
                 de codo. Ver el comentario de `Myotome.asiaKey`. */}
             {root.myotome.asiaKey && (
-              <span className="mt-1.5 block text-[11px] leading-snug text-slate-400">
-                <span className="text-slate-500">Músculo clave ISNCSCI. </span>
-                <span className="text-slate-300">{root.myotome.asiaKey}</span>
+              <span className="mt-1.5 block text-[11px] leading-snug text-fg2">
+                <span className="text-fg3">Músculo clave ISNCSCI. </span>
+                <span className="text-fg">{root.myotome.asiaKey}</span>
               </span>
             )}
             {root.myotome.asiaNonKey && (
-              <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">
+              <span className="mt-0.5 block text-[11px] leading-snug text-fg3">
                 Otros movimientos de esta raíz, que ISNCSCI no usa para puntuar.{' '}
                 {root.myotome.asiaNonKey}
               </span>
             )}
             {/* No "En el modelo:" prefix: every one of these notes already opens
                 with it, and the two together read "En el modelo: En el modelo se
-                muestra...". */}
-            {root.demo?.note && (
-              <span className="mt-1 block text-[11px] text-slate-500">{root.demo.note}</span>
+                muestra...".
+                Y MIENTRAS SU DEMO CORRE, LA NOTA NO SE REPITE AQUI: la dice la
+                franja "En el modelo ahora" del panel, que es donde se lee lo
+                que el demo esta ensenando. Con la fila abierta y el play
+                pulsado salia dos veces en la misma columna. Antes de pulsar si
+                va: es lo que dice que va a ensenar el play. */}
+            {root.demo?.note && !demoing && (
+              <span className="mt-1 block text-[11px] leading-snug text-fg3">{root.demo.note}</span>
             )}
             {!root.demo && root.demoNote && (
-              <span className="mt-1 block text-[11px] text-slate-500">{root.demoNote}</span>
+              <span className="mt-1 block text-[11px] leading-snug text-fg3">{root.demoNote}</span>
             )}
             <Scale
               legend={`Fuerza del miotoma ${root.label}, escala 0 a 5`}
@@ -570,7 +609,7 @@ export function NeuroRootRow({
           >
             {root.reflex ? (
               <>
-                <span className="text-slate-200">{root.reflex.name}.</span>{' '}
+                <span className="text-fg">{root.reflex.name}.</span>{' '}
                 {root.reflex.elicitation}
                 <Scale
                   legend={`Reflejo de ${root.label}, escala 0 a 4`}
@@ -581,31 +620,35 @@ export function NeuroRootRow({
                 />
               </>
             ) : (
-              <span className="text-slate-400">
+              <span className="text-fg2">
                 Esta raíz no tiene reflejo profundo propio, así que el dermatoma y la
                 fuerza cargan todo el peso del tamizaje.
               </span>
             )}
           </Lane>
 
+          {/* Rotulo + filo, no un filo encima de un rotulo suelto. */}
           {root.mimic && (
-            <div className="border-t border-slate-800/70 pt-2.5">
-              <Kicker>No confundir con</Kicker>
-              <p className="mt-0.5 text-[13px] leading-relaxed text-slate-300">
-                <span className="text-slate-200">{root.mimic.nerve}.</span>{' '}
+            <div className="pt-1">
+              <div className="flex items-center gap-2.5">
+                <Kicker>No confundir con</Kicker>
+                <span className="sec-rule" />
+              </div>
+              <p className="mt-1 text-[13px] leading-relaxed text-fg2">
+                <span className="text-fg">{root.mimic.nerve}.</span>{' '}
                 {root.mimic.discriminator}
               </p>
             </div>
           )}
 
-          {root.pearl && <p className="text-[13px] leading-relaxed text-slate-400">{root.pearl}</p>}
+          {root.pearl && <p className="note text-[13px] leading-relaxed">{root.pearl}</p>}
 
           <div>
             {root.cite.map((c) => {
               const ref = getReference(c.ref as ReferenceId);
               if (!ref) return null;
               return (
-                <p key={c.ref} className="text-[11px] leading-snug text-slate-600">
+                <p key={c.ref} className="text-[11px] leading-snug text-fg3">
                   {formatReference(ref)}{' '}
                   {showVerifyMark && !c.verified && (
                     <span

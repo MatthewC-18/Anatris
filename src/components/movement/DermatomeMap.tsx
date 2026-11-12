@@ -55,12 +55,20 @@ const VIEW_LABEL: Record<PlateView, string> = {
   posterior: 'Cara posterior',
 };
 
-// Tissue and rim. Both sit on the panel's frosted glass, so the tissue is nearly
-// opaque (a translucent body would let the panel's own gradient show through and
-// the figure would look like a hole) while the rim stays a hairline.
-const RIM = 'rgba(148,163,184,0.42)';
-const SHADE = '#03070f';
-const TISSUE = 'rgba(24,34,54,0.94)';
+// Tissue and rim. The tissue stays nearly opaque (a translucent body would let
+// whatever is behind it show through and the figure would look like a hole) while
+// the rim stays a hairline.
+//
+// GRAFITO, NO AZUL MARINO. El tejido era rgba(24,34,54), un azul marino pensado
+// para el cristal esmerilado del panel flotante. El panel ya no flota: va en el
+// margen acoplado, sobre `--c-page` (11 12 15), y un cuerpo azul sobre grafito
+// neutro era el unico objeto azulado de la columna, el mismo "azul de IA" que el
+// sistema quito de la paleta (ver `slate` en tailwind.config.js). Ahora tejido y
+// filo salen de los tokens de la tinta: `--c-card` (20 22 26) y `--c-fg2`
+// (151 155 163), con la misma opacidad que tenian.
+const RIM = 'rgba(151,155,163,0.42)';
+const SHADE = '#050608';
+const TISSUE = 'rgba(20,22,26,0.96)';
 const ACCENT = '#4fb6c7';
 
 // Territory fill opacity by state. `IDLE` is high enough that the plate is fully
@@ -134,7 +142,9 @@ export function DermatomeMap({
 
   return (
     <div>
-      <div className="mb-1.5 flex justify-end">
+      {/* Ampliar es texto que responde, no una pastilla con borde, y a 11 px
+          como todo rotulo del panel (iba a 10, por debajo de su suelo). */}
+      <div className="-mr-2 mb-1 flex justify-end">
         <button
           type="button"
           onClick={() => setEnlarged((v) => !v)}
@@ -144,11 +154,7 @@ export function DermatomeMap({
               ? 'Volver a las dos vistas lado a lado'
               : 'Ver la lámina a lo ancho del panel, una vista debajo de la otra'
           }
-          className={`rounded border px-2 py-0.5 text-[10px] font-medium transition-colors ${
-            enlarged
-              ? 'border-accent/50 bg-accent/10 text-accent'
-              : 'border-slate-700 text-slate-500 hover:text-slate-300'
-          }`}
+          className={`btn btn-quiet btn-sm text-[11px] ${enlarged ? 'text-brand' : ''}`}
         >
           {enlarged ? 'Reducir' : 'Ampliar'}
         </button>
@@ -176,6 +182,9 @@ export function DermatomeMap({
               // hacia ilegibles las bandas del antebrazo, lo fija el carril y no
               // cambia) y la lista recupera mas de cien pixeles. Quien venga a
               // por la lamina tiene "Ampliar", que es para lo que esta.
+              // Desde que el esquema va plegado DEBAJO de la lista (regla 10
+              // de NeuroPanel: la carta esta sobre el cuerpo) este tope ya no
+              // le quita sitio a la lista; se conserva tal cual.
               style={{ maxHeight: enlarged ? 'min(72vh, 34rem)' : 'min(26vh, 14rem)' }}
               // NOT role="img" when the territories are selectable: role="img"
               // makes an element's whole subtree presentational, which would hide
@@ -341,7 +350,7 @@ export function DermatomeMap({
                 ))}
             </svg>
 
-            <figcaption className="mt-1.5 text-center text-[11px] uppercase tracking-[0.08em] text-slate-500">
+            <figcaption className="kicker mt-1.5 text-center text-[11px]">
               {VIEW_LABEL[view]}
             </figcaption>
           </figure>
@@ -353,7 +362,7 @@ export function DermatomeMap({
           the plate looked lopsided -- and the note is about the anatomy, not about
           one drawing of it. */}
       {VIEWS.some((v) => plate.spec.notes[v]) && (
-        <p className="mt-2 text-[11px] leading-snug text-slate-600">
+        <p className="mt-2 text-[11px] leading-snug text-fg3">
           {VIEWS.filter((v) => plate.spec.notes[v])
             .map((v) => plate.spec.notes[v])
             .join(' ')}
@@ -370,9 +379,9 @@ export function DermatomeMap({
                 style={{ backgroundColor: pigmentFor(figure, p.root) }}
                 aria-hidden="true"
               />
-              <span className="text-slate-400">
-                <span className="font-mono font-semibold text-slate-200">{p.root}</span>{' '}
-                punto clave · {p.keyPoint}
+              <span className="text-fg2">
+                <span className="num font-semibold text-fg">{p.root}</span> punto clave ·{' '}
+                {p.keyPoint}
               </span>
             </p>
           ))}

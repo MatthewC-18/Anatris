@@ -80,3 +80,38 @@ export function useLabLive(): LabLive | null {
     demo: cmd.demo ?? null,
   };
 }
+
+/**
+ * EL DEMO, AUNQUE SU GESTO NO ESTE CARGADO.
+ *
+ * `useLabLive` devuelve null si `movementById` no encuentra el gesto, y un
+ * miotoma mueve el codo, la cadera, la rodilla o el tobillo: en una region que
+ * no es la suya ese gesto no esta (solo el hombro va en el paquete y el resto se
+ * descarga al visitar su region). El escenario se quedaba EN BLANCO durante 7 de
+ * los 8 demos de miotoma, con el rig moviendose. Esto da lo minimo que un demo
+ * siempre tiene: su nombre, lo que evalua, el angulo y el lado.
+ */
+export interface LabDemo {
+  demo: NonNullable<RigCommand['demo']>;
+  angle: number;
+  side: Side;
+}
+
+export function useLabDemo(): LabDemo | null {
+  const [cmd, setCmd] = useState<Slice>(() => pick(rigChannel.get()));
+  useEffect(
+    () =>
+      rigChannel.subscribe((c) =>
+        setCmd((prev) =>
+          prev.side === c.side &&
+          prev.angleDeg === c.angleDeg &&
+          (prev.demo ?? null) === (c.demo ?? null)
+            ? prev
+            : pick(c),
+        ),
+      ),
+    [],
+  );
+  if (!cmd.demo) return null;
+  return { demo: cmd.demo, angle: cmd.angleDeg, side: cmd.side };
+}

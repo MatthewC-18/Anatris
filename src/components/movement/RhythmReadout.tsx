@@ -560,7 +560,112 @@ export function RhythmReadout({ region, embedded = false, stageReads = false }: 
   if (demoPeakRef.current.demo !== demo) demoPeakRef.current = { demo, peak: demo ? angle : 0 };
   else if (demo && angle > demoPeakRef.current.peak) demoPeakRef.current.peak = angle;
 
-  if (!drivable || !arc || !movement) return null;
+  const sharedArc = control?.kind === 'joint' && control.arcFrom === 'max';
+  const demoReading = demo
+    ? demoArcReading(sharedArc, demoPeakRef.current.peak, demo.targetDeg)
+    : null;
+
+  // DEMO. Fixed for the whole maneuver: what position is being held, on what
+  // structure, and -- for a resisted test -- where the physio pushes. This is
+  // what replaces the per-frame analysis while a demo runs.
+  const demoSection =
+    demo && demoReading ? (
+      <section className="sec">
+        <div className="sec-head">
+          <span className="kicker">{demoReading.kicker}</span>
+          <span className="sec-rule" />
+          <span className="num shrink-0 text-[13px] font-medium text-brand">
+            {demoReading.value}
+          </span>
+        </div>
+        {demo.structure && (
+          <p className="text-xs leading-snug text-fg2">
+            Evalúa <span className="font-semibold text-fg">{demo.structure}</span>
+          </p>
+        )}
+
+        {demo.examinerForce === 'resists' && (
+          <div className="note note-brand mt-2">
+            <span className="tag text-fg2">Prueba resistida</span>
+            <ol className="mt-1 space-y-1">
+              <li>1. El paciente sostiene la posición y empuja.</li>
+              <li>
+                2. Aplica resistencia en el segmento distal, donde se apoya la mano
+                del fisio en el modelo.
+              </li>
+            </ol>
+          </div>
+        )}
+
+        {demo.examinerForce === 'applies' && (
+          <div className="note note-brand mt-2">
+            <span className="tag text-fg2">Prueba pasiva</span>
+            <ol className="mt-1 space-y-1">
+              <li>1. El paciente permanece relajado: no empuja.</li>
+              <li>
+                2. La fuerza la aplicas tú donde se apoya la mano del fisio en el
+                modelo.
+              </li>
+            </ol>
+          </div>
+        )}
+
+        {/* LO QUE SE ESTA ENCENDIENDO, con su nombre clinico. Hasta ahora
+            el readout decia que se evaluaba una estructura y en la escena no
+            se encendia ninguna: 42 de los 65 demos resaltaban nada. */}
+        {demo.structureLabels && demo.structureLabels.length > 0 && (
+          <p className="mt-2 text-xs leading-snug text-fg2">
+            Resaltado:{' '}
+            <span className="font-semibold text-fg">{demo.structureLabels.join(' · ')}</span>
+          </p>
+        )}
+
+        {/* Y LO QUE NO SE PUEDE ENSENAR. Los nervios y los vasos no estan en
+            el sistema de capas de este modelo, asi que una prueba de raiz
+            nerviosa no puede resaltar su estructura. Decirlo es mejor que
+            encender algo parecido y que pase por lo que el libro nombra. */}
+        {demo.cannotShow && (
+          <p className="mt-2 text-[11px] leading-snug text-fg3">{demo.cannotShow}</p>
+        )}
+
+        {/* LA ADVERTENCIA DEL DEMO NO SE RECORTA NUNCA. `demo.note` no es
+            prosa de apoyo: es lo que el modelo NO esta ensenando de la
+            maniobra. En un portatil de 1366x768 la unica linea que
+            explicaba la aproximacion desaparecia con la prosa, que es
+            exactamente la pantalla donde mas se agradece. */}
+        {demo.note && <p className="mt-2 text-[11px] leading-snug text-fg2">{demo.note}</p>}
+      </section>
+    ) : null;
+
+  // EL DEMO SE LEE AUNQUE SU GESTO NO ESTE CARGADO. Un miotoma mueve el codo,
+  // la cadera, la rodilla o el tobillo, y `movementById` solo encuentra los
+  // movimientos del hombro (en el bundle) y los de las regiones ya visitadas: en
+  // escritorio el margen se quedaba EN BLANCO durante 7 de los 8 demos de
+  // miotoma (solo C5 mueve un gesto del hombro). Sin gesto no hay arco ni
+  // reclutamiento que pintar, pero la maniobra, lo que se enciende y lo que el
+  // modelo no ensena si se pueden leer: es lo que se pinta.
+  if (!drivable || !arc || !movement) {
+    if (!demoSection || !demo) return null;
+    return (
+      <div
+        className={`flex max-h-full min-h-0 w-full flex-col ${
+          embedded ? 'flex-1' : 'instrument pointer-events-auto animate-scale-in overflow-hidden'
+        }`}
+      >
+        {!stageReads && (
+          <div className="shrink-0 px-4 pb-1 pt-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="line-clamp-2 min-w-0 font-display text-[15px] font-semibold leading-tight text-fg">
+                {demo.label}
+              </h2>
+              <span className="tag shrink-0 text-brand">Demostración</span>
+            </div>
+          </div>
+        )}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">{demoSection}</div>
+      </div>
+    );
+  }
 
   // With no activation data the panel still carries the gesture and the dial;
   // only the muscle sections drop out.
@@ -610,11 +715,6 @@ export function RhythmReadout({ region, embedded = false, stageReads = false }: 
 
   const gestureName =
     angle < 0 && movement.labReverse ? movement.labReverse.name : movement.name;
-
-  const sharedArc = control?.kind === 'joint' && control.arcFrom === 'max';
-  const demoReading = demo
-    ? demoArcReading(sharedArc, demoPeakRef.current.peak, demo.targetDeg)
-    : null;
 
   // Dial mapping.
   const span = arc.max - arc.min;
@@ -953,76 +1053,8 @@ export function RhythmReadout({ region, embedded = false, stageReads = false }: 
           </section>
         )}
 
-        {/* DEMO. Fixed for the whole maneuver: what position is being held,
-            on what structure, and — for a resisted test — where the physio pushes.
-            This is what replaces the per-frame analysis while a demo runs. */}
-        {demo && demoReading && (
-          <section className="sec">
-            <div className="sec-head">
-              <span className="kicker">{demoReading.kicker}</span>
-              <span className="sec-rule" />
-              <span className="num shrink-0 text-[13px] font-medium text-brand">
-                {demoReading.value}
-              </span>
-            </div>
-            {demo.structure && (
-              <p className="text-xs leading-snug text-fg2">
-                Evalúa <span className="font-semibold text-fg">{demo.structure}</span>
-              </p>
-            )}
-
-            {demo.examinerForce === 'resists' && (
-              <div className="note note-brand mt-2">
-                <span className="tag text-fg2">Prueba resistida</span>
-                <ol className="mt-1 space-y-1">
-                  <li>1. El paciente sostiene la posición y empuja.</li>
-                  <li>
-                    2. Aplica resistencia en el segmento distal, donde se apoya la mano
-                    del fisio en el modelo.
-                  </li>
-                </ol>
-              </div>
-            )}
-
-            {demo.examinerForce === 'applies' && (
-              <div className="note note-brand mt-2">
-                <span className="tag text-fg2">Prueba pasiva</span>
-                <ol className="mt-1 space-y-1">
-                  <li>1. El paciente permanece relajado: no empuja.</li>
-                  <li>
-                    2. La fuerza la aplicas tú donde se apoya la mano del fisio en el
-                    modelo.
-                  </li>
-                </ol>
-              </div>
-            )}
-
-            {/* LO QUE SE ESTA ENCENDIENDO, con su nombre clinico. Hasta ahora
-                el readout decia que se evaluaba una estructura y en la escena no
-                se encendia ninguna: 42 de los 65 demos resaltaban nada. */}
-            {demo.structureLabels && demo.structureLabels.length > 0 && (
-              <p className="mt-2 text-xs leading-snug text-fg2">
-                Resaltado:{' '}
-                <span className="font-semibold text-fg">{demo.structureLabels.join(' · ')}</span>
-              </p>
-            )}
-
-            {/* Y LO QUE NO SE PUEDE ENSENAR. Los nervios y los vasos no estan en
-                el sistema de capas de este modelo, asi que una prueba de raiz
-                nerviosa no puede resaltar su estructura. Decirlo es mejor que
-                encender algo parecido y que pase por lo que el libro nombra. */}
-            {demo.cannotShow && (
-              <p className="mt-2 text-[11px] leading-snug text-fg3">{demo.cannotShow}</p>
-            )}
-
-            {/* LA ADVERTENCIA DEL DEMO NO SE RECORTA NUNCA. `demo.note` no es
-                prosa de apoyo: es lo que el modelo NO esta ensenando de la
-                maniobra. En un portatil de 1366x768 la unica linea que
-                explicaba la aproximacion desaparecia con la prosa, que es
-                exactamente la pantalla donde mas se agradece. */}
-            {demo.note && <p className="mt-2 text-[11px] leading-snug text-fg2">{demo.note}</p>}
-          </section>
-        )}
+        {/* DEMO: ver `demoSection`, arriba. */}
+        {demoSection}
 
         {/* Clinical flag (caution / pearl) of the current sector: a rule on the
             left in its tone, not a tinted band. */}

@@ -39,8 +39,9 @@
 // fotograma se le aplica el esqueleto (`getVertexPosition`). Un vertice por
 // etiqueta: seis transformaciones por fotograma.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import { useAllMuscles } from '../../hooks/useMuscleResolution';
 import * as THREE from 'three';
 import { calloutChannel, MAX_CALLOUTS, type CalloutChannel, type CalloutItem } from './calloutChannel';
 import { dissectChannel } from './dissectChannel';
@@ -298,6 +299,20 @@ export function LabCalloutPlate({
     return channel.subscribe(setIds);
   }, [channel]);
 
+  // EL NOMBRE SALE DEL MISMO UNIVERSO QUE EL BRILLO. RigOverlays resuelve las
+  // mallas de cada musculo con `useAllMuscles` (el hombro, las regiones ya
+  // descargadas y el suelo de fichas que siempre se suma), y esta lamina las
+  // nombraba solo con el catalogo de la REGION abierta. Un miotoma enciende
+  // musculos de otra region: en el laboratorio de hombro el braquiorradial de
+  // C6 se encendia y su etiqueta decia "Brachioradialis", el id humanizado, al
+  // lado de un margen que lo llamaba "Braquiorradial". Primero la region (sus
+  // fichas completas mandan) y, si no lo tiene, el universo entero.
+  const allMuscles = useAllMuscles();
+  const nameFromAll = useMemo(
+    () => new Map(allMuscles.map((m) => [m.id, m.name] as const)),
+    [allMuscles],
+  );
+
   // Fuera las filas de lo que ya no esta, para que el proyector no pueda
   // escribir en un elemento de la tanda anterior.
   const rows = rowsOf(channel);
@@ -362,7 +377,11 @@ export function LabCalloutPlate({
       {ids.map((id) => {
         const it = byId.get(id);
         const tone = it?.color ?? ROLE_TONE_CSS[it?.role ?? 'assistant'];
-        const name = it?.text ?? muscleNameById(reg, id);
+        const name =
+          it?.text ??
+          (musclesForRomLookup(reg).some((m) => m.id === id)
+            ? muscleNameById(reg, id)
+            : nameFromAll.get(id) ?? muscleNameById(reg, id));
         const title = it?.text
           ? `${name}${it.detail ? `: ${it.detail}` : ''}`
           : `${name}: ${ROM_ROLE_LABEL[it?.role ?? 'assistant']}. Clic para verlo solo.`;

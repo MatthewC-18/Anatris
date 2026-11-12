@@ -34,10 +34,12 @@ import {
   type PlateView,
 } from '../src/data/neuro/plate';
 
-// Paint, mirroring DermatomeMap's constants.
-const RIM = 'rgba(148,163,184,0.42)';
-const SHADE = '#03070f';
-const TISSUE = 'rgba(24,34,54,0.94)';
+// Paint, mirroring DermatomeMap's constants. src/lib/__tests__/neuroPlatePaint.test.ts
+// comprueba que las tres sigan siendo las mismas que las de la app: la hoja de
+// revision no vale si pinta otra figura que la que se ve.
+const RIM = 'rgba(151,155,163,0.42)';
+const SHADE = '#050608';
+const TISSUE = 'rgba(20,22,26,0.96)';
 const ACCENT = '#22d3ee';
 const FILL_ACTIVE = 0.9;
 const FILL_IDLE = 0.44;

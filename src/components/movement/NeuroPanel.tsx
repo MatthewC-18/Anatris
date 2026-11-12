@@ -16,7 +16,9 @@
 //
 // 1. THREE TYPE SIZES: 14px for a root's key movement, 13px for prose, 11px for
 //    every label, caption and number (mono + tabular for the numbers). Nothing
-//    smaller ships, on the panel or inside the plate's SVG.
+//    smaller ships, on the panel or inside the plate's SVG. Por eso las piezas de
+//    LAMINA que vienen a 10 o 12 px (`.kicker`, `.btn-sm`) se usan aqui con
+//    `text-[11px]`.
 //
 // 2. COLOUR IS THE SEGMENTAL RAMP, AND NOTHING ELSE. A root's pigment (see
 //    SEGMENT_PIGMENTS) identifies it on the plate, on its row's edge rule and on
@@ -25,8 +27,11 @@
 //    territory. Amber is reserved for what needs attention, which here means the
 //    red flags and an unverified figure. There is no other colour.
 //
-// 3. NO BOX INSIDE A BOX. One instrument surface, sectioned by hairlines and
-//    typographic rank.
+// 3. NO HAY CAJAS (sistema LAMINA, docs/sistema-lamina.md). El panel ya no es
+//    una superficie flotante: vive en la pestana "Neuro" del margen derecho, sin
+//    fondo propio. Secciones con rotulo + filo (`.sec-head`), avisos con regla a
+//    la izquierda (`.note`), barras de 2 px (`.meter`) y los interruptores como
+//    texto que se enciende (`btn-quiet` + `aria-pressed`), no pastillas.
 //
 // 4. THE THREE LANES ARE TOLD APART BY FORM, NOT HUE. Sensibilidad, fuerza and
 //    reflejo each carry a glyph and a kicker; adding a third and fourth hue would
@@ -34,7 +39,7 @@
 //    tests panel's two-axis code (sky/emerald), and a dermatome would have ended
 //    up looking like a prime mover.
 //
-// 5. THE RIG DEMO IS REACHABLE FROM THE COLLAPSED ROW, as the round icon button
+// 5. THE RIG DEMO IS REACHABLE FROM THE COLLAPSED ROW, as the square icon button
 //    the tests panel uses. Same control, same place, same vocabulary.
 //
 // 6. ABSENCE IS INFORMATION. C8, T1 and L5 have no deep tendon reflex of their
@@ -55,9 +60,17 @@
 //    Recorded-and-normal is a quiet slate dot; not examined is a hollow ring,
 //    because blank and normal are different clinical statements.
 //
-// LAYOUT: a full-height right-side sheet (mirrors the tests panel), plus a `bare`
-// mode for the mobile bottom sheet. Data: src/data/neuro. UI Spanish LATAM; code
-// and comments ASCII/English.
+// 10. LA LISTA DE RAICES ES LA PROTAGONISTA; EL ESQUEMA PLANO, SECUNDARIO. La
+//    carta de dermatomas esta ahora sobre el CUERPO (NeuroSkinLayer, que pinta
+//    todas las raices sin nada elegido y rotula cada territorio), y la raiz
+//    elegida la ensena el escenario en grande (StageReadout). El esquema 2D
+//    conserva lo que el modelo no tiene --el detalle por dedos-- y por eso se
+//    queda, pero plegado bajo su rotulo al final, no encima de la lista.
+//
+// LAYOUT: se monta en `bare` (la pestana "Neuro" del margen derecho de
+// escritorio, 19rem = 304 px entre 1024 y 1279 px de ventana, y la hoja movil);
+// la variante flotante sigue existiendo. Data: src/data/neuro. UI Spanish
+// LATAM; code and comments ASCII/English.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { neuroForRegion } from '../../data/neuro';
@@ -165,31 +178,33 @@ function NerveIcon() {
 function RedFlags({ flags }: { flags: { label: string; detail: string }[] }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border-b border-slate-800/60 px-4 py-2">
+    // Una linea de aviso plegable, con la regla ambar a la izquierda (`.note`):
+    // no un recuadro. Cerrada ocupa una linea y no se puede pasar de largo.
+    <div className="px-4 pt-3">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 text-left"
+        className="note note-warn flex w-full items-center gap-2 py-1 text-left"
       >
         <span className="shrink-0 text-amber-400/90">
           <AlertGlyph />
         </span>
-        <span className="flex-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-300/90">
+        <span className="kicker flex-1 text-[11px] leading-snug text-amber-300/90">
           Antes de tratar · banderas rojas
         </span>
-        <span className="font-mono text-[11px] tabular-nums text-amber-400/70">{flags.length}</span>
+        <span className="num text-[11px] text-amber-400/70">{flags.length}</span>
         <ChevronDownIcon
           size={12}
-          className={`shrink-0 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`shrink-0 text-fg3 transition-transform ${open ? 'rotate-180' : ''}`}
         />
       </button>
       {open && (
-        <ul className="mt-2 space-y-1.5 pb-1">
+        <ul className="mt-2 space-y-2 pb-1">
           {flags.map((f) => (
-            <li key={f.label} className="border-l-2 border-amber-500/40 pl-2.5">
-              <span className="block text-[13px] font-semibold text-amber-200/90">{f.label}</span>
-              <span className="block text-[13px] leading-relaxed text-slate-400">{f.detail}</span>
+            <li key={f.label} className="note note-warn text-[13px] leading-relaxed">
+              <span className="block font-semibold text-amber-200/90">{f.label}</span>
+              <span className="block">{f.detail}</span>
             </li>
           ))}
         </ul>
@@ -230,9 +245,15 @@ function CompareBlock({
     ],
   ];
   return (
-    <div className="border-t border-slate-800/60 px-4 py-3">
-      <Kicker>Qué las separa</Kicker>
-      <div className="mt-2 grid grid-cols-[4.5rem_1fr_1fr] gap-x-2.5 gap-y-2">
+    <section className="sec">
+      <div className="sec-head">
+        <Kicker>Qué las separa</Kicker>
+        <span className="sec-rule" />
+      </div>
+      {/* A 19rem las dos columnas de valores se quedan en unos 90 px cada una
+          (272 menos 64 del rotulo y los huecos): el texto parte linea, que es
+          mejor que recortar el punto clave. El rotulo de fila baja a 4rem. */}
+      <div className="grid grid-cols-[4rem_1fr_1fr] gap-x-2.5 gap-y-2">
         <span />
         {[a, b].map((r) => (
           <span key={r.id} className="flex items-center gap-1.5">
@@ -241,18 +262,18 @@ function CompareBlock({
               style={{ backgroundColor: pigmentFor(figure, r.id) }}
               aria-hidden="true"
             />
-            <span className="font-mono text-[11px] font-bold text-slate-200">{r.label}</span>
+            <span className="num text-[11px] font-bold text-fg">{r.label}</span>
           </span>
         ))}
         {rows.map(([label, va, vb]) => (
           <div key={label} className="contents">
-            <span className="text-[11px] leading-snug text-slate-500">{label}</span>
-            <span className="text-[13px] leading-snug text-slate-300">{va}</span>
-            <span className="text-[13px] leading-snug text-slate-300">{vb}</span>
+            <span className="text-[11px] leading-snug text-fg3">{label}</span>
+            <span className="min-w-0 text-[13px] leading-snug text-fg2">{va}</span>
+            <span className="min-w-0 text-[13px] leading-snug text-fg2">{vb}</span>
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -332,6 +353,8 @@ export function NeuroPanel({
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const [showHelp, setShowHelp] = useState(() => !readHelpSeen());
+  /** El esquema plano, plegado por defecto: la carta esta sobre el cuerpo. */
+  const [plateOpen, setPlateOpen] = useState(false);
 
   const dismissHelp = () => {
     setShowHelp(false);
@@ -364,17 +387,28 @@ export function NeuroPanel({
   // un esquema plano de 120 px. Ahora el CUERPO es el esquema: sin nada elegido
   // se pintan todas las raices de la figura, cada una en su pigmento, y al
   // elegir una se queda sola. Ver NeuroSkinLayer, que ademas las rotula.
+  //
+  // Y DURANTE UN MIOTOMA, SOLO SU RAIZ. Con la carta entera puesta, al lanzar el
+  // demo de C6 el cuerpo seguia rotulando las seis raices y la etiqueta del
+  // musculo que se enciende (el braquiorradial, en el antebrazo) caia encima de
+  // la de C8, en la misma columna: dos cartas de rotulos que no se conocen. El
+  // demo es UNA raiz --su territorio y su musculo--, y es lo que se pinta;
+  // al parar vuelve la carta como estaba.
   useEffect(() => {
     if (!open || !set) {
       neuroSkinChannel.clear();
       return;
     }
+    // Solo si no hay nada ELEGIDO: lo que el fisio elige a mano (la lista,
+    // "Ver en el cuerpo", Comparar) se pinta tambien con el demo en marcha.
+    const focus =
+      picked.length === 0 && demoId && set.roots.some((r) => r.id === demoId) ? [demoId] : null;
     neuroSkinChannel.set({
       figure: set.figure,
-      roots: picked.length > 0 ? picked : set.roots.map((r) => r.id),
-      picked,
+      roots: focus ?? (picked.length > 0 ? picked : set.roots.map((r) => r.id)),
+      picked: focus ?? picked,
     });
-  }, [open, set, picked]);
+  }, [open, set, picked, demoId]);
 
   // Y LOS ROTULOS DEL CUERPO ELIGEN RAIZ IGUAL QUE LA LISTA.
   useEffect(() => neuroPickBus.subscribe((id) => pick(id)));
@@ -661,13 +695,12 @@ export function NeuroPanel({
       <button
         type="button"
         onClick={() => onOpenChange(true)}
-        className="instrument pointer-events-auto flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-200 transition-colors hover:text-white"
+        className="instrument pointer-events-auto flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-fg2 transition-colors hover:text-fg"
       >
         <NerveIcon />
         Neuro: dermatomas y miotomas
-        <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
-          {set.roots.length}
-        </span>
+        {/* La cuenta en mono, sin pastilla (y a 11 px, no a 10). */}
+        <span className="num text-[11px] font-bold text-brand">{set.roots.length}</span>
       </button>
     );
   }
@@ -705,52 +738,39 @@ export function NeuroPanel({
           : 'instrument pointer-events-auto flex min-h-0 w-[24rem] max-w-[calc(100vw-2rem)] flex-1 flex-col overflow-hidden'
       }
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 border-b border-slate-800/60 px-4 py-3">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-1.5 font-display text-sm font-bold text-slate-50">
-            <NerveIcon />
-            {set.title}
-          </h2>
-          <p className="mt-0.5 text-[11px] text-slate-500">{set.subtitle}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setShowHelp((v) => !v)}
-            aria-pressed={showHelp}
-            aria-label="Guía"
-            title="Cómo se usa este panel"
-            className={`rounded border px-2 py-1 text-[11px] font-medium transition-colors ${
-              showHelp
-                ? 'border-accent/50 bg-accent/10 text-accent'
-                : 'border-slate-700 text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Guía
-          </button>
+      {/* CABECERA: que raices son y los dos interruptores.
+          En `bare` la pestana ya dice "Neuro", asi que la cabecera dice lo que
+          la pestana no: de que miembro y de que niveles son las raices. Va como
+          rotulo, sin icono, y los botones bajan a su propia linea: a 19rem
+          "RAICES DEL MIEMBRO SUPERIOR" en versalitas de 11 px son unos 220 px y
+          no cabia junto a dos botones con borde. La variante flotante, que no
+          tiene pestana, conserva icono y boton de cerrar. */}
+      <section className="sec">
+        <div className="sec-head">
+          {!bare && (
+            <span className="shrink-0 text-fg3">
+              <NerveIcon />
+            </span>
+          )}
+          <Kicker className="min-w-0 leading-snug">{set.title}</Kicker>
+          <span className="sec-rule" />
           {!bare && (
             <button
               type="button"
               onClick={() => onOpenChange(false)}
               aria-label="Cerrar neuro"
-              className="-mr-1 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100/[0.06] hover:text-slate-200"
+              className="btn btn-quiet btn-sm btn-icon -mr-1 shrink-0 text-fg3"
             >
               <CloseIcon size={15} />
             </button>
           )}
         </div>
-      </div>
+        <p className="text-[11px] leading-snug text-fg3">{set.subtitle}</p>
 
-      {showHelp && <HowToUse onDismiss={dismissHelp} />}
-
-      {set.redFlags && set.redFlags.length > 0 && <RedFlags flags={set.redFlags} />}
-
-      {/* The plate. Clicking a territory selects its root, so the figure is an
-          input and not an illustration. */}
-      <div className="border-b border-slate-800/60 px-4 pb-3 pt-2.5">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <Kicker>Dermatomas · esquema orientativo</Kicker>
+        {/* Comparar estaba encima del esquema, como si fuera cosa del dibujo,
+            y es cosa de la lista: elige dos raices y las pone lado a lado. Con
+            el esquema plegado al final tenia que subir aqui. */}
+        <div className="-mx-2 mt-2 flex items-center gap-0.5">
           <button
             type="button"
             onClick={() => {
@@ -761,13 +781,20 @@ export function NeuroPanel({
             }}
             aria-pressed={compare}
             title="Comparar dos raíces vecinas a la vez: los dermatomas se solapan, así que ver el borde común es lo que dice qué es propio de cada nivel"
-            className={`shrink-0 rounded border px-2 py-1 text-[11px] font-medium transition-colors ${
-              compare
-                ? 'border-accent/50 bg-accent/10 text-accent'
-                : 'border-slate-700 text-slate-400 hover:text-slate-200'
-            }`}
+            className={`btn btn-quiet btn-sm text-[11px] ${compare ? 'text-brand' : ''}`}
           >
             Comparar
+          </button>
+          <span className="flex-1" />
+          <button
+            type="button"
+            onClick={() => setShowHelp((v) => !v)}
+            aria-pressed={showHelp}
+            aria-label="Guía"
+            title="Cómo se usa este panel"
+            className={`btn btn-quiet btn-sm text-[11px] ${showHelp ? 'text-brand' : ''}`}
+          >
+            Guía
           </button>
         </div>
         {/* WHAT COMPARING IS FOR. The button carried its explanation in a
@@ -775,66 +802,62 @@ export function NeuroPanel({
             glance -- "Comparar no sé para qué es". And the tooltip said what the
             button DID without saying why anyone would want it. */}
         {compare && (
-          <p className="mb-2 border-l-2 border-accent/50 pl-2 text-[11px] leading-snug text-slate-400">
-            Elige <span className="text-slate-200">dos raíces vecinas</span>: los
-            dermatomas se solapan, así que un déficit sensitivo casi nunca cae en un
-            solo nivel. Ver las dos juntas muestra el territorio compartido y el que
-            es propio de cada una — que es el que orienta el diagnóstico.
+          <p className="note note-brand mt-2 text-[11px] leading-snug">
+            Elige <span className="text-fg">dos raíces vecinas</span>: los dermatomas se
+            solapan, así que un déficit sensitivo casi nunca cae en un solo nivel. Ver
+            las dos juntas, en el cuerpo y en la comparación de abajo, muestra el
+            territorio compartido y el que es propio de cada una, que es el que orienta
+            el diagnóstico.
           </p>
         )}
-        <DermatomeMap
-          figure={set.figure}
-          activeRoots={picked}
-          onSelectRoot={pick}
-          keyPointFor={(id) => byId.get(id)?.dermatome.keyPointShort}
-        />
-        {/* The 3D layer is silent by design -- it just paints -- so it needs one
-            line to be discoverable, and that line is also where its limit is
-            stated. The rig has no per-dermatome geometry: it is painted by named
-            skin REGION, which is why the plate above keeps the finger-level
-            detail. See NeuroSkinLayer. */}
-        {picked.length > 0 && (
-          <p className="mt-2 text-[11px] leading-snug text-slate-500">
-            También se pinta sobre la piel del modelo 3D, por regiones. Gíralo para verlo.
-          </p>
-        )}
-      </div>
+      </section>
+
+      {showHelp && <HowToUse onDismiss={dismissHelp} />}
+
+      {set.redFlags && set.redFlags.length > 0 && <RedFlags flags={set.redFlags} />}
 
       {/* QUE SE ESTA ENCENDIENDO, MIENTRAS CORRE EL DEMO.
-          Una seccion separada por hairline, no una caja: el panel es una sola
-          superficie (regla 3). Aparece solo durante el demo y dice las dos
-          cosas que faltaban -- el nombre del musculo que se pone rojo, y
-          cuando NO hay ninguno. Sin ella, en tableta y movil el fisio ve un
-          cuerpo de cristal moviendose sin saber que esta mirando. */}
+          Una seccion con rotulo y filo, no una caja. Aparece solo durante el
+          demo y dice lo que faltaba -- el nombre del musculo que se pone rojo,
+          cuando NO hay ninguno, y la nota de lo que el modelo ensena.
+          SOLO POR DEBAJO DE `lg`, que es donde el lector del margen izquierdo
+          (RhythmReadout) no se monta. En escritorio ese lector ya dice lo
+          mismo, tambien cuando el gesto del demo no esta en el ROM cargado:
+          antes se callaba entero en 7 de los 8 demos de miotoma (solo C5 mueve
+          un gesto del hombro) y por eso esta franja salia en los dos anchos;
+          con los dos, el panel y el margen repetian el musculo. */}
       {demoSplit && (
-        <div className="border-b border-slate-800/60 px-4 py-2">
-          <Kicker>En el modelo ahora</Kicker>
+        <section className="sec lg:hidden">
+          <div className="sec-head">
+            <Kicker>En el modelo ahora</Kicker>
+            <span className="sec-rule" />
+          </div>
           {demoSplit.lit.length > 0 ? (
-            <p className="mt-1 text-[13px] leading-snug text-slate-400">
-              Se ilumina{' '}
-              <span className="font-semibold text-slate-200">
-                {demoSplit.lit.join(' · ')}
-              </span>
+            <p className="text-[13px] leading-snug text-fg2">
+              Se ilumina <span className="font-semibold text-fg">{demoSplit.lit.join(' · ')}</span>
               .
             </p>
           ) : (
-            <p className="mt-1 text-[13px] leading-snug text-slate-400">
+            <p className="text-[13px] leading-snug text-fg2">
               El movimiento es el del miotoma, pero aquí{' '}
-              <span className="font-semibold text-slate-200">
-                no se ilumina ningún músculo
-              </span>
-              : su ficha pertenece a otra región del atlas.
+              <span className="font-semibold text-fg">no se ilumina ningún músculo</span>: su
+              ficha pertenece a otra región del atlas.
             </p>
           )}
           {demoSplit.lit.length > 0 && demoSplit.mute.length > 0 && (
-            <p className="mt-1 text-[11px] leading-snug text-slate-500">
+            <p className="mt-1 text-[11px] leading-snug text-fg3">
               {demoSplit.mute.length === 1
                 ? 'Queda 1 músculo del miotoma sin iluminar'
                 : `Quedan ${demoSplit.mute.length} músculos del miotoma sin iluminar`}
               : su ficha pertenece a otra región del atlas.
             </p>
           )}
-        </div>
+          {/* La nota del demo, una vez: la fila abierta la calla mientras su
+              demo corre (ver NeuroRootRow). */}
+          {demoRoot?.demo?.note && (
+            <p className="mt-1 text-[11px] leading-snug text-fg3">{demoRoot.demo.note}</p>
+          )}
+        </section>
       )}
 
       {comparing && (
@@ -843,10 +866,9 @@ export function NeuroPanel({
 
       {/* Roots, and above them the conclusion they feed.
           The readout sits at the TOP of the scroll region rather than after the
-          five rows: it is the panel's answer, and an answer found only after
-          scrolling past everything reads as a footnote. It scrolls, though -- the
-          fixed area above is already carrying the plate. */}
-      <div className={bare ? 'py-1' : 'min-h-0 flex-1 overflow-y-auto py-1'}>
+          rows: it is the panel's answer, and an answer found only after
+          scrolling past everything reads as a footnote. */}
+      <div className={bare ? 'pb-1' : 'min-h-0 flex-1 overflow-y-auto pb-1'}>
         {screenStarted && (
           <NeuroScreenReadout
             figure={set.figure}
@@ -867,24 +889,75 @@ export function NeuroPanel({
             copyFailed={copyFailed}
           />
         )}
-        {set.roots.map((r) => (
-          <NeuroRootRow
-            key={r.id}
-            root={r}
-            pigment={pigmentFor(set.figure, r.id)}
-            picked={picked.includes(r.id)}
-            expanded={!comparing && picked.includes(r.id)}
-            onPick={() => pick(r.id)}
-            demoing={demoId === r.id}
-            onDemo={() => (demoId === r.id ? stopDemo() : startDemo(r))}
-            finding={screen[r.id] ?? EMPTY_FINDING}
-            onGrade={(patch) => grade(r.id, patch)}
-            showVerifyMark={!allPending}
-          />
-        ))}
+
+        {/* LA LISTA DE RAICES, PROTAGONISTA DEL PANEL (regla 10). Rotulo + filo
+            + cuenta, y las filas alineadas con el rotulo: su regla de pigmento
+            cae bajo la primera letra. */}
+        <section className="pt-3">
+          <div className="mb-1.5 flex items-center gap-2.5 px-4">
+            <Kicker>Raíces</Kicker>
+            <span className="sec-rule" />
+            <span className="num text-[11px] text-fg3">{set.roots.length}</span>
+          </div>
+          <div className="pl-4 pr-2">
+            {set.roots.map((r) => (
+              <NeuroRootRow
+                key={r.id}
+                root={r}
+                pigment={pigmentFor(set.figure, r.id)}
+                picked={picked.includes(r.id)}
+                expanded={!comparing && picked.includes(r.id)}
+                onPick={() => pick(r.id)}
+                demoing={demoId === r.id}
+                onDemo={() => (demoId === r.id ? stopDemo() : startDemo(r))}
+                finding={screen[r.id] ?? EMPTY_FINDING}
+                onGrade={(patch) => grade(r.id, patch)}
+                showVerifyMark={!allPending}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* EL ESQUEMA PLANO, PLEGADO BAJO SU ROTULO (regla 10).
+            Estaba arriba, antes de la lista, ocupando hasta 26vh: con la carta
+            ya pintada sobre el cuerpo, era la misma informacion dos veces y la
+            lista --lo que se usa-- empezaba a media columna. Se queda porque
+            tiene lo que el cuerpo no: el rig no tiene geometria por dermatoma y
+            se pinta por regiones de piel con nombre, asi que el detalle por
+            dedos solo esta aqui. Sigue siendo una entrada: tocar un territorio
+            elige su raiz. */}
+        <section className="px-4 pt-4">
+          <button
+            type="button"
+            onClick={() => setPlateOpen((v) => !v)}
+            aria-expanded={plateOpen}
+            className="flex w-full items-center gap-2.5 py-1 text-left"
+          >
+            <Kicker>Esquema de dermatomas</Kicker>
+            <span className="sec-rule" />
+            <ChevronDownIcon
+              size={12}
+              className={`shrink-0 text-fg3 transition-transform ${plateOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+          <p className="mt-1 text-[11px] leading-snug text-fg3">
+            Plano y orientativo. Conserva el detalle de los dedos, que el modelo 3D pinta
+            por regiones.
+          </p>
+          {plateOpen && (
+            <div className="mt-2">
+              <DermatomeMap
+                figure={set.figure}
+                activeRoots={picked}
+                onSelectRoot={pick}
+                keyPointFor={(id) => byId.get(id)?.dermatome.keyPointShort}
+              />
+            </div>
+          )}
+        </section>
 
         {allPending && (
-          <p className="px-4 pt-3 text-[11px] leading-snug text-slate-600">
+          <p className="px-4 pt-4 text-[11px] leading-snug text-fg3">
             Los valores de esta pantalla siguen pendientes de cotejo contra la fuente
             primaria (ASIA/ISNCSCI y Magee).
           </p>
@@ -896,13 +969,13 @@ export function NeuroPanel({
             sin cotejar (los miotomas ampliados y los niveles de los reflejos,
             que son de Magee) se dice con ese nombre. */}
         {!allPending && (
-          <p className="px-4 pt-3 text-[11px] leading-snug text-slate-500">
-            <span className="text-slate-400">Puntos clave sensitivos y músculos clave</span>{' '}
+          <p className="px-4 pt-4 text-[11px] leading-snug text-fg3">
+            <span className="text-fg2">Puntos clave sensitivos y músculos clave</span>{' '}
             cotejados contra la hoja de trabajo oficial ISNCSCI. Los miotomas ampliados
             y los niveles de los reflejos siguen a Magee y están pendientes de cotejo.
           </p>
         )}
-        <p className="px-4 py-3 text-[11px] leading-snug text-slate-600">
+        <p className="px-4 py-3 text-[11px] leading-snug text-fg3">
           Los mapas dermatómicos y las raíces de los reflejos varían entre autores
           (ASIA, Keegan). Úsalo como guía de razonamiento segmentario, no como
           límite exacto. Contenido educativo.
