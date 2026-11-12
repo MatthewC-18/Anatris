@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { repairFaceWinding } from '../faceWinding';
+import { agreeTriangleWinding, repairFaceWinding } from '../faceWinding';
 
 /** A closed box whose winding and normals agree. */
 function goodMesh(name: string): THREE.Mesh {
@@ -116,5 +116,96 @@ describe('face winding repair', () => {
     const r = repairFaceWinding(root);
     expect(r.flipped).toBe(0);
     expect(r.left).toBe(1);
+  });
+});
+
+// POR TRIANGULO. Dentro de una malla tambien hay triangulos sueltos que giran
+// contra sus normales, y con DoubleSide salen negros desde los dos lados: la
+// oreja "rota" del laboratorio (54 de 68 en `Antihelixl`, 35 de 37 en
+// `Posterior_auricular_groovel`; 691 de 27.918 triangulos de piel en total).
+describe('agreeTriangleWinding: triangulos sueltos', () => {
+  /** Un cubo con SOLO algunos triangulos invertidos. */
+  function mixed(flip: number[]): THREE.Mesh {
+    const m = goodMesh('mezcla');
+    const arr = m.geometry.getIndex()!.array as ArrayLike<number> & { [i: number]: number };
+    for (const t of flip) {
+      const i = t * 3;
+      const x = arr[i + 1];
+      arr[i + 1] = arr[i + 2];
+      arr[i + 2] = x;
+    }
+    return m;
+  }
+
+  it('invierte solo los que van contra sus normales', () => {
+    const m = mixed([0, 5, 7]);
+    expect(agreement(m)).toBeLessThan(1);
+    expect(agreeTriangleWinding(m)).toBe(3);
+    expect(agreement(m)).toBe(1);
+  });
+
+  it('una malla ya de acuerdo no se toca', () => {
+    const m = goodMesh('bien');
+    const antes = Array.from(m.geometry.getIndex()!.array);
+    expect(agreeTriangleWinding(m)).toBe(0);
+    expect(Array.from(m.geometry.getIndex()!.array)).toEqual(antes);
+  });
+
+  it('es idempotente: la segunda pasada no deshace la primera', () => {
+    // Importa con geometria compartida por dos mallas: se pasa dos veces.
+    const m = mixed([1, 2]);
+    agreeTriangleWinding(m);
+    const despues = Array.from(m.geometry.getIndex()!.array);
+    expect(agreeTriangleWinding(m)).toBe(0);
+    expect(Array.from(m.geometry.getIndex()!.array)).toEqual(despues);
+  });
+
+  it('no mueve ni un vertice: solo el orden de dos indices', () => {
+    const m = mixed([3]);
+    const antes = Array.from(m.geometry.getAttribute('position').array);
+    agreeTriangleWinding(m);
+    expect(Array.from(m.geometry.getAttribute('position').array)).toEqual(antes);
+  });
+
+  it('marca el indice para volver a subirlo a la GPU', () => {
+    const m = mixed([4]);
+    const v0 = m.geometry.getIndex()!.version;
+    agreeTriangleWinding(m);
+    expect(m.geometry.getIndex()!.version).toBeGreaterThan(v0);
+  });
+});
+
+describe('RigModel: la cabeza solida escribe profundidad', () => {
+  // La muesca negra de la coronilla en el laboratorio cervical: con el cuello en
+  // cristal la piel deja de escribir profundidad, y la cara INTERNA de la frente
+  // se pintaba encima de la parietal (rayo medido: Parietal_region_3 de cara,
+  // Frontal_region_3 por detras, 4 cm mas alla). 128 pixeles oscuros -> 0.
+  it('las teselas siempre solidas llevan su material, con depthWrite fijo', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync('src/components/movement/RigModel.tsx', 'utf8');
+    expect(src).toContain('headSkinMat.depthWrite = true;');
+    expect(src).toContain('headSkinMat.onBeforeCompile = bodySkinMat.onBeforeCompile;');
+    expect(src).toContain('skinAlwaysSolid(mesh) ? headSkinMat : bodySkinMat');
+    // El fundido a cristal solo mueve el material del cuerpo; al remontar no
+    // puede recoger el de la cabeza como si fuera el del cuerpo.
+    expect(src).toContain("userData?.headSkin !== true");
+  });
+
+  it('la subida de la nuca en JS es la misma cuenta que en el shader', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync('src/components/movement/RigModel.tsx', 'utf8');
+    expect(src).toContain(
+      "'float napeLift = uNapeLift * (1.0 - smoothstep(uNapeZ0, uNapeZ1, vAnatZ));'",
+    );
+    expect(src).toContain('return NAPE_LIFT * (1 - t * t * (3 - 2 * t));');
+    expect(src).toContain("'float headSolid = smoothstep(uHeadY0 + napeLift, uHeadY1 + napeLift, vAnatY);'");
+    expect(src).toContain('if (wy < HEAD_SOLID_Y1 + napeLiftAt(wz)) return false;');
+  });
+
+  it('y la piel pasa por el giro por triangulo antes de recibir su material', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync('src/components/movement/RigModel.tsx', 'utf8');
+    expect(src).toMatch(/windingTris \+= agreeTriangleWinding\(mesh\);\s+swap\(mesh, skinAlwaysSolid/);
+    expect(src).toMatch(/windingTris \+= agreeTriangleWinding\(mesh\);\s+swap\(mesh, skinMat\)/);
   });
 });

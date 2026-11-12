@@ -134,3 +134,74 @@ export function repairFaceWinding(root: THREE.Object3D): WindingRepairResult {
 
   return result;
 }
+
+// POR TRIANGULO, NO SOLO POR MALLA.
+//
+// El pase de arriba decide por malla entera (90% o nada), que es lo que pedia el
+// espejo de Z-Anatomy. Pero dentro de una malla tambien hay triangulos sueltos
+// que giran contra sus normales, y con DoubleSide cada uno de ellos sale OSCURO
+// desde los DOS lados: three voltea la normal en la cara trasera, y si el giro y
+// la normal no coinciden, la normal de sombreado apunta siempre al lado contrario
+// del que mira. Medido en el navegador sobre la piel del rig, con el pase de
+// malla ya hecho (normal media de los tres vertices contra la del triangulo,
+// coseno < -0,1):
+//
+//   piel     691 de 27.918 triangulos, en 158 mallas
+//            `Antihelixl` 54 de 68, `Posterior_auricular_groovel` 35 de 37,
+//            `Anterior_notch_of_auriclel` 28 de 41: la oreja "rota", a manchas
+//            negras, que se ve en todo plano lateral; y `Anterior_region_of_arm_3`
+//            88 de 93
+//   musculo  2.988 de 626.610 (0,5%)   hueso  269 de 219.771 (0,1%)
+//
+// Poner el giro de acuerdo con la normal es mejor SIEMPRE, sea cual sea de los
+// dos el que estaba mal: con los dos de acuerdo el triangulo se ilumina bien
+// desde las dos caras. Y la geometria no se mueve: solo cambia el orden de dos
+// indices.
+
+/** Coseno a partir del cual un triangulo gira CONTRA sus normales. */
+export const TRIANGLE_AGAINST_COS = -0.1;
+
+const _t0 = new THREE.Vector3();
+const _t1 = new THREE.Vector3();
+const _t2 = new THREE.Vector3();
+const _tf = new THREE.Vector3();
+const _tn = new THREE.Vector3();
+const _tm = new THREE.Vector3();
+
+/**
+ * Invierte cada triangulo cuyo giro va contra la normal media de sus tres
+ * vertices. Idempotente (un triangulo ya de acuerdo no se toca), asi que tambien
+ * es seguro sobre geometria compartida por dos mallas.
+ *
+ * @returns cuantos triangulos se invirtieron.
+ */
+export function agreeTriangleWinding(mesh: THREE.Mesh): number {
+  const geom = mesh.geometry;
+  const pos = geom?.getAttribute('position');
+  const nor = geom?.getAttribute('normal');
+  const index = geom?.getIndex();
+  if (!pos || !nor || !index) return 0;
+  const arr = index.array as Uint16Array | Uint32Array;
+  let flipped = 0;
+  for (let i = 0; i + 2 < arr.length; i += 3) {
+    _t0.fromBufferAttribute(pos, arr[i]);
+    _t1.fromBufferAttribute(pos, arr[i + 1]).sub(_t0);
+    _t2.fromBufferAttribute(pos, arr[i + 2]).sub(_t0);
+    _tf.crossVectors(_t1, _t2);
+    const fl = _tf.length();
+    if (fl < 1e-12) continue; // degenerado: no dice nada
+    _tn.fromBufferAttribute(nor, arr[i]);
+    _tn.add(_tm.fromBufferAttribute(nor, arr[i + 1]));
+    _tn.add(_tm.fromBufferAttribute(nor, arr[i + 2]));
+    const nl = _tn.length();
+    if (nl < 1e-6) continue; // normales opuestas entre si: tampoco
+    if (_tf.dot(_tn) / (fl * nl) < TRIANGLE_AGAINST_COS) {
+      const t = arr[i + 1];
+      arr[i + 1] = arr[i + 2];
+      arr[i + 2] = t;
+      flipped++;
+    }
+  }
+  if (flipped > 0) index.needsUpdate = true;
+  return flipped;
+}

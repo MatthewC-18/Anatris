@@ -63,7 +63,7 @@ import {
   type PanelLayer,
 } from '../../lib/materialColors';
 import { bindClaviclesToShoulderGirdle } from '../../lib/clavicleBinding';
-import { repairFaceWinding } from '../../lib/faceWinding';
+import { agreeTriangleWinding, repairFaceWinding } from '../../lib/faceWinding';
 import { bridgeShoulderSkin } from '../../lib/shoulderSkinBridge';
 import { gradeShoulderMuscleBinding } from '../../lib/shoulderMuscleBinding';
 import { relaxSkinSeams } from '../../lib/skinSeamRelax';
@@ -74,6 +74,7 @@ import { attachRim, setRim } from '../../lib/rigRim';
 import { blendHipSkin } from '../../lib/rigHipSkin';
 import { regradeAnkleCrossers } from '../../lib/rigAnkleRebind';
 import { addEyes, eyesIn, eyesVisibleFor } from '../../lib/rigEyes';
+import { closeSkinMidline } from '../../lib/rigSkinMidline';
 import {
   smoothNeckSkin,
   smoothTrunkSkin,
@@ -443,6 +444,50 @@ const NAPE_LIFT = 0.1;
 /** Por detras de esta z (m), la subida entera; por delante de NAPE_Z1, ninguna. */
 const NAPE_Z0 = -0.062;
 const NAPE_Z1 = -0.036;
+
+/**
+ * LA CABEZA SOLIDA ESCRIBE PROFUNDIDAD.
+ *
+ * Toda la piel del cuerpo comparte un material TRANSPARENTE, para poder pasar a
+ * cristal, y en cristal deja de escribir profundidad (`depthWrite` sigue a la
+ * opacidad). La cabeza sale solida igual (alfa 1 en el shader, `headSolid`),
+ * pero sin escribir profundidad el orden de dibujo manda: three ordena las
+ * transparentes por el centro de cada malla, y una tesela lejana con el centro
+ * mas cerca de la camara se pinta DESPUES de la cercana y la tapa.
+ *
+ * Era la muesca negra de lo alto de la cabeza en el laboratorio cervical, que
+ * abre de perfil con el cuello en cristal. Medido lanzando el rayo por esos
+ * pixeles (marron casi negro, 30-20-16): da primero en `Parietal_region_3`, de
+ * cara, y despues en la cara INTERNA de `Frontal_region_3`, 4 cm mas alla. Por
+ * encima del craneo no hay hueso opaco que la tape, y la cara interna, con la
+ * normal volteada, sale casi negra. No era un agujero: la piel estaba cerrada.
+ *
+ * Las teselas que caen ENTERAS en la parte siempre solida llevan su propio
+ * material: el mismo shader y el mismo cristal (que ahi se anula), pero
+ * escribiendo profundidad siempre. La de mas cerca tapa a la de mas lejos sea
+ * cual sea el orden.
+ */
+function napeLiftAt(z: number): number {
+  // La MISMA cuenta que `napeLift` en el shader de la piel (smoothstep).
+  const t = Math.min(1, Math.max(0, (z - NAPE_Z0) / (NAPE_Z1 - NAPE_Z0)));
+  return NAPE_LIFT * (1 - t * t * (3 - 2 * t));
+}
+function skinAlwaysSolid(mesh: THREE.Mesh): boolean {
+  const pos = mesh.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+  if (!pos) return false;
+  const e = mesh.matrixWorld.elements;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    // La altura y el fondo de MUNDO en reposo, que es lo que el shader lee
+    // (`modelMatrix * position`).
+    const wy = e[1] * x + e[5] * y + e[9] * z + e[13];
+    const wz = e[2] * x + e[6] * y + e[10] * z + e[14];
+    if (wy < HEAD_SOLID_Y1 + napeLiftAt(wz)) return false;
+  }
+  return true;
+}
 
 /**
  * Los siete musculos de cada orbita, por nombre. Ver el bloque que los apaga.
@@ -1769,6 +1814,15 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
             );
       };
       bodySkinMatRef.current = bodySkinMat;
+      // La cabeza siempre solida, escribiendo profundidad (ver skinAlwaysSolid).
+      // `clone()` no copia `onBeforeCompile`, asi que se le pasa el MISMO: con
+      // la misma funcion three reutiliza el programa ya compilado, y los
+      // uniformes salen de la misma clausura (`ghostU` incluido).
+      const headSkinMat = bodySkinMat.clone();
+      headSkinMat.onBeforeCompile = bodySkinMat.onBeforeCompile;
+      headSkinMat.transparent = true;
+      headSkinMat.depthWrite = true;
+      headSkinMat.userData = { headSkin: true, uGhost: ghostU };
       /**
        * El material de la fascia antebraquial: carne profunda, mate, y empujada
        * un paso hacia atras en el buffer de profundidad.
@@ -2074,6 +2128,29 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       bootFase('unmangleForearmMeshes');
       inflateSkinShell(scene);
 
+      // LA PIEL DE LA CABEZA, CERRADA POR LA LINEA MEDIA (src/lib/rigSkinMidline.ts).
+      // Las dos mitades de la coronilla dejaban un rombo de 9,4 x 10,8 mm por el
+      // que se veia el craneo (la muesca negra del laboratorio cervical), y la
+      // punta de la nariz y el labio superior, grietas de 1 a 2 mm con el
+      // orbicular y los dientes detras. El otro pase que mueve POSICIONES, asi
+      // que va aqui, pegado al engorde y antes de los de pesos.
+      const tMid = performance.now();
+      const midline = closeSkinMidline(scene, (mesh) => {
+        const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+        return layerForMaterial((first as THREE.Material | undefined)?.name ?? null) === 'skin'
+          ? 'skin'
+          : 'other';
+      });
+      if (midline.vertices > 0) {
+        // eslint-disable-next-line no-console
+        console.info(
+          `[RigModel] piel de la linea media: ${midline.vertices} vertices en ` +
+            `${midline.meshes} teselas, ${midline.holes} agujeros, ` +
+            `${(midline.maxMove * 1000).toFixed(1)} mm como mucho, ` +
+            `${(performance.now() - tMid).toFixed(0)} ms`,
+        );
+      }
+
       // FACE WINDING. Z-Anatomy mirrors one half of the body, and a mirror
       // reverses winding, so on that half every camera-facing fragment is a BACK
       // face -- three negates the shading normal there, and the surface ends up
@@ -2299,6 +2376,8 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       // Rewrite every vertex of a skinned mesh to ride ONE bone (weight 1). Rest
       // pose is preserved (bone*boneInverse = identity at bind). Returns false if
       // the mesh is not skinned or the bone is absent from its own skeleton.
+      /** Triangulos de piel cuyo giro se puso de acuerdo con sus normales. */
+      let windingTris = 0;
       scene.traverse((o) => {
         const mesh = o as THREE.Mesh;
         if (!mesh.isMesh) return;
@@ -2322,6 +2401,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         // and permanently hide every shattered internal piece.
         if (inDistalRegion(center)) {
           if (materialIsSkin(matName)) {
+            windingTris += agreeTriangleWinding(mesh);
             swap(mesh, skinMat);
             mesh.userData.rigLayer = 'skin';
             mesh.userData.rigDistalCap = true;
@@ -2431,7 +2511,10 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           else if (Math.abs(center.y - KNEE_Y) < KNEE_SKIN_REACH_M) {
             blendKneeSkin(mesh, KNEE_Y);
           }
-          swap(mesh, bodySkinMat);
+          // Los triangulos sueltos que giran contra sus normales salian negros
+          // desde los dos lados: la oreja, a manchas (src/lib/faceWinding.ts).
+          windingTris += agreeTriangleWinding(mesh);
+          swap(mesh, skinAlwaysSolid(mesh) ? headSkinMat : bodySkinMat);
           mesh.userData.rigLayer = 'skin';
           mesh.userData.rigDistalCap = false;
           return;
@@ -2641,6 +2724,10 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           bone: effBone,
         });
       });
+      if (windingTris > 0) {
+        // eslint-disable-next-line no-console
+        console.info(`[RigModel] piel: ${windingTris} triangulos girados para casar con sus normales`);
+      }
       // REPARTO POR VERTICE DEL BRAZO. Lo de arriba pega mallas ENTERAS al
       // humero y por eso deja fuera la piel MEZCLADA del brazo (dominante el
       // humero, la mitad del peso en el antebrazo). Esa piel se arrastraba
@@ -2760,7 +2847,14 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       const distalCap = mesh.userData.rigDistalCap === true;
       // Recover the body skin material on a remount (the one-time style pass that
       // created it is skipped when the cached scene is reused).
-      if (lyr === 'skin' && !distalCap) {
+      // La de la cabeza NO: es otro material y el fundido a cristal no la toca.
+      // Si la ultima tesela recorrida fuera de la cabeza, el cuerpo entero se
+      // quedaria sin fundido.
+      if (
+        lyr === 'skin' &&
+        !distalCap &&
+        (mesh.material as THREE.Material).userData?.headSkin !== true
+      ) {
         bodySkinMatRef.current = mesh.material as THREE.MeshStandardMaterial;
       }
       // Dissection-plane tag for the selection card. Back-fill it here for a
