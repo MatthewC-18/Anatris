@@ -2014,19 +2014,39 @@ export function OrthopedicTestsPanel({
           modo Combinar sin nada marcado dice que hay que marcar, en vez de
           no estar. Acotado a 45vh en escritorio: con el conjunto medido y sus
           tres avisos no puede tapar la lista que se esta marcando.
-          EN LA HOJA MOVIL, 7,5 rem. Con 45vh el pie podia medir mas que el
-          area visible de la hoja plegada (180 px a 375 x 812) y la tapaba
-          entera: la lista, el pre-test y los interruptores Combinar y Examen
-          quedaban debajo (hallado en la revision de la tanda 2a). Con 7,5 rem
-          se ven siempre el titular y la barra, las notas se desplazan dentro
-          del pie y a la lista le queda sitio.
+          EN LA HOJA MOVIL SOLO SE PEGA EL TITULAR. El bloque entero pegado
+          podia medir mas que el area visible de la hoja plegada (MEDIDO en la
+          revision de la tanda 2a, a 375 x 812: unos 164 px utiles frente a un
+          pie de 186 px con dos sacroiliacas y 318 con el conjunto de Laslett)
+          y la tapaba entera: la lista, el pre-test y el interruptor Combinar
+          quedaban debajo, y salir obligaba a cambiar de pestana, que desmonta
+          el panel y borra la seleccion. Por debajo de `lg` el bloque va en
+          flujo tras la lista y lo que se pega es UNA linea, el rotulo y la
+          cifra (unos 40 px); en escritorio el bloque entero, como antes.
           La SOMBRA de abajo, del color de la pagina, tapa el relleno inferior
-          de la hoja movil (`pb-safe`, 1 rem como minimo): el pie se pega por
-          encima de ese relleno y por la franja que quedaba asomaba la lista
-          (visto a 375 px). Una sombra y no un ::after porque el pie tiene su
-          propio scroll, que recortaria cualquier hijo que saliera de el. */}
+          de la hoja movil (`pb-safe`, 1 rem como minimo): lo pegado queda por
+          encima de ese relleno y por la franja asomaba la lista (visto a
+          375 px). */}
+      {clusterMode && (measured || cluster) && (
+        <div className="sticky bottom-0 z-10 flex items-baseline justify-between gap-3 border-t border-line/75 bg-page px-4 py-2.5 shadow-[0_max(1rem,env(safe-area-inset-bottom))_0_0_rgb(var(--c-page))] lg:hidden">
+          <Kicker className="min-w-0 truncate leading-snug">
+            {measured
+              ? measured.cluster.name
+              : `${cluster!.count} prueba${cluster!.count > 1 ? 's' : ''} positiva${cluster!.count > 1 ? 's' : ''} a la vez`}
+          </Kicker>
+          <span className="flex shrink-0 items-baseline gap-1.5">
+            <span className="num text-[11px] text-fg3">{Math.round(pretest)}%</span>
+            <span className="num text-[11px] text-fg3">→</span>
+            <span className="readout text-lg text-emerald-300">
+              {(measured ? measured.post : cluster!.post) != null
+                ? `${Math.round((measured ? measured.post : cluster!.post) as number)}%`
+                : 's/d'}
+            </span>
+          </span>
+        </div>
+      )}
       {clusterMode && (
-        <div className="sticky bottom-0 z-10 max-h-[7.5rem] overflow-y-auto border-t border-line/75 bg-page px-4 py-3 shadow-[0_max(1rem,env(safe-area-inset-bottom))_0_0_rgb(var(--c-page))] lg:max-h-[45vh]">
+        <div className="border-t border-line/75 bg-page px-4 py-3 lg:sticky lg:bottom-0 lg:z-10 lg:max-h-[45vh] lg:overflow-y-auto">
           {!measured && !cluster && (
             <p className="text-[11px] leading-snug text-fg2">
               Marca con la casilla las pruebas que salieron positivas: aquí verás la
@@ -2037,7 +2057,8 @@ export function OrthopedicTestsPanel({
           {/* Conjunto MEDIDO: gana al estimado siempre que exista. */}
           {measured && (
             <div>
-              <div className="flex items-baseline justify-between gap-3">
+              {/* En movil este titular va en la linea pegada de arriba. */}
+              <div className="hidden items-baseline justify-between gap-3 lg:flex">
                 <Kicker className="min-w-0 leading-snug">{measured.cluster.name}</Kicker>
                 <span className="flex shrink-0 items-baseline gap-1.5">
                   <span className="num text-[11px] text-fg3">{Math.round(pretest)}%</span>
@@ -2094,7 +2115,7 @@ export function OrthopedicTestsPanel({
           {/* Combined result (only when combining with a selection). */}
           {!measured && cluster && (
             <div>
-              <div className="flex items-baseline justify-between gap-3">
+              <div className="hidden items-baseline justify-between gap-3 lg:flex">
                 <Kicker className="min-w-0 leading-snug">
                   {cluster.count} prueba{cluster.count > 1 ? 's' : ''} positiva
                   {cluster.count > 1 ? 's' : ''} a la vez
