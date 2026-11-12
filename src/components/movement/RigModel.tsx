@@ -73,6 +73,7 @@ import { baseMaterialOf, cloneOverlayMaterial } from '../../lib/rigMaterialStack
 import { attachRim, setRim } from '../../lib/rigRim';
 import { blendHipSkin } from '../../lib/rigHipSkin';
 import { regradeAnkleCrossers } from '../../lib/rigAnkleRebind';
+import { addEyes, eyesIn, eyesVisibleFor } from '../../lib/rigEyes';
 import {
   smoothNeckSkin,
   smoothTrunkSkin,
@@ -1255,6 +1256,8 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
   // per-mesh userData tags on a remount (the scene is a drei-cached singleton, so
   // the expensive style pass runs only the first time this scene is seen).
   const layerMeshesRef = useRef<LayerMesh[]>([]);
+  /** Los dos globos oculares (src/lib/rigEyes.ts), fuera de la lista de capas. */
+  const eyesRef = useRef<THREE.Object3D[]>([]);
 
   // Glass-skin fade. bodySkinMatRef is the body skin's OWN material (distinct
   // from the distal caps'); skinFadeRef is the eased 0..1 fade amount and
@@ -1346,6 +1349,11 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       }
       lm.mesh.visible = layerOn && !removed;
     }
+    // Los ojos no estan en la lista de capas (no son un tejido que se pele): se
+    // ven con piel o con musculo y se apagan con el esqueleto solo, que con dos
+    // bolas blancas en las orbitas dejaria de ser un esqueleto.
+    const ojos = eyesVisibleFor(st);
+    for (const e of eyesRef.current) e.visible = ojos;
     // Y la piel, a cristal o a solida segun lo que el panel acabe de prometer.
     refreshSkinFade(st);
   }, [refreshSkinFade]);
@@ -2720,6 +2728,12 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
           console.info(`[RigModel] hid ${dropped} arm pieces with no counterpart on the other side`);
         }
       }
+      // LOS OJOS. El GLB no trae globo ocular y por la abertura de los parpados
+      // asomaba el orbicular, en rojo (ver src/lib/rigEyes.ts). Va aqui, en la
+      // pasada que solo corre una vez y con el rig EN REPOSO: la posicion se da
+      // en mundo y se cuelga de `vert_C1`, asi que un rig ya posado los dejaria
+      // fuera de sitio.
+      addEyes(scene);
       scene.userData.__rigPrepared = true;
     }
     bootFase('dedup + simetria de brazos');
@@ -2773,6 +2787,7 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       list.push({ mesh, layer: lyr, distalCap, muscleLevel, base, side });
     });
     layerMeshesRef.current = list;
+    eyesRef.current = eyesIn(scene);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as unknown as { __rigScene?: THREE.Object3D }).__rigScene = scene;
     applyLayers(layerChannel.get());
