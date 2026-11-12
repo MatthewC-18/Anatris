@@ -42,11 +42,9 @@ export function ConceptDiagramView({
     </>
   );
   if (size === 'stage') return <figure className="w-full">{body}</figure>;
-  return (
-    <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-4">
-      {body}
-    </div>
-  );
+  // La figura dentro de la columna de lectura se separa del texto con dos filos,
+  // arriba y abajo, como una figura de libro; era una tarjeta con borde y fondo.
+  return <figure className="w-full border-y border-line/75 py-4">{body}</figure>;
 }
 
 /* ===========================================================================

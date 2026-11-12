@@ -6,7 +6,14 @@
 //   - each diagnostic-accuracy study lists which tests use it and whether those
 //     numbers are verified against the primary source (amber "por verificar"
 //     until checked);
-//   - a headline bar summarises how much of the region is verified.
+//   - a headline readout summarises how much of the region is verified.
+//
+// PRESENTACION: LAMINA. Era una pila de tarjetas (una por estudio, otra para la
+// cifra de verificacion, otra para el aviso de region vacia) con una pastilla
+// de color para el estado y un boton con caja para el enlace. Ahora es una
+// bibliografia: filas partidas por filos, el estado como etiqueta en mono, el
+// enlace como texto, y la verificacion como una cifra grande con su medidor de
+// 2 px.
 //
 // Rendered as an App overlay (Overlay 'evidence'), region-scoped. UI Spanish
 // LATAM with accents; source ASCII. No em-dashes in visible copy (house style).
@@ -36,30 +43,24 @@ function ExternalLinkIcon() {
   );
 }
 
-/** Verified/pending chip for a study, from its verified vs. total cite counts. */
-function VerifiedChip({ verified, total }: { verified: number; total: number }) {
+/** Verified/pending state of a study, from its verified vs. total cite counts.
+ *  Una etiqueta en mono con el tono en la letra: verde lo cotejado, ambar lo
+ *  que falta (ambar es el color de los avisos en todo el sistema). */
+function VerifiedTag({ verified, total }: { verified: number; total: number }) {
   if (total > 0 && verified === total) {
-    return (
-      <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-        Verificado
-      </span>
-    );
+    return <span className="tag shrink-0 text-clinical">Verificado</span>;
   }
   if (verified > 0) {
     return (
-      <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+      <span className="tag shrink-0 text-amber-300/90">
         {verified} de {total} verificados
       </span>
     );
   }
-  return (
-    <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
-      Por verificar
-    </span>
-  );
+  return <span className="tag shrink-0 text-amber-300/90">Por verificar</span>;
 }
 
-function StudyCard({ study }: { study: EvidenceStudy }) {
+function StudyRow({ study }: { study: EvidenceStudy }) {
   const { ref } = study;
   const url = sourceUrl(ref);
   const linkLabel = sourceLinkLabel(ref);
@@ -81,22 +82,20 @@ function StudyCard({ study }: { study: EvidenceStudy }) {
   }, [study.usedBy]);
 
   return (
-    <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-100">{studyTitleLine(ref)}</p>
-          <p className="mt-0.5 text-[13px] italic leading-snug text-slate-300">{ref.title}</p>
-          <p className="mt-0.5 text-xs text-slate-500">
-            {ref.publisher}
-            {ref.authors ? ` · ${ref.authors}` : ''}
-          </p>
-        </div>
-        <VerifiedChip verified={study.verifiedCount} total={study.totalCount} />
+    <li className="py-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-sm font-semibold text-fg">{studyTitleLine(ref)}</p>
+        <VerifiedTag verified={study.verifiedCount} total={study.totalCount} />
       </div>
+      <p className="mt-0.5 text-[13px] italic leading-snug text-fg/85">{ref.title}</p>
+      <p className="mt-0.5 text-xs text-fg3">
+        {ref.publisher}
+        {ref.authors ? ` · ${ref.authors}` : ''}
+      </p>
 
       {tests.length > 0 && (
-        <p className="mt-2.5 text-[11px] leading-snug text-slate-400">
-          <span className="text-slate-500">Respalda: </span>
+        <p className="mt-2.5 text-xs leading-snug text-fg2">
+          <span className="text-fg3">Respalda: </span>
           {tests.join(', ')}
         </p>
       )}
@@ -111,17 +110,17 @@ function StudyCard({ study }: { study: EvidenceStudy }) {
           ahora la pagina no dejaba verlo. Se dibuja solo donde la fuente lo
           trae, asi que no deja huecos en las que aun no lo tienen. */}
       {(ref.sample || ref.standard) && (
-        <dl className="mt-2.5 flex flex-col gap-1 text-[11px] leading-snug">
+        <dl className="mt-2.5 flex flex-col gap-1 text-xs leading-snug">
           {ref.sample && (
             <div>
-              <dt className="inline text-slate-500">Muestra. </dt>
-              <dd className="inline text-slate-400">{ref.sample}</dd>
+              <dt className="inline text-fg3">Muestra. </dt>
+              <dd className="inline text-fg2">{ref.sample}</dd>
             </div>
           )}
           {ref.standard && (
             <div>
-              <dt className="inline text-slate-500">Patrón de referencia. </dt>
-              <dd className="inline text-slate-400">{ref.standard}</dd>
+              <dt className="inline text-fg3">Patrón de referencia. </dt>
+              <dd className="inline text-fg2">{ref.standard}</dd>
             </div>
           )}
         </dl>
@@ -132,27 +131,25 @@ function StudyCard({ study }: { study: EvidenceStudy }) {
           79% que todo el mundo cita es la exactitud y no la especificidad, que
           el 40% de las roturas no las vio ninguna de las cuatro pruebas. Es la
           diferencia entre citar un estudio y haberlo leido. */}
-      {ref.note && (
-        <p className="mt-2.5 border-l border-slate-800 pl-3 text-[11px] leading-relaxed text-slate-400">
-          {ref.note}
+      {ref.note && <p className="note mt-2.5">{ref.note}</p>}
+
+      {(url || locator) && (
+        <p className="mt-2.5 flex items-center gap-3">
+          {url && (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded text-xs font-medium text-brand underline-offset-4 hover:underline"
+            >
+              <ExternalLinkIcon />
+              {linkLabel}
+            </a>
+          )}
+          {locator && <span className="num text-[11px] text-fg3">{locator}</span>}
         </p>
       )}
-
-      <div className="mt-3 flex items-center gap-3">
-        {url && (
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-2.5 py-1 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/20"
-          >
-            <ExternalLinkIcon />
-            {linkLabel}
-          </a>
-        )}
-        {locator && <span className="text-[10px] text-slate-500">{locator}</span>}
-      </div>
-    </div>
+    </li>
   );
 }
 
@@ -162,18 +159,18 @@ function BookRow({ book }: { book: EvidenceBook }) {
     ref.edition ? `${ref.edition}. ` : ''
   }${ref.publisher}; ${ref.year}.`;
   return (
-    <li className="flex flex-col gap-1 border-b border-slate-800/40 py-2.5 last:border-0">
-      <span className="text-[13px] leading-snug text-slate-300">{cite}</span>
-      <span className="flex items-center gap-2 text-[10px] text-slate-500">
+    <li className="flex flex-col gap-1 py-3">
+      <span className="text-[13px] leading-snug text-fg/85">{cite}</span>
+      <span className="flex flex-wrap items-center gap-x-2 text-[11px] text-fg3">
         {ref.volume && <span>{ref.volume}</span>}
-        {ref.volume && <span className="text-slate-700">·</span>}
+        {ref.volume && <span aria-hidden="true">·</span>}
         <span>
           {book.citeCount} cita{book.citeCount === 1 ? '' : 's'} en esta región
         </span>
         {!book.anyPageVerified && (
           <>
-            <span className="text-slate-700">·</span>
-            <span className="text-amber-500/80" title="Páginas por confirmar contra el ejemplar">
+            <span aria-hidden="true">·</span>
+            <span className="text-amber-300/80" title="Páginas por confirmar contra el ejemplar">
               páginas por verificar
             </span>
           </>
@@ -192,54 +189,61 @@ export function EvidenceScreen({ region }: { region: string | null }) {
   const pct = studyTotal > 0 ? Math.round((studyVerified / studyTotal) * 100) : 0;
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-5 px-6 py-7">
+    <div className="mx-auto flex max-w-2xl flex-col gap-7 px-6 py-7">
       <header>
-        <h1 className="font-display text-2xl font-semibold text-slate-50">
+        <h1 className="font-display text-2xl font-semibold text-fg">
           Evidencia clínica · {label}
         </h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-fg2">
           Todas las fuentes detrás de los números de esta región. Cada estudio
           enlaza a PubMed; cada libro aparece con su cita completa.
         </p>
       </header>
 
-      {/* Headline honesty bar: how much of the region's test data is verified. */}
+      {/* Headline honesty readout: how much of the region's test data is
+          verified. La cifra grande es el porcentaje; debajo, de cuantas citas
+          sale y el medidor de 2 px. */}
       {studyTotal > 0 && (
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-200">
-              Verificación de fuentes
-            </span>
-            <span className="font-mono tabular-nums text-slate-300">
-              {studyVerified} de {studyTotal} citas ({pct}%)
+        <section>
+          <div className="sec-head">
+            <h2 className="kicker">Verificación de fuentes</h2>
+            <span className="sec-rule" />
+          </div>
+          <div className="flex items-baseline gap-3">
+            <span className="readout text-3xl">{pct}%</span>
+            <span className="num text-xs text-fg2">
+              {studyVerified} de {studyTotal} citas
             </span>
           </div>
-          <span className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
-            <span
-              className="h-full rounded-full bg-emerald-400"
-              style={{ width: `${pct}%` }}
-            />
-          </span>
-          <p className="mt-2 text-[11px] leading-snug text-slate-500">
+          <span
+            className="meter mt-3 block text-clinical"
+            style={{ '--v': pct } as React.CSSProperties}
+            aria-hidden="true"
+          />
+          <p className="mt-3 max-w-prose text-xs leading-relaxed text-fg3">
             Verificado significa que la sensibilidad y especificidad se contrastaron
             con la fuente primaria. Las que faltan se marcan como «por verificar»
             hasta confirmarlas.
           </p>
-        </div>
+        </section>
       )}
 
       {/* Studies (diagnostic-accuracy articles) with PubMed links. */}
       {studies.length > 0 ? (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-slate-100">
-            Pruebas clínicas: precisión diagnóstica
-          </h2>
-          {studies.map((s) => (
-            <StudyCard key={s.ref.id} study={s} />
-          ))}
+        <section>
+          <div className="sec-head mb-0">
+            <h2 className="kicker">Pruebas clínicas: precisión diagnóstica</h2>
+            <span className="sec-rule" />
+            <span className="num shrink-0 text-[11px] text-fg3">{studies.length}</span>
+          </div>
+          <ol className="divide-y divide-line/75">
+            {studies.map((s) => (
+              <StudyRow key={s.ref.id} study={s} />
+            ))}
+          </ol>
         </section>
       ) : (
-        <p className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-4 text-sm text-slate-400">
+        <p className="note">
           Esta región todavía no tiene tests ortopédicos con estudios asociados.
           Consulta los libros de referencia más abajo.
         </p>
@@ -248,14 +252,16 @@ export function EvidenceScreen({ region }: { region: string | null }) {
       {/* Textbook backbone (no PubMed: books are not indexed there). */}
       {books.length > 0 && (
         <section>
-          <h2 className="text-sm font-semibold text-slate-100">
-            Libros de referencia
-          </h2>
-          <p className="mt-1 text-[11px] leading-snug text-slate-500">
+          <div className="sec-head mb-1">
+            <h2 className="kicker">Libros de referencia</h2>
+            <span className="sec-rule" />
+            <span className="num shrink-0 text-[11px] text-fg3">{books.length}</span>
+          </div>
+          <p className="max-w-prose text-xs leading-snug text-fg3">
             Fuentes de anatomía descriptiva y biomecánica que sustentan el
             recorrido articular y el contenido muscular de esta región.
           </p>
-          <ul className="mt-2">
+          <ul className="mt-1 divide-y divide-line/75">
             {books.map((b) => (
               <BookRow key={b.ref.id} book={b} />
             ))}
@@ -263,7 +269,7 @@ export function EvidenceScreen({ region }: { region: string | null }) {
         </section>
       )}
 
-      <p className="text-[11px] leading-relaxed text-slate-600">
+      <p className="max-w-prose text-[11px] leading-relaxed text-fg3">
         Los valores de sensibilidad y especificidad varían según el estudio, el
         grado de lesión y el criterio de positividad. Interpreta cada prueba
         dentro del cuadro clínico y en conjunto, nunca de forma aislada. Contenido

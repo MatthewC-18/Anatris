@@ -14,11 +14,24 @@
 // The guide cleans up after itself: leaving the phase clears the ROM highlight
 // and restores the side filter to 'both'.
 //
-// ASCII-only source. UI strings Spanish LATAM. No `any`. English comments.
+// PRESENTACION: LAMINA. Era una tarjeta con borde dentro de la columna de
+// lectura, con otra tarjeta dentro para el paso y una pastilla para el rango, y
+// los pasos eran barritas de 6 px de alto sin texto (el titulo de cada uno solo
+// vivia en un `title`). Ahora es una seccion de la pagina: rotulo y filo, y los
+// pasos son una LISTA DE OPCIONES con su titulo y su rango, todos a la vista,
+// para que el gesto se lea entero antes de recorrerlo. El paso activo despliega
+// debajo su explicacion y sus musculos.
+//
+// ASCII-only source. UI strings Spanish LATAM. No `any`.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAnatomyStore, type SideFilter } from '../store/anatomyStore';
 import { Sourced } from './MuscleContentSections';
+import { muscleContentForRegion } from '../data/muscleContentByRegion';
+import { musclesForRomLookup } from '../data/musclesByRegion';
+import { ROLE_TONE_CSS } from '../lib/romRolePalette';
+import { formatRoute } from '../lib/routing';
+import { useIsCompact } from '../hooks/useIsCompact';
 import type { GestureGuide, GuideStep } from '../types/pedagogy';
 import type { RomMuscleRole } from '../types/rom';
 
@@ -27,12 +40,6 @@ const ROLE_LABEL: Record<RomMuscleRole, string> = {
   assistant: 'Asistente',
   'eccentric-control': 'Freno excéntrico',
   stabilizer: 'Estabilizador',
-};
-const ROLE_COLOR: Record<RomMuscleRole, string> = {
-  'prime-mover': '#ffa51e',
-  assistant: '#38bdf8',
-  'eccentric-control': '#2dd4bf',
-  stabilizer: '#a78bfa',
 };
 
 interface BiomechanicsGuideProps {
@@ -52,6 +59,21 @@ export function BiomechanicsGuide({ guide }: BiomechanicsGuideProps): JSX.Elemen
   const requestView = useAnatomyStore((s) => s.requestView);
   const setSideFilter = useAnatomyStore((s) => s.setSideFilter);
   const setRomFocusMuscle = useAnatomyStore((s) => s.setRomFocusMuscle);
+  const region = useAnatomyStore((s) => s.region);
+  const compact = useIsCompact();
+
+  // EL MUSCULO SE NOMBRA, NO SE DELETREA SU ID. La lista de cada paso pintaba
+  // `m.id` tal cual ("supraspinatus", "pectoralis-major"): el identificador
+  // interno en ingles en mitad de un texto en espanol. Se resuelve contra la
+  // ficha de la region y, para los musculos invitados de la columna (la pared
+  // abdominal en una rotacion toracica, que vive en la lumbar), contra el
+  // universo de nombres del ROM, que es el mismo que usa el laboratorio.
+  const nameOf = useMemo(() => {
+    const content = muscleContentForRegion(region);
+    const lookup = new Map<string, string>();
+    for (const m of musclesForRomLookup(region)) lookup.set(m.id, m.name);
+    return (id: string): string => content[id]?.nameEs ?? lookup.get(id) ?? id;
+  }, [region]);
 
   const [stepIndex, setStepIndex] = useState<number>(0);
   const [playing, setPlaying] = useState<boolean>(false);
@@ -114,116 +136,137 @@ export function BiomechanicsGuide({ guide }: BiomechanicsGuideProps): JSX.Elemen
   };
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-slate-800/60 bg-slate-900/30 p-4">
+    <section className="flex flex-col gap-4 py-6 first:pt-3">
       {/* Header */}
       <div>
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="font-display text-base font-semibold text-slate-100">
-            Recorrido guiado: {guide.name}
-          </h3>
-          <span className="shrink-0 text-xs text-slate-500">
+        <div className="sec-head mb-2">
+          <span className="kicker">Recorrido guiado</span>
+          <span className="sec-rule" />
+          <span className="num shrink-0 text-[11px] text-fg3">
             Paso {stepIndex + 1} de {guide.steps.length}
           </span>
         </div>
-        <div className="mt-2 text-sm leading-relaxed text-slate-400">
+        <h3 className="font-display text-lg font-semibold text-fg">{guide.name}</h3>
+        <div className="mt-2">
           <Sourced item={guide.intro} />
         </div>
       </div>
 
-      {/* Progress dots */}
-      <div className="flex items-center gap-1.5">
-        {guide.steps.map((s, i) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => {
-              setPlaying(false);
-              setStepIndex(i);
-            }}
-            title={s.title}
-            className={`h-1.5 flex-1 rounded-full transition-colors ${
-              i === stepIndex
-                ? 'bg-accent'
-                : i < stepIndex
-                  ? 'bg-accent/40'
-                  : 'bg-slate-700'
-            }`}
-          />
-        ))}
-      </div>
-
-      {/* Current step */}
-      <div className="rounded-lg border border-slate-800/50 bg-ink-900/40 p-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <h4 className="font-display text-sm font-semibold text-slate-100">{step.title}</h4>
-          {step.rangeLabel && (
-            <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent">
-              {step.rangeLabel}
-            </span>
-          )}
-        </div>
-
-        <div className="mt-2 text-sm leading-relaxed text-slate-300">
-          <Sourced item={step.caption} />
-        </div>
-
-        {/* Muscles in play, by role */}
-        {step.muscles.length > 0 && (
-          <ul className="mt-3 flex flex-col gap-1.5">
-            {step.muscles.map((m) => (
-              <li
-                key={m.id}
-                className="flex items-center gap-2 text-xs"
-                onMouseEnter={() => setRomFocusMuscle(m.id)}
-                onMouseLeave={() => setRomFocusMuscle(null)}
+      {/* LOS PASOS, TODOS A LA VISTA. El activo despliega debajo lo que pasa en
+          ese tramo y que musculos lo hacen. */}
+      <div role="radiogroup" aria-label={`Pasos de ${guide.name}`} className="flex flex-col">
+        {guide.steps.map((s, i) => {
+          const isActive = i === stepIndex;
+          return (
+            <div key={s.id}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={isActive}
+                onClick={() => {
+                  setPlaying(false);
+                  setStepIndex(i);
+                }}
+                className="opt"
               >
-                <span
-                  className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
-                  style={{ background: ROLE_COLOR[m.role] }}
-                />
-                <span className="text-slate-300">{m.id}</span>
-                <span className="text-slate-500">{String.fromCharCode(0x2014)}</span>
-                <span style={{ color: ROLE_COLOR[m.role] }}>{ROLE_LABEL[m.role]}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+                <span className={`num w-4 shrink-0 text-[11px] ${isActive ? 'text-brand' : 'text-fg3'}`}>
+                  {i + 1}
+                </span>
+                <span className="min-w-0 flex-1">{s.title}</span>
+                {s.rangeLabel && (
+                  <span className="num shrink-0 text-[11px] font-normal text-fg3">{s.rangeLabel}</span>
+                )}
+              </button>
+
+              {isActive && (
+                // Sangrado hasta el texto de la opcion: el punto (7 px) mas el
+                // hueco (10 px) de `.opt`, mas el numero (16 px) y su hueco.
+                <div className="pb-3 pl-[2.6875rem] pt-1">
+                  <Sourced item={step.caption} />
+
+                  {/* Muscles in play, by role */}
+                  {step.muscles.length > 0 && (
+                    <ul className="mt-3 flex flex-col gap-1.5">
+                      {step.muscles.map((m) => (
+                        <li
+                          key={m.id}
+                          className="flex items-center gap-2 text-[13px]"
+                          onMouseEnter={() => setRomFocusMuscle(m.id)}
+                          onMouseLeave={() => setRomFocusMuscle(null)}
+                        >
+                          <span
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ background: ROLE_TONE_CSS[m.role] }}
+                            aria-hidden="true"
+                          />
+                          <span className="text-fg2">{nameOf(m.id)}</span>
+                          <span className="text-fg3" aria-hidden="true">
+                            ·
+                          </span>
+                          <span className="text-xs" style={{ color: ROLE_TONE_CSS[m.role] }}>
+                            {ROLE_LABEL[m.role]}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={goPrev}
-          disabled={atFirst}
-          className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-300 transition-colors hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-        >
+      <div className="flex items-center gap-1">
+        <button type="button" onClick={goPrev} disabled={atFirst} className="btn btn-quiet btn-sm">
           Anterior
         </button>
-
         <button
           type="button"
           onClick={() => setPlaying((p) => !p)}
-          className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-300 transition-colors hover:text-slate-100"
+          aria-pressed={playing}
+          className="btn btn-line btn-sm"
         >
           {playing ? 'Pausar' : 'Reproducir'}
         </button>
-
-        <button
-          type="button"
-          onClick={goNext}
-          disabled={atLast}
-          className="rounded-lg border border-accent/40 bg-accent/15 px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent/25 disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <button type="button" onClick={goNext} disabled={atLast} className="btn btn-quiet btn-sm">
           Siguiente
         </button>
       </div>
 
-      <p className="text-[11px] leading-relaxed text-slate-600">
-        El modelo resalta los musculos de cada paso por su rol y orienta la
-        camara al mejor angulo. El gesto se explica sobre la anatomia real;
-        no se deforma el modelo (las mallas no tienen rigging).
-      </p>
-    </div>
+      {/* LO QUE DICE DEL MODELO TIENE QUE SER VERDAD EN ESTA PANTALLA. En la
+          vista compacta Aprender lleva el modelo encima del texto y cada paso
+          lo resalta y lo orienta. Desde lg App monta ese visor con
+          `lg:hidden`: no hay modelo en pantalla, y la nota prometia un
+          resaltado que nadie podia ver. Alli se dice y se ofrece el
+          laboratorio, donde el gesto se ve entero sobre el cuerpo articulado. */}
+      {compact ? (
+        <p className="note">
+          El modelo resalta los músculos de cada paso por su rol y orienta la
+          cámara al mejor ángulo. El gesto se explica sobre la anatomía real; no se
+          deforma el modelo (las mallas no tienen rigging).
+        </p>
+      ) : (
+        <p className="note">
+          En esta pantalla Aprender no muestra el modelo 3D: los pasos se leen
+          aquí y el gesto completo se ve en el laboratorio de movimiento.{' '}
+          <button
+            type="button"
+            onClick={() => {
+              window.history.pushState(
+                {},
+                '',
+                formatRoute({ region: region ?? 'shoulder', mode: 'movement' }),
+              );
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            }}
+            className="rounded font-medium text-brand underline-offset-4 hover:underline"
+          >
+            Abrir el laboratorio →
+          </button>
+        </p>
+      )}
+    </section>
   );
 }

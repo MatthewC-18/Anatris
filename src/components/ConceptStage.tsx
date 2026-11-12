@@ -15,9 +15,23 @@
 //   - it SWAPS to the section's schematic (contraction / levers / chains) at
 //     full size, so the reading-only sections fill the pane instead of idling.
 //
-// Layout follows the lab's instrument language (see index.css): ONE .instrument
-// surface per corner, sections split by hairlines and typographic rank, never a
-// stack of nested cards.
+// PRESENTACION: LAMINA. Eran CUATRO superficies `absolute` encima del lienzo,
+// una por esquina (el rotulo de la seccion, el conmutador Modelo/Esquema, las
+// capas y la vista con la superposicion). Las tres de mando solo salian desde
+// lg, pero la del rotulo no tenia `hidden`: en el movil, sobre una franja de
+// 45vh, ocupaba hasta 19 rem de ancho (304 px de una pantalla de 375). Y la
+// leccion de esta pantalla son planos y ejes que atraviesan el cuerpo de la
+// cabeza a los pies, o sea que cualquier esquina tapada tapa parte de ella.
+// Ahora no flota nada:
+//   - el rotulo y el pie de la figura van ACOPLADOS encima del escenario, con el
+//     conmutador Modelo/Esquema a la derecha, como el titulo de una lamina;
+//   - las capas, la vista y la superposicion van acopladas DEBAJO, en una sola
+//     fila partida por grupos;
+//   - el escenario queda entero para el cuerpo.
+// Por debajo de `lg` el escenario es una franja de 45vh encima del texto, que ya
+// trae el titulo y la explicacion: alli solo queda una anotacion tipografica
+// (`.stage-note`) para que la figura no salga sin rotulo, y los mandos se
+// quedan fuera, como antes.
 //
 // The 3D itself is passed as `children` so this component stays presentational
 // and never imports the viewer (which is lazy-loaded by App).
@@ -86,94 +100,99 @@ export function ConceptStage({ section, index, total, children }: ConceptStagePr
   }, [sectionId, section, requestConceptOverlay, requestView]);
 
   return (
-    <div className="relative h-full w-full">
-      {/* The live model. Kept MOUNTED while the schematic shows (unmounting the
-          canvas would re-download and re-frame the GLB on every toggle); it is
-          just hidden, so coming back is instant.
-          The swap is DESKTOP ONLY (lg:): on compact the stage is a 45vh strip
-          above the text, and there the schematic travels with the prose as the
-          inline figure instead, so the model keeps the strip. */}
-      <div className={`h-full w-full ${mode === 'diagram' ? 'lg:invisible' : ''}`}>
-        {children}
-      </div>
-
-      {mode === 'diagram' && section?.diagram && (
-        <div className="absolute inset-0 hidden items-center justify-center px-6 py-20 lg:flex">
-          <div className="w-full max-w-2xl">
-            <ConceptDiagramView kind={section.diagram} size="stage" />
+    <div className="flex h-full w-full flex-col bg-page">
+      {/* ---- ARRIBA, ACOPLADO: que se esta mirando. Solo desde lg. ---- */}
+      {section && (
+        <header className="hidden shrink-0 items-start gap-6 border-b border-line/75 px-5 py-3.5 lg:flex">
+          <div className="min-w-0 flex-1">
+            <p className="kicker">
+              Fundamentos · {index} de {total}
+            </p>
+            <h2 className="mt-1.5 font-display text-[15px] font-semibold leading-snug text-fg">
+              {section.title}
+            </h2>
+            {/* A caption when the section wrote one for its 3D view, otherwise
+                the section summary: the stage always says what is on screen. */}
+            <div className="mt-1.5 max-w-[40rem]">
+              {section.view?.caption ? (
+                // Keyed by section: an opened citation must not survive into
+                // the next section's caption, which reuses this same slot.
+                <Sourced key={section.id} item={section.view.caption} />
+              ) : (
+                <p className="text-sm leading-relaxed text-fg2">{section.summary}</p>
+              )}
+            </div>
           </div>
-        </div>
+
+          {/* Model vs schematic: only when there is a schematic, and only where
+              the swap happens (desktop). */}
+          {diagram && (
+            <div role="group" aria-label="Qué muestra el escenario" className="flex shrink-0 items-stretch gap-4">
+              <StageTab active={mode === 'model'} onClick={() => setMode('model')}>
+                Modelo
+              </StageTab>
+              <StageTab active={mode === 'diagram'} onClick={() => setMode('diagram')}>
+                Esquema
+              </StageTab>
+            </div>
+          )}
+        </header>
       )}
 
-      {/* ---- TOP LEFT: what you are looking at ---- */}
-      {section && (
-        <div className="instrument pointer-events-none absolute left-4 top-4 z-20 max-w-[19rem] px-4 py-3">
-          <p className="kicker">
+      <div className="relative min-h-0 flex-1">
+        {/* The live model. Kept MOUNTED while the schematic shows (unmounting the
+            canvas would re-download and re-frame the GLB on every toggle); it is
+            just hidden, so coming back is instant.
+            The swap is DESKTOP ONLY (lg:): on compact the stage is a 45vh strip
+            above the text, and there the schematic travels with the prose as the
+            inline figure instead, so the model keeps the strip. */}
+        <div className={`h-full w-full ${mode === 'diagram' ? 'lg:invisible' : ''}`}>
+          {children}
+        </div>
+
+        {mode === 'diagram' && section?.diagram && (
+          <div className="absolute inset-0 hidden items-center justify-center overflow-y-auto px-6 py-8 lg:flex">
+            <div className="w-full max-w-2xl">
+              <ConceptDiagramView kind={section.diagram} size="stage" />
+            </div>
+          </div>
+        )}
+
+        {/* Compacto: el rotulo de la figura como anotacion, sin fondo. */}
+        {section && (
+          <p className="stage-note pointer-events-none absolute left-4 top-3 z-20 lg:hidden">
             Fundamentos · {index} de {total}
           </p>
-          <h2 className="mt-1 font-display text-[15px] font-semibold leading-snug text-slate-50">
-            {section.title}
-          </h2>
-          {/* A caption when the section wrote one for its 3D view, otherwise the
-              section summary: the stage always says what is on screen. */}
-          <div className="hairline my-2.5" />
-          {section.view?.caption ? (
-            <div className="text-[12px] leading-relaxed text-slate-400">
-              <Sourced item={section.view.caption} />
-            </div>
-          ) : (
-            <p className="text-[12px] leading-relaxed text-slate-400">
-              {section.summary}
-            </p>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* ---- TOP RIGHT: model vs schematic (only when there is a schematic,
-              and only where the swap happens: desktop) ---- */}
-      {diagram && (
-        <div className="instrument absolute right-4 top-4 z-20 hidden items-center gap-1 p-1 lg:flex">
-          <StageTab active={mode === 'model'} onClick={() => setMode('model')}>
-            Modelo
-          </StageTab>
-          <StageTab active={mode === 'diagram'} onClick={() => setMode('diagram')}>
-            Esquema
-          </StageTab>
-        </div>
-      )}
-
-      {/* ---- BOTTOM LEFT: layers. Hidden on compact, where the stage is a
-              45vh strip and the corners would cover the body. ---- */}
-      <div className="instrument absolute bottom-4 left-4 z-20 hidden max-w-[17rem] px-3 py-2.5 lg:block">
-        <p className="kicker">Capas</p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
+      {/* ---- ABAJO, ACOPLADO: capas, vista y superposicion. Solo desde lg:
+              en la franja compacta de 45vh no caben sin tapar el cuerpo. ---- */}
+      <div className="hidden shrink-0 flex-wrap items-center gap-x-6 gap-y-1.5 border-t border-line/75 px-5 py-2 lg:flex">
+        <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+          <span className="kicker mr-1.5">Capas</span>
           {STAGE_LAYERS.map((layer) => (
             <LayerChip key={layer} layer={layer} />
           ))}
         </div>
-      </div>
 
-      {/* ---- BOTTOM RIGHT: camera views + overlay ---- */}
-      <div className="instrument absolute bottom-4 right-4 z-20 hidden px-3 py-2.5 lg:block">
-        <p className="kicker">Vista</p>
-        <div className="mt-1.5 flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5">
+          <span className="kicker mr-1.5">Vista</span>
           {VIEW_ORDER.map((view) => (
             <ViewButton key={view} view={view} onClick={() => requestView(view)} />
           ))}
         </div>
-        <div className="hairline my-2.5" />
-        <p className="kicker">Superposición</p>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
+
+        <div role="radiogroup" aria-label="Superposición" className="flex items-center gap-x-3">
+          <span className="kicker">Superposición</span>
           {OVERLAY_CHOICES.map((o) => (
             <button
               key={o.id}
               type="button"
+              role="radio"
+              aria-checked={overlay === o.id}
               onClick={() => requestConceptOverlay(o.id)}
-              className={`rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors ${
-                overlay === o.id
-                  ? 'bg-accent/20 text-accent'
-                  : 'text-slate-400 hover:bg-slate-700/40 hover:text-slate-200'
-              }`}
+              className="opt w-auto text-[12px]"
             >
               {o.label}
             </button>
@@ -188,6 +207,8 @@ export function ConceptStage({ section, index, total, children }: ConceptStagePr
  * PIECES
  * ======================================================================== */
 
+/** Modelo / Esquema: texto con subrayado (.tab), no una pastilla tintada. Sigue
+ *  siendo un conmutador (`aria-pressed`): no hay panel de pestana detras. */
 function StageTab({
   active,
   onClick,
@@ -202,18 +223,14 @@ function StageTab({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-xl px-3 py-1.5 text-[13px] font-medium transition-colors ${
-        active
-          ? 'bg-accent/20 text-accent'
-          : 'text-slate-400 hover:bg-slate-700/40 hover:text-slate-200'
-      }`}
+      className={`tab ${active ? 'is-active' : ''}`}
     >
       {children}
     </button>
   );
 }
 
-/** One layer toggle, showing its palette dot so the chip names the color the
+/** One layer toggle, showing its palette dot so the toggle names the color the
  *  student sees in the scene. */
 function LayerChip({ layer }: { layer: AnatomyLayer }) {
   const active = useAnatomyStore((s) => s.activeLayers.has(layer));
@@ -225,16 +242,13 @@ function LayerChip({ layer }: { layer: AnatomyLayer }) {
       onClick={() => toggleLayer(layer)}
       aria-pressed={active}
       title={meta.description}
-      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors ${
-        active
-          ? 'bg-slate-700/50 text-slate-100'
-          : 'text-slate-500 hover:bg-slate-700/30 hover:text-slate-300'
+      className={`flex min-h-[28px] items-center gap-1.5 rounded px-1.5 text-[12px] font-medium transition-colors ${
+        active ? 'text-fg' : 'text-fg3 hover:text-fg2'
       }`}
     >
       <span
-        className={`inline-block h-2 w-2 rounded-full ${meta.dot} ${
-          active ? '' : 'opacity-30'
-        }`}
+        className={`inline-block h-2 w-2 rounded-full ${meta.dot} ${active ? '' : 'opacity-30'}`}
+        aria-hidden="true"
       />
       {meta.label}
     </button>
@@ -250,7 +264,7 @@ function ViewButton({ view, onClick }: { view: CameraView; onClick: () => void }
       onClick={onClick}
       title={`${meta.label} · tecla ${meta.key}`}
       aria-label={meta.label}
-      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent/10 hover:text-accent active:scale-95"
+      className="btn btn-quiet btn-icon btn-sm hover:text-brand"
     >
       <ViewIcon view={view} />
     </button>

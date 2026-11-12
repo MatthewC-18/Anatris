@@ -41,29 +41,26 @@ import {
   type LandmarkRef,
   type SchematicView,
 } from '../data/biomechanics/gestures';
-import type { RomMuscleRole } from '../types/rom';
+import { ROLE_TONE_CSS } from '../lib/romRolePalette';
 
 const VIEW_W = 520;
 const VIEW_H = 480;
 
-const ROLE_COLOR: Record<RomMuscleRole, string> = {
-  'prime-mover': '#ffa51e',
-  assistant: '#38bdf8',
-  'eccentric-control': '#2dd4bf',
-  stabilizer: '#a78bfa',
-};
+// Los tonos del papel salen de la paleta compartida (romRolePalette), que es la
+// que pinta el laboratorio: aqui estaban copiados a mano.
+const ROLE_COLOR = ROLE_TONE_CSS;
 const COLOR_BONE = '#e8e2d0';
 const COLOR_BONE_EDGE = '#b8ae93';
 const COLOR_BONE_DARK = '#d2c9b0';
-const COLOR_THORAX_FILL = '#141b2a';
-const COLOR_THORAX_STROKE = '#222d44';
-const COLOR_LABEL = '#94a3b8';
-const COLOR_LABEL_DIM = '#5b6678';
-const COLOR_TITLE = '#e2e8f0';
+// Grafito, no azul marino: el torax era #141b2a sobre un fondo #0d1320, el
+// mismo marino que la paleta del sistema retiro (ver `slate` en
+// tailwind.config.js) porque altera como se perciben los tonos del tejido.
+const COLOR_THORAX_FILL = '#1b1e22';
+const COLOR_THORAX_STROKE = '#2c3037';
+const COLOR_LABEL = '#979ba3';
+const COLOR_TITLE = '#f1f2f4';
 
 const DEG = String.fromCharCode(0x00b0);
-const EM = String.fromCharCode(0x2014);
-const EN = String.fromCharCode(0x2013);
 
 interface Pt {
   x: number;
@@ -258,50 +255,52 @@ export function BiomechanicsSchematic(): JSX.Element {
 
   return (
     <div className="flex w-full flex-col gap-3">
-      {/* Gesture selector + view toggle */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <select
-          value={gestureId}
-          onChange={(e) => onGestureChange(e.target.value)}
-          className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-200"
-        >
-          {gestures.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-              {g.status === 'draft' ? ' (borrador)' : ''}
-            </option>
-          ))}
-        </select>
+      {/* EL GESTO, A LA VISTA. Era un desplegable con caja: cuatro gestos caben
+          en una lista de opciones y asi se ve cuales hay sin abrir nada. */}
+      <div role="radiogroup" aria-label="Gesto" className="flex flex-col">
+        {gestures.map((g) => (
+          <button
+            key={g.id}
+            type="button"
+            role="radio"
+            aria-checked={g.id === gestureId}
+            onClick={() => onGestureChange(g.id)}
+            className="opt"
+          >
+            {g.name}
+            {g.status === 'draft' && <span className="tag ml-auto">Borrador</span>}
+          </button>
+        ))}
+      </div>
 
-        <div className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900 p-0.5 text-xs">
-          {(['anterior', 'posterior'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setView(v)}
-              className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-                view === v ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              {v === 'anterior' ? 'Frontal' : 'Posterior'}
-            </button>
-          ))}
-        </div>
+      {/* La vista: dos pestanas, no un control segmentado con caja. */}
+      <div role="tablist" aria-label="Vista del esquema" className="tabs">
+        {(['anterior', 'posterior'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            aria-selected={view === v}
+            onClick={() => setView(v)}
+            className="tab"
+          >
+            {v === 'anterior' ? 'Frontal' : 'Posterior'}
+          </button>
+        ))}
       </div>
 
       <svg
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        className="w-full rounded-xl"
-        style={{ background: '#0d1320' }}
+        className="w-full bg-card"
         role="img"
         aria-label={`Esquema de ${gesture.name} de hombro derecho`}
       >
         <text x={20} y={28} fill={COLOR_TITLE} fontSize={14} fontFamily="ui-sans-serif, system-ui">
-          {gesture.name} de hombro {EM} vista {view === 'anterior' ? 'frontal' : 'posterior'} (lado derecho)
+          {gesture.name} de hombro · vista {view === 'anterior' ? 'frontal' : 'posterior'} (lado derecho)
         </text>
         {gesture.status === 'draft' && (
           <text x={20} y={46} fill="#f59e0b" fontSize={11}>
-            {String.fromCharCode(0x26a0)} Geometria en borrador {EN} pendiente de afinar
+            Geometría en borrador: pendiente de afinar
           </text>
         )}
 
@@ -404,15 +403,15 @@ export function BiomechanicsSchematic(): JSX.Element {
           Glenohumeral {geom.gh.toFixed(0)}
           {DEG}
           {gesture.rhythm.scapularShare > 0
-            ? ` + Escapulotoracica ${geom.scap.toFixed(0)}${DEG}`
+            ? ` + Escapulotorácica ${geom.scap.toFixed(0)}${DEG}`
             : ''}
         </text>
       </svg>
 
       {/* Slider */}
       <div>
-        <label className="mb-1 block text-sm text-slate-200">
-          {gesture.name}: <strong>{angle}</strong>
+        <label className="mb-1 block text-sm text-fg2">
+          {gesture.name}: <strong className="num text-fg">{angle}</strong>
           {DEG}
         </label>
         <input
@@ -431,28 +430,31 @@ export function BiomechanicsSchematic(): JSX.Element {
         {geom.muscles.map((m) => (
           <div key={m.id} className="flex items-center gap-2 text-xs">
             <span
-              className="inline-block h-2.5 w-2.5 rounded-sm"
+              className="h-2 w-2 shrink-0 rounded-full"
               style={{ background: ROLE_COLOR[m.role] }}
+              aria-hidden="true"
             />
-            <span className="w-44 shrink-0 text-slate-300">{m.label}</span>
-            <span className="relative h-1.5 flex-1 overflow-hidden rounded bg-slate-800">
-              <span
-                className="absolute inset-y-0 left-0 rounded"
-                style={{
-                  width: `${Math.round(m.activation * 100)}%`,
-                  background: ROLE_COLOR[m.role],
-                }}
-              />
-            </span>
+            <span className="w-44 shrink-0 text-fg2">{m.label}</span>
+            {/* Medidor de 2 px (.meter): el color es el del papel del musculo y
+                el valor, la activacion en el angulo actual. */}
+            <span
+              className="meter flex-1"
+              style={
+                {
+                  '--v': Math.round(m.activation * 100),
+                  color: ROLE_COLOR[m.role],
+                } as React.CSSProperties
+              }
+            />
           </div>
         ))}
       </div>
 
       {/* Clinical note */}
-      <p className="text-sm leading-relaxed text-slate-400">{gesture.note}</p>
-      <p className="text-xs leading-relaxed" style={{ color: COLOR_LABEL_DIM }}>
-        Las barras muestran la activacion relativa de cada musculo en el angulo
-        actual. El grosor de cada banda en el esquema sigue esa misma activacion.
+      <p className="text-sm leading-relaxed text-fg2">{gesture.note}</p>
+      <p className="note">
+        Las barras muestran la activación relativa de cada músculo en el ángulo
+        actual. El grosor de cada banda en el esquema sigue esa misma activación.
       </p>
     </div>
   );

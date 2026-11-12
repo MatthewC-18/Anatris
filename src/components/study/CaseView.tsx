@@ -7,6 +7,20 @@
 //
 // Flow: list of cases -> pick one -> read vignette -> answer each step with
 // immediate feedback + explanation -> takeaway summary.
+//
+// PRESENTACION: LAMINA. Habia seis cajas y dos bloques: cada caso de la lista
+// era una tarjeta, la vineta otra, cada opcion de respuesta una caja con borde
+// que se tenia de verde o de rojo, la prueba del paso otra tarjeta dentro, y la
+// conclusion y la nota final dos mas. Ahora:
+//   - la lista de casos es una lista partida por filos, con el nivel y las
+//     etiquetas en mono en la misma linea;
+//   - la vineta es una nota con regla a la izquierda, el contexto que se queda;
+//   - las opciones son una lista de `.opt` (una entre varias): el punto marca la
+//     elegida y, al responder, la correcta se pinta en verde y la equivocada en
+//     rosa, con su etiqueta escrita ("Correcta", "Tu respuesta") para no fiarlo
+//     todo al color;
+//   - el veredicto es una nota con el tono en la regla;
+//   - la prueba del paso es una subseccion con su rotulo y su filo.
 
 import { useMemo, useState } from 'react';
 import { LockGlyph, useFeatureGate } from '../account/PremiumGate';
@@ -32,7 +46,7 @@ export function CaseView({ region, onFinished }: CaseViewProps) {
   if (cases.length === 0) {
     return (
       <div className="flex h-full items-center justify-center px-6 py-10">
-        <p className="max-w-sm text-center text-sm text-slate-500">
+        <p className="note max-w-sm text-sm">
           Los casos clínicos de esta región están en camino. Mientras tanto,
           prueba el hombro, el codo o la rodilla.
         </p>
@@ -53,41 +67,44 @@ export function CaseView({ region, onFinished }: CaseViewProps) {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-3 px-6 py-6">
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-fg2">
         Resuelve casos guiados para entrenar el razonamiento clínico de la región.
       </p>
-      {cases.map((c) => (
-        <button
-          key={c.id}
-          type="button"
-          onClick={() => setActiveId(c.id)}
-          className="group flex flex-col gap-2 rounded-2xl border border-slate-800 bg-slate-900/40 p-5 text-left transition-colors hover:border-slate-700"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="font-display text-base font-semibold text-slate-100">
-              {c.title}
-            </h3>
-            <LevelBadge level={c.level} />
-          </div>
-          <p className="line-clamp-2 text-sm leading-relaxed text-slate-500">
-            {c.vignette}
-          </p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {c.tags.map((t) => (
-              <span
-                key={t}
-                className="rounded-md border border-slate-700/70 px-2 py-0.5 font-mono text-[10px] text-slate-400"
-              >
-                {t}
+      <ol className="divide-y divide-line/75 border-y border-line/75">
+        {cases.map((c) => (
+          <li key={c.id}>
+            <button
+              type="button"
+              onClick={() => setActiveId(c.id)}
+              className="group flex w-full flex-col gap-1.5 rounded py-4 text-left"
+            >
+              <span className="flex items-baseline justify-between gap-3">
+                <span className="font-display text-base font-semibold text-fg transition-colors group-hover:text-brand">
+                  {c.title}
+                </span>
+                <LevelTag level={c.level} />
               </span>
-            ))}
-            <span className="ml-auto text-[11px] font-medium text-slate-600">
-              {c.steps.length} {c.steps.length === 1 ? 'paso' : 'pasos'} ·{' '}
-              <span className="text-accent group-hover:text-accent-soft">Resolver →</span>
-            </span>
-          </div>
-        </button>
-      ))}
+              <span className="line-clamp-2 text-sm leading-relaxed text-fg2">{c.vignette}</span>
+              <span className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                {c.tags.map((t, i) => (
+                  <span key={t} className="tag">
+                    {i > 0 && (
+                      <span className="mr-2" aria-hidden="true">
+                        ·
+                      </span>
+                    )}
+                    {t}
+                  </span>
+                ))}
+                <span className="ml-auto text-[11px] font-medium text-fg3">
+                  {c.steps.length} {c.steps.length === 1 ? 'paso' : 'pasos'} ·{' '}
+                  <span className="text-brand">Resolver →</span>
+                </span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -148,27 +165,26 @@ function CaseRunner({
   if (done) {
     const pct = Math.round((score / steps.length) * 100);
     return (
-      <div className="mx-auto flex max-w-2xl flex-col gap-5 px-6 py-8">
-        <button
-          type="button"
-          onClick={onExit}
-          className="self-start text-xs font-medium text-slate-500 transition-colors hover:text-slate-300"
-        >
+      <div className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-8">
+        <button type="button" onClick={onExit} className="btn btn-quiet btn-sm self-start">
           ← Volver a los casos
         </button>
-        <div className="rounded-2xl border border-clinical/30 bg-clinical/[0.06] p-6">
-          <p className="font-display text-sm font-semibold uppercase tracking-wide text-clinical-soft">
-            Conclusión clínica
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-slate-200">
+        <section>
+          <div className="sec-head">
+            <h2 className="kicker text-clinical">Conclusión clínica</h2>
+            <span className="sec-rule" />
+          </div>
+          <p className="note border-l-clinical/70 text-sm leading-relaxed text-fg">
             {clinicalCase.takeaway}
           </p>
-        </div>
-        <div className="flex items-center justify-between rounded-xl border border-slate-800/60 bg-slate-900/40 px-5 py-4">
-          <span className="text-sm text-slate-400">Aciertos en el razonamiento</span>
-          <span className="font-display text-xl font-bold text-slate-50">
-            {score}/{steps.length} · {pct}%
+        </section>
+        {/* La puntuacion como cifra, no como una tarjeta con la cifra dentro. */}
+        <div className="flex items-baseline gap-4 border-y border-line/75 py-4">
+          <span className="readout text-3xl">
+            {score}/{steps.length}
           </span>
+          <span className="num text-sm text-fg2">{pct}%</span>
+          <span className="kicker ml-auto">Aciertos en el razonamiento</span>
         </div>
         <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
           {/* Repetir sirve para algo ahora que las opciones se reordenan: antes
@@ -182,15 +198,11 @@ function CaseRunner({
               setScore(0);
               setDone(false);
             }}
-            className="rounded-lg border border-slate-700 px-5 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:border-slate-500 hover:text-slate-100"
+            className="btn btn-line"
           >
             Repetir el caso
           </button>
-          <button
-            type="button"
-            onClick={onExit}
-            className="rounded-lg bg-accent/20 px-5 py-2.5 text-sm font-medium text-accent transition-colors hover:bg-accent/30"
-          >
+          <button type="button" onClick={onExit} className="btn btn-primary">
             Elegir otro caso
           </button>
         </div>
@@ -201,42 +213,33 @@ function CaseRunner({
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 px-6 py-6">
       <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={onExit}
-          className="text-xs font-medium text-slate-500 transition-colors hover:text-slate-300"
-        >
+        <button type="button" onClick={onExit} className="btn btn-quiet btn-sm -ml-2">
           ← Casos
         </button>
-        <span className="text-xs font-medium text-slate-500">
+        <span className="num text-xs text-fg3">
           Paso {index + 1} / {steps.length}
         </span>
       </div>
 
-      {/* Vignette (persistent context) */}
-      <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <h2 className="font-display text-base font-bold text-slate-100">
-            {clinicalCase.title}
-          </h2>
-          <LevelBadge level={clinicalCase.level} />
+      {/* Vignette (persistent context): una nota con regla, no una tarjeta. */}
+      <section>
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <h2 className="font-display text-base font-bold text-fg">{clinicalCase.title}</h2>
+          <LevelTag level={clinicalCase.level} />
         </div>
-        <p className="text-sm leading-relaxed text-slate-300">{clinicalCase.vignette}</p>
-      </div>
+        <p className="note text-sm leading-relaxed text-fg/85">{clinicalCase.vignette}</p>
+      </section>
 
-      {/* Progress bar */}
-      <div className="h-1 w-full overflow-hidden rounded-full bg-slate-800">
-        <div
-          className="h-full rounded-full bg-accent transition-all"
-          style={{ width: `${((index + (answered ? 1 : 0)) / steps.length) * 100}%` }}
-        />
-      </div>
+      {/* Progress: el medidor de 2 px del sistema. */}
+      <span
+        className="meter block text-brand"
+        style={{ '--v': ((index + (answered ? 1 : 0)) / steps.length) * 100 } as React.CSSProperties}
+        aria-hidden="true"
+      />
 
       {/* Step prompt + options */}
-      <h3 className="font-display text-lg font-semibold leading-snug text-slate-100">
-        {step.prompt}
-      </h3>
-      <div className="flex flex-col gap-2">
+      <h3 className="font-display text-lg font-semibold leading-snug text-fg">{step.prompt}</h3>
+      <div role="radiogroup" aria-label={step.prompt} className="flex flex-col gap-0.5">
         {options.map((o, i) => {
           const isPicked = picked === o.id;
           const reveal = answered && o.correct;
@@ -245,23 +248,33 @@ function CaseRunner({
             <button
               key={o.id}
               type="button"
+              role="radio"
+              aria-checked={isPicked}
               disabled={answered}
               onClick={() => choose(o.id)}
               className={[
-                'rounded-xl border px-4 py-3 text-left text-sm transition-colors',
+                // La marca baja a la primera linea: una opcion larga ocupa dos
+                // o tres, y centrada en vertical el punto quedaba a media frase.
+                // 44 px de alto minimo: era una caja con `py-3` (unos 46 px) y
+                // esta pantalla se usa en el movil; `.opt` sola da unos 36.
+                'opt min-h-[44px] items-start py-2.5 text-sm before:mt-[0.4rem]',
+                // El tono va con `!`: `.opt[aria-checked='true']` pone color y
+                // peso con dos selectores, y en Tailwind 3 (sin capas nativas)
+                // una utilidad de un solo selector pierde contra el. Sin el `!`
+                // la opcion elegida salia blanca y en negrita, acertase o no.
                 reveal
-                  ? 'border-emerald-600/60 bg-emerald-950/40 text-emerald-200'
+                  ? '!font-medium !text-clinical before:!bg-clinical before:!shadow-none disabled:opacity-100'
                   : wrongPick
-                    ? 'border-rose-700/60 bg-rose-950/40 text-rose-200'
+                    ? '!font-medium !text-rose-300 before:!bg-rose-400 before:!shadow-none disabled:opacity-100'
                     : answered
-                      ? 'border-slate-800 text-slate-500'
-                      : 'border-slate-800 text-slate-200 hover:border-slate-600 hover:bg-slate-800/40',
+                      ? 'text-fg3'
+                      : '',
               ].join(' ')}
             >
-              <span className="mr-2 font-mono text-xs text-slate-500">
-                {optionLetter(i)}.
-              </span>
-              {o.text}
+              <span className="num shrink-0 text-xs text-fg3">{optionLetter(i)}.</span>
+              <span className="min-w-0 flex-1">{o.text}</span>
+              {reveal && <span className="tag shrink-0 pt-1 text-clinical">Correcta</span>}
+              {wrongPick && <span className="tag shrink-0 pt-1 text-rose-300">Tu respuesta</span>}
             </button>
           );
         })}
@@ -269,21 +282,19 @@ function CaseRunner({
 
       {/* Explanation + advance */}
       {answered && (
-        <div className="flex flex-col gap-3 border-t border-slate-800/60 pt-4">
-          <p
-            className={`text-sm font-medium ${
-              pickedCorrect ? 'text-emerald-400' : 'text-rose-400'
+        <div className="flex flex-col gap-4 border-t border-line/75 pt-4">
+          <div
+            className={`note text-sm ${
+              pickedCorrect ? 'border-l-clinical/70' : 'border-l-rose-400/70'
             }`}
           >
-            {pickedCorrect ? '¡Correcto!' : 'Respuesta incorrecta'}
-          </p>
-          <p className="text-sm leading-relaxed text-slate-300">{step.explanation}</p>
+            <p className={`font-medium ${pickedCorrect ? 'text-clinical' : 'text-rose-300'}`}>
+              {pickedCorrect ? '¡Correcto!' : 'Respuesta incorrecta'}
+            </p>
+            <p className="mt-1 leading-relaxed text-fg/85">{step.explanation}</p>
+          </div>
           <StepEvidence region={clinicalCase.region} step={step} />
-          <button
-            type="button"
-            onClick={next}
-            className="self-end rounded-lg bg-accent/20 px-5 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/30"
-          >
+          <button type="button" onClick={next} className="btn btn-primary self-end">
             {index + 1 < steps.length ? 'Siguiente' : 'Ver conclusión'}
           </button>
         </div>
@@ -292,20 +303,15 @@ function CaseRunner({
   );
 }
 
-function LevelBadge({ level }: { level: ClinicalCase['level'] }) {
+/** El nivel del caso: etiqueta en mono con el tono en la letra, sin pastilla. */
+function LevelTag({ level }: { level: ClinicalCase['level'] }) {
   const tone =
     level === 'básico'
-      ? 'border-emerald-700/50 text-emerald-300'
+      ? 'text-emerald-300'
       : level === 'intermedio'
-        ? 'border-amber-700/50 text-amber-300'
-        : 'border-rose-700/50 text-rose-300';
-  return (
-    <span
-      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${tone}`}
-    >
-      {level}
-    </span>
-  );
+        ? 'text-amber-300'
+        : 'text-rose-300';
+  return <span className={`tag shrink-0 ${tone}`}>{level}</span>;
 }
 
 /* ===========================================================================
@@ -323,7 +329,7 @@ function LevelBadge({ level }: { level: ClinicalCase['level'] }) {
  *
  * Se dibuja SOLO si la prueba esta disponible. En una region de pago cuyo
  * contenido todavia no ha llegado del edge function, `testForStep` devuelve
- * null y este bloque no existe, en vez de dejar una tarjeta a medias.
+ * null y esta seccion no existe, en vez de dejar un bloque a medias.
  * ======================================================================== */
 
 function StepEvidence({ region, step }: { region: string; step: CaseStep }) {
@@ -333,20 +339,20 @@ function StepEvidence({ region, step }: { region: string; step: CaseStep }) {
   const { sensitivity: sens, specificity: spec } = test.metrics;
   const unverified = test.cite.some((c) => !c.verified);
   return (
-    <div className="rounded-xl border border-slate-800/80 bg-slate-900/50 p-4">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="font-display text-sm font-semibold text-slate-100">{test.name}</p>
-        <span className="shrink-0 font-mono text-[10px] uppercase tracking-wide text-slate-500">
-          {test.target}
-        </span>
+    <section>
+      <div className="sec-head mb-2">
+        <span className="kicker">La prueba</span>
+        <span className="sec-rule" />
+        <span className="tag shrink-0">{test.target}</span>
       </div>
-      <dl className="mt-2.5 flex flex-col gap-1.5 text-xs leading-relaxed text-slate-400">
+      <p className="font-display text-sm font-semibold text-fg">{test.name}</p>
+      <dl className="mt-2 flex flex-col gap-1.5 text-xs leading-relaxed text-fg2">
         <div>
-          <dt className="inline font-medium text-slate-300">Maniobra. </dt>
+          <dt className="inline font-medium text-fg">Maniobra. </dt>
           <dd className="inline">{test.maneuver}</dd>
         </div>
         <div>
-          <dt className="inline font-medium text-slate-300">Positivo. </dt>
+          <dt className="inline font-medium text-fg">Positivo. </dt>
           <dd className="inline">{test.positive}</dd>
         </div>
       </dl>
@@ -356,10 +362,10 @@ function StepEvidence({ region, step }: { region: string; step: CaseStep }) {
           {spec != null && <Metric label="Especificidad" value={spec} tone="emerald" />}
         </div>
       )}
-      <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+      <p className="mt-3 text-[11px] leading-relaxed text-fg3">
         {test.cite.map((c) => REFERENCES[c.ref]?.authors ?? c.ref).join('; ')}
         {unverified && (
-          <span className="ml-1.5 text-amber-500/90">· cifra sin verificar contra la fuente</span>
+          <span className="ml-1.5 text-amber-300/90">· cifra sin verificar contra la fuente</span>
         )}
       </p>
       {/* SOBRE QUIEN se midio la cifra que acaba de ver.
@@ -369,13 +375,13 @@ function StepEvidence({ region, step }: { region: string; step: CaseStep }) {
           leer evidencia, solo a memorizar una cifra. Se dibuja solo donde la
           fuente lo trae, asi que no deja hueco en las que aun no lo tienen. */}
       {studyScope(test) && (
-        <p className="mt-1 text-[11px] leading-relaxed text-slate-600">{studyScope(test)}</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-fg3">{studyScope(test)}</p>
       )}
       {test.demo && (
         <button
           type="button"
           onClick={() => (gate.unlocked ? goToTestInLab(region, test.id) : gate.requestUpgrade())}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3.5 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:border-slate-500 hover:text-slate-100"
+          className="btn btn-line btn-sm mt-3"
         >
           {/* Con candado si el panel de pruebas no esta desbloqueado: mejor
               decirlo aqui que mandar al usuario a una puerta cerrada. */}
@@ -383,7 +389,7 @@ function StepEvidence({ region, step }: { region: string; step: CaseStep }) {
           Ver la prueba en el laboratorio →
         </button>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -407,7 +413,8 @@ function studyScope(test: OrthopedicTest): string {
  *
  * El color dice EL EJE, no si la cifra es buena: cielo = sensibilidad,
  * esmeralda = especificidad, igual que en el panel de pruebas. Dos pantallas
- * que usan el mismo color para cosas distintas se leen mal las dos.
+ * que usan el mismo color para cosas distintas se leen mal las dos. La barra es
+ * el medidor de 2 px del sistema (`.meter`), que toma el color de la letra.
  */
 function Metric({
   label,
@@ -418,17 +425,18 @@ function Metric({
   value: number;
   tone: 'sky' | 'emerald';
 }) {
-  const bar = tone === 'sky' ? 'bg-sky-400/80' : 'bg-emerald-400/80';
   const txt = tone === 'sky' ? 'text-sky-300' : 'text-emerald-300';
   return (
-    <div className="flex min-w-[8.5rem] flex-1 flex-col gap-1">
+    <div className="flex min-w-[8.5rem] flex-1 flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[11px] text-slate-500">{label}</span>
-        <span className={`font-display text-sm font-semibold ${txt}`}>{value}%</span>
+        <span className="text-[11px] text-fg3">{label}</span>
+        <span className={`readout text-sm ${txt}`}>{value}%</span>
       </div>
-      <div className="h-1 w-full overflow-hidden rounded-full bg-slate-800">
-        <div className={`h-full rounded-full ${bar}`} style={{ width: `${value}%` }} />
-      </div>
+      <span
+        className={`meter block ${txt}`}
+        style={{ '--v': value } as React.CSSProperties}
+        aria-hidden="true"
+      />
     </div>
   );
 }

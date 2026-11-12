@@ -387,13 +387,13 @@ const palpation: PerMusclePhase = {
 const tests: TestsPhase = {
   scope: 'region',
   intro: {
-    text: 'La respuesta a un test no es solo positiva o negativa: importa cuánto sostiene el paciente la posición, contra cuánta resistencia, en qué parte del rango aparece el síntoma, y si cede por dolor o por debilidad real. Cada test incluye una guia de graduación para interpretar esos matices.',
+    text: 'La respuesta a un test no es solo positiva o negativa: importa cuánto sostiene el paciente la posición, contra cuánta resistencia, en qué parte del rango aparece el síntoma, y si cede por dolor o por debilidad real. Cada test incluye una guía de graduación para interpretar esos matices.',
     cite: [{ ref: 'oatis', pageVerified: false }],
   },
   tests: [
     {
       id: 'jobe',
-      name: 'Prueba de Jobe (lata vacia)',
+      name: 'Prueba de Jobe (lata vacía)',
       assesses: {
         text: 'Integridad y dolor del supraespinoso.',
         cite: [{ ref: 'oatis', pageVerified: false }],
