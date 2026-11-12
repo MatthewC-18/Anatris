@@ -29,12 +29,11 @@ Memoria detallada: `~/.claude/projects/C--Users-Matthew-Documents-Fisio/memory/M
 - Dos pestañas WebGL a la vez tumban el contexto (`Context Lost`).
 
 ## ESTADO (actualizar en cada commit)
-- Último commit: `be14d1c` (11 nov 2026).
-- Hecho esta sesión: poda del GLB (−14%), encuadre por región, cara y nuca, pantalla de carga por fases, sistema LÁMINA + armazón, lectura del gesto sobre el escenario (ángulo, regla del arco, etiquetas vivas), primera tanda LÁMINA por áreas (sin revisar en pantalla).
+- Último commit: `4a15184` (11 nov 2026).
+- Hecho: poda del GLB (−14%), encuadre por región, cara y nuca, pantalla de carga por fases, sistema LÁMINA + armazón + primera tanda por áreas (sin revisar en pantalla), lectura del gesto sobre el escenario, lista de Neuro/Tests ya no aplastada, **demos de tests**: línea de tiempo única `src/lib/demoTimeline.ts` (base primero, luego la maniobra; medido con `npm run audit-demo-path`: Hawkins 19,4% del brazo dentro del tronco → 0,2%) y codo doblado dos veces en press abdominal / retardo RE (156° → postura sola; test `demoComponents`).
 - En curso / siguiente, en este orden:
-  1. **Regresión:** la lista de raíces de Neuro queda en 47 px en el margen de escritorio; revisar Tests igual (1366×768).
-  2. **Demos de tests:** los `components` se mantienen fijos durante todo el barrido → el antebrazo y la mano del examinador atraviesan el tórax (visto en Hawkins-Kennedy). Medir todas las demos (también miotomas) muestreando el recorrido entero y sacar la línea de tiempo a una función pura compartida.
-  3. **Neuro como carta de dermatomas** sobre el cuerpo (canales ya listos: `rootCalloutChannel`, `neuroSkinChannel.picked`).
-  4. **Margen izquierdo:** quitar lo que ya duplica la lectura del escenario (ángulo, fase) antes de rediseñarlo. Enseñar captura al usuario en cada hito.
-  5. Segunda tanda LÁMINA (RomPanel, CaseView, EvidenceScreen, OrthopedicTestsPanel, NeuroPanel, ConceptStage, landing/Pricing/Paywall), de dos en dos.
-  6. Al final: valorar `Downloads/gemini_generated_video_3e6e86f0.mp4` como pantalla de carga (ffprobe, marca de agua, errores anatómicos, peso frente al modelo, si sigue con el hilo bloqueado). Decide el usuario.
+  1. Revisar la salida de `audit-demo-path` sobre TODOS los demos (posición final de los que no tienen componentes) y preguntar al usuario en qué prueba lo vio.
+  2. **Neuro como carta de dermatomas**: piel sólida y solo piel en la pestaña, todas las raíces pintadas y rotuladas sobre el cuerpo (`rootCalloutChannel`, `neuroSkinChannel.picked`), encuadre a los dos miembros, lectura propia en el escenario; durante un miotoma vuelve el músculo.
+  3. **Margen izquierdo:** quitar lo que duplica la lectura del escenario (ángulo, fase) y rediseñar. Enseñar captura al usuario.
+  4. Segunda tanda LÁMINA (RomPanel, CaseView, EvidenceScreen, OrthopedicTestsPanel, NeuroPanel, ConceptStage, landing/Pricing/Paywall), de dos en dos, sin tocar a la vez lo que se está editando.
+  5. Al final: valorar `Downloads/gemini_generated_video_3e6e86f0.mp4` como pantalla de carga (ffprobe, marca de agua, errores anatómicos, peso frente al modelo, si sigue con el hilo bloqueado en `/loader-harness.html?bloqueo=1`). Decide el usuario.
