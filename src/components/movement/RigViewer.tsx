@@ -22,6 +22,10 @@ import * as THREE from 'three';
 import { RigModel, rigChannel, type RigCommand } from './RigModel';
 import { RigLoadingScreen, noteRigPainted, noteRigReady } from './RigLoadingScreen';
 import { LabCalloutPlate, LabCalloutProjector } from './LabCallouts';
+import { rootCalloutChannel } from './calloutChannel';
+import { useNeuroSkin } from './neuroSkinChannel';
+import { useActiveDemo } from './demoChannel';
+import type { PlateFigure } from '../../data/neuro/plate';
 import { StageArcTrack, StageReadout } from './StageReadout';
 import { RigOverlays } from './RigOverlays';
 import { ShoulderRhythmArc } from './ShoulderRhythmArc';
@@ -104,6 +108,20 @@ const RIG_DPR_HD: [number, number] = [1, 2];
  */
 const MOVED_SQ = 0.01 * 0.01;
 
+/**
+ * LO QUE ENCUADRA LA CARTA DE DERMATOMAS: los dos miembros enteros, de frente.
+ *
+ * La pestana Neuro pinta los territorios de TODAS las raices de la figura, y
+ * con el encuadre de la region (el hombro, de tres cuartos) la mitad de la carta
+ * quedaba fuera o de canto: la mano, donde estan los puntos clave de C6, C7 y
+ * C8, ni salia. Aqui se encuadran los dos lados a la vez, sin el filtro de lado
+ * activo, y la camara se pone de frente.
+ */
+const CHART_BONES: Record<PlateFigure, readonly string[]> = {
+  'upper-limb': ['vert_C1', 'clavicle', 'humerus_gh', 'forearm_flex', 'hand_flex'],
+  'lower-limb': ['vert_L3', 'femur_base', 'patella', 'foot_flex'],
+};
+
 function AutoFit({
   refitKey,
   region,
@@ -164,7 +182,13 @@ function AutoFit({
     return rigChannel.subscribe(onSide);
   }, []);
 
-  const fitKey = `${refitKey ?? ''}|${region ?? ''}|${rigSuffix}|${demoBones.join(',')}`;
+  // La carta de dermatomas: figura publicada por la pestana Neuro y ningun demo
+  // corriendo (con un miotoma en marcha manda el encuadre del gesto).
+  const neuroSkin = useNeuroSkin();
+  const activeDemo = useActiveDemo();
+  const chart: PlateFigure | null = neuroSkin.figure && !activeDemo ? neuroSkin.figure : null;
+
+  const fitKey = `${refitKey ?? ''}|${region ?? ''}|${rigSuffix}|${demoBones.join(',')}|${chart ?? ''}`;
   if (lastKey.current !== fitKey) {
     lastKey.current = fitKey;
     framed.current = false;
@@ -289,8 +313,26 @@ function AutoFit({
         // la mano cuelga a la altura de la cadera y la caja bajaba hasta ahi
         // (ver REGION_FRAME_CORE, con las medidas). Lo que la mano necesita es
         // que la camara la siga, y de eso se encarga el guardian de abajo.
-        const wanted = regionFrameCore(region);
-        if (wanted) {
+        const wanted = chart ? null : regionFrameCore(region);
+        if (chart) {
+          // Los DOS lados: aqui no se filtra por el armature activo.
+          const names = new Set(CHART_BONES[chart]);
+          scene.traverse((o) => {
+            if (!(o as THREE.Bone).isBone) return;
+            if (!names.has(o.name.replace(/_\d+$/, ''))) return;
+            const p = o.getWorldPosition(new THREE.Vector3());
+            if (isFinite(p.x)) box.expandByPoint(p);
+          });
+          padBox(box);
+          if (!box.isEmpty()) {
+            box.max.y += regionFrameHeadroom('cervical');
+            // Los huesos acaban en la muneca y el pie, pero los puntos clave de
+            // C6, C7 y C8 estan en los DEDOS: la mano mide unos 18 cm mas.
+            if (chart === 'upper-limb') box.min.y -= 0.12;
+          }
+          // De frente, y al instante: el ajuste de abajo solo acerca o aleja.
+          void controls.rotateTo(0, Math.PI / 2, false);
+        } else if (wanted) {
           for (const p of bonePoints(new Set([...wanted, ...demoBones]))) box.expandByPoint(p);
           padBox(box);
           // El techo propio de la region, para lo que no es un hueso (la
@@ -337,7 +379,7 @@ function AutoFit({
       cancelAnimationFrame(raf1);
       if (raf2) cancelAnimationFrame(raf2);
     };
-  }, [controls, scene, fitKey, nudge, bonePoints, boneMarks, padBox, padOf, clampDolly, demoBones, region]);
+  }, [controls, scene, fitKey, nudge, bonePoints, boneMarks, padBox, padOf, clampDolly, demoBones, region, chart]);
 
   // EL GUARDIAN DE ENCUADRE: la camara AMPLIA, y solo amplia.
   //
@@ -833,6 +875,7 @@ export function RigViewer({
           {/* Proyecta el ancla de cada musculo activo y coloca su etiqueta.
               No pinta nada: la lamina es DOM, hermana del lienzo. */}
           {hud && <LabCalloutProjector />}
+          {hud && <LabCalloutProjector channel={rootCalloutChannel} gap={44} />}
         </Suspense>
 
         <NavigationRig compact={compact} />
@@ -848,6 +891,7 @@ export function RigViewer({
       {ready && hud && (
         <>
           <LabCalloutPlate region={region} />
+          <LabCalloutPlate region={region} channel={rootCalloutChannel} />
           <StageReadout compact={compact} />
           <StageArcTrack compact={compact} />
         </>

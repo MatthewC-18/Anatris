@@ -138,7 +138,14 @@ function vertexFor(mesh: THREE.Mesh): number {
 /*  Dentro del Canvas: proyeccion y colocacion, sin DOM propio         */
 /* ------------------------------------------------------------------ */
 
-export function LabCalloutProjector({ channel = calloutChannel }: { channel?: CalloutChannel }) {
+export function LabCalloutProjector({
+  channel = calloutChannel,
+  gap = LABEL_GAP,
+}: {
+  channel?: CalloutChannel;
+  /** Separacion vertical entre etiquetas: las de dos lineas piden mas. */
+  gap?: number;
+}) {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
   const rows = rowsOf(channel);
@@ -230,8 +237,8 @@ export function LabCalloutProjector({ channel = calloutChannel }: { channel?: Ca
     leftCol.length = 0;
     rightCol.length = 0;
     for (const p of placed) (p.left ? leftCol : rightCol).push(p);
-    stackColumn(leftCol, size.height, LABEL_GAP, PAD_TOP, PAD_BOTTOM);
-    stackColumn(rightCol, size.height, LABEL_GAP, PAD_TOP, PAD_BOTTOM);
+    stackColumn(leftCol, size.height, gap, PAD_TOP, PAD_BOTTOM);
+    stackColumn(rightCol, size.height, gap, PAD_TOP, PAD_BOTTOM);
 
     for (const p of placed) {
       const r = rows.get(p.id);

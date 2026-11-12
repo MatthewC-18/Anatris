@@ -22,6 +22,11 @@
 // pudiendo girar por debajo.
 
 import { useLabLive, type LabLive } from './useLabLive';
+import { useNeuroSkin } from './neuroSkinChannel';
+import { useActiveDemo } from './demoChannel';
+import { NEURO_BY_REGION } from '../../data/neuro';
+import { pigmentFor, type PlateFigure } from '../../data/neuro/plate';
+import type { NerveRoot } from '../../types/neuro';
 
 const SIDE_LABEL = { R: 'Derecho', L: 'Izquierdo' } as const;
 
@@ -44,8 +49,94 @@ function grados(n: number): string {
   return r < 0 ? `−${Math.abs(r)}` : String(r);
 }
 
+/**
+ * True mientras la pestana Neuro ensena la CARTA de dermatomas: hay figura
+ * publicada y no corre ningun demo (con un miotoma en marcha vuelve la lectura
+ * del gesto, porque lo que se mira es el movimiento).
+ */
+function useNeuroChart(): PlateFigure | null {
+  const skin = useNeuroSkin();
+  const demo = useActiveDemo();
+  return skin.figure && !demo ? skin.figure : null;
+}
+
+const FIGURE_LABEL: Record<PlateFigure, string> = {
+  'upper-limb': 'Miembro superior',
+  'lower-limb': 'Miembro inferior',
+};
+
+function rootById(figure: PlateFigure, id: string): NerveRoot | undefined {
+  for (const set of Object.values(NEURO_BY_REGION)) {
+    if (set.figure !== figure) continue;
+    const r = set.roots.find((x) => x.id === id);
+    if (r) return r;
+  }
+  return undefined;
+}
+
+/**
+ * LA LECTURA DE LA CARTA DE DERMATOMAS.
+ *
+ * Con la pestana Neuro abierta el escenario ya no habla del gesto de la consola
+ * (que sigue puesto, pero no es lo que se esta mirando): dice que carta es y,
+ * con una raiz elegida, la raiz en grande con su territorio, su punto clave, su
+ * miotoma y su reflejo. Es la ficha de la raiz, escrita junto a su territorio.
+ */
+function NeuroStageReadout({ figure, compact }: { figure: PlateFigure; compact: boolean }) {
+  const skin = useNeuroSkin();
+  const roots = skin.picked.map((id) => rootById(figure, id)).filter((r): r is NerveRoot => !!r);
+  return (
+    <div
+      className={`stage-veil-top pointer-events-none absolute left-0 top-0 z-10 ${
+        compact ? 'pb-10 pl-3 pr-16 pt-2.5' : 'pb-14 pl-5 pr-24 pt-4'
+      }`}
+    >
+      <p className="stage-note">
+        <span className="text-fg2">Dermatomas</span>
+        {` · ${FIGURE_LABEL[figure]}`}
+      </p>
+      {roots.length === 0 ? (
+        <p className={`mt-2 max-w-[22rem] text-fg2 ${compact ? 'text-[12px]' : 'text-[13px]'} leading-snug`}>
+          Cada color es el territorio de una raíz. Toca un nombre sobre el cuerpo
+          o una raíz de la lista para verla sola.
+        </p>
+      ) : (
+        <div className={`flex items-start gap-6 ${compact ? 'mt-1' : 'mt-2'}`}>
+          {roots.map((r) => (
+            <div key={r.id} className="animate-slide-up">
+              <p className="flex items-baseline gap-3">
+                <span
+                  className={`readout stage-angle ${compact ? 'text-[2.25rem]' : 'text-[3.5rem]'}`}
+                  style={{ color: pigmentFor(figure, r.id) }}
+                >
+                  {r.label}
+                </span>
+                <span className="font-display text-[15px] font-semibold text-fg">{r.dermatome.area}</span>
+              </p>
+              <dl className="mt-1.5 grid max-w-[24rem] grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[12px] leading-snug">
+                <dt className="kicker self-center">Punto clave</dt>
+                <dd className="text-fg2">{r.dermatome.keyPointShort ?? r.dermatome.keyPoint}</dd>
+                <dt className="kicker self-center">Miotoma</dt>
+                <dd className="text-fg2">{r.myotome.action}</dd>
+                {r.reflex && (
+                  <>
+                    <dt className="kicker self-center">Reflejo</dt>
+                    <dd className="text-fg2">{r.reflex.name}</dd>
+                  </>
+                )}
+              </dl>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function StageReadout({ compact = false }: { compact?: boolean }) {
+  const neuro = useNeuroChart();
   const live = useLabLive();
+  if (neuro) return <NeuroStageReadout figure={neuro} compact={compact} />;
   if (!live) return null;
   const { movement, at, angle, gestureName, isSpine, side, demo } = live;
 
@@ -113,8 +204,10 @@ function enRegla(live: LabLive, deg: number): number {
 }
 
 export function StageArcTrack({ compact = false }: { compact?: boolean }) {
+  const neuro = useNeuroChart();
   const live = useLabLive();
-  if (!live) return null;
+  // En la carta de dermatomas no hay arco que leer.
+  if (neuro || !live) return null;
   const { arc, at, angle } = live;
   if (arc.max <= arc.min) return null;
 

@@ -678,6 +678,36 @@
   .lab-callout[data-lado='der'] {
     flex-direction: row-reverse;
   }
+  /* EL ROTULO DE UNA RAIZ VA EN DOS LINEAS: la raiz y, debajo, su punto clave.
+     En una sola linea "C4 Articulacion acromioclavicular" media mas de lo que
+     cabe en el margen y se cortaba por el borde izquierdo del escenario. */
+  .lab-callout-root {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.125rem;
+  }
+  .lab-callout-root[data-lado='der'] {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .lab-callout-root .lab-callout-name {
+    font-family: Sora, system-ui, sans-serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  .lab-callout-root .lab-callout-pct {
+    min-width: 0;
+    max-width: 11rem;
+    white-space: normal;
+    text-align: right;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-size: 0.6875rem;
+    line-height: 1.25;
+    color: rgb(var(--c-fg2));
+  }
+  .lab-callout-root[data-lado='der'] .lab-callout-pct {
+    text-align: left;
+  }
   .lab-callout-name {
     font-weight: 500;
   }

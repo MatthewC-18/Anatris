@@ -59,7 +59,7 @@
 // mode for the mobile bottom sheet. Data: src/data/neuro. UI Spanish LATAM; code
 // and comments ASCII/English.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { neuroForRegion } from '../../data/neuro';
 import { pigmentFor } from '../../data/neuro/plate';
 import type { NerveRoot } from '../../types/neuro';
@@ -77,7 +77,8 @@ import {
   type NeuroScreenState,
   type RootFinding,
 } from '../../lib/neuroScreen';
-import { neuroSkinChannel } from './neuroSkinChannel';
+import { neuroPickBus, neuroSkinChannel } from './neuroSkinChannel';
+import { layerChannel, type LayerState } from './RigModel';
 import { useAllMuscles } from '../../hooks/useMuscleResolution';
 import { readPose } from './consolePoseStore';
 import { startDemoLoop } from '../../lib/demoTimeline';
@@ -356,13 +357,60 @@ export function NeuroPanel({
    * Only while the panel is OPEN: a dermatome left glowing on the model behind a
    * closed panel is paint nobody asked for. Cleared on unmount for the same reason.
    */
+  // LA CARTA ENTERA CUANDO NO HAY NINGUNA RAIZ ELEGIDA.
+  //
+  // "La parte de neuro esta fea, solo con que aparezca el cuerpo asi." Al abrir
+  // la pestana el cuerpo no ensenaba nada: un modelo de cristal y, a la derecha,
+  // un esquema plano de 120 px. Ahora el CUERPO es el esquema: sin nada elegido
+  // se pintan todas las raices de la figura, cada una en su pigmento, y al
+  // elegir una se queda sola. Ver NeuroSkinLayer, que ademas las rotula.
   useEffect(() => {
     if (!open || !set) {
       neuroSkinChannel.clear();
       return;
     }
-    neuroSkinChannel.set({ figure: set.figure, roots: picked });
+    neuroSkinChannel.set({
+      figure: set.figure,
+      roots: picked.length > 0 ? picked : set.roots.map((r) => r.id),
+      picked,
+    });
   }, [open, set, picked]);
+
+  // Y LOS ROTULOS DEL CUERPO ELIGEN RAIZ IGUAL QUE LA LISTA.
+  useEffect(() => neuroPickBus.subscribe((id) => pick(id)));
+
+  // SOLO PIEL MIENTRAS SE LEE LA CARTA; EL MUSCULO VUELVE CON EL MIOTOMA.
+  //
+  // Un dermatoma es piel. Con el musculo y el hueso encendidos la piel se
+  // vuelve cristal (ver `ghostForLayers` en RigModel) y los territorios
+  // pintados flotaban sobre un cuerpo desollado: era lo "feo". Mientras la
+  // pestana esta abierta y no corre ningun demo, el cuerpo es solo piel solida;
+  // al lanzar un miotoma vuelven las capas que el fisio tenia (el musculo que
+  // se enciende tiene que verse), y al salir de Neuro todo queda como estaba.
+  const savedLayersRef = useRef<LayerState | null>(null);
+  useEffect(() => {
+    if (!open || !set) return;
+    if (!savedLayersRef.current) savedLayersRef.current = { ...layerChannel.get() };
+    if (activeDemo) {
+      layerChannel.set(savedLayersRef.current);
+    } else {
+      layerChannel.set({
+        skin: true,
+        muscle: false,
+        bone: false,
+        connective: false,
+        cartilage: false,
+        bursa: false,
+      });
+    }
+  }, [open, set, activeDemo]);
+  useEffect(
+    () => () => {
+      if (savedLayersRef.current) layerChannel.set(savedLayersRef.current);
+      savedLayersRef.current = null;
+    },
+    [],
+  );
 
   useEffect(() => () => neuroSkinChannel.clear(), []);
 

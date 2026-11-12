@@ -49,6 +49,15 @@ const ORDERS: DemoOrder[] = ['together', 'base-first', 'components-first', 'prop
 const SAMPLES = 25;
 const INSIDE_R = 0.85;
 const SOLO = process.argv[2] ?? null;
+/**
+ * `--angulo=NN`: con un solo demo, mide ese demo con otro angulo base. Es como
+ * se busca el angulo en el que una mano APOYA en el cuerpo en vez de hundirse
+ * (el press abdominal), sin tocar el dato hasta tener la medida.
+ */
+const ANGULO = (() => {
+  const a = process.argv.find((x) => x.startsWith('--angulo='));
+  return a ? Number(a.slice('--angulo='.length)) : null;
+})();
 
 interface Demo {
   id: string;
@@ -81,7 +90,9 @@ for (const set of Object.values(NEURO_BY_REGION)) {
     demos.push({ id: `miotoma ${r.id}`, where: set.id, movementId: d.movementId, angleDeg: d.angleDeg, side: d.side ?? 'R', components: d.components ?? [] });
   }
 }
-const lista = SOLO ? demos.filter((d) => d.id === SOLO || d.id === `miotoma ${SOLO}`) : demos;
+const lista = (SOLO && !SOLO.startsWith('--') ? demos.filter((d) => d.id === SOLO || d.id === `miotoma ${SOLO}`) : demos).map(
+  (d) => (ANGULO != null && SOLO && !SOLO.startsWith('--') ? { ...d, angleDeg: ANGULO } : d),
+);
 
 const buf = readFileSync(rigGlbPath());
 const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;

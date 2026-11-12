@@ -76,3 +76,25 @@ export const neuroSkinChannel = (() => {
 export function useNeuroSkin(): NeuroSkinCommand {
   return useSyncExternalStore(neuroSkinChannel.subscribe, neuroSkinChannel.get);
 }
+
+/**
+ * PINCHAR UNA RAIZ DESDE EL CUERPO.
+ *
+ * Los rotulos de la carta de dermatomas viven sobre el escenario (LabCallouts),
+ * fuera del panel. Pinchar "C6" en el cuerpo tiene que hacer lo mismo que
+ * pincharla en la lista o en el esquema: elegirla. Este bus es el puente: el
+ * rotulo pide, el panel --que es quien sabe que significa elegir, con el modo
+ * comparar incluido-- decide.
+ */
+type PickListener = (rootId: string) => void;
+const pickListeners = new Set<PickListener>();
+
+export const neuroPickBus = {
+  request: (rootId: string): void => pickListeners.forEach((l) => l(rootId)),
+  subscribe: (l: PickListener): (() => void) => {
+    pickListeners.add(l);
+    return () => {
+      pickListeners.delete(l);
+    };
+  },
+};

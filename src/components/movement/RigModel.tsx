@@ -480,7 +480,11 @@ const SKIN_FADE_SPEED = 6; // per-second lerp rate toward the target
  * piel se queda solida. Ver el bloque de `refreshSkinFade`.
  */
 const ghostForLayers = (st: LayerState): boolean =>
-  st.skin && (st.muscle || st.bone || st.connective || st.cartilage || st.bursa);
+  st.skin && somethingUnderSkin(st);
+
+/** Hay algo encendido debajo de la piel que el cristal pueda ensenar. */
+const somethingUnderSkin = (st: LayerState): boolean =>
+  st.muscle || st.bone || st.connective || st.cartilage || st.bursa;
 
 // ---------------------------------------------------------------------------
 // Duplicate-overlap removal.
@@ -1279,7 +1283,13 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
   // estado promete -- un cuerpo vestido.
   /** El cristal lo pueden pedir el movimiento y el panel; manda cualquiera. */
   const refreshSkinFade = useCallback((st: LayerState = layerChannel.get()): void => {
-    skinFadeTargetRef.current = ghostByCmdRef.current || ghostForLayers(st) ? 1 : 0;
+    // NUNCA CRISTAL SOBRE EL VACIO. El movimiento pide cristal cuando enciende
+    // musculos, pero si debajo de la piel no hay ninguna capa puesta, lo que el
+    // cristal ensena es el fondo del escenario: el tronco salia NEGRO en la
+    // carta de dermatomas de la pestana Neuro, que deja solo la piel mientras la
+    // consola sigue con su gesto encendido. Sin nada debajo, la piel es solida.
+    const quiere = ghostByCmdRef.current || ghostForLayers(st);
+    skinFadeTargetRef.current = quiere && somethingUnderSkin(st) ? 1 : 0;
   }, []);
 
   const applyLayers = useCallback((st: LayerState = layerChannel.get()) => {

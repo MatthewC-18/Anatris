@@ -59,7 +59,10 @@ import {
   type ResolvedPatch,
 } from '../../lib/neuroSkin';
 import { pigmentFor, type PlateFigure } from '../../data/neuro/plate';
-import { neuroSkinChannel, type NeuroSkinCommand } from './neuroSkinChannel';
+import { neuroPickBus, neuroSkinChannel, type NeuroSkinCommand } from './neuroSkinChannel';
+import { rootCalloutChannel, type CalloutItem } from './calloutChannel';
+import { NEURO_BY_REGION } from '../../data/neuro';
+import type { NerveRoot } from '../../types/neuro';
 
 /**
  * How a painted territory is coloured.
@@ -148,6 +151,75 @@ function indexPatches(scene: THREE.Object3D): Patch[] {
   return resolvePatches(raw);
 }
 
+/** Las raices de una figura, por id: de ahi salen el rotulo y su punto clave. */
+function rootsOf(figure: PlateFigure): Map<string, NerveRoot> {
+  const out = new Map<string, NerveRoot>();
+  for (const set of Object.values(NEURO_BY_REGION)) {
+    if (set.figure !== figure) continue;
+    for (const r of set.roots) if (!out.has(r.id)) out.set(r.id, r);
+  }
+  return out;
+}
+
+/**
+ * LOS ROTULOS DE LA CARTA.
+ *
+ * Un territorio pintado sin nombre obliga a ir al panel a buscar que raiz es
+ * cada color, que es justo lo que una carta sobre el cuerpo viene a evitar.
+ * Cada raiz pintada lleva su rotulo en el margen del escenario, con la guia
+ * hasta su territorio y su punto clave al lado ("C6 Pulgar"), del color de su
+ * pigmento. Pincharlo la elige, igual que en la lista.
+ *
+ * El ancla es el parche SEGURO mas grande de la raiz en el lado derecho
+ * anatomico (x negativa en este GLB: el nodo `_R` esta en +x, que es la
+ * izquierda; ver boneMap.rigSideFor), para que la columna de rotulos salga del
+ * mismo brazo y no se crucen guias de un lado al otro.
+ */
+function publishRootLabels(
+  cmd: NeuroSkinCommand,
+  owned: { root: string; patch: Patch; confidence: PatchConfidence }[],
+): void {
+  if (!cmd.figure || cmd.roots.length === 0) {
+    rootCalloutChannel.set([]);
+    return;
+  }
+  const data = rootsOf(cmd.figure);
+  const picked = new Set(cmd.picked);
+  const c = new THREE.Vector3();
+  const items: CalloutItem[] = [];
+  for (const root of cmd.roots) {
+    let best: THREE.Mesh | null = null;
+    let bestScore = -Infinity;
+    for (const o of owned) {
+      if (o.root !== root) continue;
+      const m = o.patch.ref;
+      worldCentre(m, c);
+      if (c.x > 0) continue;
+      if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+      const r = m.geometry.boundingSphere?.radius ?? 0;
+      // Lo seguro manda sobre lo aproximado, y dentro de cada uno, lo grande.
+      const score = (o.confidence === 'sure' ? 10 : 0) + r;
+      if (score > bestScore) {
+        bestScore = score;
+        best = m;
+      }
+    }
+    if (!best) continue;
+    const r = data.get(root);
+    items.push({
+      id: root,
+      // Las elegidas destacan; en la carta entera todas se leen igual.
+      level: picked.size === 0 ? 0.8 : picked.has(root) ? 1 : 0.55,
+      mesh: best,
+      text: r?.label ?? root,
+      detail: r?.dermatome.keyPointShort ?? '',
+      color: pigmentFor(cmd.figure, root),
+      onPick: () => neuroPickBus.request(root),
+    });
+  }
+  rootCalloutChannel.set(items);
+}
+
 export function NeuroSkinLayer(): JSX.Element {
   const { scene } = useThree();
   const patchesRef = useRef<Patch[] | null>(null);
@@ -214,15 +286,22 @@ export function NeuroSkinLayer(): JSX.Element {
   const apply = (cmd: NeuroSkinCommand) => {
     cmdRef.current = cmd;
     restoreAll();
-    if (!cmd.figure || cmd.roots.length === 0) return;
+    if (!cmd.figure || cmd.roots.length === 0) {
+      publishRootLabels(cmd, []);
+      return;
+    }
     const patches = ensureIndex();
     if (patches.length === 0) return;
+    const owned: { root: string; patch: Patch; confidence: PatchConfidence }[] = [];
     for (const root of cmd.roots) {
       for (const { patch, confidence } of ownedPatches(patches, cmd.figure, root)) {
         // First writer wins: with two roots selected (compare mode) a patch that
         // somehow matched both keeps the first, so the pair never flickers by
         // iteration order.
         if (paintedRef.current.has(patch.ref)) continue;
+        // Solo lo que de verdad lleva el color de ESTA raiz puede anclar su
+        // rotulo: un parche que gano otra raiz antes apuntaria a otro color.
+        owned.push({ root, patch, confidence });
         const material = patch.ref.material as THREE.Material;
         paintedRef.current.set(patch.ref, { material, visible: patch.ref.visible });
         patch.ref.material = tintFor(cmd.figure, root, confidence, material);
@@ -234,6 +313,7 @@ export function NeuroSkinLayer(): JSX.Element {
         patch.ref.userData.neuroPainted = true;
       }
     }
+    publishRootLabels(cmd, owned);
   };
 
   useEffect(() => {
@@ -244,6 +324,7 @@ export function NeuroSkinLayer(): JSX.Element {
     return () => {
       off();
       restoreAll();
+      rootCalloutChannel.set([]);
       for (const m of materialsRef.current.values()) m.dispose();
       materialsRef.current.clear();
       patchesRef.current = null;

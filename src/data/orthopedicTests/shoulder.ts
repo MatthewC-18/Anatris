@@ -268,7 +268,16 @@ const tests: OrthopedicTest[] = [
     // con el codo a 90 (su postura, `ELBOW_AT_90` en boneMap) y el componente
     // se sumaba encima. Medido: el codo acababa doblado a 156 grados, el
     // antebrazo atravesando el biceps. Ver src/data/__tests__/demoComponents.test.ts.
-    demo: { movementId: 'glenohumeral-internal-rotation', angleDeg: 45, highlightMuscleId: 'subscapularis', note: 'La palma presiona el abdomen con el codo por delante del cuerpo.' },
+    // Y 5 GRADOS, NO 45. La postura de la rotacion (codo a 90) mas la holgura
+    // que adelanta el brazo ya dejan la mano DELANTE del abdomen; la rotacion
+    // interna solo tiene que llevarla hasta la piel. Medido con
+    // `npm run audit-demo-path -- belly-press --angulo=N` (radio normalizado
+    // del punto mas hundido; 1 = la piel, 0 = el centro del tronco): a 5 grados
+    // la palma toca sin entrar (0,86, nada dentro); a 10 empieza a hundirse
+    // (0,78); a 45 se metia hasta 0,26, con el 10,6% del antebrazo y la mano
+    // dentro del abdomen. La prueba es la PRESION contra el abdomen, no mas
+    // rotacion: lo que se ve es la posicion de partida.
+    demo: { movementId: 'glenohumeral-internal-rotation', angleDeg: 5, highlightMuscleId: 'subscapularis', note: 'La palma presiona el abdomen con el codo por delante del cuerpo.' },
     cite: [
       {
         ref: 'barth-2006',
