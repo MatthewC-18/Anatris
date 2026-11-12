@@ -13,8 +13,10 @@
 // pending verification. Journals link straight to PubMed (see references.ts).
 
 import { testsForRegion } from '../data/orthopedicTests';
-import { romForRegion } from '../data/romByRegion';
+import { ROM_BY_REGION } from '../data/romByRegion';
 import { muscleContentForRegion } from '../data/muscleContentByRegion';
+import { TRACK_BY_REGION } from '../data/trackByRegion';
+import { premiumRom, premiumTrack } from '../data/premiumStore';
 import { REFERENCES, isJournalRef, type Reference } from '../data/references';
 
 /** One test that cites a given study, with that citation's verified state. */
@@ -89,7 +91,10 @@ function studiesForRegion(region: string | null): EvidenceStudy[] {
   for (const t of tests) {
     for (const c of t.cite) {
       const ref = REFERENCES[c.ref];
-      if (!ref) continue;
+      // UN LIBRO NO ES UN ESTUDIO. Un test que cita a Magee (su texto de
+      // exploracion) salia en "Estudios" de la cadera como si fuera un articulo
+      // de precision diagnostica. Los libros se cuentan en `booksForRegion`.
+      if (!ref || !isJournalRef(ref)) continue;
       let study = map.get(c.ref);
       if (!study) {
         study = { ref, usedBy: [], verifiedCount: 0, totalCount: 0 };
@@ -112,7 +117,19 @@ function studiesForRegion(region: string | null): EvidenceStudy[] {
   );
 }
 
-/** Textbooks sourcing a region's ROM + muscle content, by cite weight. */
+/** La ROM de la region, o nada si la de pago aun no ha llegado. */
+function ownRom(region: string | null): unknown {
+  if (!region) return ROM_BY_REGION.shoulder;
+  return ROM_BY_REGION[region] ?? premiumRom(region) ?? null;
+}
+
+/** La ruta de Aprender de la region, o nada si la de pago aun no ha llegado. */
+function ownTrack(region: string | null): unknown {
+  if (!region) return TRACK_BY_REGION.shoulder;
+  return TRACK_BY_REGION[region] ?? premiumTrack(region) ?? null;
+}
+
+/** Textbooks sourcing a region's ROM, muscle content, learning track and tests, by cite weight. */
 function booksForRegion(region: string | null): EvidenceBook[] {
   const counts = new Map<string, { count: number; verified: boolean }>();
   const collect = (ref: string, pageVerified: boolean) => {
@@ -124,8 +141,22 @@ function booksForRegion(region: string | null): EvidenceBook[] {
     counts.set(ref, prev);
   };
 
-  walkCitations(romForRegion(region), collect);
+  // La ROM PROPIA: `romForRegion` cae a la del hombro cuando la de pago aun no
+  // ha llegado, y contaba los libros del hombro para el tobillo.
+  const rom = ownRom(region);
+  if (rom) walkCitations(rom, collect);
   walkCitations(muscleContentForRegion(region), collect);
+  // LA RUTA DE APRENDER TAMBIEN CITA LIBROS, y no se contaba: el tobillo
+  // perdia a Magee y las cuentas por libro se quedaban cortas (pedido del
+  // agente de la tanda 2a). Solo la ruta de ESTA region: `trackForRegion` cae a
+  // la del hombro cuando la de pago aun no ha llegado, y contaria los libros
+  // del hombro como si fueran del tobillo.
+  const track = ownTrack(region);
+  if (track) walkCitations(track, collect);
+  // Y los libros que citan los tests (que ya no cuentan como estudios).
+  for (const t of testsForRegion(region)) {
+    for (const c of t.cite) collect(c.ref, Boolean(c.verified));
+  }
 
   return [...counts.entries()]
     .map(([id, { count, verified }]) => ({
