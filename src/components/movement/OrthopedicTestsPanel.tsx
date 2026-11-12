@@ -1658,8 +1658,15 @@ export function OrthopedicTestsPanel({
   return (
     <div
       className={
+        // EN `bare` EL PANEL NO SE ESTIRA NI TIENE SCROLL PROPIO: lo hace quien lo
+        // contiene (la pestana del margen de escritorio, la hoja movil). Con
+        // `flex-1 min-h-0` aqui y otro scroll interno abajo, el panel se
+        // ajustaba al alto del margen y la lista quedaba en lo que sobraba:
+        // MEDIDO en escritorio a 1440x900, la lista de raices de Neuro media
+        // 47 px de alto con 534 px de contenido, debajo del esquema, sin que
+        // nada dijera que habia que hacer scroll ahi dentro.
         bare
-          ? 'flex min-h-0 w-full flex-1 flex-col'
+          ? 'flex w-full flex-col'
           : 'instrument pointer-events-auto flex min-h-0 w-[24rem] max-w-[calc(100vw-2rem)] flex-1 flex-col overflow-hidden'
       }
     >
@@ -1803,7 +1810,7 @@ export function OrthopedicTestsPanel({
       </div>
 
       {/* Scrollable body */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className={bare ? '' : 'min-h-0 flex-1 overflow-y-auto'}>
         {showHelp && <HelpCard onDismiss={dismissHelp} />}
 
         {groups.length === 0 && (
