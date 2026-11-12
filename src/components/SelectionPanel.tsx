@@ -39,18 +39,14 @@ import {
   type StructureSheet,
 } from '../lib/selectionSheet';
 import { sideLabel, sideSetOfEntry, sidesOfMeshes } from '../lib/atlasSides';
-import { REFERENCES } from '../data/references';
 import { PartFocusControls } from './PartFocusControls';
 import { SaveButton } from './SaveButton';
+import { CitationRow } from './MuscleContentSections';
 import { shortcutLabel } from './TopBar';
 import type { AnatomyEntry } from '../types/anatomy';
 import { FUNCTIONAL_GROUP_LABEL } from '../types/muscle';
 import type { MuscleResolution } from '../lib/muscleResolver';
-import type {
-  SourcedText,
-  Citation,
-  MuscleAction,
-} from '../types/muscleContent';
+import type { SourcedText, MuscleAction } from '../types/muscleContent';
 
 interface SelectionPanelProps {
   byMesh: Map<string, AnatomyEntry>;
@@ -578,48 +574,11 @@ function SourcedList({ items }: { items: SourcedText[] }) {
 }
 
 /** The sources under a claim: mono tags separated by a middle dot. */
-function CitationRow({ cites }: { cites: Citation[] }) {
-  if (!cites || cites.length === 0) return null;
-  return (
-    <p className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
-      {cites.map((c, i) => {
-        const ref = REFERENCES[c.ref];
-        const label = ref ? ref.authors.split(',')[0] : c.ref;
-        const locator = c.page ?? c.section;
-        return (
-          <span
-            key={i}
-            title={ref ? `${ref.authors}. ${ref.title}` : c.ref}
-            className="tag"
-          >
-            {i > 0 && (
-              <span className="mr-2" aria-hidden="true">
-                ·
-              </span>
-            )}
-            {label}
-            {locator ? `, ${locator}` : ''}
-            {/* EL TRIANGULO AMARILLO ESTABA EN TODAS LAS CITAS, Y NO DECIA NADA.
-                `pageVerified` es falso por defecto, asi que la ficha de un
-                musculo salia con tres o cuatro avisos de peligro seguidos y la
-                pagina leia "esto no es de fiar" cuando lo unico sin confirmar
-                era el NUMERO DE PAGINA. Peor: la mayoria de esas citas no
-                llevan pagina, asi que el aviso no se referia a nada.
-                Ahora se marca solo cuando hay localizador que dudar, y con un
-                interrogante discreto en vez de una alarma. Lo que de verdad no
-                esta cotejado se dice con palabras donde toca (ver el pie del
-                panel de neuro). */}
-            {locator && !c.pageVerified && (
-              <span title="Localizador por confirmar contra la edición citada" className="ml-1">
-                ?
-              </span>
-            )}
-          </span>
-        );
-      })}
-    </p>
-  );
-}
+// LA CITA SE ABRE CON UN TOQUE. Esta fila era una copia privada que solo
+// ensenaba la referencia en `title`, y `title` no existe en una pantalla
+// tactil: en el iPad la cita no llevaba a ningun sitio. Se usa la de Aprender
+// (MuscleContentSections), que se pulsa y despliega la referencia entera con su
+// enlace. Pedido del agente de Aprender, tanda 2a.
 
 /**
  * A collapsible section of the sheet. The header is the LAMINA section head
