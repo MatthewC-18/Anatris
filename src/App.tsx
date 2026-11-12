@@ -78,6 +78,7 @@ const Viewer3D = lazy(() =>
 );
 import { ViewToolbar } from './components/ViewToolbar';
 import { LoaderVideo } from './components/LoaderVideo';
+import { setLoaderSlot } from './components/movement/loaderSlot';
 const SelectionPanel = lazy(() =>
   import('./components/SelectionPanel').then((m) => ({ default: m.SelectionPanel })),
 );
@@ -497,7 +498,7 @@ export default function App() {
           ErrorBoundary keeps a 3D crash from blanking the whole app and lets
           the user recover by switching region/mode (resetKeys). */}
       <ErrorBoundary variant="inline" label="la vista 3D" resetKeys={[regionId, mode]}>
-      <Suspense fallback={<IndexLoading />}>
+      <Suspense fallback={<IndexLoading mode={mode} />}>
       {locked || contentDenied ? (
         // SUBSCRIPTION GATE: this region needs premium. Replace the whole body
         // with the upgrade funnel; the TopBar stays so the user can switch back
@@ -516,7 +517,7 @@ export default function App() {
         // index uses, so the wait reads as one continuous load.
         <div className="flex min-h-0 flex-1">
           <main className="min-w-0 flex-1 overflow-hidden">
-            <ContentLoading />
+            <ContentLoading mode={mode} />
           </main>
         </div>
       ) : contentState === 'error' ? (
@@ -537,7 +538,10 @@ export default function App() {
       ) : mode === 'movement' ? (
         // MOVEMENT lab: the live 3D model with the shoulder rig + control panel.
         <div className="flex min-h-0 flex-1">
-          <main className="relative min-w-0 flex-1">
+          {/* `setLoaderSlot`: la pantalla de carga del cuerpo se pinta AQUI, en
+              toda la zona y no solo en el escenario, que es el mismo rectangulo
+              que la espera de arriba (ver movement/loaderSlot.ts). */}
+          <main ref={setLoaderSlot} className="relative min-w-0 flex-1">
             {/* EL LABORATORIO NO ESPERA AL INDICE DE EXPLORAR, Y NO DEBIA.
                 Esto estaba envuelto en `status === 'loading' ? <IndexLoading/>`,
                 es decir: el modo Movimiento se quedaba en "Cargando indice
@@ -573,7 +577,7 @@ export default function App() {
                 {status === 'error' ? (
                   <IndexError message={error} onOpenLab={() => setMode('movement')} />
                 ) : status === 'loading' ? (
-                  <IndexLoading />
+                  <IndexLoading mode={mode} />
                 ) : (
                   <ConceptStage
                     section={conceptSection.section}
@@ -609,7 +613,7 @@ export default function App() {
                 {status === 'error' ? (
                   <IndexError message={error} onOpenLab={() => setMode('movement')} />
                 ) : status === 'loading' ? (
-                  <IndexLoading />
+                  <IndexLoading mode={mode} />
                 ) : (
                   <Viewer3D
                     byMesh={byMesh}
@@ -640,7 +644,7 @@ export default function App() {
             {status === 'error' ? (
               <IndexError message={error} onOpenLab={() => setMode('movement')} />
             ) : status === 'loading' ? (
-              <IndexLoading />
+              <IndexLoading mode={mode} />
             ) : (
               <>
                 <Viewer3D
@@ -1045,27 +1049,59 @@ function InfoIcon() {
  * rotulo, titulo y una nota con la regla a la izquierda, y SIEMPRE traen una
  * salida.
  * ------------------------------------------------------------------------ */
-// Y CON EL VIDEO DE CARGA, el mismo que el laboratorio y Explorar
-// (src/components/LoaderVideo.tsx): una espera es una espera en toda la
-// aplicacion, y el rotulo dice cual es.
-function StageWait({ children }: { children: React.ReactNode }) {
+// Y CON LA PANTALLA DE CARGA DE TODA LA APLICACION (`.carga` en index.css, el
+// video de src/components/LoaderVideo.tsx): la misma lamina que la del
+// laboratorio, en el mismo rectangulo, con el mismo titulo. Al entrar al
+// laboratorio esta espera (el trozo de codigo del laboratorio) y la del cuerpo
+// se encadenan sin que se mueva nada: el video sigue, el titulo se queda y solo
+// cambia el estado de debajo. Antes eran dos pantallas distintas: una de solo
+// video a toda la anchura y otra mas pequena con las fases.
+//
+// Aparece a los 400 ms (`.carga-retardo`): casi todas estas esperas son cortas,
+// y un video que asoma y se va en un parpadeo es peor que nada.
+const WAIT_TITLE: Record<AppMode, string> = {
+  movement: 'Laboratorio de movimiento',
+  explore: 'Atlas anatómico',
+  learn: 'Aprender',
+  study: 'Repasar',
+};
+
+function StageWait({ title, status }: { title: string; status: string }) {
   return (
-    <div className="viewer-bg stage-wait h-full">
-      <LoaderVideo />
-      <p role="status" className="stage-note text-fg2">
-        {children}
-      </p>
+    <div className="viewer-bg relative h-full">
+      <div className="carga carga-retardo">
+        <div className="carga-video">
+          <div className="carga-acercar">
+            <LoaderVideo />
+          </div>
+        </div>
+        <div className="carga-texto">
+          <p className="carga-marca">Anatris</p>
+          <p className="carga-titulo">{title}</p>
+          <div className="carga-linea" aria-hidden>
+            <span className="carga-lanzadera" />
+          </div>
+          <p role="status" className="carga-estado">
+            {status}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
 
-function IndexLoading() {
-  return <StageWait>Cargando el índice anatómico</StageWait>;
+function IndexLoading({ mode = 'explore' }: { mode?: AppMode }) {
+  return (
+    <StageWait
+      title={WAIT_TITLE[mode] ?? 'Anatris'}
+      status={mode === 'movement' ? 'Abriendo el laboratorio' : 'Cargando el índice anatómico'}
+    />
+  );
 }
 
 /** Waiting on a premium region's clinical library from the content endpoint. */
-function ContentLoading() {
-  return <StageWait>Cargando el contenido clínico</StageWait>;
+function ContentLoading({ mode = 'explore' }: { mode?: AppMode }) {
+  return <StageWait title={WAIT_TITLE[mode] ?? 'Anatris'} status="Cargando el contenido clínico" />;
 }
 
 /** Fallback for a lazy panel rendered outside the body's Suspense. */

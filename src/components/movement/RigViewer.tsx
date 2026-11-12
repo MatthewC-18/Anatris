@@ -20,7 +20,9 @@ import {
 } from '@react-three/drei';
 import * as THREE from 'three';
 import { RigModel, rigChannel, type RigCommand } from './RigModel';
+import { createPortal } from 'react-dom';
 import { RigLoadingScreen, noteRigPainted, noteRigReady } from './RigLoadingScreen';
+import { useLoaderSlot } from './loaderSlot';
 import { LabCalloutPlate, LabCalloutProjector } from './LabCallouts';
 import { rootCalloutChannel } from './calloutChannel';
 import { useNeuroSkin } from './neuroSkinChannel';
@@ -776,6 +778,7 @@ export function RigViewer({
     return () => clearTimeout(t);
   }, [ready]);
   const compact = useIsCompact();
+  const loaderSlot = useLoaderSlot();
   // `?hd=1`: resolucion de grabacion. Se lee una vez, no por fotograma.
   const [hd] = useState(wantsHd);
 
@@ -904,16 +907,23 @@ export function RigViewer({
         </div>
       )}
 
-      {!loaderGone && (
-        <RigLoadingScreen
-          progress={progress}
-          loaded={loaded}
-          total={total}
-          item={item}
-          compact={compact}
-          leaving={ready}
-        />
-      )}
+      {/* EN TODA LA ZONA DEL LABORATORIO, no solo en el escenario: el portal la
+          pinta en el `<main>` que App registra (ver loaderSlot.ts), el mismo
+          rectangulo que la espera anterior. Sin hueco registrado, aqui. */}
+      {!loaderGone &&
+        (() => {
+          const pantalla = (
+            <RigLoadingScreen
+              progress={progress}
+              loaded={loaded}
+              total={total}
+              item={item}
+              compact={compact}
+              leaving={ready}
+            />
+          );
+          return loaderSlot ? createPortal(pantalla, loaderSlot) : pantalla;
+        })()}
     </div>
   );
 }

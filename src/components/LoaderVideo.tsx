@@ -1,107 +1,64 @@
 // src/components/LoaderVideo.tsx
 //
-// EL VIDEO DE CARGA, EL MISMO EN TODA LA APLICACION.
+// EL VIDEO DE CARGA: UN CUERPO QUE SE CONSTRUYE MIENTRAS LA APLICACION CARGA.
 //
-// Lo eligio el usuario (`Downloads/gemini_generated_video_3e6e86f0.mp4`, un
-// cuerpo holografico que un barrido va descubriendo de hueso a musculo) para
-// sustituir las pantallas de carga del laboratorio, de Explorar y de las esperas
-// del escenario.
+// Lo eligio el usuario (`Downloads/gemini_generated_video_3e6e86f0.mp4`). De
+// sus diez segundos se usan los seis primeros, que cuentan exactamente lo que
+// esta pasando: un esqueleto holografico, un barrido que sube de los pies a la
+// cabeza descubriendo el musculo, y el plano que se abre sobre el cuerpo entero
+// ya construido, que es lo que aparece despues en el laboratorio.
 //
-// POR QUE UN VIDEO AGUANTA DONDE UN DIBUJO NO. Al montar el laboratorio el hilo
-// principal no suelta durante unos diez segundos (ver RigLoadingScreen), y ahi
-// solo se mueve lo que no depende de el. La reproduccion de un <video> la llevan
-// el descodificador y el compositor: sigue avanzando con el hilo bloqueado.
+// -----------------------------------------------------------------------------
+// LO QUE VIO EL USUARIO, Y LO QUE SE MIDIO (build de produccion, `?perf=1`)
+// -----------------------------------------------------------------------------
+// "Se traba", "cuando termina el video todavia no acaba de cargar", "la barra
+// no va con el video", "a veces solo queda el video". La version anterior era un
+// bucle de 9,5 s con dos ciclos y otro <video> para cada espera:
+//   - la espera del indice y la del laboratorio tenian CADA UNA su video: el
+//     segundo empezaba de cero (o saltaba con una busqueda) al relevarse;
+//   - en desarrollo (unos 20 s de carga) el ciclo terminaba y volvia a empezar
+//     con el laboratorio aun cargando;
+//   - con el hilo bloqueado el video sigue, pero no gratis: 14 de 158
+//     fotogramas perdidos, 11 de ellos en los 4,35 s de subida a la GPU.
+// Y la barra iba por su lado: cuatro tramos de ancho fijo contra un video que
+// no sabia nada de ellos.
 //
-// PERO EL BUCLE NO. MEDIDO con el banco de la pantalla de carga
-// (`/loader-harness.html?auto=1&bloqueo=1`, 10,09 s de bloqueo): el video iba
-// por 2,54 s, llego al final 6,92 s despues y se quedo CONGELADO en el ultimo
-// fotograma el resto del bloqueo. Volver al principio (`loop`) es una busqueda
-// que hace el hilo principal. De ahi dos cosas:
-//   - el fichero lleva el ciclo DOS veces (18,9 s): la costura entre los dos es
-//     la misma del bucle, invisible, y el bloqueo, que empieza al acabar la
-//     descarga, ya no llega al final;
-//   - `stretchForBlock`, abajo: si aun asi lo que queda de clip no cubre el
-//     bloqueo que ESTE equipo tardo la ultima vez, el video se ralentiza lo
-//     justo (hasta la mitad) en vez de pararse.
-//
-// EL FICHERO, PREPARADO (ffmpeg, ver `public/carga.mp4`):
-//   - sin audio (el original traia una pista AAC);
-//   - 960 x 540, H.264 CRF 32, 24 fps: 621 KB por ciclo, 1,24 MB los dos (el
-//     original, 1280 x 720 con audio, eran 7,3 MB). A CRF 30 eran 774 KB por
-//     ciclo sin diferencia visible; el WebM VP9 no ahorraba nada en este
-//     material (particulas: mucha entropia);
-//   - BUCLE SIN SALTO: el primer y el ultimo plano son abiertos pero el cuerpo
-//     esta girado distinto, asi que el corte saltaba. Los ultimos 0,6 s se
-//     funden con los primeros 0,6 s (xfade) y el ciclo empieza donde acaba el
-//     fundido: 9,46 s que se repiten sin costura.
-//   - un poster (`carga-poster.webp`, 36 KB, el primer fotograma) para el
-//     instante antes de que arranque y para quien pide menos movimiento.
-//
-// EL BORDE NO SE VE. El video es negro alrededor del cuerpo y la pagina es casi
-// negra; una mascara radial funde el rectangulo con el fondo, y de paso apaga
-// los paneles de datos que el clip dibuja en las esquinas (no son datos de
-// nada). Sin marco ni caja: es una lamina, no un reproductor.
+// -----------------------------------------------------------------------------
+// COMO ES AHORA
+// -----------------------------------------------------------------------------
+// 1. EL FICHERO (`public/carga-revelado.mp4`, 793 KB): los 6,1 s de la
+//    construccion RALENTIZADOS EN LA CODIFICACION a 8,46 s con interpolacion de
+//    movimiento (ffmpeg minterpolate; duplicar fotogramas iba a saltos), y
+//    despues 32 s del ultimo plano QUIETO, que casi no pesa. Ralentizar con
+//    `playbackRate` en el navegador habria sido verlo a 11 fotogramas por
+//    segundo. Sin audio, 960 x 540, H.264.
+// 2. EL MOVIMIENTO DE LA COLA lo pone CSS: un acercamiento lento con
+//    `transform` (lo anima el compositor aunque el hilo este bloqueado). Si la
+//    carga dura mas que la construccion, el cuerpo construido espera
+//    acercandose despacio; no se para ni vuelve a empezar.
+// 3. UN SOLO <video> PARA TODA LA APLICACION. Cada espera monta un hueco y el
+//    video se MUEVE a ese hueco; dos esperas encadenadas (el modulo del
+//    laboratorio y luego el cuerpo) lo comparten sin cortarse. Solo una espera
+//    NUEVA (la anterior se fue hace mas de `SEQUENCE_GAP_MS`) lo devuelve al
+//    principio.
+// 4. EL MISMO RELOJ QUE LA BARRA. `paceReveal` ajusta la velocidad (entre 0,8 y
+//    1,25, para no notarlo) para que la construccion acabe cuando se espera que
+//    acabe la carga; lo llama la pantalla del laboratorio en la descarga y en el
+//    relevo, con los mismos tiempos que mueven su barra.
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 
-export const LOADER_VIDEO = '/carga.mp4';
-export const LOADER_POSTER = '/carga-poster.webp';
-/** Lo que dura el fichero: dos ciclos de 9,458 s. */
-export const LOADER_DURATION_S = 18.9167;
-/** Margen sobre el bloqueo previsto: la ultima carga no es la siguiente. */
-const BLOCK_MARGIN = 1.2;
-/** Mas lento que esto ya no se lee como movimiento sino como un fallo. */
-const MIN_RATE = 0.5;
-
-/**
- * EL HILO VA A BLOQUEARSE `expectedMs`: que el video no llegue al final antes.
- * Se llama justo antes del bloqueo (RigLoadingScreen, en el relevo). Si lo que
- * queda de clip a velocidad normal cubre el bloqueo con margen, no toca nada;
- * si no, baja la velocidad lo justo, nunca por debajo de la mitad. Devuelve la
- * velocidad puesta.
- */
-export function stretchForBlock(
-  video: Pick<HTMLVideoElement, 'currentTime' | 'duration' | 'playbackRate'>,
-  expectedMs: number,
-): number {
-  const dur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : LOADER_DURATION_S;
-  const queda = Math.max(0, dur - video.currentTime);
-  const hace = (Math.max(0, expectedMs) / 1000) * BLOCK_MARGIN;
-  if (hace <= 0 || queda >= hace) return video.playbackRate;
-  const rate = Math.max(MIN_RATE, Math.min(1, queda / hace));
-  video.playbackRate = rate;
-  return rate;
-}
-
-/* ---------------------------------------------------------------------------
- * DOS ESPERAS SEGUIDAS SON LA MISMA ESPERA.
- *
- * Al entrar al laboratorio se encadenan dos: "Cargando el indice anatomico"
- * (App) y la del cuerpo (RigLoadingScreen). Son dos componentes y, sin esto, el
- * segundo video empezaba otra vez desde el primer fotograma: un corte en mitad
- * de lo que se esta mirando. Un reloj comun: si la espera anterior se fue hace
- * menos de `CHAIN_MS`, la siguiente sigue por donde iba.
- * ------------------------------------------------------------------------ */
-const CHAIN_MS = 3000;
-const clock = { origin: -1, lastSeen: -Infinity };
-
-/** Segundos desde que empezo la cadena de esperas en curso, o 0 si es nueva. */
-export function chainedTime(now: number, duration: number): number {
-  if (clock.origin < 0 || now - clock.lastSeen > CHAIN_MS) clock.origin = now;
-  clock.lastSeen = now;
-  const d = Number.isFinite(duration) && duration > 0 ? duration : LOADER_DURATION_S;
-  return ((now - clock.origin) / 1000) % d;
-}
-
-/** Una espera se retira: la siguiente, si llega pronto, la continua. */
-export function markLoaderGone(now: number): void {
-  clock.lastSeen = now;
-}
-
-/** True si montar ahora continuaria una espera en curso (no hace falta poster). */
-function continuesChain(now: number): boolean {
-  return clock.origin >= 0 && now - clock.lastSeen <= CHAIN_MS;
-}
+export const LOADER_VIDEO = '/carga-revelado.mp4';
+export const LOADER_POSTER = '/carga-revelado.webp';
+/** Donde acaba la construccion dentro del fichero (s). Despues, el plano quieto. */
+export const REVEAL_S = 8.4583;
+/** Lo que dura el fichero entero (s): la construccion y 32 s de plano quieto. */
+export const LOADER_DURATION_S = 40.4583;
+/** Una espera que empieza mas de esto despues de la anterior es una espera NUEVA. */
+export const SEQUENCE_GAP_MS = 1500;
+/** El margen de velocidad que no se nota a la vista. */
+export const MIN_RATE = 0.8;
+export const MAX_RATE = 1.25;
 
 function prefersReducedMotion(): boolean {
   try {
@@ -111,10 +68,97 @@ function prefersReducedMotion(): boolean {
   }
 }
 
+/* ---------------------------------------------------------------------------
+ * EL VIDEO UNICO
+ * ------------------------------------------------------------------------ */
+
+let el: HTMLVideoElement | null = null;
+let goneAt = Number.NEGATIVE_INFINITY;
+let hosts = 0;
+
+function theVideo(): HTMLVideoElement {
+  if (el) return el;
+  const v = document.createElement('video');
+  v.className = 'loader-video';
+  v.src = LOADER_VIDEO;
+  v.poster = LOADER_POSTER;
+  v.muted = true;
+  v.defaultMuted = true;
+  v.autoplay = true;
+  v.playsInline = true;
+  v.preload = 'auto';
+  // El fichero dura 40 s: con un plano quieto al final, no hace falta bucle
+  // (y el bucle lo hace el hilo principal, que en la carga esta bloqueado).
+  v.loop = false;
+  v.disablePictureInPicture = true;
+  v.setAttribute('playsinline', '');
+  v.setAttribute('muted', '');
+  v.setAttribute('aria-hidden', 'true');
+  v.setAttribute('disableremoteplayback', '');
+  el = v;
+  return v;
+}
+
 /**
- * El video de carga. Ocupa el tamano que le de quien lo pone (`className` /
- * `style`) y recorta con `object-fit: cover`. Con `prefers-reduced-motion`, o si
- * el video no se puede reproducir, se queda el poster quieto.
+ * Velocidad para que la construccion acabe en `remainingMs`: lo que queda de
+ * construccion entre lo que queda de carga, dentro de [MIN_RATE, MAX_RATE]. Si
+ * ya esta construido, velocidad normal (la cola es un plano quieto).
+ */
+export function revealRate(currentTime: number, remainingMs: number): number {
+  const queda = REVEAL_S - currentTime;
+  if (queda <= 0 || remainingMs <= 0) return 1;
+  return Math.min(MAX_RATE, Math.max(MIN_RATE, queda / (remainingMs / 1000)));
+}
+
+/** Acompasa el video con lo que se espera que quede de carga. */
+export function paceReveal(remainingMs: number): void {
+  const v = el;
+  if (!v || !v.isConnected) return;
+  const r = revealRate(v.currentTime, remainingMs);
+  if (Math.abs(v.playbackRate - r) > 0.02) v.playbackRate = r;
+}
+
+/** La carga termino: lo que falte de construccion, rapido, durante el fundido. */
+export function finishReveal(): void {
+  const v = el;
+  if (v && v.currentTime < REVEAL_S) v.playbackRate = 2;
+}
+
+/* ---------------------------------------------------------------------------
+ * MEDIR SI SE TRABA (`?perf=1`, como el reloj de arranque).
+ *
+ * `currentTime` avanza aunque se pierdan fotogramas, asi que "10 s de video en
+ * 10 s" no dice si se vio fluido. Con `?perf=1` el video apunta cada 100 ms sus
+ * fotogramas presentados y perdidos (`getVideoPlaybackQuality`) en
+ * `window.__cargaVideo`; los huecos entre muestras son el hilo bloqueado.
+ * ------------------------------------------------------------------------ */
+const PERF = typeof location !== 'undefined' && /[?&]perf=1\b/.test(location.search);
+function sampleQuality(v: HTMLVideoElement): () => void {
+  if (!PERF) return () => {};
+  const w = window as unknown as { __cargaVideo?: unknown[] };
+  w.__cargaVideo = w.__cargaVideo ?? [];
+  const tick = () => {
+    const q = typeof v.getVideoPlaybackQuality === 'function' ? v.getVideoPlaybackQuality() : null;
+    w.__cargaVideo!.push({
+      t: Math.round(performance.now()),
+      ct: +v.currentTime.toFixed(3),
+      total: q?.totalVideoFrames ?? -1,
+      dropped: q?.droppedVideoFrames ?? -1,
+      rate: v.playbackRate,
+      paused: v.paused,
+    });
+  };
+  tick();
+  const h = window.setInterval(tick, 100);
+  return () => {
+    tick();
+    window.clearInterval(h);
+  };
+}
+
+/**
+ * El hueco del video de carga. Ocupa lo que le de quien lo pone y el video lo
+ * llena (`object-fit: cover`). Con `prefers-reduced-motion`, el poster quieto.
  */
 export function LoaderVideo({
   className = '',
@@ -123,42 +167,49 @@ export function LoaderVideo({
   className?: string;
   style?: CSSProperties;
 }) {
+  const host = useRef<HTMLDivElement>(null);
   // Se decide UNA vez: cambiar de video a imagen a mitad de una carga seria un
   // parpadeo en la unica cosa que se esta mirando.
   const [still] = useState(() => typeof window !== 'undefined' && prefersReducedMotion());
   const [failed, setFailed] = useState(false);
-  // Si continua una espera, sin poster: el poster es el PRIMER fotograma y
-  // saldria un instante antes de saltar a donde iba el video. Sin el, el
-  // elemento es negro hasta su fotograma, y negro es el fondo del clip.
-  const [resume] = useState(() => typeof window !== 'undefined' && continuesChain(performance.now()));
-  useEffect(() => () => markLoaderGone(performance.now()), []);
-  const cls = `loader-video ${className}`.trim();
+
+  // En la fase de LAYOUT y no en un efecto: si una espera se retira y otra
+  // aparece en el mismo commit, el video se saca de un hueco y se mete en el otro
+  // antes de que el navegador mire si sigue en el documento, y no se pausa.
+  useLayoutEffect(() => {
+    if (still || !host.current) return;
+    const v = theVideo();
+    const nueva = hosts === 0 && performance.now() - goneAt > SEQUENCE_GAP_MS;
+    hosts++;
+    host.current.appendChild(v);
+    if (nueva) {
+      v.playbackRate = 1;
+      if (v.currentTime > 0.01) v.currentTime = 0;
+    }
+    const onError = () => setFailed(true);
+    v.addEventListener('error', onError);
+    // Un navegador que bloquee el autoplay deja el poster: no es un error.
+    void v.play().catch(() => {});
+    const stop = sampleQuality(v);
+    return () => {
+      v.removeEventListener('error', onError);
+      stop();
+      hosts--;
+      goneAt = performance.now();
+    };
+  }, [still]);
 
   if (still || failed) {
-    return <img className={cls} style={style} src={LOADER_POSTER} alt="" aria-hidden draggable={false} />;
+    return (
+      <img
+        className={`loader-video ${className}`.trim()}
+        style={style}
+        src={LOADER_POSTER}
+        alt=""
+        aria-hidden
+        draggable={false}
+      />
+    );
   }
-  return (
-    <video
-      className={cls}
-      style={style}
-      src={LOADER_VIDEO}
-      poster={resume ? undefined : LOADER_POSTER}
-      onLoadedMetadata={(e) => {
-        const v = e.currentTarget;
-        const t = chainedTime(performance.now(), v.duration);
-        if (t > 0.05) v.currentTime = t;
-      }}
-      autoPlay
-      muted
-      loop
-      playsInline
-      preload="auto"
-      disablePictureInPicture
-      disableRemotePlayback
-      aria-hidden
-      // Sin pista de audio no hace falta, pero un navegador que bloquee el
-      // autoplay deja el poster: no es un error, no se cambia nada.
-      onError={() => setFailed(true)}
-    />
-  );
+  return <div ref={host} className={`loader-video-host ${className}`.trim()} style={style} aria-hidden />;
 }

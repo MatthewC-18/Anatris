@@ -574,32 +574,143 @@
     border-bottom-color: rgb(var(--c-brand));
   }
 
-  /* EL VIDEO DE CARGA (src/components/LoaderVideo.tsx). Recorta a su caja y se
-     funde con el fondo por una mascara radial: el clip es negro alrededor del
-     cuerpo y la pagina casi negra, asi que sin borde no hay rectangulo. */
-  .loader-video {
-    display: block;
-    object-fit: cover;
-    pointer-events: none;
-    user-select: none;
-    -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 58%, transparent 100%);
-    mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 58%, transparent 100%);
-  }
+  /* --------------------------------------------------------------------------
+     LA PANTALLA DE CARGA, LA MISMA EN TODA LA APLICACION (src/components/
+     LoaderVideo.tsx, RigLoadingScreen, CanvasLoader y las esperas de App).
+     Una lamina: el video del cuerpo que se construye, la marca, que se esta
+     cargando, una linea de progreso y el estado. Sin caja.
 
-  /* LA ESPERA DEL ESCENARIO: el video de carga con su rotulo debajo (App.tsx,
-     Explorar). Sin caja: el escenario entero es la lamina. */
-  .stage-wait {
+     EL VIDEO ES MAS PEQUENO QUE ANTES ("siento que es muy grande"): ocupaba el
+     94% del escenario y la pantalla quedaba llena de video; ahora es una pieza
+     centrada con aire alrededor, como una lamina de atlas.
+     -------------------------------------------------------------------------- */
+  .carga {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1rem;
-    padding: 1.25rem;
+    gap: 1.75rem;
+    padding: 1.5rem;
+    background: rgb(var(--c-page));
+    overflow: hidden;
   }
-  .stage-wait .loader-video {
-    width: min(92%, 46rem);
+  /* El hueco del video. El acercamiento lento va en un hijo, con `transform`,
+     que el compositor anima aunque el hilo principal este bloqueado: si la carga
+     dura mas que la construccion, el cuerpo ya construido espera acercandose
+     despacio en vez de quedarse congelado. */
+  .carga-video {
+    position: relative;
+    flex: 0 1 auto;
+    width: min(46vw, 36rem);
     aspect-ratio: 16 / 9;
-    max-height: 62%;
+    max-height: 56%;
+  }
+  .carga-acercar {
+    position: absolute;
+    inset: 0;
+    will-change: transform;
+    animation: carga-acercar 42s linear both;
+  }
+  @keyframes carga-acercar {
+    from { transform: scale(1); }
+    to { transform: scale(1.07); }
+  }
+  /* El video llena su hueco y se funde con el fondo por una mascara radial: el
+     clip es negro alrededor del cuerpo y la pagina casi negra, asi que no se ve
+     ningun rectangulo, y de paso se apagan los paneles de datos de las esquinas. */
+  .loader-video-host {
+    position: absolute;
+    inset: 0;
+  }
+  .loader-video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+    user-select: none;
+    -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 56%, transparent 100%);
+    mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 56%, transparent 100%);
+  }
+  .carga-texto {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    width: min(100%, 22rem);
+    text-align: center;
+  }
+  .carga-marca {
+    margin: 0;
+    padding-left: 0.42em; /* compensa el espaciado de la ultima letra */
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: rgb(var(--c-brand));
+  }
+  .carga-titulo {
+    margin: 0;
+    font-family: Sora, system-ui, sans-serif;
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: rgb(var(--c-fg));
+  }
+  /* LA LINEA DE PROGRESO: un solo trazo. */
+  .carga-linea {
+    position: relative;
+    width: 100%;
+    height: 2px;
+    overflow: hidden;
+    background: rgb(var(--c-line));
+  }
+  .carga-relleno {
+    position: absolute;
+    inset: 0;
+    transform-origin: left center;
+    background: rgb(var(--c-brand));
+    will-change: transform;
+  }
+  /* Sin cifra (una espera corta): una lanzadera, tambien por `transform`. */
+  .carga-lanzadera {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 36%;
+    background: linear-gradient(90deg, rgb(var(--c-brand) / 0), rgb(var(--c-brand)), rgb(var(--c-brand) / 0));
+    animation: carga-lanzar 1.6s ease-in-out infinite;
+  }
+  @keyframes carga-lanzar {
+    from { transform: translateX(-110%); }
+    to { transform: translateX(290%); }
+  }
+  .carga-estado {
+    margin: 0;
+    min-height: 1.25rem;
+    font-size: 0.8125rem;
+    color: rgb(var(--c-fg2));
+  }
+  /* Las esperas que suelen ser cortas (un trozo de la aplicacion, el contenido
+     de una region) no ensenan nada los primeros 400 ms: un video que aparece y
+     desaparece en un parpadeo es peor que nada. */
+  .carga-retardo {
+    animation: carga-aparecer 0.35s ease-out 0.4s both;
+  }
+  @keyframes carga-aparecer {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @media (max-width: 1023px) {
+    .carga { gap: 1.25rem; }
+    .carga-video { width: min(86vw, 26rem); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .carga-acercar, .carga-lanzadera { animation: none; }
+    .carga-lanzadera { width: 100%; opacity: 0.35; }
   }
 
   /* ANOTACION DE LAMINA: texto suelto sobre el escenario, como el pie de una

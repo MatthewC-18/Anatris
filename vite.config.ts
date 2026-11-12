@@ -20,11 +20,15 @@ const RUNTIME_GLBS = new Set([
 // EL VIDEO DE CARGA (src/components/LoaderVideo.tsx) y su poster. Por NOMBRE, no
 // por extension: abrir `.mp4` o `.webp` a todo public/ dejaria pasar cualquier
 // clip o captura de trabajo que alguien deje ahi. Y con techo: el original pesaba
-// 7,3 MB y el preparado 621 KB; si alguien sube otra vez el original, el build
+// 7,3 MB y el preparado 793 KB; si alguien sube otra vez el original, el build
 // se para en vez de servirlo.
+//
+// EL NOMBRE CAMBIA CON EL CONTENIDO (`carga.mp4` -> `carga-revelado.mp4`): el
+// service worker guarda el video con CacheFirst 60 dias, asi que un fichero
+// nuevo con el nombre viejo no le llegaria a quien ya visito la aplicacion.
 const RUNTIME_MEDIA = new Map<string, number>([
-  ['carga.mp4', 1_500_000],
-  ['carga-poster.webp', 120_000],
+  ['carga-revelado.mp4', 1_200_000],
+  ['carga-revelado.webp', 120_000],
 ]);
 
 // Web assets that DO ship (small). A POSITIVE allowlist, so junk in public/ can
@@ -216,7 +220,7 @@ export default defineConfig({
             // cache tambien sin red. `rangeRequests` porque Safari pide un video
             // por trozos (Range) y una respuesta entera cacheada no le vale.
             urlPattern: ({ url }) =>
-              url.pathname === '/carga.mp4' || url.pathname === '/carga-poster.webp',
+              url.pathname === '/carga-revelado.mp4' || url.pathname === '/carga-revelado.webp',
             handler: 'CacheFirst',
             options: {
               cacheName: 'anatris-carga',

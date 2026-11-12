@@ -2,14 +2,11 @@
 //
 // LA PANTALLA DE CARGA DEL LABORATORIO.
 //
-// El video de carga de toda la aplicacion (src/components/LoaderVideo.tsx) y,
-// debajo, las cuatro fases de lo que de verdad esta pasando, con su barra.
-// Antes el centro era un cuerpo esquematico que se armaba por capas mientras su
-// brazo recorria una abduccion; el usuario eligio su video para todas las
-// esperas y el esquema se fue. Las fases se quedan: son lo unico que dice
-// cuanto falta.
-//
-// Ocupa el ESCENARIO entero, sin tarjeta (sistema LAMINA, docs/sistema-lamina.md).
+// La lamina de carga de toda la aplicacion (`.carga` en index.css): el video del
+// cuerpo que se construye (src/components/LoaderVideo.tsx), la marca, que se
+// esta cargando, una linea de progreso y la fase. La pinta RigViewer en TODA la
+// zona del laboratorio (ver loaderSlot.ts), el mismo rectangulo que la espera
+// anterior de App, con el mismo titulo: al encadenarse no se mueve nada.
 //
 // -----------------------------------------------------------------------------
 // POR QUE ESTA HECHA ASI: EL HILO PRINCIPAL ESTA BLOQUEADO CASI TODA LA ESPERA
@@ -24,56 +21,53 @@
 //   capas + onReady                         12 ms
 //   primer fotograma en pantalla         3.714 ms     total 11,8 s
 //
-// La descarga son 1,3 s de 11,8. Los otros 10 el hilo principal NO SUELTA: el
-// parseo, el montaje, la preparacion y la subida a la GPU van seguidos, y entre
-// medias el navegador no pinta un solo fotograma de React. Medido fotograma a
-// fotograma, la pantalla de antes solo conseguia pintar TRES veces en todo ese
-// tramo, asi que su rotulo se quedaba clavado en la fase que ya habia pasado.
+// (En la medida de noviembre, en otra maquina: 1.029 / 469 / 2.882 / 1.805, 6,3 s.)
 //
-// Lo unico que sigue moviendose con el hilo bloqueado es lo que no depende de
-// el: la reproduccion de un <video> (descodificador y compositor; medido, el
-// video avanzo 3,07 s durante 3,07 s bloqueados) y lo que el COMPOSITOR sabe
-// animar solo, `transform` y `opacity` de un elemento HTML con su propia capa.
-// Asi que los rotulos que se relevan y la barra son animaciones CSS de esas dos
-// propiedades y nada mas, programadas de una vez con sus retardos y entregadas
-// al compositor ANTES de que empiece el bloqueo. Por eso:
+// Despues de la descarga el hilo principal NO SUELTA: el parseo, el montaje, la
+// preparacion y la subida a la GPU van seguidos, y entre medias el navegador no
+// pinta un solo fotograma de React. Lo unico que sigue moviendose es lo que no
+// depende de el: la reproduccion del <video> y lo que el COMPOSITOR sabe animar
+// solo, `transform` y `opacity`. Asi que la linea y los rotulos de fase son
+// animaciones CSS de esas dos propiedades, programadas de una vez con sus
+// retardos y entregadas al compositor ANTES de que empiece el bloqueo:
 //
 //   - Los rotulos de fase estan los cuatro apilados y se relevan por `opacity`.
 //   - El relevo NO lo da React. Lo da un atributo puesto a mano en el DOM en el
 //     instante en que el cargador avisa de que la descarga termino, y el
 //     cargador cede dos fotogramas justo despues (ver `nextPaint`) para que ese
-//     cambio llegue a pintarse. Un `setState` no llegaba: React lo agrupaba con
-//     el despertar de Suspense y el commit caia dentro del bloqueo.
+//     cambio llegue a pintarse.
 //
 // `src/components/movement/__tests__/rigLoadingScreen.test.ts` comprueba que
 // ningun `@keyframes` de este fichero toca otra propiedad.
 //
 // -----------------------------------------------------------------------------
-// LOS TIEMPOS SON LOS DE ESTA MAQUINA, NO UNOS INVENTADOS
+// UN SOLO RELOJ PARA LA LINEA Y PARA EL VIDEO
 // -----------------------------------------------------------------------------
-// Con el hilo bloqueado no se puede PREGUNTAR en que fase se esta: hay que
-// haberlo previsto. La primera vez se usan los tiempos medidos arriba. Al
-// terminar cada carga se guardan los que ha tardado ESTE equipo (parseo,
-// preparacion, primer fotograma) y la siguiente visita se coreografia con
-// ellos. Si la carga va mas lenta de lo previsto, el ultimo rotulo se queda; si
-// va mas rapida, la pantalla se retira antes. Lo que no hace nunca es ensenar
-// una fase terminada que no ha terminado: la ultima barra no llega al final
-// hasta que el laboratorio aparece.
+// "Que la barra de carga vaya con el video." La linea son dos tramos seguidos,
+// sin hueco: la DESCARGA, que se mide en vivo (bytes del flujo), y el MONTAJE,
+// que no se puede medir y se coreografia con lo que tardo ESTE equipo la vez
+// anterior (parseo + preparacion + primer fotograma). Cada tramo mide lo que se
+// espera que dure, asi que la linea avanza a velocidad constante. Y el video se
+// acompasa con los MISMOS numeros en el MISMO instante (`paceReveal`): durante la
+// descarga con lo que queda estimado, y en el relevo con lo que dura el montaje.
+// La construccion del cuerpo termina cuando termina la linea.
 //
-// LA DESCARGA SI SE MIDE EN VIVO, porque ahi el hilo esta libre: el porcentaje
-// es el de los bytes del flujo.
+// Lo que no hace nunca es ensenar una fase terminada que no ha terminado: la
+// linea no llega al final hasta que el laboratorio aparece.
 
 import { useEffect, useRef, useState } from 'react';
 import { modelPhase, onModelPhase } from '../../lib/modelPhase';
 import { RIG_URL } from '../../lib/modelWarm';
-import { LoaderVideo, stretchForBlock } from '../LoaderVideo';
+import { LoaderVideo, finishReveal, paceReveal } from '../LoaderVideo';
 
 /* ---------------------------------------------------------------------------
  * LOS TIEMPOS DE LA COREOGRAFIA
  * ------------------------------------------------------------------------ */
 
-/** Lo que dura cada tramo bloqueado, en ms. */
+/** Lo que dura cada tramo, en ms. */
 export interface LoadTimings {
+  /** Leer los bytes del rig (red o cache) e inflarlos. */
+  download: number;
   /** De los bytes al GLB parseado. */
   parse: number;
   /** Del parseo a `onReady`: montaje y pases de preparacion. */
@@ -83,7 +77,7 @@ export interface LoadTimings {
 }
 
 /** Medidos en el build de produccion (ver la tabla de la cabecera). */
-export const DEFAULT_TIMINGS: LoadTimings = { parse: 911, prep: 5401, paint: 3714 };
+export const DEFAULT_TIMINGS: LoadTimings = { download: 1345, parse: 911, prep: 5401, paint: 3714 };
 
 const TIMINGS_KEY = 'anatris.carga.v1';
 
@@ -98,7 +92,13 @@ export function readTimings(): LoadTimings {
     if (!raw) return DEFAULT_TIMINGS;
     const t = JSON.parse(raw) as Partial<LoadTimings>;
     if (sane(t.parse) && sane(t.prep) && sane(t.paint)) {
-      return { parse: t.parse, prep: t.prep, paint: t.paint };
+      return {
+        // La descarga se aprende desde noviembre; una entrada anterior no la trae.
+        download: sane(t.download) ? t.download : DEFAULT_TIMINGS.download,
+        parse: t.parse,
+        prep: t.prep,
+        paint: t.paint,
+      };
     }
   } catch {
     /* almacenamiento no disponible o dato roto: los de por defecto */
@@ -106,14 +106,18 @@ export function readTimings(): LoadTimings {
   return DEFAULT_TIMINGS;
 }
 
+/** Lo que dura el tramo que no se puede medir: del fin de la descarga al primer fotograma. */
+export const buildMs = (t: LoadTimings): number => t.parse + t.prep + t.paint;
+
 // El cronometro de ESTA carga. Vive en el modulo y no en el componente porque
 // los dos ultimos instantes los da RigViewer (el rig preparado, el primer
 // fotograma) y pueden caer cuando la pantalla ya se esta retirando.
-const marks: { bytes?: number; parsed?: number; ready?: number } = {};
+const marks: { fetching?: number; bytes?: number; parsed?: number; ready?: number } = {};
 
 onModelPhase((url, state) => {
   if (url !== RIG_URL) return;
   if (state.phase === 'fetching') {
+    marks.fetching = performance.now();
     marks.bytes = undefined;
     marks.parsed = undefined;
     marks.ready = undefined;
@@ -135,9 +139,10 @@ export function noteRigReady(): void {
  * para coreografiar la siguiente.
  */
 export function noteRigPainted(): void {
-  const { bytes, parsed, ready } = marks;
+  const { fetching, bytes, parsed, ready } = marks;
   if (bytes === undefined || parsed === undefined || ready === undefined) return;
   const t: LoadTimings = {
+    download: fetching !== undefined ? bytes - fetching : DEFAULT_TIMINGS.download,
     parse: parsed - bytes,
     prep: ready - parsed,
     paint: performance.now() - ready,
@@ -145,11 +150,28 @@ export function noteRigPainted(): void {
   // Se consume: un remontaje sobre la escena ya cacheada no es una carga.
   marks.bytes = undefined;
   if (!sane(t.parse) || !sane(t.prep) || !sane(t.paint)) return;
+  if (!sane(t.download)) t.download = DEFAULT_TIMINGS.download;
   try {
     window.localStorage.setItem(TIMINGS_KEY, JSON.stringify(t));
   } catch {
     /* sin almacenamiento: la proxima vez se usan los de por defecto */
   }
+}
+
+/**
+ * Lo que queda de carga durante la DESCARGA, en ms: lo que falta de descarga
+ * (estimado por lo que lleva, en cuanto hay cifra; si no, lo esperado) mas el
+ * montaje entero. Es el numero con el que se acompasa el video.
+ */
+export function remainingDuringDownload(
+  t: LoadTimings,
+  elapsedMs: number,
+  fraction: number,
+): number {
+  const f = Math.min(1, Math.max(0, fraction));
+  const quedaDescarga =
+    f > 0.1 && elapsedMs > 0 ? (elapsedMs * (1 - f)) / f : t.download * (1 - f);
+  return quedaDescarga + buildMs(t);
 }
 
 /* ---------------------------------------------------------------------------
@@ -192,21 +214,20 @@ export function RigLoadingScreen({
   // Solo para el lector de pantalla: en que fase se esta. El dibujo no depende
   // de este estado (ver la cabecera), asi que da igual que llegue tarde.
   const [dicho, setDicho] = useState<string>(FASES[0]);
+  const desdeRef = useRef<number | null>(null);
+  const ultimoPaso = useRef(0);
 
   // EL RELEVO. Cuando el cargador avisa de que los bytes del rig ya estan, se
   // pone el atributo A MANO y la coreografia entera arranca en el compositor.
   // React no pinta este atributo (no esta en el JSX), asi que ningun render
-  // posterior puede quitarlo y reiniciar las animaciones.
+  // posterior puede quitarlo y reiniciar las animaciones. Y en ese MISMO
+  // instante el video se acompasa con lo que va a durar el montaje: un reloj.
   useEffect(() => {
     const arrancar = () => {
       const el = root.current;
       if (!el || el.dataset.run === '1') return;
       el.dataset.run = '1';
-      // Y EL VIDEO, QUE NO LLEGUE AL FINAL CON EL HILO BLOQUEADO: volver al
-      // principio lo hace el hilo principal (ver LoaderVideo). Lo que va a
-      // durar el bloqueo es lo que tardo este equipo la ultima vez.
-      const video = el.querySelector('video');
-      if (video) stretchForBlock(video, t.parse + t.prep + t.paint);
+      paceReveal(buildMs(t));
       setDicho('Montando y preparando el modelo');
     };
     // El modelo puede ir ya por delante al montar la pantalla: bytes leidos, o
@@ -217,7 +238,7 @@ export function RigLoadingScreen({
       if (url !== RIG_URL) return;
       if (state.phase === 'parsing' || state.phase === 'done') arrancar();
     });
-  }, []);
+  }, [t]);
 
   // LA DESCARGA, EN VIVO. El gestor de carga de three es UNO para toda la
   // aplicacion y mezcla en el mismo canal los BYTES del modelo con las CUENTAS
@@ -230,16 +251,35 @@ export function RigLoadingScreen({
   // cuando el servidor declara el gzip, y el navegador entrega los inflados: el
   // contador cruza el 100% con el 57% del flujo leido (medido en `vite preview`:
   // 9.323.344 declarados contra 16.410.748 entregados). Pasado ese punto la
-  // cifra no significa nada, asi que deja de ensenarse y la barra pasa a una
+  // cifra no significa nada, asi que deja de ensenarse y el tramo pasa a una
   // lanzadera hasta que el cargador da el relevo, que nunca miente.
   const medido = delRig && loaded < total;
   const porciento = medido ? Math.max(0, Math.min(99, Math.round(progress))) : 0;
   const p = medido ? Math.min(0.99, loaded / total) : delRig ? 1 : 0;
 
+  // El video, con el mismo numero que la linea: lo que queda de descarga mas el
+  // montaje. Como mucho cuatro veces por segundo (cada cambio de velocidad se
+  // nota menos si son pocos).
+  useEffect(() => {
+    if (!medido) return;
+    const ahora = performance.now();
+    if (desdeRef.current === null) desdeRef.current = ahora;
+    if (ahora - ultimoPaso.current < 250) return;
+    ultimoPaso.current = ahora;
+    paceReveal(remainingDuringDownload(t, ahora - desdeRef.current, p));
+  }, [medido, p, t]);
+
+  // Al retirarse: lo que falte de construccion, durante el fundido.
+  useEffect(() => {
+    if (leaving) finishReveal();
+  }, [leaving]);
+
+  const tb = buildMs(t);
+
   return (
     <div
       ref={root}
-      className={`cg ${compact ? 'cg-compacto' : ''}`}
+      className={`carga cg ${compact ? 'cg-compacto' : ''}`}
       data-fuera={leaving ? '1' : undefined}
       style={
         {
@@ -247,17 +287,36 @@ export function RigLoadingScreen({
           '--t1': Math.round(t.parse),
           '--t2': Math.round(t.prep),
           '--t3': Math.round(t.paint),
+          '--tb': Math.round(tb),
         } as React.CSSProperties
       }
     >
       <style>{CSS}</style>
 
-      <div className="cg-video">
-        <LoaderVideo className="h-full w-full" />
+      <div className="carga-video cg-video">
+        <div className="carga-acercar">
+          <LoaderVideo />
+        </div>
       </div>
 
-      <div className="cg-texto">
-        <p className="kicker">Laboratorio de movimiento</p>
+      <div className="carga-texto">
+        <p className="carga-marca">Anatris</p>
+        <p className="carga-titulo">Laboratorio de movimiento</p>
+
+        {/* LA LINEA: dos tramos seguidos, cada uno tan largo como lo que se
+            espera que dure. Asi avanza a velocidad constante y acaba con la
+            construccion del video. */}
+        <div className="carga-linea cg-linea" aria-hidden>
+          <span className="cg-tramo" style={{ flexGrow: Math.max(1, Math.round(t.download)) }}>
+            <span
+              className={`carga-relleno cg-relleno-1 ${delRig && !medido ? 'cg-lanzadera' : ''}`}
+            />
+          </span>
+          <span className="cg-tramo" style={{ flexGrow: Math.max(1, Math.round(tb)) }}>
+            <span className="carga-relleno cg-relleno-2" />
+          </span>
+        </div>
+
         {/* Los cuatro rotulos, apilados. El primero lo releva el atributo; los
             otros tres se relevan solos. Ocultos al lector de pantalla, que lee
             la linea de estado de abajo. */}
@@ -272,23 +331,13 @@ export function RigLoadingScreen({
             </p>
           ))}
         </div>
-        <div className="cg-pista" aria-hidden>
-          {FASES.map((f, i) => (
-            <span key={f} className="cg-tramo">
-              <span
-                className={`cg-relleno cg-relleno-${i + 1} ${
-                  i === 0 && delRig && !medido ? 'cg-lanzadera' : ''
-                }`}
-              />
-            </span>
-          ))}
-        </div>
         <p className="sr-only" role="status" aria-live="polite">
           {dicho}
         </p>
-        {/* LA FRASE QUE SUSTITUYE A UNA MENTIRA. La pantalla de antes prometia
-            que la espera no se repetiria. Se repite: lo unico que queda
-            guardado son los bytes, y esos eran 1,3 s de los 11,8 medidos. */}
+        {/* LA FRASE QUE SUSTITUYE A UNA MENTIRA, solo en las esperas largas:
+            aparece a los 6 s (por CSS). La pantalla de antes prometia que la
+            espera no se repetiria; se repite: lo unico que queda guardado son
+            los bytes. */}
         <p className="cg-pie">
           El cuerpo son 9 MB y se descargan una sola vez. El montaje se rehace en
           cada visita.
@@ -301,49 +350,51 @@ export function RigLoadingScreen({
 /* ---------------------------------------------------------------------------
  * CSS
  * ---------------------------------------------------------------------------
- * Va en el componente y no en index.css porque esto solo vive diez segundos al
- * entrar al laboratorio.
+ * La lamina (`.carga`) es comun y vive en index.css; aqui solo lo propio del
+ * laboratorio: los tramos de la linea, los rotulos de fase y la salida.
  *
  * TODO `@keyframes` DE AQUI ANIMA `transform` U `opacity` Y NADA MAS. Ver la
  * cabecera: es lo unico que sigue moviendose con el hilo principal bloqueado.
  * Hay un test que lo comprueba.
  *
- * Los retardos salen de --t1, --t2 y --t3 (ms de parseo, preparacion y primer
- * fotograma en ESTE equipo), puestos en linea por el componente.
+ * Los retardos salen de --t1, --t2, --t3 y --tb (ms de parseo, preparacion,
+ * primer fotograma y su suma en ESTE equipo), puestos en linea por el componente.
  *
  * `prefers-reduced-motion` no apaga la informacion, solo el movimiento: el
- * video se queda en su poster (lo decide LoaderVideo) y la lanzadera se para,
- * pero las fases se siguen relevando a su hora.
+ * video se queda en su poster (lo decide LoaderVideo), la lanzadera se para y
+ * el acercamiento tambien (index.css), pero las fases se siguen relevando.
  * ------------------------------------------------------------------------ */
 export const CSS = `
-.cg {
-  position: absolute; inset: 0; z-index: 10;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 1.25rem; padding: 1.25rem;
-  background: rgb(var(--c-page));
-  opacity: 1; transition: opacity .45s ease-out;
-  overflow: hidden;
-}
+.cg { opacity: 1; transition: opacity .5s ease-out; }
 .cg[data-fuera='1'] { opacity: 0; pointer-events: none; }
+.cg-video { transition: transform .5s ease-out; }
+.cg[data-fuera='1'] .cg-video { transform: scale(1.05); }
+.cg-compacto .cg-video { max-height: 50%; }
 
-/* EL VIDEO: 16:9, tan grande como deje el escenario sin comerse el texto. */
-.cg-video {
-  position: relative; flex: 0 1 auto;
-  width: min(94%, 58rem); aspect-ratio: 16 / 9; max-height: 64%;
-  transition: transform .45s ease-out; will-change: transform;
+/* --- la linea ----------------------------------------------------------- */
+.cg-linea { display: flex; }
+.cg-tramo { position: relative; flex: 1 1 0%; height: 100%; overflow: hidden; }
+.cg-relleno-1 { transform: scaleX(var(--p)); transition: transform .35s linear; }
+.cg-relleno-1.cg-lanzadera {
+  transform: none; inset: 0 auto 0 0; width: 40%;
+  background: linear-gradient(90deg, rgb(var(--c-brand) / 0), rgb(var(--c-brand)), rgb(var(--c-brand) / 0));
+  animation: cg-lanzar 1.5s ease-in-out infinite;
 }
-.cg[data-fuera='1'] .cg-video { transform: scale(1.04); }
-.cg-compacto .cg-video { width: min(100%, 32rem); max-height: 56%; }
-.cg-compacto { gap: .875rem; }
+.cg[data-run='1'] .cg-relleno-1 { transform: scaleX(1); animation: none; inset: 0; width: auto; background: rgb(var(--c-brand)); }
+.cg-relleno-2 { transform: scaleX(0); }
+/* El montaje: UN trazo lineal, tan largo como lo que tardo este equipo. No
+   llega al final: lo que lo completa es el laboratorio. */
+.cg[data-run='1'] .cg-relleno-2 { animation: cg-construir calc(var(--tb) * 1ms) linear both; }
+.cg[data-fuera='1'] .cg-relleno-2 { animation: none; transform: scaleX(1); }
+@keyframes cg-construir { from { transform: scaleX(0); } to { transform: scaleX(.97); } }
+@keyframes cg-lanzar { from { transform: translateX(-110%); } to { transform: translateX(270%); } }
 
-/* --- el texto ----------------------------------------------------------- */
-.cg-texto { display: flex; flex-direction: column; align-items: center; gap: .75rem; width: min(100%, 22rem); }
-.cg-titulos { position: relative; width: 100%; height: 1.375rem; }
+/* --- los rotulos de fase ------------------------------------------------ */
+.cg-titulos { position: relative; width: 100%; height: 1.25rem; }
 .cg-titulo {
   position: absolute; inset: 0; margin: 0;
   display: flex; align-items: center; justify-content: center; gap: .625rem;
-  font-family: Sora, system-ui, sans-serif; font-size: .9375rem; font-weight: 600;
-  color: rgb(var(--c-fg)); white-space: nowrap;
+  font-size: .8125rem; color: rgb(var(--c-fg2)); white-space: nowrap;
   opacity: 0; will-change: opacity;
 }
 .cg-paso { font-size: .6875rem; font-weight: 500; color: rgb(var(--c-fg3)); }
@@ -365,33 +416,12 @@ export const CSS = `
   100% { opacity: 0; }
 }
 
-/* La barra: cuatro tramos, uno por fase. */
-.cg-pista { display: flex; gap: 3px; width: 100%; }
-.cg-tramo { position: relative; flex: 1 1 0%; height: 2px; overflow: hidden; background: rgb(var(--c-line)); }
-.cg-tramo:nth-child(3) { flex-grow: 2.4; }
-.cg-tramo:nth-child(4) { flex-grow: 1.7; }
-.cg-relleno {
-  position: absolute; inset: 0; background: rgb(var(--c-brand));
-  transform-origin: left center; transform: scaleX(0); will-change: transform;
+/* --- la frase de las esperas largas ------------------------------------- */
+.cg-pie {
+  margin: 0; max-width: 30ch; text-align: center; font-size: .6875rem; line-height: 1.5;
+  color: rgb(var(--c-fg3));
+  animation: cg-entrar .6s ease-out 6s both;
 }
-.cg-relleno-1 { transform: scaleX(var(--p)); transition: transform .35s linear; }
-.cg-relleno-1.cg-lanzadera {
-  transform: none; inset: 0 auto 0 0; width: 40%;
-  background: linear-gradient(90deg, rgb(var(--c-brand) / 0), rgb(var(--c-brand)), rgb(var(--c-brand) / 0));
-  animation: cg-lanzar 1.5s ease-in-out infinite;
-}
-.cg[data-run='1'] .cg-relleno-1 { transform: scaleX(1); animation: none; inset: 0; width: auto; background: rgb(var(--c-brand)); }
-.cg[data-run='1'] .cg-relleno-2 { animation: cg-llenar calc(var(--t1) * 1ms) linear both; }
-.cg[data-run='1'] .cg-relleno-3 { animation: cg-llenar calc(var(--t2) * 1ms) linear calc(var(--t1) * 1ms) both; }
-/* La ultima no llega al final: lo que la completa es el laboratorio. */
-.cg[data-run='1'] .cg-relleno-4 {
-  animation: cg-casi calc(var(--t3) * 1ms) cubic-bezier(.2, .6, .3, 1) calc(var(--t1) * 1ms + var(--t2) * 1ms) both;
-}
-@keyframes cg-llenar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes cg-casi { from { transform: scaleX(0); } to { transform: scaleX(.9); } }
-@keyframes cg-lanzar { from { transform: translateX(-110%); } to { transform: translateX(270%); } }
-
-.cg-pie { margin: 0; max-width: 30ch; text-align: center; font-size: .6875rem; line-height: 1.5; color: rgb(var(--c-fg3)); }
 .cg-compacto .cg-pie { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
