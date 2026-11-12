@@ -1,21 +1,49 @@
 // src/components/movement/MovementControls.tsx
 //
-// The movement lab's CONSOLE (bottom-left). It drives the skinned rig (RigModel,
-// via rigChannel) by clinical movementId + side + SIGNED angle and owns playback;
-// the live clinical READOUT (goniometer sectors, humero-escapulo-raquideo rhythm,
-// protagonist muscle) lives in RhythmReadout (top-left), a read-only twin fed by
-// the SAME rigChannel. Keeping the readout OUT of this panel is what stopped the
-// old floating card from covering the model.
+// The movement lab's CONSOLE (the bottom half of the left margin). It drives
+// the skinned rig (RigModel, via rigChannel) by clinical movementId + side +
+// SIGNED angle and owns playback; the live clinical READOUT (goniometer
+// sectors, humero-escapulo-raquideo rhythm, protagonist muscle) lives in
+// RhythmReadout (top half), a read-only twin fed by the SAME rigChannel.
 //
 // This panel still computes the live per-muscle recruitment (activeMusclesAt) and
 // pushes it as the scene highlight so the real rig meshes glow as the arc sweeps;
 // it just no longer renders the muscle list itself.
 //
-// SHAPE: one instrument surface, sectioned by hairlines, never nested cards. The
-// movements are a chip RAIL (a native <select> hid the size of the library and
-// took two taps to browse), the settings are switches, and playback is icon
-// transport. Copy carries no leading dashes or bullet glyphs: rank comes from
-// type size and the kicker labels.
+// -----------------------------------------------------------------------------
+// FORMA: SISTEMA LAMINA (docs/sistema-lamina.md). NI UNA CAJA.
+// -----------------------------------------------------------------------------
+// La consola es una pila de secciones de margen (`.sec` con su rotulo y su
+// filo), y en ese orden se usa: QUE se mueve, CUANTO, y con que cuadro clinico.
+//
+//   MOVIMIENTO      todos los arcos de la region, A LA VISTA, en una rejilla de
+//                   dos columnas de opciones (`.opt`), y el lado en la cabecera.
+//   ARCO            reproducir + deslizador en una fila; debajo, volver a 0,
+//                   bucle y velocidad.
+//   ESTADO CLINICO  los cuadros patologicos del movimiento, con lo que cada uno
+//                   altera escrito debajo de su nombre.
+//   pie             la ficha para el paciente y el arco 3D.
+//
+// LO QUE HABIA Y POR QUE SE FUE:
+//
+//   - Los movimientos eran una fila de fichas con borde que se desbordaba. En
+//     la cadera, MEDIDO: el carril tenia clientWidth 310 y scrollWidth 508, de
+//     modo que "Rotacion interna" salia cortada y "Rotacion externa" quedaba
+//     fuera, sin barra de scroll (index.css la esconde) y con un degradado como
+//     unica pista. Dos de seis movimientos no existian para quien no arrastrara.
+//     La rejilla no tiene scroll horizontal: 4 movimientos son 2 filas y los 6
+//     de la cadera son 3, en cualquier ancho de margen.
+//   - Las dos columnas no son solo ahorro de alto: en 7 de las 8 regiones el
+//     dato viene en pares antagonistas (flexion/extension, abduccion/aduccion,
+//     rotacion interna/externa, pronacion/supinacion, inversion/eversion), asi
+//     que cada fila de la rejilla es un par.
+//   - "Ajustes" era un cajon con nombre generico que escondia dos cosas sin
+//     relacion: un interruptor y los cuadros patologicos, que son el
+//     diferenciador del producto. Ahora el interruptor esta a la vista en el
+//     pie y los cuadros tienen su propia seccion, que dice el estado actual
+//     ("Normal", "Discinesia") tambien plegada.
+//   - El lado y la velocidad eran pistas redondeadas con una ficha blanca
+//     dentro; ahora son pestanas subrayadas (ver ui/Controls).
 //
 // BIDIRECTIONAL: when a movement carries a labReverse arc (shoulder), the slider
 // spans a SIGNED range through 0 (neutral marked) and STARTS at the opposite
@@ -28,18 +56,21 @@
 // UI strings Spanish LATAM; code/ids ASCII; no `any`.
 
 import { REFERENCES } from '../../data/references';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { rigChannel, type RigHighlight } from './RigModel';
 import { demoChannel, useActiveDemo } from './demoChannel';
 import { readPose, writePose } from './consolePoseStore';
 import { romForRegion } from '../../data/romByRegion';
-import { useRailFade } from '../../hooks/useRailFade';
 import { useIsCompact } from '../../hooks/useIsCompact';
 import { getBoneControl, isDrivable, type Side } from '../../lib/boneMap';
 import type { RomMovement } from '../../types/rom';
 import { buildLabArc, phaseAtAngleIn } from '../../lib/romPhaseAtAngle';
 import { activeMusclesAt, type ActiveMuscle } from '../../lib/romActivation';
-import { pathologiesForMovement, pathologyById } from '../../data/pathologies';
+import {
+  pathologiesForMovement,
+  pathologyById,
+  type MovementPathology,
+} from '../../data/pathologies';
 import { musclesForRomLookup } from '../../data/musclesByRegion';
 import { REGIONS } from '../../data/regiones';
 import { exportPatientCard, type PatientCardInfo } from '../../lib/patientExport';
@@ -68,6 +99,53 @@ const SPEEDS = [
   { id: 'fast', label: 'Rápido', dps: 50 },
 ] as const;
 
+/**
+ * LO QUE UN CUADRO PATOLOGICO CAMBIA EN EL MOVIMIENTO, EN TRES PALABRAS.
+ *
+ * El panel explicaba los cuadros con una frase fija: "cambia el ritmo entre
+ * humero y escapula, se limita el rango". Era verdad para el hombro, que es
+ * donde se escribio, y se imprimia igual en las ocho regiones. MEDIDO sobre los
+ * 21 cuadros de src/data/pathology/*: solo 3 traen `shoulderMod` (los tres del
+ * hombro), 15 recortan el arco (13 con `rangeCapDeg`, 2 con `rangeFloorDeg`) y
+ * 4 no alteran el movimiento en nada, solo marcan la estructura implicada y
+ * cuentan por que duele: inestabilidad lateral del tobillo, epicondilalgia
+ * lateral, maltracking rotuliano e inestabilidad lumbar. O sea que en la
+ * rodilla el panel prometia un "ritmo entre humero y escapula", y en esos
+ * cuatro cuadros prometia un movimiento alterado que el modelo no hace.
+ *
+ * Asi que no se promete: se LEE del propio dato lo que el cuadro toca y se
+ * escribe debajo de su nombre. El tope solo se nombra si de verdad recorta el
+ * arco de ESTE movimiento (un tope por encima del maximo no limita nada).
+ */
+export function pathologyEffect(
+  p: Pick<MovementPathology, 'shoulderMod' | 'rangeCapDeg' | 'rangeFloorDeg'>,
+  arc: { min: number; max: number },
+): string {
+  const parts: string[] = [];
+  if (p.shoulderMod) parts.push('ritmo alterado');
+  if (p.rangeCapDeg != null && p.rangeCapDeg < arc.max) parts.push(`arco hasta ${p.rangeCapDeg}°`);
+  if (p.rangeFloorDeg != null && p.rangeFloorDeg > arc.min) {
+    parts.push(`arco desde ${p.rangeFloorDeg}°`);
+  }
+  return parts.length > 0 ? parts.join(' · ') : 'no cambia el arco';
+}
+
+/**
+ * Donde cae la marca de 0° sobre el deslizador, como valor CSS de `left`.
+ *
+ * El pulgar no recorre el ancho entero de la pista: mide 15 px (ver
+ * `.range-clinical` en index.css) y su CENTRO va de 7,5 px a ancho - 7,5 px. La
+ * marca se colocaba en `left: pct%` a secas, o sea sobre el ancho entero, y se
+ * separaba del pulgar justo donde tenia que coincidir con el. En la abduccion
+ * del hombro (-30 a 180) el cero esta al 14,3% y la marca quedaba 5,4 px a la
+ * izquierda del pulgar puesto en 0°; en la rotacion (-100 a 80), 0,8 px a la
+ * derecha. La correccion es la del propio pulgar: (0,5 - pct) x 15 px.
+ */
+export function neutralMarkLeft(pct: number, thumbPx = 15): string {
+  const shift = (0.5 - pct / 100) * thumbPx;
+  return `calc(${pct}% + ${shift.toFixed(2)}px)`;
+}
+
 /** Live subscription to prefers-reduced-motion. */
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState<boolean>(() =>
@@ -91,20 +169,20 @@ interface MovementControlsProps {
    *  panel (same underlying state, so toggling preserves the current pose). */
   patientMode?: boolean;
   /**
-   * True when this console is a SECTION of the left column's single instrument
-   * surface (MovementView stacks the readout above it). Embedded, it drops its
-   * own panel chrome and, from `sm` up, its header: the gesture, the plane and
-   * the angle are already the readout's headline right above, and printing them
-   * twice was the main reason the column read as cluttered. Below `sm` the
-   * readout is hidden, so the header comes back to carry that identity.
+   * True when this console is a SECTION of the left margin (MovementView stacks
+   * the readout above it). Embedded, it drops its own panel chrome and, from
+   * `sm` up, its header: the gesture, the plane and the angle are already the
+   * readout's headline right above, and printing them twice was the main reason
+   * the column read as cluttered. Below `sm` the readout is hidden, so the
+   * header comes back to carry that identity.
    */
   embedded?: boolean;
   /**
    * True when this console is the body of the compact bottom sheet
    * (MobileLabSheet). The sheet's detent IS the collapse and the sheet owns the
    * scrolling, so the console must not do either: self-collapsing left the
-   * expanded sheet showing a header and 400px of nothing, and its own
-   * `max-h-[34vh]` cap would fight the sheet's height for the same pixels.
+   * expanded sheet showing a header and 400px of nothing, and its own height
+   * cap would fight the sheet's height for the same pixels.
    */
   inSheet?: boolean;
 }
@@ -119,8 +197,6 @@ export function MovementControls({
   const reducedMotion = usePrefersReducedMotion();
   // Phones get a throttled playback commit rate -- see the loop below.
   const compact = useIsCompact();
-  // Trailing fade on the movement strip, but only while it really overflows.
-  const movementRail = useRailFade<HTMLDivElement>();
 
   // CAPABILITY GATES. The free tier drives a DEMO of the lab (the first drivable
   // movement) so the rig proves itself, but the tools a physio uses in front of a
@@ -128,6 +204,17 @@ export function MovementControls({
   // entries stay listed with a lock, never hidden.
   const labGate = useFeatureGate('movement-full');
   const pathologyGate = useFeatureGate('pathologies');
+  // LA FICHA PARA EL PACIENTE SE REGALABA. `entitlements.ts` define
+  // `patient-mode` como "the full-screen patient view + 'export for patient'
+  // card", y las dos pantallas que venden lo dicen con esas palabras: Pricing
+  // ("Modo paciente a pantalla completa y tarjeta imprimible para llevarse a
+  // casa") y Paywall ("Modo paciente y tarjeta imprimible para el paciente").
+  // Pero aqui el boton abria el formulario y descargaba el PNG para cualquiera:
+  // esta consola solo consultaba `movement-full` y `pathologies`. El modo
+  // paciente si estaba cerrado (MovementView), asi que la mitad de la misma
+  // capacidad se cobraba y la otra mitad no. Ahora la fila sigue A LA VISTA con
+  // su candado, como el resto de lo bloqueado, y abre precios.
+  const cardGate = useFeatureGate('patient-mode');
 
   /** Movement ids the current plan may drive. */
   const allowedIds = useMemo(() => {
@@ -187,11 +274,14 @@ export function MovementControls({
   });
   // Inside the sheet the detent already decides how much of this is on screen.
   const collapsed = inSheet ? false : selfCollapsed;
-  // Session settings (markers, clinical state) fold away unless the screen is
-  // tall enough to show them without the console reaching the readout.
-  const [settingsOpen, setSettingsOpen] = useState(() => {
+  // LOS CUADROS CLINICOS SE ABREN SOLOS SOLO DONDE CABEN. Abierta, la seccion
+  // mide lo que su lista (Normal + hasta 3 cuadros a dos lineas, mas la frase
+  // que explica que hacen): unos 180 px que salen del alto de la lectura de
+  // arriba. A 1000 px de ventana la lectura los tiene; por debajo, la seccion
+  // abre plegada y su cabecera ya dice el estado actual.
+  const [clinicalOpen, setClinicalOpen] = useState(() => {
     if (typeof window === 'undefined') return false;
-    return window.matchMedia('(min-height: 900px)').matches;
+    return window.matchMedia('(min-height: 1000px)').matches;
   });
   // P1: active pathological preset (null = Normal). Only the elevation chain
   // supports it; reset to Normal whenever the movement changes.
@@ -203,13 +293,21 @@ export function MovementControls({
   const drivable = control != null && control.kind !== 'unsupported';
   const isSpine = control?.kind === 'spine';
   const regionName = (region && REGIONS[region]?.name) || movement?.joint || '';
+  /** Cuantos arcos de la region puede conducir el rig (los que Premium abre). */
+  const drivableCount = movements.filter((m) => isDrivable(m.id)).length;
 
-  /** Cycle to the previous / next movement of this region (patient-mode arrows). */
+  /**
+   * Cycle to the previous / next movement of this region (patient-mode arrows).
+   *
+   * Solo entre los que se pueden poner: las flechas recorrian la lista entera,
+   * y un arco no conducible (o bloqueado por el plan) dejaba la barra del
+   * paciente con un nombre arriba y un modelo quieto debajo, sin deslizador.
+   */
   const goToMovement = (dir: -1 | 1) => {
-    if (movements.length === 0) return;
-    const idx = movements.findIndex((m) => m.id === movementId);
-    const base = idx < 0 ? 0 : idx;
-    const next = movements[(base + dir + movements.length) % movements.length];
+    const pool = movements.filter((m) => isDrivable(m.id) && !isLockedMovement(m.id));
+    if (pool.length === 0) return;
+    const idx = pool.findIndex((m) => m.id === movementId);
+    const next = idx < 0 ? pool[0] : pool[(idx + dir + pool.length) % pool.length];
     if (next) setMovementId(next.id);
   };
 
@@ -284,6 +382,13 @@ export function MovementControls({
 
   const onExport = async () => {
     if (!movement) return;
+    // La puerta tambien aqui, no solo en el boton que abre el cajon: es la
+    // accion la que vale dinero, y un cajon que ya estuviera abierto al caducar
+    // la suscripcion no puede seguir descargando.
+    if (!cardGate.unlocked) {
+      cardGate.requestUpgrade();
+      return;
+    }
     const prime =
       primeMoverNames.length > 0
         ? primeMoverNames
@@ -485,6 +590,21 @@ export function MovementControls({
     return () => window.cancelAnimationFrame(rafRef.current);
   }, [playing, arc, speedIdx, loop, reducedMotion, effMax, effMin, compact]);
 
+  // UN CAJON QUE SE ABRE TIENE QUE VERSE ABIERTO. La consola tiene el alto
+  // acotado (ver el cuerpo, abajo) y los dos cajones --los cuadros clinicos y
+  // la ficha para el paciente-- cuelgan de su parte baja: en una ventana de 768
+  // la fila que los abre ya esta junto al borde, asi que el contenido aparecia
+  // entero por debajo del pliegue y lo unico que cambiaba en pantalla era el
+  // giro de la flecha. Al abrir, el cajon se trae a la vista.
+  const clinicalRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (clinicalOpen) clinicalRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [clinicalOpen]);
+  useEffect(() => {
+    if (exportOpen) exportRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [exportOpen]);
+
   const togglePlay = () => {
     if (!arc) return;
     claimRig();
@@ -502,6 +622,13 @@ export function MovementControls({
     claimRig();
     setPlaying(false);
     setAngle(0);
+  };
+
+  /** Arrastrar el deslizador: la consola toma el rig y la reproduccion se para. */
+  const onScrub = (e: ChangeEvent<HTMLInputElement>) => {
+    claimRig();
+    setPlaying(false);
+    setAngle(Number(e.target.value));
   };
 
   const displayAngle = Math.round(angle);
@@ -529,11 +656,6 @@ export function MovementControls({
     return r ? `${r.authors.split(',')[0]} ${r.year}` : measured.cite.ref;
   }, [measured]);
 
-  // What the folded settings row reports, so nothing active is ever hidden.
-  const settingsSummary =
-    [pathology?.chip, showMarkers ? null : 'Sin arco 3D'].filter(Boolean).join(', ') ||
-    null;
-
   const playLabel = reducedMotion
     ? 'Alternar entre los extremos'
     : playing
@@ -545,23 +667,35 @@ export function MovementControls({
   // centered at the bottom; the clinician overlays are hidden while it is on. ----
   if (patientMode) {
     return (
+      // Esta SI flota: es la unica pieza sobre el escenario en el modo paciente,
+      // asi que lleva superficie. Dentro, ninguna caja: nombre, frase, un boton
+      // y la cifra. Las flechas y el boton miden 44 px porque esta barra se usa
+      // con la pantalla girada hacia el paciente, muchas veces en una tableta.
       <div className="instrument pointer-events-auto w-[min(94vw,54rem)] px-5 py-4">
         <div className="flex items-center gap-3">
-          <IconButton onClick={() => goToMovement(-1)} label="Ejercicio anterior">
+          <IconButton
+            onClick={() => goToMovement(-1)}
+            label="Ejercicio anterior"
+            className="h-11 w-11"
+          >
             <ChevronLeftIcon size={18} />
           </IconButton>
           <div className="min-w-0 flex-1 text-center">
             <div className="kicker">{regionName}</div>
-            <div className="mt-1 truncate font-display text-lg font-bold text-white sm:text-2xl">
+            <div className="mt-1.5 truncate font-display text-lg font-semibold text-fg sm:text-2xl">
               {movement?.name}
             </div>
             {movement && (
-              <p className="mt-1 text-sm leading-snug text-slate-300 sm:text-lg">
+              <p className="mt-1 text-sm leading-snug text-fg2 sm:text-lg">
                 {patientInstruction(movement, regionName)}
               </p>
             )}
           </div>
-          <IconButton onClick={() => goToMovement(1)} label="Siguiente ejercicio">
+          <IconButton
+            onClick={() => goToMovement(1)}
+            label="Siguiente ejercicio"
+            className="h-11 w-11"
+          >
             <ChevronRightIcon size={18} />
           </IconButton>
         </div>
@@ -570,7 +704,7 @@ export function MovementControls({
             type="button"
             onClick={togglePlay}
             disabled={!drivable}
-            className="flex shrink-0 items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink-950 shadow-[0_0_22px_-6px_rgba(79,182,199,0.75)] transition-colors hover:bg-accent-soft disabled:opacity-50 sm:text-base"
+            className="btn btn-primary h-11 shrink-0 px-5 text-sm sm:text-base"
           >
             {playing ? <PauseIcon size={16} /> : <PlayIcon size={16} />}
             {playing ? 'Pausar' : 'Ver movimiento'}
@@ -581,54 +715,365 @@ export function MovementControls({
             max={effMax}
             step={1}
             value={sliderVal}
-            onChange={(e) => {
-              claimRig();
-              setPlaying(false);
-              setAngle(Number(e.target.value));
-            }}
+            onChange={onScrub}
             aria-label="Ángulo del movimiento"
             className="range-clinical range-lg flex-1"
             style={{ ['--fill' as string]: fillPct }}
           />
-          <span className="w-16 shrink-0 text-right font-display text-2xl font-bold tabular-nums text-slate-100">
+          <span className="readout w-16 shrink-0 text-right text-[1.75rem]">
             {displayAngle}
-            <span className="text-base text-slate-500">°</span>
+            <span className="text-base font-medium text-fg3">°</span>
           </span>
         </div>
       </div>
     );
   }
 
+  // EN LA HOJA DEL MOVIL TODO LO QUE SE TOCA MIDE 44 PX. La consola no lo
+  // cumplia en ningun mando: las fichas de movimiento median 28 px, los botones
+  // de icono 32 y el control segmentado 21. Los mandos son los mismos que en el
+  // margen de escritorio; lo que cambia es su alto minimo.
+  const touch = inSheet;
+  const tap = touch ? 'min-h-[44px]' : '';
+  const tabsTap = touch ? '[&_.tab]:min-h-[44px]' : '';
+
+  // ---------------------------------------------------------------------------
+  // MOVIMIENTO: todos los arcos de la region, a la vista.
+  // ---------------------------------------------------------------------------
+  // Premium arcs stay listed with a lock and open pricing when tapped, rather
+  // than being hidden.
+  const movementSection = (
+    <section className="sec pb-2.5 pt-2.5">
+      <div className="sec-head">
+        <span className="kicker">Movimiento</span>
+        <span className="sec-rule" />
+        {/* El lado va con el movimiento, no con el arco: los dos dicen QUE se
+            mueve ("abduccion, derecho"); el arco dice cuanto. El raquis no
+            tiene lado y la fila se queda sin el. */}
+        {drivable && !isSpine && (
+          <div className={tabsTap}>
+            <Segmented
+              ariaLabel="Lado del cuerpo"
+              size="xs"
+              value={side}
+              onChange={(s) => {
+                claimRig();
+                setSide(s);
+              }}
+              options={[
+                { value: 'R' as Side, label: SIDE_LABEL.R },
+                { value: 'L' as Side, label: SIDE_LABEL.L },
+              ]}
+            />
+          </div>
+        )}
+      </div>
+      {/* DOS COLUMNAS, SIN SCROLL HORIZONTAL. Ver la cabecera del fichero: la
+          fila de fichas dejaba fuera 2 de los 6 movimientos de la cadera. Un
+          nombre que no cabe en su columna ("Rotacion interna de la tibia")
+          parte en dos lineas; no se recorta. */}
+      <div role="radiogroup" aria-label="Movimiento" className="grid grid-cols-2 gap-x-3">
+        {movements.map((m) => {
+          const unavailable = !isDrivable(m.id);
+          const locked = isLockedMovement(m.id);
+          const active = m.id === movementId;
+          return (
+            <button
+              key={m.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              disabled={unavailable}
+              onClick={() => {
+                if (unavailable) return;
+                if (locked) {
+                  labGate.requestUpgrade();
+                  return;
+                }
+                setMovementId(m.id);
+              }}
+              aria-label={
+                unavailable
+                  ? `${m.name}, todavía no disponible en el rig`
+                  : locked
+                    ? `${m.name}, disponible en Premium`
+                    : m.name
+              }
+              className={`opt ${tap} ${locked ? 'text-amber-200/80 hover:text-amber-100' : ''}`}
+            >
+              <span className="min-w-0">{m.name}</span>
+              {locked && <LockGlyph className="shrink-0" />}
+            </button>
+          );
+        })}
+      </div>
+      {allowedIds != null && (
+        <button
+          type="button"
+          onClick={labGate.requestUpgrade}
+          className={`note note-lock mt-2 block w-full text-left transition-colors hover:text-amber-100 ${tap}`}
+        >
+          <LockGlyph className="mr-1.5 inline-block align-[-1px]" />
+          Versión gratuita con un movimiento de demostración. Premium abre los {drivableCount}{' '}
+          arcos de esta región.
+        </button>
+      )}
+    </section>
+  );
+
+  // ---------------------------------------------------------------------------
+  // ARCO: reproducir + deslizador; debajo, volver a 0, bucle y velocidad.
+  // ---------------------------------------------------------------------------
+  const arcSection =
+    drivable && arc ? (
+      <section className="sec pb-2.5">
+        <div className="sec-head">
+          <span className="kicker">Arco</span>
+          <span className="sec-rule" />
+          <span className="num text-[11px] text-fg2">
+            {Math.round(effMin)}° a {Math.round(effMax)}°
+          </span>
+        </div>
+        {/* REPRODUCIR Y ARRASTRAR SON EL MISMO GESTO, Y VAN EN LA MISMA FILA.
+            El boton de reproducir es la accion principal del margen (la unica
+            con relleno) y va pegado a lo que mueve. Ademas es lo primero de la
+            seccion: en la hoja del movil la franja de 34% deja unos 180 px de
+            cuerpo, y con el boton al final de la seccion quedaba bajo el
+            pliegue. */}
+        <div className="flex items-start gap-2.5">
+          <IconButton
+            onClick={togglePlay}
+            label={playLabel}
+            variant="primary"
+            className={touch ? 'h-11 w-11' : ''}
+          >
+            {playing ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
+          </IconButton>
+          {/* El margen superior centra la pista (22 px de alto) con el boton:
+              (32 - 22) / 2 en el margen, (44 - 22) / 2 en la hoja. */}
+          <div className={`relative min-w-0 flex-1 pb-1.5 ${touch ? 'mt-[11px]' : 'mt-[5px]'}`}>
+            <input
+              id="mov-angle"
+              type="range"
+              min={effMin}
+              max={effMax}
+              step={1}
+              value={sliderVal}
+              onChange={onScrub}
+              aria-label="Ángulo del movimiento"
+              className="range-clinical block"
+              style={{ ['--fill' as string]: fillPct }}
+            />
+            {neutralPct != null && (
+              <span
+                className="pointer-events-none absolute top-[8px] flex -translate-x-1/2 flex-col items-center"
+                style={{ left: neutralMarkLeft(neutralPct) }}
+                aria-hidden="true"
+              >
+                <span className="h-1.5 w-px bg-fg2" />
+                <span className="num mt-0.5 text-[9px] leading-none text-fg3">0</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-1 flex items-center gap-1">
+          {/* "0°" escrito, no solo el icono: la aguja sobre la marca es un
+              dibujo propio de esta aplicacion y nadie lo trae aprendido. */}
+          <button
+            type="button"
+            onClick={returnToNeutral}
+            aria-label="Volver a la posición neutra"
+            title="Volver a la posición neutra"
+            className={`btn btn-quiet btn-sm -ml-2 ${tap}`}
+          >
+            <NeutralIcon size={14} />
+            <span className="num">0°</span>
+          </button>
+          {!reducedMotion && (
+            <>
+              <button
+                type="button"
+                onClick={() => setLoop((l) => !l)}
+                aria-pressed={loop}
+                aria-label={loop ? 'Bucle activado' : 'Bucle desactivado'}
+                title={loop ? 'Bucle activado' : 'Bucle desactivado'}
+                className={`btn btn-quiet btn-sm ${loop ? 'text-brand' : ''} ${tap}`}
+              >
+                <LoopIcon size={14} />
+                Bucle
+              </button>
+              <div className={`ml-auto ${tabsTap}`}>
+                <Segmented
+                  ariaLabel="Velocidad de reproducción"
+                  size="xs"
+                  value={speedIdx}
+                  onChange={setSpeedIdx}
+                  options={SPEEDS.map((s, i) => ({ value: i, label: s.label }))}
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        {tinyArc && (
+          <p className="note mt-2">
+            Arco real de {Math.round(span)}°. Que el modelo apenas se mueva no es un fallo del
+            visor: este movimiento casi no existe en el cuerpo.
+          </p>
+        )}
+
+        {/* The arc above is a REFERENCE range, a textbook convention, and
+            the conventions disagree. Showing the measured population value
+            next to it is the same rule the orthopedic tests follow here:
+            a number never appears without the study behind it. */}
+        {measured && (
+          <p className="num mt-2 text-[10px] leading-relaxed text-fg3">
+            Medido {measured.meanDeg}°
+            {measured.sdDeg != null ? ` ± ${measured.sdDeg}` : ''} ({measured.motion},{' '}
+            {measured.sample})
+            {measured.aaosDeg != null ? ` · AAOS ${measured.aaosDeg}°` : ''}
+            {measuredSource ? ` · ${measuredSource}` : ''}
+          </p>
+        )}
+
+        {reducedMotion && (
+          <p className="mt-2 text-[11px] text-fg3">
+            Animación reducida por preferencia del sistema.
+          </p>
+        )}
+      </section>
+    ) : null;
+
+  // ---------------------------------------------------------------------------
+  // ESTADO CLINICO: los cuadros patologicos de ESTE movimiento.
+  // ---------------------------------------------------------------------------
+  // Plegada dice el estado actual; abierta, cada cuadro lleva escrito lo que
+  // altera (ver `pathologyEffect`). Los bloqueados no se esconden: siguen en la
+  // lista con su candado y abren precios.
+  const clinicalSection =
+    drivable && arc && supportsPathology ? (
+      <section className="sec pb-2.5">
+        <button
+          type="button"
+          onClick={() => setClinicalOpen((o) => !o)}
+          aria-expanded={clinicalOpen}
+          className={`sec-head group w-full text-left ${clinicalOpen ? '' : 'mb-0'} ${tap}`}
+        >
+          <span className="kicker transition-colors group-hover:text-fg2">Estado clínico</span>
+          <span className="sec-rule" />
+          <span
+            className={`shrink-0 text-xs font-medium ${pathology ? 'text-amber-200' : 'text-fg2'}`}
+          >
+            {pathology ? pathology.chip : 'Normal'}
+          </span>
+          {!pathologyGate.unlocked && <LockGlyph className="shrink-0 text-amber-300" />}
+          <ChevronDownIcon
+            size={13}
+            className={`shrink-0 text-fg3 transition-transform ${clinicalOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
+        {clinicalOpen && (
+          <div ref={clinicalRef}>
+            {/* WHAT PICKING ONE DOES, at the point of picking. The row
+                was a set of chips with no statement of consequence, and
+                the explanation only appeared in the readout AFTER a
+                pathology was already active -- "no entiendo las
+                patologías en el modelo 3D". */}
+            <p className="text-[11px] leading-snug text-fg3">
+              Elige un cuadro y el modelo lo reproduce:{' '}
+              <span className="text-fg2">
+                lo que altera del movimiento va escrito bajo su nombre
+              </span>
+              , y las estructuras implicadas se marcan en la escena.
+            </p>
+            <div role="radiogroup" aria-label="Estado clínico" className="mt-1.5">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={pathologyId === null}
+                onClick={() => {
+                  claimRig();
+                  setPathologyId(null);
+                }}
+                className={`opt ${tap}`}
+              >
+                Normal
+              </button>
+              {pathologyOptions.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={pathologyGate.unlocked && pathologyId === p.id}
+                  onClick={
+                    pathologyGate.unlocked
+                      ? () => {
+                          claimRig();
+                          setPathologyId(p.id);
+                        }
+                      : pathologyGate.requestUpgrade
+                  }
+                  className={`opt ${tap} ${
+                    pathologyGate.unlocked ? '' : 'text-amber-200/80 hover:text-amber-100'
+                  }`}
+                >
+                  <span className="min-w-0 flex-1 py-0.5">
+                    <span className="block">{p.name}</span>
+                    <span className="tag mt-0.5 block font-normal">{pathologyEffect(p, arc)}</span>
+                  </span>
+                  {!pathologyGate.unlocked && <LockGlyph className="shrink-0" />}
+                </button>
+              ))}
+            </div>
+            {pathology && <p className="note note-warn mt-2">{pathology.summary}</p>}
+          </div>
+        )}
+      </section>
+    ) : null;
+
   return (
-    <div
-      className={`pointer-events-auto w-full overflow-hidden ${embedded ? '' : 'instrument'}`}
-    >
+    <div className={`pointer-events-auto w-full ${embedded ? '' : 'instrument overflow-hidden'}`}>
       {/* HEADER. Doubles as the collapse handle on phones. Embedded, it only
           exists below `sm`, where the readout above is hidden and this line is
           the panel's only identity. */}
       <div
-        className={`flex items-start gap-3 px-4 pt-3.5 pb-3 ${
+        className={`flex items-start gap-3 px-4 pt-3.5 pb-1 ${
           embedded && !inSheet ? 'sm:hidden' : ''
         }`}
       >
-        <button
-          type="button"
-          onClick={() => setCollapsed((c) => !c)}
-          className="min-w-0 flex-1 text-left lg:pointer-events-none"
-        >
-          <span className="kicker block truncate">
-            {regionName || 'Laboratorio'}
-            {movement?.plane ? `, plano ${movement.plane.toLowerCase()}` : ''}
-          </span>
-          <h2 className="mt-1.5 truncate font-display text-[15px] font-semibold leading-tight text-slate-50">
-            {gestureName ?? 'Selecciona un movimiento'}
-          </h2>
-        </button>
+        {inSheet ? (
+          // En la hoja no hay nada que plegar (el plegado es el de la hoja), asi
+          // que el titulo no es un boton: lo era, y no hacia nada al pulsarlo.
+          <div className="min-w-0 flex-1">
+            <span className="kicker block truncate">
+              {regionName || 'Laboratorio'}
+              {movement?.plane ? `, plano ${movement.plane.toLowerCase()}` : ''}
+            </span>
+            <h2 className="mt-1.5 truncate font-display text-[15px] font-semibold leading-tight text-fg">
+              {gestureName ?? 'Selecciona un movimiento'}
+            </h2>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            className="min-w-0 flex-1 text-left lg:pointer-events-none"
+          >
+            <span className="kicker block truncate">
+              {regionName || 'Laboratorio'}
+              {movement?.plane ? `, plano ${movement.plane.toLowerCase()}` : ''}
+            </span>
+            <h2 className="mt-1.5 truncate font-display text-[15px] font-semibold leading-tight text-fg">
+              {gestureName ?? 'Selecciona un movimiento'}
+            </h2>
+          </button>
+        )}
         <div className="flex shrink-0 items-center gap-1">
           {drivable && (
-            <span className="font-display text-[26px] font-bold leading-none tabular-nums text-slate-50">
+            <span className="readout text-[26px]">
               {displayAngle}
-              <span className="text-base font-medium text-slate-500">°</span>
+              <span className="text-base font-medium text-fg3">°</span>
             </span>
           )}
           {!inSheet && (
@@ -637,7 +1082,7 @@ export function MovementControls({
               onClick={() => setCollapsed((c) => !c)}
               aria-label={collapsed ? 'Expandir panel' : 'Colapsar panel'}
               aria-expanded={!collapsed}
-              className="-mr-1 ml-1 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100/[0.06] hover:text-slate-200 lg:hidden"
+              className="btn btn-quiet btn-icon btn-sm -mr-1 ml-1 lg:hidden"
             >
               <ChevronDownIcon size={14} className={collapsed ? '-rotate-90' : ''} />
             </button>
@@ -658,11 +1103,7 @@ export function MovementControls({
             max={effMax}
             step={1}
             value={sliderVal}
-            onChange={(e) => {
-              claimRig();
-              setPlaying(false);
-              setAngle(Number(e.target.value));
-            }}
+            onChange={onScrub}
             aria-label="Ángulo del movimiento"
             className="range-clinical flex-1"
             style={{ ['--fill' as string]: fillPct }}
@@ -671,263 +1112,139 @@ export function MovementControls({
       )}
 
       <div
-        // Height-capped and scrollable at EVERY size, not just on phones. The
-        // console shares its column with the readout, so an unbounded body (open
-        // settings on a laptop) squeezed the readout down to a sliver.
+        // EL ALTO DE LA CONSOLA, POR ARITMETICA.
+        //
+        // La consola comparte columna con la lectura de arriba y es ella la que
+        // no encoge (MovementView), asi que su tope decide cuanto le queda a la
+        // lectura. El tope eran 34/36vh: a 768 px, 276 px. Con los movimientos
+        // en lista ya no cabe ahi (la consola en reposo mide unos 330 px con
+        // cuatro arcos y 360 con los seis de la cadera), y cortarla habria
+        // escondido el pie.
+        //
+        // Lo que NO puede perderse de la lectura es su parte fija --cabecera,
+        // goniometro, fase y musculo protagonista, mas el aviso de que es un
+        // modelo--, que mide 226 px en una ventana baja (el desglose esta en
+        // RhythmReadout). Encima de la columna hay 66 px de aplicacion: la
+        // barra (44) y la linea del aviso educativo (22). Asi que el tope es
+        //
+        //     100vh - 66 - 1 (el filo) - 226 - 3 de holgura = 100vh - 18.5rem
+        //
+        // A 1366x768 y a 1024x768 son 472 px: la consola entera cabe sin
+        // scroll en las ocho regiones, y a la lectura le quedan entre 310 y
+        // 370 px. En un portatil de 768 con las barras del navegador (unos 650
+        // de ventana) el tope son 354: la consola de cuatro arcos (330) sigue
+        // entera y la lectura conserva justo su parte fija. Por debajo de eso
+        // la consola se desplaza por dentro, y lo primero que deja de verse es
+        // el pie, nunca el boton de reproducir, que es lo primero del arco.
+        // El suelo de 12rem es para que una ventana absurda no la deje en cero.
         className={
           inSheet
             ? 'block'
-            : `${collapsed ? 'hidden' : 'block'} max-h-[34vh] overflow-y-auto sm:max-h-[36vh] ${embedded ? 'sm:block' : 'lg:block'}`
+            : `${collapsed ? 'hidden' : 'block'} overflow-y-auto overscroll-contain ${
+                embedded
+                  ? 'max-h-[max(12rem,calc(100vh_-_18.5rem))] sm:block'
+                  : 'max-h-[34vh] sm:max-h-[36vh] lg:block'
+              }`
         }
       >
-        {/* MOVEMENT RAIL. Every arc of the region in one strip, so the library's
-            size is visible at a glance. Premium arcs stay listed with a lock and
-            open pricing when tapped, rather than being hidden. */}
-        <div className="hairline" />
-        <div className="px-4 py-3">
-          <span className="kicker">Movimiento</span>
-          <div
-            ref={movementRail.ref}
-            className={`rail mt-2 -mx-1 px-1 pb-0.5 ${movementRail.faded ? 'rail-fade-end' : ''}`}
-          >
-            {movements.map((m) => {
-              const unavailable = !isDrivable(m.id);
-              const locked = isLockedMovement(m.id);
-              const active = m.id === movementId;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  disabled={unavailable}
-                  onClick={() => {
-                    if (unavailable) return;
-                    if (locked) {
-                      labGate.requestUpgrade();
-                      return;
-                    }
-                    setMovementId(m.id);
-                  }}
-                  aria-label={
-                    unavailable
-                      ? `${m.name}, todavía no disponible en el rig`
-                      : locked
-                        ? `${m.name}, disponible en Premium`
-                        : m.name
-                  }
-                  className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
-                    active
-                      ? 'bg-accent/15 text-accent ring-1 ring-inset ring-accent/40'
-                      : unavailable
-                        ? 'text-slate-600'
-                        : locked
-                          ? 'text-amber-200/80 ring-1 ring-inset ring-amber-500/25 hover:bg-amber-400/10'
-                          : 'text-slate-400 ring-1 ring-inset ring-slate-700/70 hover:bg-slate-100/[0.06] hover:text-slate-200'
-                  }`}
-                >
-                  {m.name}
-                  {locked && <LockGlyph />}
-                </button>
-              );
-            })}
-          </div>
-          {allowedIds != null && (
-            <button
-              type="button"
-              onClick={labGate.requestUpgrade}
-              className="mt-2 flex w-full items-center gap-2 text-left text-[10.5px] leading-snug text-amber-200/85 transition-colors hover:text-amber-100"
-            >
-              <LockGlyph className="shrink-0" />
-              <span>
-                Versión gratuita con un movimiento de demostración. Premium abre los{' '}
-                {movements.filter((m) => isDrivable(m.id)).length} arcos de esta región.
-              </span>
-            </button>
-          )}
-        </div>
-
-        {/* Unsupported movement notice */}
-        {control?.kind === 'unsupported' && (
+        {/* EN LA HOJA, EL ARCO VA PRIMERO. La franja de la hoja (34% del alto)
+            deja ver unos 180 px bajo las pestanas: lo justo para la cabecera y
+            una seccion. Con los movimientos delante, lo que se veia era la
+            lista y el boton de reproducir quedaba bajo el pliegue; con el arco
+            delante se puede mover la articulacion sin ampliar la hoja, y la
+            lista asoma debajo. En el margen de escritorio todo cabe y el orden
+            es el de uso: que se mueve, y luego cuanto. */}
+        {inSheet ? (
           <>
-            <div className="hairline" />
-            <p className="px-4 py-3 text-[11px] leading-relaxed text-amber-200/85">
-              {control.reason}
-            </p>
+            {arcSection}
+            {movementSection}
+          </>
+        ) : (
+          <>
+            {movementSection}
+            {/* Unsupported movement notice */}
+            {control?.kind === 'unsupported' && (
+              <section className="sec pb-2.5">
+                <p className="note note-warn">{control.reason}</p>
+              </section>
+            )}
+            {arcSection}
           </>
         )}
-
-        {/* ARC. Slider, neutral mark, transport, speed. */}
-        {drivable && arc && (
-          <>
-            <div className="hairline" />
-            <div className="px-4 py-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="kicker">
-                  Arco {Math.round(effMin)}° a {Math.round(effMax)}°
-                </span>
-                {!isSpine && (
-                  <Segmented
-                    ariaLabel="Lado del cuerpo"
-                    size="xs"
-                    value={side}
-                    onChange={(s) => {
-                      claimRig();
-                      setSide(s);
-                    }}
-                    options={[
-                      { value: 'R' as Side, label: SIDE_LABEL.R },
-                      { value: 'L' as Side, label: SIDE_LABEL.L },
-                    ]}
-                  />
-                )}
-              </div>
-              <div className="relative mt-2">
-                <input
-                  id="mov-angle"
-                  type="range"
-                  min={effMin}
-                  max={effMax}
-                  step={1}
-                  value={sliderVal}
-                  onChange={(e) => {
-                    claimRig();
-                    setPlaying(false);
-                    setAngle(Number(e.target.value));
-                  }}
-                  aria-label="Ángulo del movimiento"
-                  className="range-clinical"
-                  style={{ ['--fill' as string]: fillPct }}
-                />
-                {neutralPct != null && (
-                  <span
-                    className="pointer-events-none absolute bottom-0 flex -translate-x-1/2 flex-col items-center"
-                    style={{ left: `${neutralPct}%` }}
-                    aria-hidden="true"
-                  >
-                    <span className="h-1.5 w-px bg-clinical-soft/70" />
-                    <span className="mt-0.5 font-mono text-[9px] text-clinical-soft/70">0</span>
-                  </span>
-                )}
-              </div>
-
-              {tinyArc && (
-                <p className={`text-[11px] leading-snug text-slate-400 ${neutralPct != null ? 'mt-3.5' : 'mt-2'}`}>
-                  Arco real de {Math.round(span)}°. Que el modelo apenas se mueva no es un fallo
-                  del visor: este movimiento casi no existe en el cuerpo.
-                </p>
-              )}
-
-              {/* The arc above is a REFERENCE range, a textbook convention, and
-                  the conventions disagree. Showing the measured population value
-                  next to it is the same rule the orthopedic tests follow here:
-                  a number never appears without the study behind it. */}
-              {measured && (
-                <p className={`font-mono text-[10px] leading-relaxed text-slate-500 ${tinyArc || neutralPct == null ? 'mt-2' : 'mt-3.5'}`}>
-                  Medido {measured.meanDeg}°
-                  {measured.sdDeg != null ? ` ± ${measured.sdDeg}` : ''} ({measured.motion},{' '}
-                  {measured.sample})
-                  {measured.aaosDeg != null ? ` · AAOS ${measured.aaosDeg}°` : ''}
-                  {measuredSource ? ` · ${measuredSource}` : ''}
-                </p>
-              )}
-
-              <div
-                className={`flex items-center gap-1.5 ${
-                  tinyArc ? 'mt-2' : neutralPct != null ? 'mt-3.5' : 'mt-2'
-                }`}
-              >
-                <IconButton onClick={togglePlay} label={playLabel} variant="primary">
-                  {playing ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
-                </IconButton>
-                <IconButton onClick={returnToNeutral} label="Volver a la posición neutra">
-                  <NeutralIcon size={15} />
-                </IconButton>
-                {!reducedMotion && (
-                  <>
-                    <IconButton
-                      onClick={() => setLoop((l) => !l)}
-                      label={loop ? 'Bucle activado' : 'Bucle desactivado'}
-                      className={loop ? 'text-accent' : ''}
-                    >
-                      <LoopIcon size={15} />
-                    </IconButton>
-                    <div className="ml-auto">
-                      <Segmented
-                        ariaLabel="Velocidad de reproducción"
-                        size="xs"
-                        value={speedIdx}
-                        onChange={setSpeedIdx}
-                        options={SPEEDS.map((s, i) => ({ value: i, label: s.label }))}
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-              {reducedMotion && (
-                <p className="mt-2 text-[10px] text-slate-500">
-                  Animación reducida por preferencia del sistema.
-                </p>
-              )}
-            </div>
-          </>
+        {inSheet && control?.kind === 'unsupported' && (
+          <section className="sec pb-2.5">
+            <p className="note note-warn">{control.reason}</p>
+          </section>
         )}
 
-        {/* TRIAL SETTINGS. What a physio sets once per session (markers, the
-            clinical state) folds behind one row, so the console at rest is the
-            movement and nothing else. The old panel showed all of it at once and
-            grew tall enough to climb over the model and the readout. */}
+        {clinicalSection}
+
+        {/* PIE. Lo que se pone una vez por sesion: la ficha que se lleva el
+            paciente y el arco dibujado sobre el modelo. El interruptor estaba
+            dentro de un cajon "Ajustes"; cabe a la vista, asi que esta a la
+            vista. */}
         {drivable && (
           <>
-            <div className="hairline" />
-            <div className="px-4 py-2">
-              {/* One footer row holds both drawers, so the console's resting
-                  height stays about a third of the column. */}
-              <div className="flex items-center">
+            <div className="rule" />
+            <div className="px-4 py-1">
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => {
-                    setSettingsOpen((o) => !o);
-                    setExportOpen(false);
-                  }}
-                  aria-expanded={settingsOpen}
-                  className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left text-slate-400 transition-colors hover:text-slate-200"
-                >
-                  <span className="shrink-0 text-xs font-medium">Ajustes</span>
-                  {!settingsOpen && settingsSummary && (
-                    <span className="truncate text-[10px] text-slate-500">{settingsSummary}</span>
-                  )}
-                  <ChevronDownIcon
-                    size={13}
-                    className={`ml-auto shrink-0 text-slate-600 transition-transform ${settingsOpen ? 'rotate-180' : ''}`}
-                  />
-                </button>
-                <span className="mx-3 h-4 w-px shrink-0 bg-slate-100/10" aria-hidden="true" />
-                <button
-                  type="button"
-                  onClick={() => {
+                    if (!cardGate.unlocked) {
+                      cardGate.requestUpgrade();
+                      return;
+                    }
                     setExportOpen((o) => !o);
-                    setSettingsOpen(false);
                   }}
-                  aria-expanded={exportOpen}
-                  className="flex shrink-0 items-center gap-2 py-1.5 text-slate-400 transition-colors hover:text-slate-200"
+                  aria-expanded={cardGate.unlocked ? exportOpen : undefined}
+                  title={
+                    cardGate.unlocked
+                      ? undefined
+                      : 'Ficha en PNG para el paciente: disponible en Premium'
+                  }
+                  className={`flex min-h-[28px] min-w-0 flex-1 items-center gap-2 text-left text-xs font-medium transition-colors ${
+                    cardGate.unlocked
+                      ? 'text-fg2 hover:text-fg'
+                      : 'text-amber-200/85 hover:text-amber-100'
+                  } ${tap}`}
                 >
-                  <DownloadIcon size={13} />
-                  <span className="text-xs font-medium">Ficha para el paciente</span>
+                  <DownloadIcon size={13} className="hidden shrink-0 xl:block" />
+                  <span className="truncate">Ficha para el paciente</span>
+                  {cardGate.unlocked ? (
+                    <ChevronDownIcon
+                      size={13}
+                      className={`shrink-0 text-fg3 transition-transform ${exportOpen ? 'rotate-180' : ''}`}
+                    />
+                  ) : (
+                    <LockGlyph className="shrink-0" />
+                  )}
                 </button>
+                <span className="h-4 w-px shrink-0 bg-line" aria-hidden="true" />
+                <div
+                  className={`w-[5.5rem] shrink-0 ${touch ? '[&>button]:min-h-[44px]' : ''}`}
+                  title="Dibuja el recorrido y los marcadores sobre el modelo"
+                >
+                  <Switch
+                    checked={showMarkers}
+                    onChange={() => setShowMarkers((v) => !v)}
+                    label="Arco 3D"
+                  />
+                </div>
               </div>
 
-              {exportOpen && (
-                <div className="pb-1">
+              {exportOpen && cardGate.unlocked && (
+                <div ref={exportRef} className="pb-2">
                   {/* WHAT THIS PRODUCES, before you produce it. The row said only
                       "Exportar" and the panel jumped straight to a note field and
                       a download button, so what the feature was for had to be
                       inferred from a placeholder -- "no entiendo el modo
                       paciente". */}
-                  <p className="mt-1.5 border-l-2 border-slate-700 pl-2 text-[11px] leading-snug text-slate-400">
-                    Genera una <span className="text-slate-200">ficha en PNG para el
-                    paciente</span>: una foto de la postura actual del modelo, el
-                    movimiento y su rango, los músculos que trabajan y tu nota, en
-                    lenguaje llano. Para imprimir o mandar. Se crea en tu equipo y no
-                    sale nada a internet.
+                  <p className="note mt-1">
+                    Genera una <span className="text-fg">ficha en PNG para el paciente</span>: una
+                    foto de la postura actual del modelo, el movimiento y su rango, los músculos
+                    que trabajan y tu nota, en lenguaje llano. Para imprimir o mandar. Se crea en
+                    tu equipo y no sale nada a internet.
                   </p>
                   <textarea
                     id="patient-note"
@@ -936,99 +1253,27 @@ export function MovementControls({
                     rows={2}
                     aria-label="Nota para el paciente"
                     placeholder="Nota opcional. Por ejemplo: 3 series de 10, dos veces al día, sin dolor."
-                    className="mt-1 w-full resize-none rounded-lg border border-slate-700/70 bg-slate-950/60 px-2.5 py-2 text-[11px] leading-snug text-slate-200 placeholder:text-slate-600 focus:border-accent/60 focus:outline-none"
+                    className="field mt-2 block h-auto resize-none py-1.5 text-xs leading-snug"
                   />
                   <button
                     type="button"
                     onClick={onExport}
                     disabled={exporting || !movement}
-                    className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100/[0.08] px-3 py-2 text-xs font-semibold text-slate-100 transition-colors hover:bg-slate-100/[0.14] disabled:cursor-not-allowed disabled:opacity-50"
+                    className={`btn btn-line mt-2.5 w-full ${tap}`}
                   >
                     <DownloadIcon size={13} />
                     {exporting ? 'Generando la imagen' : 'Descargar la ficha en PNG'}
                   </button>
                   {exportMsg && (
-                    <p className="mt-1.5 text-center text-[10px] text-slate-400">{exportMsg}</p>
-                  )}
-                </div>
-              )}
-
-              {settingsOpen && (
-                <div className="pb-1">
-                  <Switch
-                    checked={showMarkers}
-                    onChange={() => setShowMarkers((v) => !v)}
-                    label="Arco sobre el modelo"
-                    hint="Dibuja el recorrido y los marcadores en 3D"
-                  />
-
-                  {supportsPathology && (
-                    <div className="mt-2">
-                      <span className="kicker">Estado clínico</span>
-                      {/* WHAT PICKING ONE DOES, at the point of picking. The row
-                          was a set of chips with no statement of consequence, and
-                          the explanation only appeared in the readout AFTER a
-                          pathology was already active -- "no entiendo las
-                          patologías en el modelo 3D". */}
-                      <p className="mt-1 text-[11px] leading-snug text-slate-500">
-                        Elige un cuadro y el modelo <span className="text-slate-300">se
-                        mueve con ese patrón alterado</span>: cambia el ritmo entre
-                        húmero y escápula, se limita el rango, y las estructuras
-                        implicadas se marcan en la escena.
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            claimRig();
-                            setPathologyId(null);
-                          }}
-                          className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                            pathologyId === null
-                              ? 'bg-clinical/15 text-clinical-soft ring-1 ring-inset ring-clinical/40'
-                              : 'text-slate-400 ring-1 ring-inset ring-slate-700/70 hover:bg-slate-100/[0.06]'
-                          }`}
-                        >
-                          Normal
-                        </button>
-                        {pathologyOptions.map((p) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={
-                              pathologyGate.unlocked
-                                ? () => {
-                                    claimRig();
-                                    setPathologyId(p.id);
-                                  }
-                                : pathologyGate.requestUpgrade
-                            }
-                            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                              !pathologyGate.unlocked
-                                ? 'text-amber-200/80 ring-1 ring-inset ring-amber-500/25 hover:bg-amber-400/10'
-                                : pathologyId === p.id
-                                  ? 'bg-amber-500/15 text-amber-200 ring-1 ring-inset ring-amber-500/45'
-                                  : 'text-slate-400 ring-1 ring-inset ring-slate-700/70 hover:bg-slate-100/[0.06]'
-                            }`}
-                          >
-                            {p.chip}
-                            {!pathologyGate.unlocked && <LockGlyph />}
-                          </button>
-                        ))}
-                      </div>
-                      {pathology && (
-                        <p className="mt-2 text-[10.5px] leading-snug text-amber-200/80">
-                          {pathology.summary}
-                        </p>
-                      )}
-                    </div>
+                    <p role="status" className="mt-1.5 text-center text-[11px] text-fg2">
+                      {exportMsg}
+                    </p>
                   )}
                 </div>
               )}
             </div>
           </>
         )}
-
       </div>
     </div>
   );

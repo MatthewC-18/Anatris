@@ -13,6 +13,14 @@
 // DESIGN RULE: a locked capability is shown, not hidden. `PremiumPill` marks it
 // in place; `PremiumTeaser` replaces a whole locked panel with what it does plus
 // one CTA. An empty space communicates nothing; a lock communicates value.
+//
+// SIN CAJAS (sistema LAMINA, docs/sistema-lamina.md). `PremiumTeaser` se pinta
+// DENTRO del margen derecho del laboratorio (pestanas Tests y Neuro bloqueadas)
+// y era una tarjeta ambar con borde, con una pastilla dentro y un boton que era
+// otro bloque tenido: tres recuadros anidados dentro de un margen que no admite
+// ninguno. Ahora es lo que es cualquier otra seccion del margen: rotulo y filo,
+// el titulo, la lista con una regla ambar a la izquierda (el ambar queda para
+// decir "candado", no para pintar un fondo) y un boton.
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { FEATURE_LABEL, type PremiumFeature } from '../../auth/entitlements';
@@ -100,14 +108,14 @@ export function LockGlyph({ className = '' }: { className?: string }) {
   );
 }
 
-/** Inline "Premium" chip to mark a locked row or control in place. */
+/**
+ * Marca "Premium" para una fila o un mando bloqueado, en su sitio. Era una
+ * capsula ambar rellena; ahora es una etiqueta en mono con el candado, que dice
+ * lo mismo sin dibujar una ficha.
+ */
 export function PremiumPill({ compact = false }: { compact?: boolean }) {
   return (
-    <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-400/15 font-semibold uppercase tracking-wide text-amber-300 ${
-        compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
-      }`}
-    >
+    <span className="tag inline-flex shrink-0 items-center gap-1 text-amber-300">
       <LockGlyph className="h-2.5 w-2.5" />
       {!compact && 'Premium'}
     </span>
@@ -117,6 +125,12 @@ export function PremiumPill({ compact = false }: { compact?: boolean }) {
 /**
  * Replaces a locked panel's body. Says what the capability DOES (so the value is
  * concrete) and offers exactly one action.
+ *
+ * El boton es `.btn-line` y no `.btn-primary` a proposito: en el margen derecho
+ * del laboratorio convive con "Diseccionar" (la ficha acoplada al pie), que es
+ * la accion principal de ese margen, y dos botones rellenos en la misma columna
+ * dejan de decir cual es el principal. Es el mismo contorno que lleva "Hazte
+ * Premium" en la barra: las puertas de venta se reconocen por el filo.
  */
 export function PremiumTeaser({
   feature,
@@ -134,34 +148,37 @@ export function PremiumTeaser({
   const { requestUpgrade, label } = useFeatureGate(feature);
 
   return (
-    <div
-      className={`flex flex-col items-center rounded-xl border border-amber-500/25 bg-amber-500/[0.06] text-center ${
-        compact ? 'gap-2 p-3' : 'gap-3 p-5'
-      }`}
-    >
-      <PremiumPill />
-      <p
-        className={`font-display font-semibold text-slate-100 ${
+    <section className={`flex flex-col ${compact ? 'gap-2.5' : 'gap-3.5'}`}>
+      <div className="sec-head mb-0">
+        <span className="kicker inline-flex items-center gap-1.5 text-amber-300">
+          <LockGlyph className="h-2.5 w-2.5" />
+          Premium
+        </span>
+        <span className="sec-rule" />
+      </div>
+      <h3
+        className={`font-display font-semibold leading-snug text-fg ${
           compact ? 'text-sm' : 'text-base'
         }`}
       >
         {title ?? label}
-      </p>
-      <ul className="flex flex-col gap-1 text-left">
+      </h3>
+      <ul className="note note-warn flex flex-col gap-1.5">
         {lines.map((l) => (
-          <li key={l} className="flex items-start gap-1.5 text-xs text-slate-400">
-            <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400/70" />
-            {l}
-          </li>
+          <li key={l}>{l}</li>
         ))}
       </ul>
-      <button
-        type="button"
-        onClick={requestUpgrade}
-        className="mt-1 w-full rounded-lg bg-amber-400/15 px-4 py-2 text-xs font-semibold text-amber-200 transition-colors hover:bg-amber-400/25"
-      >
-        Desbloquear con Premium
-      </button>
-    </div>
+      {/* El boton dice que hace (desbloquea) y la linea de debajo, adonde lleva
+          (a los planes): un candado que no dice que pasa al pulsarlo se lee
+          como un mando roto. */}
+      <div className="flex flex-col gap-1.5">
+        <button type="button" onClick={requestUpgrade} className="btn btn-line w-full text-fg">
+          Desbloquear con Premium
+        </button>
+        <p className="text-[11px] leading-snug text-fg3">
+          Abre los planes, con lo que incluye cada uno.
+        </p>
+      </div>
+    </section>
   );
 }

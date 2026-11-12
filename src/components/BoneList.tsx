@@ -11,17 +11,24 @@
 //
 // Clicking a bone selects it as a STRUCTURE (both sides, however Z-Anatomy chose
 // to name them) and flies the camera to it, mirroring MuscleList's behaviour.
+//
+// LAMINA: cada estructura es una fila `.opt` (texto y un punto), igual que en
+// la lista de musculos. Antes era un boton con relleno gris al seleccionar; la
+// seleccion la dicen ahora el punto de acento y el peso de la letra.
+//
+// The list itself (which structures, under which Spanish name) is built by
+// lib/regionStructures.ts, shared with the sheet and the search so the three
+// name a structure the same way.
 
 import { useMemo } from 'react';
 import { useAnatomyStore } from '../store/anatomyStore';
-import { buildBoneList, buildNerveList } from '../lib/boneList';
-import { REGIONS, resolveRegionMeshes } from '../data/regiones';
+import { listRegionStructures, type StructureKind } from '../lib/regionStructures';
 import type { AnatomyIndex } from '../types/anatomy';
 
 interface BoneListProps {
   index: AnatomyIndex;
   /** Which layer to list. Bones by default; 'nerves' for the plexus. */
-  kind?: 'bones' | 'nerves';
+  kind?: StructureKind;
 }
 
 export function BoneList({ index, kind = 'bones' }: BoneListProps) {
@@ -32,21 +39,14 @@ export function BoneList({ index, kind = 'bones' }: BoneListProps) {
   const activeLayers = useAnatomyStore((s) => s.activeLayers);
   const setLayer = useAnatomyStore((s) => s.setLayer);
 
-  const bones = useMemo(() => {
-    const def = region ? REGIONS[region] : null;
-    // No region selected = whole body. Listing every bone in the skeleton would
-    // be inventory, not a study aid, so the section simply says so.
-    if (!def) return [];
-    const names = index.entries.map((e) => e.meshName);
-    const meshes = resolveRegionMeshes(def, names);
-    return kind === 'nerves'
-      ? buildNerveList(index.entries, meshes)
-      : buildBoneList(index.entries, meshes);
-  }, [region, index, kind]);
+  const bones = useMemo(
+    () => listRegionStructures(index.entries, region, kind),
+    [region, index, kind],
+  );
 
   if (!region) {
     return (
-      <p className="px-1 py-2 text-xs leading-snug text-slate-500">
+      <p className="py-1 text-xs leading-relaxed text-fg3">
         Elige una región para ver sus {kind === 'nerves' ? 'nervios' : 'huesos'}.
       </p>
     );
@@ -54,7 +54,7 @@ export function BoneList({ index, kind = 'bones' }: BoneListProps) {
 
   if (bones.length === 0) {
     return (
-      <p className="px-1 py-2 text-xs leading-snug text-slate-500">
+      <p className="py-1 text-xs leading-relaxed text-fg3">
         Esta región no tiene {kind === 'nerves' ? 'nervios' : 'huesos'} propios en el modelo.
       </p>
     );
@@ -77,7 +77,7 @@ export function BoneList({ index, kind = 'bones' }: BoneListProps) {
   };
 
   return (
-    <ul className="flex flex-col gap-0.5">
+    <ul className="flex flex-col">
       {bones.map((bone) => {
         const active = selectedBoneId === bone.id;
         return (
@@ -86,18 +86,17 @@ export function BoneList({ index, kind = 'bones' }: BoneListProps) {
               type="button"
               onClick={() => handleClick(bone.id, bone.meshNames)}
               aria-pressed={active}
-              className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors ${
-                active
-                  ? 'bg-slate-200/10 text-slate-50'
-                  : 'text-slate-300 hover:bg-slate-200/[0.06] hover:text-slate-100'
-              }`}
+              // 44 px en el cajon tactil (por debajo de lg), la fila normal de
+              // 30 px en el margen de escritorio.
+              className={`opt min-h-[44px] lg:min-h-[1.875rem] ${active ? 'is-active' : ''}`}
             >
-              <span className="min-w-0 truncate">{bone.name}</span>
-              {bone.bilateral && (
-                <span className="shrink-0 text-[9px] uppercase tracking-[0.1em] text-slate-600">
-                  Bilateral
-                </span>
-              )}
+              {/* Sin la etiqueta "Bilateral" que llevaba cada fila: en el tobillo
+                  la repetian las 27, en la rodilla las 6 y en el raquis ninguna,
+                  asi que no distinguia nada. El lado lo dice la ficha al
+                  seleccionar ("Ambos lados"). */}
+              <span className="min-w-0 flex-1 truncate" title={bone.name}>
+                {bone.name}
+              </span>
             </button>
           </li>
         );

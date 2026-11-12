@@ -1,21 +1,28 @@
 // src/components/ViewerHud.tsx
 //
-// Premium in-canvas HUD for the "Explorar" viewer. Two pieces of ambient,
-// pointer-events-none chrome that make the raw 3D canvas feel like an
-// instrument instead of a bare model:
+// In-canvas annotations for the "Explorar" viewer. Two pieces of ambient,
+// pointer-events-none chrome:
 //
-//   - Top-left "module" plate: the active region name + a live count of the
-//     structure under the cursor, so the user always knows where they are.
-//   - Top-center hover label: a glass chip naming the structure under the
-//     cursor (with its layer color), fading in/out as the pointer moves.
+//   - Top-left stage note: the active region, written on the stage the way a
+//     plate carries its caption. Only where the left margin is not on screen.
+//   - Top-center hover label: names the structure under the cursor (with its
+//     layer colour), appearing and disappearing as the pointer moves.
 //
 // It is purely presentational: it reads hoveredMeshName / region from the
 // store and the mesh index, and never mutates state, so it cannot interfere
 // with picking, camera or highlight logic.
+//
+// LAMINA: la placa del modulo era una tarjeta de cristal con un punto latiendo
+// ("Explorando / Hombro") a 16 px del margen izquierdo, que ya dice "MODULO /
+// Hombro": el mismo dato dos veces, una de ellas encima del modelo. Ahora es
+// una anotacion tipografica sin fondo (`.stage-note`) y solo aparece por debajo
+// de lg, que es donde el margen se convierte en cajon y el escenario se queda
+// sin rotulo. La etiqueta de hover si flota de verdad (es un tooltip), asi que
+// conserva una superficie, pero opaca y de 6 px, sin pastilla dentro.
 
 import { useAnatomyStore } from '../store/anatomyStore';
 import { LAYER_META, SIDE_META } from '../lib/anatomyMeta';
-import { formatCanonicalName } from '../lib/formatName';
+import { formatShortName } from '../lib/formatName';
 import { trackForRegion } from '../data/trackByRegion';
 import { isConceptModule } from '../data/conceptByRegion';
 import type { AnatomyEntry } from '../types/anatomy';
@@ -49,35 +56,22 @@ export function ViewerHud({ byMesh, resolution }: ViewerHudProps) {
 
   return (
     <>
-      {/* Top-left module plate — gives the canvas an instrument-panel identity.
-          Hidden on phones (the region already shows in the TopBar dropdown) so it
-          never collides with the centered hover chip in the narrow top row. */}
-      <div className="pointer-events-none absolute left-4 top-4 z-20 hidden animate-fade-in sm:block">
-        <div className="glass flex items-center gap-2.5 rounded-xl px-3 py-2">
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/60" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
-          </span>
-          <div className="leading-tight">
-            <p className="text-[9px] font-medium uppercase tracking-[0.22em] text-slate-500">
-              Explorando
-            </p>
-            <p className="font-display text-sm font-semibold text-slate-100">
-              {track.regionName}
-            </p>
-          </div>
-        </div>
-      </div>
+      {/* Stage note. Hidden on phones (the region already shows in the TopBar
+          dropdown, and it would collide with the centred hover label in the
+          narrow top row) and from lg up (the left margin carries it). */}
+      <p className="stage-note pointer-events-none absolute left-4 top-4 z-20 hidden sm:block lg:hidden">
+        Explorando · {track.regionName}
+      </p>
 
       {/* Top-center hover label — names the structure under the cursor. */}
-      <div className="pointer-events-none absolute inset-x-0 top-4 z-20 flex justify-center">
-        {entry && <HoverChip entry={entry} muscleName={muscle?.name} />}
+      <div className="pointer-events-none absolute inset-x-0 top-4 z-20 flex justify-center px-4">
+        {entry && <HoverLabel entry={entry} muscleName={muscle?.name} />}
       </div>
     </>
   );
 }
 
-function HoverChip({
+function HoverLabel({
   entry,
   muscleName,
 }: {
@@ -85,22 +79,26 @@ function HoverChip({
   muscleName?: string;
 }) {
   const layer = LAYER_META[entry.layer];
-  const sideLabel = SIDE_META[entry.side].label;
-  const side = SIDE_META[entry.side].label.toLowerCase();
-  const title = muscleName
-    ? entry.side === 'center'
-      ? muscleName
-      : `${muscleName}, ${side}`
-    : formatCanonicalName(entry.canonicalName, entry.side);
+  // EL LADO SE DECIA DOS VECES, Y UNA EN MASCULINO. El titulo llevaba el lado
+  // pegado ("Escapula, derecho") y la ficha de al lado lo repetia ("Huesos ·
+  // Derecho"). El nombre va ahora limpio y el lado se dice UNA vez, como "lado
+  // derecho", que concuerda con cualquier estructura.
+  const title = muscleName ?? formatShortName(entry.canonicalName);
+  const side =
+    entry.side === 'center' ? null : `Lado ${SIDE_META[entry.side].label.toLowerCase()}`;
 
   return (
-    <div className="glass-strong flex max-w-[70%] items-center gap-2.5 rounded-full px-4 py-2 shadow-accent-glow animate-scale-in">
-      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${layer.dot}`} />
-      <span className="truncate font-display text-sm font-medium text-slate-100">
-        {title}
-      </span>
-      <span className="hidden shrink-0 rounded-full bg-slate-700/50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400 sm:inline">
-        {entry.side !== 'center' ? `${layer.label} · ${sideLabel}` : layer.label}
+    <div className="instrument flex max-w-full items-center gap-2.5 px-3 py-1.5 animate-scale-in sm:max-w-[70%]">
+      <span className={`h-2 w-2 shrink-0 rounded-full ${layer.dot}`} />
+      <span className="truncate font-display text-sm font-medium text-fg">{title}</span>
+      {/* En el telefono solo cabe el lado, que es lo que el nombre ya no dice;
+          la capa la da el punto de color. */}
+      <span className="tag shrink-0">
+        <span className="hidden sm:inline">
+          {layer.label}
+          {side ? ' · ' : ''}
+        </span>
+        {side}
       </span>
     </div>
   );

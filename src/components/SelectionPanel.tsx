@@ -1,363 +1,394 @@
 // src/components/SelectionPanel.tsx
 //
-// Right-hand contextual panel. Empty state prompts the user to click a
-// structure. When a structure is selected:
+// Right-hand margin of "Explorar": the sheet of whatever is selected. Empty
+// state tells the user how to select. When a structure is selected:
 //   - If it resolves to a muscle with authored content, show the full clinical
-//     card (origin, insertion, innervation, actions with hierarchy, functional
+//     sheet (origin, insertion, innervation, actions with hierarchy, functional
 //     positions, biomechanics, palpation, pathologies, notes) -- every claim
 //     with its citation(s).
-//   - Otherwise, fall back to the basic name + side/layer pills.
+//   - Otherwise, fall back to the basic name + the structure's own fields.
 //
-// The clinical content index is chosen by the ACTIVE REGION (store.region) via
-// muscleContentForRegion, so the same panel serves the shoulder, the elbow and
-// any future region without changes here.
+// WHICH sheet opens is decided by lib/selectionSheet.ts (a pure function, so it
+// can be measured against the real index): the muscle the model is lighting,
+// with the same resolver the highlight uses. The clinical content index is
+// chosen by the ACTIVE REGION (store.region), so the same panel serves every
+// region without changes here.
 //
-// The Origin and Insertion sections also carry "Ver origen / Ver insercion"
-// controls that highlight that attachment on the 3D model (PartFocusControls,
+// The Origin and Insertion sections also carry a "Ver origen / Ver insercion"
+// control that highlights that attachment on the 3D model (PartFocusControls,
 // shared with the toolbar).
+//
+// LAMINA: ES EL MARGEN DERECHO DE LA LAMINA (docs/sistema-lamina.md).
+// La ficha era una pila de tarjetas: seis pastillas de color bajo el nombre
+// (capa, grupo, lado), cada apartado en su caja con borde y fondo, las fuentes
+// en fichitas con contorno, la relevancia clinica en un recuadro verde y, con
+// nada seleccionado, un icono dentro de un recuadro con halo. Ahora es una
+// columna de secciones: rotulo + filo, texto, y las fuentes como etiquetas en
+// mono debajo de lo que respaldan. Los cuatro datos que se consultan siempre
+// (origen, insercion, inervacion, acciones) llegan ABIERTOS; el resto se
+// despliega desde su rotulo.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAnatomyStore } from '../store/anatomyStore';
-import { LAYER_META, SIDE_META } from '../lib/anatomyMeta';
-import { formatCanonicalName } from '../lib/formatName';
-import { resolveMuscleId } from '../lib/resolveMuscleId';
-import { muscleContentForRegion } from '../data/muscleContentByRegion';
-import { musclesForRomLookup } from '../data/musclesByRegion';
+import { LAYER_META } from '../lib/anatomyMeta';
+import { regionStructuresByMesh } from '../lib/regionStructures';
+import {
+  muscleRecordIsEmpty,
+  resolveSheet,
+  type MuscleSheet,
+  type StructureSheet,
+} from '../lib/selectionSheet';
+import { sideLabel, sideSetOfEntry, sidesOfMeshes } from '../lib/atlasSides';
 import { REFERENCES } from '../data/references';
 import { PartFocusControls } from './PartFocusControls';
 import { SaveButton } from './SaveButton';
+import { shortcutLabel } from './TopBar';
 import type { AnatomyEntry } from '../types/anatomy';
-import type { Muscle } from '../types/muscle';
 import { FUNCTIONAL_GROUP_LABEL } from '../types/muscle';
 import type { MuscleResolution } from '../lib/muscleResolver';
 import type {
-  MuscleContent,
   SourcedText,
   Citation,
   MuscleAction,
 } from '../types/muscleContent';
 
-
-
 interface SelectionPanelProps {
   byMesh: Map<string, AnatomyEntry>;
-  /** Accepted for call-site compatibility with App.tsx; not used directly here
-   *  (the panel resolves content from the mesh name + active region). */
+  /** The mesh <-> muscle maps the 3D highlight uses. The sheet resolves the
+   *  selection through the SAME maps, so what lights up and what the sheet
+   *  titles are always one muscle (see lib/selectionSheet.ts). */
   resolution?: MuscleResolution;
 }
 
-export function SelectionPanel({ byMesh }: SelectionPanelProps) {
+/** Ids of the sheet's sections, in reading order. */
+type SheetSection =
+  | 'origin'
+  | 'insertion'
+  | 'innervation'
+  | 'actions'
+  | 'positions'
+  | 'biomechanics'
+  | 'palpation'
+  | 'synergists'
+  | 'antagonists'
+  | 'pathologies'
+  | 'clinical';
+
+/**
+ * Open by default: the four facts a physio looks a muscle up for. They are two
+ * or three lines each, so they fit on screen together. Antes solo llegaban
+ * abiertos origen e insercion, y la inervacion y las acciones (que es lo que se
+ * pregunta en un examen) pedian un clic cada una en CADA musculo.
+ */
+const OPEN_BY_DEFAULT: SheetSection[] = ['origin', 'insertion', 'innervation', 'actions'];
+
+/** Props every collapsible section needs, built from the shared open set. */
+type SectionBinder = (id: SheetSection) => {
+  id: SheetSection;
+  open: boolean;
+  onToggle: () => void;
+};
+
+export function SelectionPanel({ byMesh, resolution }: SelectionPanelProps) {
   const selectedMeshName = useAnatomyStore((s) => s.selectedMeshName);
+  const selectedMuscleId = useAnatomyStore((s) => s.selectedMuscleId);
+  const selectedBoneMeshes = useAnatomyStore((s) => s.selectedBoneMeshes);
+  const sideFilter = useAnatomyStore((s) => s.sideFilter);
   const clearSelection = useAnatomyStore((s) => s.clearSelection);
+  const requestFocus = useAnatomyStore((s) => s.requestFocus);
   const region = useAnatomyStore((s) => s.region);
 
-  const entry = selectedMeshName ? byMesh.get(selectedMeshName) : undefined;
-  const muscleId = selectedMeshName ? resolveMuscleId(selectedMeshName) : null;
-  const content = muscleId
-    ? muscleContentForRegion(region)[muscleId]
-    : undefined;
-  // Regions whose clinical content lives only in the simpler `Muscle` shape
-  // (currently the spine: cervical / thoracic / lumbar) have no rich
-  // MuscleContent entry, so `content` is undefined above. Fall back to the
-  // muscle's own attachment/innervation/action fields instead of the bare
-  // "no content yet" placeholder, so spine muscles still teach something.
-  const muscle =
-    !content && muscleId
-      ? musclesForRomLookup(region).find((m) => m.id === muscleId)
-      : undefined;
+  // The bones and nerves the left margin lists, by mesh: the sheet titles a
+  // structure with the name its row carries. Once per region, not per click.
+  const structures = useMemo(
+    () => regionStructuresByMesh([...byMesh.values()], region),
+    [byMesh, region],
+  );
+
+  const sheet = resolveSheet({
+    region,
+    selectedMeshName,
+    selectedMuscleId,
+    selectedBoneMeshes,
+    byMesh,
+    resolution,
+    structures,
+  });
+
+  // One set for the whole margin, so what the user opened STAYS open while they
+  // move from muscle to muscle (comparing the palpation of two cuff muscles
+  // should not mean reopening "Palpacion" on each).
+  const [openSet, setOpenSet] = useState<ReadonlySet<SheetSection>>(
+    () => new Set(OPEN_BY_DEFAULT),
+  );
+  const sec: SectionBinder = (id) => ({
+    id,
+    open: openSet.has(id),
+    onToggle: () =>
+      setOpenSet((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+  });
+
+  // EL LADO QUE SE DICE ES EL QUE ESTA ENCENDIDO. Un musculo se enciende entero
+  // (los dos lados), y una malla cuyo nombre comparten las dos mitades tambien;
+  // la ficha decia el lado de UNA entrada del indice. Ver lib/atlasSides.ts.
+  const side =
+    sheet.kind === 'none'
+      ? null
+      : sideLabel(
+          sidesOfMeshes(sheet.meshNames) ??
+            (sheet.kind === 'structure' ? sideSetOfEntry(sheet.entry.side) : null),
+          sideFilter,
+        );
 
   return (
-    <aside className="flex h-full w-[340px] shrink-0 flex-col border-l border-slate-800/60 bg-ink-900/60">
-      <header className="flex items-center justify-between px-5 pb-3 pt-5">
-        <h2 className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Selección
-        </h2>
-        {entry && (
-          <button
-            type="button"
-            onClick={clearSelection}
-            className="rounded-md px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-800/60 hover:text-slate-300"
-          >
-            Limpiar
-          </button>
+    <aside
+      aria-label="Ficha de la estructura seleccionada"
+      // `max-w-full`: en el cajon del movil el contenedor mide como mucho 85vw
+      // (306 px en un telefono de 360), y con 340 px fijos la ficha se salia por
+      // la derecha y habia que desplazarla en horizontal para leer el final de
+      // cada renglon.
+      className="margin margin-r h-full w-[340px] max-w-full shrink-0"
+    >
+      <header className="flex min-h-[2.75rem] shrink-0 items-center gap-1 px-4 pt-1">
+        <h2 className="kicker mr-1.5">Selección</h2>
+        <span className="sec-rule" />
+        {sheet.kind !== 'none' && (
+          <>
+            {/* Llegar a una estructura por la lista o por el buscador no mueve
+                la camara si ya estaba seleccionada, y pincharla en el modelo
+                tampoco: "Centrar" la encuadra desde donde este. */}
+            {sheet.meshNames.length > 0 && (
+              <button
+                type="button"
+                onClick={() => requestFocus(sheet.meshNames)}
+                title="Encuadrar esta estructura en el modelo"
+                className="btn btn-quiet btn-sm"
+              >
+                Centrar
+              </button>
+            )}
+            <button type="button" onClick={clearSelection} className="btn btn-quiet btn-sm">
+              Limpiar
+            </button>
+          </>
         )}
       </header>
 
-      <div
-        className={[
-          'flex-1 overflow-y-auto px-5 pb-6',
-          !entry ? 'flex items-center justify-center' : '',
-        ].join(' ')}
-      >
-        {!entry ? (
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-6">
+        {sheet.kind === 'none' ? (
           <EmptyState />
-        ) : content ? (
-          <MuscleCard
-            entry={entry}
-            content={content}
-            region={region}
-            muscleId={muscleId}
-          />
+        ) : sheet.kind === 'muscle' ? (
+          <MuscleSheetView sheet={sheet} region={region} side={side} sec={sec} />
         ) : (
-          <BasicDetail entry={entry} muscle={muscle} />
+          <StructureSheetView sheet={sheet} side={side} />
         )}
       </div>
     </aside>
   );
 }
 
+/**
+ * Nothing selected. Era un icono de cursor dentro de un recuadro con halo,
+ * centrado en mitad de la columna, y dos atajos escritos como pista. Ahora dice
+ * las TRES formas de seleccionar (el modelo, un nombre del margen, una fila de
+ * la lista) y el buscador es un boton que se pulsa, no solo una combinacion de
+ * teclas que hay que recordar: en una tableta no hay teclado que pulsar.
+ */
 function EmptyState() {
+  const setPaletteOpen = useAnatomyStore((s) => s.setPaletteOpen);
+
   return (
-    <div className="flex flex-col items-center text-center animate-fade-in">
-      {/* Glowing "cursor pick" mark — a soft cyan halo behind a pointer glyph
-          reads as an inviting affordance rather than an empty placeholder. */}
-      <div className="relative mb-5 flex h-16 w-16 items-center justify-center">
-        <span className="absolute inset-0 rounded-2xl bg-accent/10 blur-md" />
-        <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-700/60 bg-gradient-to-b from-slate-800/60 to-slate-900/40 shadow-inner">
-          <svg
-            width="26"
-            height="26"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            className="text-accent/80"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M5 3l4.5 16 2.5-6.5L18.5 10 5 3z" />
+    <div className="animate-fade-in">
+      <div className="sec">
+        <p className="font-display text-base font-semibold leading-snug text-fg">
+          Ninguna estructura seleccionada
+        </p>
+        <p className="mt-2 text-[13px] leading-relaxed text-fg2">
+          Toca una estructura del modelo, uno de los nombres que la rodean o una
+          fila de la lista de la izquierda para abrir aquí su ficha clínica.
+        </p>
+        <button
+          type="button"
+          onClick={() => setPaletteOpen(true)}
+          className="btn btn-line mt-4"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.3-4.3" strokeLinecap="round" />
           </svg>
-        </div>
+          Buscar en el atlas
+        </button>
       </div>
 
-      <p className="font-display text-sm font-semibold text-slate-300">
-        Explora el modelo
-      </p>
-      <p className="mt-1.5 max-w-[230px] text-sm leading-relaxed text-slate-500">
-        Pasa el cursor para identificar una estructura y haz click para ver su
-        informacion clinica detallada.
-      </p>
-
-      {/* Quick keyboard hints — small, premium instrument-panel touch. */}
-      <div className="mt-6 flex flex-col gap-2 text-xs text-slate-500">
-        <div className="flex items-center gap-2">
-          <span className="kbd">1</span>
-          <span className="kbd">6</span>
-          <span>Vistas de camara</span>
+      <div className="sec">
+        <div className="sec-head">
+          <span className="kicker">Atajos</span>
+          <span className="sec-rule" />
         </div>
-        <div className="flex items-center gap-2">
-          <span className="kbd">Ctrl</span>
-          <span className="kbd">K</span>
-          <span>Buscar estructura</span>
-        </div>
+        <dl className="flex flex-col gap-2 text-[13px] text-fg2">
+          <div className="flex items-center gap-3">
+            <dt className="flex w-16 shrink-0 items-center gap-1">
+              <span className="kbd">1</span>
+              <span className="text-fg3">a</span>
+              <span className="kbd">6</span>
+            </dt>
+            <dd>Vistas de cámara</dd>
+          </div>
+          <div className="flex items-center gap-3">
+            <dt className="flex w-16 shrink-0 items-center">
+              <span className="kbd">{shortcutLabel()}</span>
+            </dt>
+            <dd>Buscar músculos, huesos, tests y movimientos</dd>
+          </div>
+        </dl>
       </div>
     </div>
   );
 }
 
 /**
- * Fallback card for a selected structure without rich MuscleContent. If the
- * structure resolves to a `Muscle` (e.g. the spine regions, whose clinical data
- * lives in the simpler Muscle shape), we surface its attachments, innervation,
- * actions and clinical note. Otherwise (bones, ligaments, vessels) we show the
- * name + pills and a "no detailed content yet" line.
+ * The line of facts under the name: layer, group, side. Era una fila de
+ * pastillas de color; ahora son etiquetas en mono separadas por un punto medio,
+ * con el punto de color de la capa delante.
  */
-function BasicDetail({
-  entry,
-  muscle,
-}: {
-  entry: AnatomyEntry;
-  muscle?: Muscle;
-}) {
-  const layer = LAYER_META[entry.layer];
-  const sideLabel = SIDE_META[entry.side].label;
-
+function FactLine({ dot, facts }: { dot: string; facts: Array<string | null | undefined> }) {
+  const shown = facts.filter((f): f is string => !!f);
   return (
-    <div className="w-full animate-slide-in-right">
-      <h3 className="font-display text-xl font-semibold leading-snug text-slate-50">
-        {muscle ? muscle.name : formatCanonicalName(entry.canonicalName, entry.side)}
-      </h3>
-      {muscle ? (
-        <p className="mt-0.5 text-sm italic text-slate-400">{muscle.latin}</p>
-      ) : (
-        <p className="mt-1 font-mono text-[11px] text-slate-600">
-          {entry.canonicalName}
-        </p>
-      )}
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-800/60 px-2.5 py-1 text-xs font-medium text-slate-300">
-          <span className={`h-2 w-2 rounded-full ${layer.dot}`} />
-          {layer.label}
+    <p className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
+      {shown.map((fact, i) => (
+        <span key={`${fact}-${i}`} className="tag">
+          {i > 0 && (
+            <span className="mr-2" aria-hidden="true">
+              ·
+            </span>
+          )}
+          {fact}
         </span>
-        {entry.side !== 'center' && (
-          <span className="rounded-full bg-slate-800/60 px-2.5 py-1 text-xs font-medium text-slate-300">
-            {sideLabel}
-          </span>
-        )}
-        {muscle?.groups.map((g) => (
-          <span
-            key={g}
-            className="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent"
-          >
-            {FUNCTIONAL_GROUP_LABEL[g]}
-          </span>
-        ))}
-      </div>
-
-      {muscle ? (
-        <div className="mt-6 space-y-5">
-          <BasicSection label="Origen">{muscle.origin}</BasicSection>
-          <BasicSection label="Inserción">{muscle.insertion}</BasicSection>
-          <BasicSection label="Inervación">
-            {muscle.innervation}
-            {muscle.roots.length > 0 && (
-              <span className="ml-1.5 font-mono text-[11px] text-slate-500">
-                ({muscle.roots.join(', ')})
-              </span>
-            )}
-          </BasicSection>
-          {muscle.actions.length > 0 && (
-            <div>
-              <h4 className="mb-1.5 font-display text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Acciones
-              </h4>
-              <ul className="space-y-1.5">
-                {muscle.actions.map((a, i) => (
-                  <li key={i} className="text-sm leading-relaxed text-slate-300">
-                    <span className="font-medium text-slate-200">{a.movement}</span>
-                    <span className="text-slate-500"> · {a.joint}</span>
-                    {a.note && (
-                      <span className="block text-[13px] text-slate-400">{a.note}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {muscle.clinicalNote && (
-            <div className="rounded-lg border border-clinical/25 bg-clinical/[0.06] px-3 py-2.5">
-              <h4 className="mb-1 font-display text-xs font-semibold uppercase tracking-[0.16em] text-clinical-soft">
-                Relevancia clínica
-              </h4>
-              <p className="text-[13px] leading-relaxed text-slate-300">
-                {muscle.clinicalNote}
-              </p>
-            </div>
-          )}
-          <p className="border-t border-slate-800/60 pt-3 text-[11px] leading-relaxed text-slate-600">
-            Contenido en revisión; pendiente de verificación con la fuente.
-          </p>
-        </div>
-      ) : (
-        <p className="mt-6 text-sm leading-relaxed text-slate-500">
-          Esta estructura todavia no tiene contenido clinico detallado.
-        </p>
-      )}
-    </div>
+      ))}
+    </p>
   );
 }
 
-/** Compact labeled prose block used by the basic (Muscle-shape) detail card. */
-function BasicSection({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+/**
+ * Sheet of a structure that is not a muscle: a bone, a nerve, a ligament, a
+ * vessel. The atlas has no clinical record for these, so the sheet names it and
+ * says so, instead of leaving an empty column.
+ */
+function StructureSheetView({ sheet, side }: { sheet: StructureSheet; side: string | null }) {
+  const layer = LAYER_META[sheet.entry.layer];
+
   return (
-    <div>
-      <h4 className="mb-1 font-display text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-        {label}
-      </h4>
-      <p className="text-sm leading-relaxed text-slate-300">{children}</p>
+    <div className="animate-slide-in-right">
+      <div className="sec">
+        <h3 className="font-display text-xl font-semibold leading-snug text-fg">{sheet.name}</h3>
+        {/* The atlas's own (Latin / English) name, quiet: it is what a textbook
+            index or a paper will call this structure. */}
+        <p className="num mt-1 break-words text-[11px] text-fg3">
+          {sheet.entry.canonicalName.replace(/_instance_\d+$/i, '').replace(/_/g, ' ')}
+        </p>
+        <FactLine dot={layer.dot} facts={[layer.label, side]} />
+      </div>
+      <div className="sec">
+        <p className="note">
+          Esta estructura todavía no tiene ficha clínica. Las fichas con origen,
+          inserción, inervación y acciones están en los músculos de la región.
+        </p>
+      </div>
     </div>
   );
 }
 
-/** Full clinical card for a muscle with authored content. */
-function MuscleCard({
-  entry,
-  content,
+/** Body text of the sheet. */
+function Prose({ children }: { children: React.ReactNode }) {
+  return <p className="text-[13px] leading-relaxed text-fg2">{children}</p>;
+}
+
+/** Sheet of a muscle: the rich cited content, or the muscle's own fields. */
+function MuscleSheetView({
+  sheet,
   region,
-  muscleId,
+  side,
+  sec,
 }: {
-  entry: AnatomyEntry;
-  content: MuscleContent;
+  sheet: MuscleSheet;
   /** Active region, so a saved muscle can be reopened where it belongs. */
   region: string | null;
-  /** Clinical muscle id (the collection key), null when unresolved. */
-  muscleId: string | null;
+  side: string | null;
+  sec: SectionBinder;
 }) {
-  const layer = LAYER_META[entry.layer];
-  const sideLabel = SIDE_META[entry.side].label;
+  const layer = LAYER_META.muscles;
+  const { content, muscle } = sheet;
+  const groups = content
+    ? content.group
+      ? [content.group]
+      : []
+    : (muscle?.groups.map((g) => FUNCTIONAL_GROUP_LABEL[g]) ?? []);
 
+  return (
+    <div className="animate-slide-in-right">
+      <div className="sec">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="font-display text-xl font-semibold leading-snug text-fg">
+              {sheet.name}
+            </h3>
+            {sheet.latin && <p className="mt-0.5 text-sm italic text-fg2">{sheet.latin}</p>}
+          </div>
+          {region && content && (
+            <SaveButton kind="muscle" region={region} id={sheet.muscleId} label={sheet.name} />
+          )}
+        </div>
+        <FactLine dot={layer.dot} facts={[layer.label, ...groups, side]} />
+      </div>
+
+      {content ? (
+        <RichSections sheet={sheet} sec={sec} />
+      ) : muscle ? (
+        <SimpleSections sheet={sheet} sec={sec} />
+      ) : null}
+    </div>
+  );
+}
+
+/** The cited sheet of a muscle the region has authored content for. */
+function RichSections({ sheet, sec }: { sheet: MuscleSheet; sec: SectionBinder }) {
+  const content = sheet.content;
+  if (!content) return null;
   const primaryActions = content.actions.filter((a) => a.role === 'primary');
   const accessoryActions = content.actions.filter((a) => a.role === 'accessory');
 
   return (
-    <div className="w-full animate-slide-in-right">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="font-display text-xl font-semibold leading-snug text-slate-50">
-            {content.nameEs}
-          </h3>
-          <p className="mt-0.5 text-sm italic text-slate-400">{content.nameLat}</p>
-        </div>
-        {region && muscleId && (
-          <SaveButton
-            kind="muscle"
-            region={region}
-            id={muscleId}
-            label={content.nameEs}
-          />
+    <>
+      <Section title="Origen" {...sec('origin')}>
+        <Sourced item={content.origin} />
+        <PartFocusControls variant="panel" part="origin" />
+      </Section>
+
+      <Section title="Inserción" {...sec('insertion')}>
+        <Sourced item={content.insertion} />
+        <PartFocusControls variant="panel" part="insertion" />
+      </Section>
+
+      <Section title="Inervación" {...sec('innervation')}>
+        <Sourced item={content.innervation.nerve} />
+        {content.innervation.roots && (
+          <div className="mt-2">
+            <Sourced item={content.innervation.roots} />
+          </div>
         )}
-      </div>
+      </Section>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-800/60 px-2.5 py-1 text-xs font-medium text-slate-300">
-          <span className={`h-2 w-2 rounded-full ${layer.dot}`} />
-          {layer.label}
-        </span>
-        {content.group && (
-          <span className="rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
-            {content.group}
-          </span>
-        )}
-        {entry.side !== 'center' && (
-          <span className="rounded-full bg-slate-800/60 px-2.5 py-1 text-xs font-medium text-slate-300">
-            {sideLabel}
-          </span>
-        )}
-      </div>
-
-      <div className="mt-6 flex flex-col gap-2">
-        <Section title="Origen" defaultOpen>
-          <Sourced item={content.origin} />
-          <PartFocusControls variant="panel" />
-        </Section>
-
-        <Section title="Inserción" defaultOpen>
-          <Sourced item={content.insertion} />
-          <PartFocusControls variant="panel" />
-        </Section>
-
-        <Section title="Inervación">
-          <Sourced item={content.innervation.nerve} />
-          {content.innervation.roots && (
-            <div className="mt-2">
-              <Sourced item={content.innervation.roots} />
-            </div>
-          )}
-        </Section>
-
-        <Section title="Acciones">
+      {content.actions.length > 0 && (
+        <Section title="Acciones" {...sec('actions')}>
           {primaryActions.length > 0 && (
             <>
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-rose-300/80">
-                Principales
-              </p>
+              <SubLabel>Principales</SubLabel>
               <ul className="flex flex-col gap-2">
                 {primaryActions.map((a, i) => (
                   <li key={i}>
@@ -369,9 +400,7 @@ function MuscleCard({
           )}
           {accessoryActions.length > 0 && (
             <>
-              <p className="mb-1 mt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Accesorias
-              </p>
+              <SubLabel className={primaryActions.length > 0 ? 'mt-3' : ''}>Accesorias</SubLabel>
               <ul className="flex flex-col gap-2">
                 {accessoryActions.map((a, i) => (
                   <li key={i}>
@@ -382,72 +411,146 @@ function MuscleCard({
             </>
           )}
         </Section>
+      )}
 
-        {content.functionalPositions && (
-          <Section title="Posiciones funcionales">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Acortado
-            </p>
-            <Sourced item={content.functionalPositions.shortened} />
-            <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Estirado
-            </p>
-            <Sourced item={content.functionalPositions.lengthened} />
-          </Section>
-        )}
+      {content.functionalPositions && (
+        <Section title="Posiciones funcionales" {...sec('positions')}>
+          <SubLabel>Acortado</SubLabel>
+          <Sourced item={content.functionalPositions.shortened} />
+          <SubLabel className="mt-3">Estirado</SubLabel>
+          <Sourced item={content.functionalPositions.lengthened} />
+        </Section>
+      )}
 
-        {content.biomechanics && content.biomechanics.length > 0 && (
-          <Section title="Biomecánica">
-            <SourcedList items={content.biomechanics} />
-          </Section>
-        )}
+      {content.biomechanics && content.biomechanics.length > 0 && (
+        <Section title="Biomecánica" {...sec('biomechanics')}>
+          <SourcedList items={content.biomechanics} />
+        </Section>
+      )}
 
-        {content.palpation && (
-          <Section title="Palpacion">
-            <Sourced item={content.palpation.howTo} />
-            {content.palpation.position && (
-              <div className="mt-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  Posicion de acceso
-                </p>
-                <Sourced item={content.palpation.position} />
-              </div>
-            )}
-          </Section>
-        )}
+      {content.palpation && (
+        <Section title="Palpación" {...sec('palpation')}>
+          <Sourced item={content.palpation.howTo} />
+          {content.palpation.position && (
+            <div className="mt-2">
+              <SubLabel>Posición de acceso</SubLabel>
+              <Sourced item={content.palpation.position} />
+            </div>
+          )}
+        </Section>
+      )}
 
-        {content.synergists && content.synergists.length > 0 && (
-          <Section title="Sinergistas">
-            <SourcedList items={content.synergists} />
-          </Section>
-        )}
+      {content.synergists && content.synergists.length > 0 && (
+        <Section title="Sinergistas" {...sec('synergists')}>
+          <SourcedList items={content.synergists} />
+        </Section>
+      )}
 
-        {content.antagonists && content.antagonists.length > 0 && (
-          <Section title="Antagonistas">
-            <SourcedList items={content.antagonists} />
-          </Section>
-        )}
+      {content.antagonists && content.antagonists.length > 0 && (
+        <Section title="Antagonistas" {...sec('antagonists')}>
+          <SourcedList items={content.antagonists} />
+        </Section>
+      )}
 
-        {content.pathologies && content.pathologies.length > 0 && (
-          <Section title="Patologías frecuentes">
-            <SourcedList items={content.pathologies} />
-          </Section>
-        )}
+      {content.pathologies && content.pathologies.length > 0 && (
+        <Section title="Patologías frecuentes" {...sec('pathologies')}>
+          <SourcedList items={content.pathologies} />
+        </Section>
+      )}
 
-        {content.clinicalNotes && content.clinicalNotes.length > 0 && (
-          <Section title="Relevancia clínica">
-            <SourcedList items={content.clinicalNotes} />
-          </Section>
-        )}
-      </div>
-    </div>
+      {content.clinicalNotes && content.clinicalNotes.length > 0 && (
+        <Section title="Relevancia clínica" {...sec('clinical')}>
+          <SourcedList items={content.clinicalNotes} />
+        </Section>
+      )}
+    </>
   );
+}
+
+/**
+ * A muscle without a rich sheet in this region: its own attachment,
+ * innervation and action fields. Un apartado sin texto NO se pinta: un rotulo
+ * con su filo y nada debajo se lee como un fallo de carga. Y si el registro no
+ * trae ningun dato (un musculo de otra region que asoma en esta) se dice eso,
+ * en vez de "contenido en revision" sobre una ficha en blanco.
+ */
+function SimpleSections({ sheet, sec }: { sheet: MuscleSheet; sec: SectionBinder }) {
+  const muscle = sheet.muscle;
+  if (!muscle) return null;
+
+  if (muscleRecordIsEmpty(muscle)) {
+    return (
+      <div className="sec">
+        <p className="note">
+          Este músculo se estudia en otra región: aquí solo se identifica. Su
+          ficha completa se abre desde la región a la que pertenece.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {muscle.origin && (
+        <Section title="Origen" {...sec('origin')}>
+          <Prose>{muscle.origin}</Prose>
+        </Section>
+      )}
+      {muscle.insertion && (
+        <Section title="Inserción" {...sec('insertion')}>
+          <Prose>{muscle.insertion}</Prose>
+        </Section>
+      )}
+      {muscle.innervation && (
+        <Section title="Inervación" {...sec('innervation')}>
+          <Prose>
+            {muscle.innervation}
+            {muscle.roots.length > 0 && (
+              <span className="num ml-1.5 text-[11px] text-fg3">({muscle.roots.join(', ')})</span>
+            )}
+          </Prose>
+        </Section>
+      )}
+      {muscle.actions.length > 0 && (
+        <Section title="Acciones" {...sec('actions')}>
+          <ul className="flex flex-col gap-1.5">
+            {muscle.actions.map((a, i) => (
+              <li key={i} className="text-[13px] leading-relaxed text-fg2">
+                <span className="font-medium text-fg">{a.movement}</span>
+                <span className="text-fg3"> · {a.joint}</span>
+                {a.note && <span className="block">{a.note}</span>}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+      {muscle.clinicalNote && (
+        <Section title="Relevancia clínica" {...sec('clinical')}>
+          <Prose>{muscle.clinicalNote}</Prose>
+        </Section>
+      )}
+      <div className="sec">
+        <p className="note">Contenido en revisión; pendiente de verificación con la fuente.</p>
+      </div>
+    </>
+  );
+}
+
+/** A second-rank label inside a section ("Principales", "Acortado"). */
+function SubLabel({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <p className={`tag mb-1 text-fg2 ${className}`}>{children}</p>;
 }
 
 function ActionItem({ action }: { action: MuscleAction }) {
   return (
     <div>
-      <p className="text-sm leading-relaxed text-slate-300">{action.text}</p>
+      <Prose>{action.text}</Prose>
       <CitationRow cites={action.cite} />
     </div>
   );
@@ -456,7 +559,7 @@ function ActionItem({ action }: { action: MuscleAction }) {
 function Sourced({ item }: { item: SourcedText }) {
   return (
     <div>
-      <p className="text-sm leading-relaxed text-slate-300">{item.text}</p>
+      <Prose>{item.text}</Prose>
       <CitationRow cites={item.cite} />
     </div>
   );
@@ -474,11 +577,11 @@ function SourcedList({ items }: { items: SourcedText[] }) {
   );
 }
 
-/** Renders the citation chips under a claim. */
+/** The sources under a claim: mono tags separated by a middle dot. */
 function CitationRow({ cites }: { cites: Citation[] }) {
   if (!cites || cites.length === 0) return null;
   return (
-    <div className="mt-1.5 flex flex-wrap gap-1.5">
+    <p className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
       {cites.map((c, i) => {
         const ref = REFERENCES[c.ref];
         const label = ref ? ref.authors.split(',')[0] : c.ref;
@@ -487,8 +590,13 @@ function CitationRow({ cites }: { cites: Citation[] }) {
           <span
             key={i}
             title={ref ? `${ref.authors}. ${ref.title}` : c.ref}
-            className="inline-flex items-center gap-1 rounded-md border border-slate-700/60 bg-slate-800/40 px-1.5 py-0.5 text-[10px] font-medium text-slate-400"
+            className="tag"
           >
+            {i > 0 && (
+              <span className="mr-2" aria-hidden="true">
+                ·
+              </span>
+            )}
             {label}
             {locator ? `, ${locator}` : ''}
             {/* EL TRIANGULO AMARILLO ESTABA EN TODAS LAS CITAS, Y NO DECIA NADA.
@@ -502,53 +610,72 @@ function CitationRow({ cites }: { cites: Citation[] }) {
                 esta cotejado se dice con palabras donde toca (ver el pie del
                 panel de neuro). */}
             {locator && !c.pageVerified && (
-              <span
-                title="Localizador por confirmar contra la edición citada"
-                className="text-slate-500"
-              >
+              <span title="Localizador por confirmar contra la edición citada" className="ml-1">
                 ?
               </span>
             )}
           </span>
         );
       })}
-    </div>
+    </p>
   );
 }
 
+/**
+ * A collapsible section of the sheet. The header is the LAMINA section head
+ * made clickable (chevron + kicker + rule); there is no box around the body.
+ */
 function Section({
+  id,
   title,
+  open,
+  onToggle,
   children,
-  defaultOpen = false,
 }: {
+  id: SheetSection;
   title: string;
+  open: boolean;
+  onToggle: () => void;
   children: React.ReactNode;
-  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="rounded-lg border border-slate-800/60 bg-slate-900/30">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-3 py-2.5 text-left"
-      >
-        <span className="text-sm font-medium text-slate-200">{title}</span>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          className={`text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`}
-          strokeLinecap="round"
-          strokeLinejoin="round"
+    <section className="px-4">
+      {/* El titulo envuelve al boton, y no al reves: un encabezado dentro de un
+          <button> no es HTML valido y los lectores de pantalla lo aplanan. */}
+      <h4>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-controls={`ficha-${id}`}
+          // 44 px en el cajon tactil; 36 px en el margen de escritorio.
+          className="sec-head group mb-0 min-h-[44px] w-full text-left lg:min-h-[2.25rem]"
         >
-          <path d="M6 9l6 6 6-6" />
-        </svg>
-      </button>
-      {open && <div className="px-3 pb-3 pt-0.5">{children}</div>}
-    </div>
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            aria-hidden="true"
+            className={`shrink-0 transition-transform ${
+              open ? 'rotate-90 text-fg2' : 'text-fg3 group-hover:text-fg2'
+            }`}
+          >
+            <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className={`kicker transition-colors ${open ? 'text-fg2' : 'group-hover:text-fg2'}`}>
+            {title}
+          </span>
+          <span className="sec-rule" />
+        </button>
+      </h4>
+      {open && (
+        <div id={`ficha-${id}`} className="pb-3 pl-5">
+          {children}
+        </div>
+      )}
+    </section>
   );
 }

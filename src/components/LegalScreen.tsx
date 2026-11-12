@@ -17,10 +17,15 @@
 // the governing law, and whether an explicit clickwrap acceptance is required in
 // your jurisdiction. Update CONTACT and GOVERNING_LAW below with your real data.
 //
+// LAMINA (docs/sistema-lamina.md): las cuatro pestanas eran bloques redondeados
+// con relleno; ahora son pestanas subrayadas (`.tabs`), con sus roles, y el
+// modal propio usa la superficie compartida de los dialogos del sitio.
+//
 // UI strings Spanish (LATAM). No `any`. English comments.
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { MedicalDisclaimerScreen } from './MedicalDisclaimer';
+import { DialogClose, SiteDialog } from './account/SiteDialog';
 
 // TODO: reemplaza por tu correo de soporte y tu jurisdiccion reales.
 const CONTACT = 'soporte@anatris.app';
@@ -43,28 +48,39 @@ export function LegalScreen({
   defaultTab?: LegalTab;
 }) {
   const [tab, setTab] = useState<LegalTab>(defaultTab);
+  const panelId = useId();
 
   return (
-    <div className="flex min-h-0 flex-col">
+    // `bg-inherit` en los dos niveles: la fila de pestanas se queda pegada
+    // arriba mientras el texto pasa por debajo, asi que necesita un fondo
+    // opaco, y ese fondo tiene que ser el de la superficie que la contiene, que
+    // no es siempre la misma (grafito en la superposicion del producto, el
+    // token `card` en el modal del sitio). Heredarlo evita adivinarlo: antes
+    // iba en `bg-card/95` con desenfoque y dentro del producto se veia como una
+    // banda de otro gris.
+    <div className="flex min-h-0 flex-col bg-inherit">
       {/* Tab strip */}
-      <div className="sticky top-0 z-10 flex flex-wrap gap-1 border-b border-line bg-card/95 px-4 py-2 backdrop-blur">
+      <div
+        role="tablist"
+        aria-label="Documentos legales"
+        className="tabs sticky top-0 z-10 overflow-x-auto bg-inherit px-5"
+      >
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            aria-controls={panelId}
             onClick={() => setTab(t.id)}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-              tab === t.id
-                ? 'bg-brand-wash text-brand'
-                : 'text-fg2 hover:text-fg'
-            }`}
+            className="tab min-h-[44px]"
           >
             {t.label}
           </button>
         ))}
       </div>
 
-      <div className="min-h-0 flex-1">
+      <div id={panelId} role="tabpanel" className="min-h-0 flex-1">
         {tab === 'terminos' && <TermsSection />}
         {tab === 'privacidad' && <PrivacySection />}
         {tab === 'reembolsos' && <RefundSection />}
@@ -353,33 +369,24 @@ export function LegalModal({
   defaultTab?: LegalTab;
   onClose: () => void;
 }) {
+  const titleId = useId();
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="Cerrar"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-      />
-      <div className="relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-line bg-card shadow-xl">
-        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-3">
-          <span className="font-display text-sm font-semibold text-fg">Legal</span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded p-1.5 text-fg3 transition-colors hover:text-fg"
-            aria-label="Cerrar"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <LegalScreen defaultTab={defaultTab} />
-        </div>
+    <SiteDialog
+      onClose={onClose}
+      labelledBy={titleId}
+      layer="above"
+      className="flex max-h-[85vh] max-w-2xl flex-col overflow-hidden"
+    >
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-line pl-5 pr-1.5">
+        <h2 id={titleId} className="font-display text-sm font-semibold text-fg">
+          Legal
+        </h2>
+        <DialogClose onClose={onClose} />
       </div>
-    </div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-inherit">
+        <LegalScreen defaultTab={defaultTab} />
+      </div>
+    </SiteDialog>
   );
 }

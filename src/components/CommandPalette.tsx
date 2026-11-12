@@ -110,14 +110,17 @@ export function CommandPalette({ index }: CommandPaletteProps) {
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] animate-fade-in">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-ink-950/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-page/80"
         onClick={() => setOpen(false)}
       />
 
-      {/* Panel */}
-      <div className="glass-strong relative w-full max-w-lg overflow-hidden rounded-2xl animate-scale-in">
-        <div className="flex items-center gap-3 border-b border-slate-800/60 px-4 py-3.5">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-500">
+      {/* Panel. LAMINA: la paleta flota de verdad, asi que lleva superficie
+          (`.instrument`: grafito opaco, filo de 1 px, 6 px de radio). Dentro no
+          hay cajas: las filas van de borde a borde y la activa se marca con el
+          mismo velo con que responde un boton. */}
+      <div className="instrument relative mx-3 w-full max-w-lg overflow-hidden animate-scale-in">
+        <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-fg3" aria-hidden="true">
             <circle cx="11" cy="11" r="7" />
             <path d="M21 21l-4.3-4.3" strokeLinecap="round" />
           </svg>
@@ -127,14 +130,14 @@ export function CommandPalette({ index }: CommandPaletteProps) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder="Buscar una estructura anatómica…"
-            className="flex-1 bg-transparent text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent text-sm text-fg placeholder:text-fg3 focus:outline-none"
           />
           <span className="kbd">esc</span>
         </div>
 
-        <div className="max-h-[50vh] overflow-y-auto py-2">
+        <div className="max-h-[50vh] overflow-y-auto py-1.5">
           {results.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-slate-500">
+            <p className="px-4 py-8 text-center text-sm text-fg3">
               Sin resultados para “{query}”.
             </p>
           ) : (
@@ -147,20 +150,19 @@ export function CommandPalette({ index }: CommandPaletteProps) {
                   onClick={() => choose(entry)}
                   onMouseEnter={() => setActive(i)}
                   className={[
-                    'flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors',
-                    i === active ? 'bg-accent/10' : 'hover:bg-slate-800/30',
+                    'flex w-full items-center gap-3 px-4 py-2 text-left transition-colors',
+                    i === active ? 'bg-fg/[0.06] text-fg' : 'text-fg2',
                   ].join(' ')}
                 >
                   <span className={`h-2 w-2 shrink-0 rounded-full ${layer.dot}`} />
-                  <span className="flex-1 truncate text-sm text-slate-200">
+                  <span className="min-w-0 flex-1 truncate text-sm">
                     {formatShortName(entry.canonicalName)}
                   </span>
-                  {entry.side !== 'center' && (
-                    <span className="text-xs text-slate-500">
-                      {SIDE_META[entry.side].label}
-                    </span>
-                  )}
-                  <span className="text-[11px] text-slate-600">{layer.label}</span>
+                  <span className="tag shrink-0">
+                    {entry.side !== 'center'
+                      ? `${layer.label} · ${SIDE_META[entry.side].label}`
+                      : layer.label}
+                  </span>
                 </button>
               );
             })

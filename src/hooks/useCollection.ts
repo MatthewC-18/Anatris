@@ -21,6 +21,7 @@ import {
   listItems,
   readCollection,
   removeItem,
+  saveItem,
   setNote as setNoteIn,
   toggleItem,
   writeCollection,
@@ -69,6 +70,18 @@ export interface UseCollection {
     label: string;
   }) => void;
   remove: (key: string) => void;
+  /**
+   * Guarda SIN alternar. Es el "Deshacer" de `remove`: `toggle` quitaria el
+   * elemento si entre tanto se hubiera vuelto a guardar desde otra pantalla, y
+   * un deshacer que borra es peor que no tenerlo. Recupera la nota que tenia
+   * (ver `saveItem`: la lapida la conserva).
+   */
+  save: (input: {
+    kind: CollectionKind;
+    region: string;
+    id: string;
+    label: string;
+  }) => void;
   setNote: (key: string, note: string) => void;
   /** Re-read from storage — call after an account sync merges remote data in. */
   refresh: () => void;
@@ -108,11 +121,27 @@ export function useCollection(region?: string): UseCollection {
     commit(removeItem(get(), key, Date.now()));
   }, []);
 
+  const save = useCallback(
+    (input: { kind: CollectionKind; region: string; id: string; label: string }) => {
+      commit(saveItem(get(), input, Date.now()));
+    },
+    [],
+  );
+
   const setNote = useCallback((key: string, note: string) => {
     commit(setNoteIn(get(), key, note, Date.now()));
   }, []);
 
   const items = listItems(blob, region);
 
-  return { items, count: items.length, isSaved, toggle, remove, setNote, refresh: adoptExternal };
+  return {
+    items,
+    count: items.length,
+    isSaved,
+    toggle,
+    remove,
+    save,
+    setNote,
+    refresh: adoptExternal,
+  };
 }

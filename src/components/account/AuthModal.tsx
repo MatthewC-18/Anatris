@@ -12,11 +12,21 @@
 // is launched from inside the product. It used to be hard-coded ink with an
 // accent glow behind the brand mark, which meant the sign-up step of the funnel
 // arrived as a dark neon panel over a light page.
+//
+// LAMINA (docs/sistema-lamina.md). El banco le contaba una caja y cuatro
+// pastillas: el recuadro del modal, el boton de Google, los dos campos y el
+// boton de enviar, cada uno con su borde y su relleno escritos a mano. Ahora:
+//   - la superficie es la compartida (`SiteDialog`), que ademas lo hace un
+//     dialogo de verdad: Escape, foco dentro y foco devuelto al cerrar;
+//   - Google y "Entrar" son botones del sistema (`.btn-line`, `.btn-primary`);
+//   - el error y el aviso son notas con regla a la izquierda, sin fondo tenido;
+//   - los CAMPOS conservan su recuadro, a proposito (ver `AuthField`).
 
-import { useState } from 'react';
+import { useId, useState, type InputHTMLAttributes, type ReactNode } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { BrandMark } from '../BrandMark';
 import { LegalModal, type LegalTab } from '../LegalScreen';
+import { DialogClose, SiteDialog } from './SiteDialog';
 
 type View = 'signin' | 'signup' | 'reset';
 
@@ -36,6 +46,7 @@ export function AuthModal({
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [legalTab, setLegalTab] = useState<LegalTab | null>(null);
+  const titleId = useId();
 
   if (!open) return null;
 
@@ -108,31 +119,15 @@ export function AuthModal({
         : 'Te enviamos un enlace para establecer una nueva.';
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="Cerrar"
-        onClick={close}
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-      />
+    <>
+      <SiteDialog onClose={close} labelledBy={titleId} className="max-w-sm">
+        <DialogClose onClose={close} className="absolute right-2 top-2 z-10" />
 
-      <div className="relative z-10 w-full max-w-sm animate-scale-in overflow-hidden rounded-lg border border-line bg-card shadow-xl">
-        <button
-          type="button"
-          aria-label="Cerrar"
-          onClick={close}
-          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded text-fg3 transition-colors hover:text-fg"
-        >
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
-
-        <div className="relative px-6 pb-6 pt-7">
+        <div className="px-6 pb-6 pt-7">
           {/* Brand + headline */}
           <div className="mb-6">
             <BrandMark className="h-5 w-5 text-fg" title="Anatris" />
-            <h2 className="mt-4 font-display text-lg font-semibold text-fg">
+            <h2 id={titleId} className="mt-4 font-display text-lg font-semibold text-fg">
               {title}
             </h2>
             <p className="mt-1 text-[13px] text-fg3">{subtitle}</p>
@@ -140,12 +135,15 @@ export function AuthModal({
 
           {view !== 'reset' && (
             <>
-              {/* Google */}
+              {/* Google. Era un boton blanco fijo, tambien sobre tinta: la unica
+                  mancha blanca del producto. Con el contorno del sistema se lee
+                  igual de claro en papel y en tinta, y la G conserva sus cuatro
+                  colores, que es lo que la identifica. */}
               <button
                 type="button"
                 onClick={google}
                 disabled={googleBusy}
-                className="flex w-full items-center justify-center gap-2.5 rounded border border-line bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition-opacity hover:opacity-90 disabled:opacity-60"
+                className="btn btn-line h-11 w-full gap-2.5 text-sm text-fg"
               >
                 <GoogleIcon className="h-4 w-4" />
                 {googleBusy ? 'Conectando…' : 'Continuar con Google'}
@@ -160,62 +158,53 @@ export function AuthModal({
           )}
 
           <form onSubmit={submit} className="flex flex-col gap-3">
-            <label className="flex flex-col gap-1.5 text-[13px] font-medium text-fg2">
-              Correo
-              <input
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="rounded border border-line bg-page px-3.5 py-2.5 text-sm text-fg outline-none transition-colors focus:border-brand"
-                placeholder="tu@correo.com"
-              />
-            </label>
+            <AuthField
+              label="Correo"
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="tu@correo.com"
+              data-autofocus
+            />
 
             {view !== 'reset' && (
-              <label className="flex flex-col gap-1.5 text-[13px] font-medium text-fg2">
-                <span className="flex items-center justify-between">
-                  Contraseña
-                  {view === 'signin' && (
+              <AuthField
+                label="Contraseña"
+                aside={
+                  view === 'signin' && (
                     <button
                       type="button"
                       onClick={() => go('reset')}
-                      className="font-normal text-fg3 transition-colors hover:text-fg"
+                      className="text-fg3 transition-colors hover:text-fg"
                     >
                       ¿Olvidaste tu contraseña?
                     </button>
-                  )}
-                </span>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  autoComplete={view === 'signin' ? 'current-password' : 'new-password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="rounded border border-line bg-page px-3.5 py-2.5 text-sm text-fg outline-none transition-colors focus:border-brand"
-                  placeholder={view === 'signup' ? 'Mínimo 6 caracteres' : '••••••••'}
-                />
-              </label>
+                  )
+                }
+                type="password"
+                required
+                minLength={6}
+                autoComplete={view === 'signin' ? 'current-password' : 'new-password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={view === 'signup' ? 'Mínimo 6 caracteres' : '••••••••'}
+              />
             )}
 
             {error && (
-              <p className="border-l-2 border-rose-500 bg-rose-500/10 px-3 py-2 text-[13px] text-rose-500">
+              <p role="alert" className="note border-rose-500 text-[13px] text-rose-500">
                 {error}
               </p>
             )}
             {notice && (
-              <p className="border-l-2 border-brand bg-brand-wash px-3 py-2 text-[13px] text-fg2">
+              <p role="status" className="note note-brand text-[13px]">
                 {notice}
               </p>
             )}
 
-            <button
-              type="submit"
-              disabled={busy}
-              className="mt-1 rounded bg-brand-fill px-4 py-2.5 text-sm font-semibold text-brand-on transition-colors hover:bg-brand-deep disabled:opacity-50"
-            >
+            <button type="submit" disabled={busy} className="btn btn-primary mt-1 h-11 w-full text-sm">
               {busy
                 ? 'Procesando…'
                 : view === 'signin'
@@ -280,12 +269,56 @@ export function AuthModal({
             </p>
           )}
         </div>
-      </div>
+      </SiteDialog>
 
       <LegalModal
         open={legalTab !== null}
         defaultTab={legalTab ?? 'terminos'}
         onClose={() => setLegalTab(null)}
+      />
+    </>
+  );
+}
+
+/**
+ * Un campo del formulario de acceso: rotulo encima y la caja donde se escribe.
+ *
+ * LA CAJA SE QUEDA, Y ES LA UNICA. El sistema tiene un campo sin caja
+ * (`.field`, una linea), que es lo correcto para un filtro dentro de un margen.
+ * Aqui no: es un formulario de acceso, se usa una vez, a menudo en un telefono y
+ * con el gestor de contrasenas rellenandolo. El recuadro es el objeto donde se
+ * escribe (el autorrelleno del navegador lo pinta entero, y sin caja ese tinte
+ * queda como una mancha sin borde), y es lo que cualquiera reconoce como "aqui
+ * va el correo". Un solo filo, 4 px de radio, 44 px de alto para el pulgar.
+ *
+ * 16 px de letra por debajo de `sm`: con menos, Safari en iOS amplia la pagina
+ * al enfocar el campo y el dialogo se sale de la pantalla. Iba a 14 px.
+ *
+ * `aside` va FUERA del <label>: "¿Olvidaste tu contraseña?" estaba dentro, asi
+ * que el rotulo del campo de contrasena se leia con el texto del enlace pegado.
+ */
+export function AuthField({
+  label,
+  aside,
+  ...input
+}: {
+  label: string;
+  aside?: ReactNode;
+} & InputHTMLAttributes<HTMLInputElement>) {
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-3 text-[13px]">
+        <label htmlFor={id} className="font-medium text-fg2">
+          {label}
+        </label>
+        {aside}
+      </div>
+      <input
+        id={id}
+        {...input}
+        // caja-ok: el campo de un formulario de acceso es el objeto donde se escribe; un filo, 4 px de radio
+        className="h-11 rounded border border-line bg-page px-3 text-base text-fg outline-none transition-colors placeholder:text-fg3 focus:border-brand sm:text-sm"
       />
     </div>
   );

@@ -21,12 +21,22 @@
 // It is also a real dialog now: labelled, focus-managed, dismissable with Escape
 // and navigable with the arrow keys. A modal that traps a first-time user with
 // only a mouse is not finished.
+//
+// LAMINA: es una superficie flotante de verdad, asi que lleva `.instrument`. Lo
+// que se quita es lo de dentro: "Anterior" era una pastilla con borde y
+// "Siguiente" otra rellena, las dos con su propio radio y su propio relleno.
+// Ahora son los botones del sistema (`.btn-quiet` y `.btn-primary`), y el foco
+// se queda dentro del dialogo (`useDialogFocus`): antes entraba, pero Tab lo
+// sacaba a la aplicacion tapada por el velo.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 
 const TOUR_KEY = 'anatris.tour.done';
 // Bump when the tour content changes materially so returning users see it again.
-const TOUR_VERSION = '3';
+// 4: el tercer paso prometia gratis los tests y la evidencia, que son de pago en
+// todas las regiones (src/auth/entitlements.ts). Quien lo leyo debe leer el bueno.
+const TOUR_VERSION = '4';
 
 export function readTourDone(): boolean {
   try {
@@ -74,11 +84,19 @@ const STEPS: TourStep[] = [
     title: 'Cuatro modos, cuatro tareas',
     body: 'Explorar es el atlas. Aprender es el itinerario de siete fases, de la anatomía al caso clínico. Repasar son tarjetas y cuestionarios. Movimiento es el laboratorio: mueves la articulación y ves qué músculo trabaja en cada grado.',
   },
+  // EL TERCER PASO PROMETIA LO QUE EL CANDADO NIEGA. Decia "El hombro entero, sin
+  // pagar ... tests y evidencia incluidos". En src/auth/entitlements.ts los
+  // tests ortopedicos y la evidencia son capacidades de pago EN TODAS las
+  // regiones, tambien en el hombro (`canUseFeature` solo mira la suscripcion), y
+  // el laboratorio gratuito conduce un solo arco (FREE_MOVEMENT_QUOTA = 1). Es
+  // decir: lo primero que se le decia al visitante, en la primera pantalla del
+  // producto, se lo desmentia el primer candado que tocaba. Ahora dice lo que
+  // el contrato cumple, punto por punto.
   {
     icon: <IconClinical />,
     where: 'Qué es gratis',
-    title: 'El hombro entero, sin pagar',
-    body: 'El hombro y Fundamentos están completos en la versión gratuita, tests y evidencia incluidos. El resto del cuerpo y el laboratorio completo son Premium.',
+    title: 'El hombro, sin pagar',
+    body: 'El hombro y Fundamentos están completos en Explorar, Aprender y Repasar, y el laboratorio trae un arco de demostración. El resto del cuerpo, los tests ortopédicos, el panel neurológico, la evidencia y el modo paciente son Premium.',
   },
 ];
 
@@ -102,20 +120,13 @@ export function OnboardingTour({ onDone }: OnboardingTourProps) {
     else setStep((s) => s + 1);
   }, [isLast, finish]);
 
-  // Move focus into the dialog so the keyboard lands somewhere useful, and hand
-  // it back to the page on close.
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    panel.current?.focus();
-    return () => previous?.focus?.();
-  }, []);
+  // Move focus into the dialog so the keyboard lands somewhere useful, keep it
+  // there, close on Escape and hand focus back to the page on close.
+  useDialogFocus(panel, { onEscape: finish });
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        finish();
-      } else if (e.key === 'ArrowRight') {
+      if (e.key === 'ArrowRight') {
         e.preventDefault();
         advance();
       } else if (e.key === 'ArrowLeft') {
@@ -129,11 +140,7 @@ export function OnboardingTour({ onDone }: OnboardingTourProps) {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={finish}
-        aria-hidden="true"
-      />
+      <div className="absolute inset-0 bg-black/60" onClick={finish} aria-hidden="true" />
 
       <div
         ref={panel}
@@ -141,9 +148,9 @@ export function OnboardingTour({ onDone }: OnboardingTourProps) {
         aria-modal="true"
         aria-labelledby="tour-title"
         tabIndex={-1}
-        className="relative z-10 w-full max-w-lg rounded-lg border border-line bg-card shadow-xl outline-none"
+        className="instrument relative z-10 w-full max-w-lg outline-none"
       >
-        <div className="px-8 pb-7 pt-8">
+        <div className="px-6 pb-6 pt-7 sm:px-8 sm:pb-7 sm:pt-8">
           {/* Position: the count, then a rule segmented once per step. Precise
               enough to tell you where you are without a progress bar glowing
               across the top of the panel. */}
@@ -181,9 +188,7 @@ export function OnboardingTour({ onDone }: OnboardingTourProps) {
           <div className="mt-7 flex gap-5">
             <span className="mt-0.5 shrink-0 text-fg2">{current.icon}</span>
             <div className="min-w-0">
-              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-fg3">
-                {current.where}
-              </p>
+              <p className="kicker">{current.where}</p>
               <h2
                 id="tour-title"
                 className="mt-2 font-display text-lg font-semibold leading-snug text-fg"
@@ -191,35 +196,34 @@ export function OnboardingTour({ onDone }: OnboardingTourProps) {
                 {current.title}
               </h2>
               {/* Fixed height so the panel does not resize between steps: a card
-                  that jumps as you advance reads as unfinished. */}
-              <p className="mt-2 min-h-[4.5rem] text-sm leading-relaxed text-fg2">
+                  that jumps as you advance reads as unfinished. Sized for the
+                  longest body (the third, ~250 characters): five lines at the
+                  panel's full width, seven on a phone. */}
+              <p className="mt-2 min-h-[10rem] text-sm leading-relaxed text-fg2 sm:min-h-[7.25rem]">
                 {current.body}
               </p>
             </div>
           </div>
 
-          <div className="mt-6 flex items-center justify-between border-t border-line pt-5">
-            <button
-              type="button"
-              onClick={finish}
-              className="text-sm text-fg3 transition-colors hover:text-fg"
-            >
+          <div className="mt-6 flex items-center justify-between border-t border-line/75 pt-4">
+            <button type="button" onClick={finish} className="btn btn-quiet -ml-3 h-9">
               Saltar
             </button>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setStep((s) => s - 1)}
                 disabled={step === 0}
-                className="rounded border border-line px-4 py-2 text-sm font-medium text-fg2 transition-colors hover:text-fg disabled:pointer-events-none disabled:opacity-0"
+                className="btn btn-quiet h-9 disabled:pointer-events-none disabled:opacity-0"
               >
                 Anterior
               </button>
               <button
                 type="button"
                 onClick={advance}
-                className="rounded bg-brand-fill px-5 py-2 text-sm font-medium text-brand-on transition-colors hover:bg-brand-deep"
+                data-autofocus
+                className="btn btn-primary h-9 px-5"
               >
                 {isLast ? 'Empezar' : 'Siguiente'}
               </button>

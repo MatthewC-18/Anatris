@@ -42,12 +42,12 @@ export function SaveButton({
       aria-pressed={saved}
       title={saved ? 'Quitar de mi colección' : 'Guardar en mi colección'}
       aria-label={saved ? 'Quitar de mi colección' : 'Guardar en mi colección'}
+      // LAMINA: un boton de icono callado. Guardado se dice con el acento y el
+      // marcador relleno, no con un fondo.
       className={[
-        'inline-flex shrink-0 items-center justify-center rounded-lg transition-colors',
-        size === 'sm' ? 'p-1' : 'p-1.5',
-        saved
-          ? 'text-accent hover:bg-accent/10'
-          : 'text-slate-500 hover:bg-slate-100/[0.06] hover:text-slate-300',
+        'btn btn-quiet btn-icon shrink-0',
+        size === 'sm' ? 'btn-sm' : '',
+        saved ? 'text-brand' : 'text-fg3',
       ].join(' ')}
     >
       <svg

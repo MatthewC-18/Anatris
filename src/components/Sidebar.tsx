@@ -22,11 +22,18 @@
 //      one threw the user out of Explorar. A mode switch disguised as a list
 //      belongs in the mode switcher, not here.
 //
+// LAMINA: ES EL MARGEN IZQUIERDO DE LA LAMINA (docs/sistema-lamina.md).
+// Acoplado al borde de la ventana, separado del escenario por un filo y sin una
+// sola caja dentro. Cada seccion plegable se anuncia con rotulo + filo + cuenta
+// ("MUSCULOS ---- 18"), no con una banda tenida; la cuenta deja ver ANTES de
+// abrir si la region tiene huesos o nervios que listar. El lado se elige con
+// pestanas subrayadas en vez de con un control segmentado relleno.
+//
 // RESPONSIVE: on desktop a fixed left column; on compact screens inside a
 // slide-in drawer (see App.tsx). The optional onNavigate callback lets the
 // drawer close itself when the user picks something.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAnatomyStore, type SideFilter } from '../store/anatomyStore';
 import {
   LAYER_META,
@@ -35,13 +42,15 @@ import {
 } from '../lib/anatomyMeta';
 import { MuscleList } from './MuscleList';
 import { BoneList } from './BoneList';
+import { listRegionStructures } from '../lib/regionStructures';
 import { DepthPeeler } from './DepthPeeler';
 import { RomPanel } from './RomPanel';
 import { trackForRegion } from '../data/trackByRegion';
+import { musclesForRegion } from '../data/musclesByRegion';
 import type { AnatomyLayer, AnatomyIndex } from '../types/anatomy';
 import type { MuscleResolution } from '../lib/muscleResolver';
 
-/** The three collapsible sections of the rail. */
+/** The collapsible sections of the rail. */
 type SectionId = 'muscles' | 'bones' | 'nerves' | 'view' | 'rom';
 
 interface SidebarProps {
@@ -58,20 +67,32 @@ interface SidebarProps {
 export function Sidebar({ index, resolution, onNavigate }: SidebarProps) {
   // Muscles first: it is the reason this rail exists.
   const [open, setOpen] = useState<SectionId>('muscles');
+  const region = useAnatomyStore((s) => s.region);
+
+  // The count each header prints. Same builders the lists use, so the number
+  // over a section is the number of rows inside it.
+  const muscleCount = musclesForRegion(region).length;
+  const boneCount = useMemo(
+    () => (index ? listRegionStructures(index.entries, region, 'bones').length : null),
+    [index, region],
+  );
+  const nerveCount = useMemo(
+    () => (index ? listRegionStructures(index.entries, region, 'nerves').length : null),
+    [index, region],
+  );
 
   return (
     <nav
       aria-label="Controles de la región"
-      className="flex h-full w-[260px] shrink-0 flex-col border-r border-slate-800/60 bg-ink-950/80"
+      className="margin margin-l h-full w-[260px] shrink-0"
     >
-      <div className="shrink-0 px-4 pb-3 pt-5">
-        <ModuleHeader />
-      </div>
+      <ModuleHeader />
 
       <div className="flex min-h-0 flex-1 flex-col">
         <Section
           id="muscles"
           title="Músculos"
+          count={muscleCount}
           open={open}
           setOpen={setOpen}
         >
@@ -81,32 +102,29 @@ export function Sidebar({ index, resolution, onNavigate }: SidebarProps) {
         {/* Bones. The rail listed only muscles, so a clavicle -- a structure you
             cannot reach by clicking, which is exactly what a list is for -- had
             nowhere to be found. */}
-        <Section id="bones" title="Huesos" open={open} setOpen={setOpen}>
+        <Section id="bones" title="Huesos" count={boneCount} open={open} setOpen={setOpen}>
           {index ? (
             <BoneList index={index} />
           ) : (
-            <p className="px-1 py-2 text-xs text-slate-500">Cargando el modelo…</p>
+            <p className="py-1 text-xs text-fg3">Cargando el modelo…</p>
           )}
         </Section>
 
         {/* Nerves. The whole brachial plexus ships in the model and none of it
             was reachable: the layer is off by default and the region's keywords
             let through only the nerves whose names contain "scapular". */}
-        <Section id="nerves" title="Nervios" open={open} setOpen={setOpen}>
+        <Section id="nerves" title="Nervios" count={nerveCount} open={open} setOpen={setOpen}>
           {index ? (
             <BoneList index={index} kind="nerves" />
           ) : (
-            <p className="px-1 py-2 text-xs text-slate-500">Cargando el modelo…</p>
+            <p className="py-1 text-xs text-fg3">Cargando el modelo…</p>
           )}
         </Section>
 
         <Section id="view" title="Capas y disección" open={open} setOpen={setOpen}>
           <DepthPeeler />
-          <div className="my-4 h-px bg-slate-800/60" />
           <LayerControls index={index} />
-          <div className="my-4 h-px bg-slate-800/60" />
           <SideControls />
-          <div className="my-4 h-px bg-slate-800/60" />
           <DisplayControls />
         </Section>
 
@@ -115,11 +133,12 @@ export function Sidebar({ index, resolution, onNavigate }: SidebarProps) {
         </Section>
       </div>
 
-      <footer className="shrink-0 border-t border-slate-800/60 px-4 py-3">
+      <div className="rule" />
+      <footer className="shrink-0 px-4 py-3">
         <a
           href="mailto:soporte@anatris.app?subject=Anatris%20%E2%80%94%20reportar%20un%20problema"
           onClick={onNavigate}
-          className="text-xs text-slate-600 transition-colors hover:text-slate-400"
+          className="text-xs text-fg3 transition-colors hover:text-fg2"
         >
           Reportar un problema
         </a>
@@ -130,17 +149,23 @@ export function Sidebar({ index, resolution, onNavigate }: SidebarProps) {
 
 /**
  * One accordion section. The header stays put; only the open body scrolls, so
- * the user can always reach the other two sections without scrolling back up.
+ * the user can always reach the other sections without scrolling back up.
+ *
+ * The header is the LAMINA section head made clickable: chevron, kicker, a rule
+ * that runs to the edge and, after the rule, the count.
  */
 function Section({
   id,
   title,
+  count,
   open,
   setOpen,
   children,
 }: {
   id: SectionId;
   title: string;
+  /** Rows inside, printed after the rule. null/undefined = nothing to count. */
+  count?: number | null;
   open: SectionId;
   setOpen: (s: SectionId) => void;
   children: React.ReactNode;
@@ -153,28 +178,37 @@ function Section({
         onClick={() => setOpen(id)}
         aria-expanded={isOpen}
         aria-controls={`section-${id}`}
-        className={`flex w-full shrink-0 items-center gap-2 border-t border-slate-800/60 px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.16em] transition-colors ${
-          isOpen
-            ? 'bg-slate-900/40 text-slate-300'
-            : 'text-slate-600 hover:bg-slate-900/30 hover:text-slate-400'
-        }`}
+        // 44 px en el cajon tactil; 36 px en el margen de escritorio.
+        className="group flex min-h-[44px] w-full shrink-0 items-center gap-2.5 px-4 text-left lg:min-h-[2.25rem]"
       >
         <svg
-          width="12"
-          height="12"
+          width="10"
+          height="10"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
           strokeWidth="3"
           aria-hidden="true"
-          className={`shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+          className={`shrink-0 transition-transform ${
+            isOpen ? 'rotate-90 text-brand' : 'text-fg3 group-hover:text-fg2'
+          }`}
         >
           <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        {title}
+        <span
+          className={`kicker transition-colors ${
+            isOpen ? 'text-fg' : 'group-hover:text-fg2'
+          }`}
+        >
+          {title}
+        </span>
+        <span className="sec-rule" />
+        {count != null && (
+          <span className={`num text-[11px] ${isOpen ? 'text-fg2' : 'text-fg3'}`}>{count}</span>
+        )}
       </button>
       {isOpen && (
-        <div id={`section-${id}`} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div id={`section-${id}`} className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-1">
           {children}
         </div>
       )}
@@ -187,28 +221,30 @@ function ModuleHeader() {
   const track = trackForRegion(region);
 
   return (
-    <div>
-      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
-        Módulo
-      </p>
-      <h2 className="mt-1 font-display text-lg font-semibold text-slate-100">
+    <header className="shrink-0 px-4 pb-3 pt-4">
+      <p className="kicker">Módulo</p>
+      <h2 className="mt-2 font-display text-lg font-semibold leading-tight text-fg">
         {track.regionName}
       </h2>
-    </div>
+    </header>
   );
+}
+
+/** Sub-heading inside the "Capas y disección" section: a kicker and air, no
+ *  rule -- the rule is what announces an accordion section one level up. */
+function SubHead({ children }: { children: React.ReactNode }) {
+  return <p className="kicker mb-2 mt-5">{children}</p>;
 }
 
 function LayerControls({ index }: { index: AnatomyIndex | null }) {
   return (
     <div>
-      <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
-        Capas
-      </p>
-      <div className="flex flex-col gap-0.5">
+      <SubHead>Capas</SubHead>
+      <div className="flex flex-col">
         {ANATOMICAL_LAYERS.map((layer) => (
           <LayerRow key={layer} layer={layer} index={index} />
         ))}
-        <div className="my-1.5 h-px bg-slate-800/40" />
+        <div className="rule my-1.5" />
         {SECONDARY_LAYERS.map((layer) => (
           <LayerRow key={layer} layer={layer} index={index} />
         ))}
@@ -234,18 +270,22 @@ function LayerRow({
   // tech needs to hear "checkbox, checked", and the drawn version announced
   // nothing at all.
   return (
-    <label className="group flex min-h-[2rem] w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-slate-800/40">
+    <label className="group flex min-h-[44px] w-full cursor-pointer items-center gap-2.5 lg:min-h-[2rem]">
       <input
         type="checkbox"
         checked={on}
         onChange={() => toggleLayer(layer)}
-        className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-600 bg-transparent accent-accent"
+        className="h-4 w-4 shrink-0 cursor-pointer accent-brand"
       />
       <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
-      <span className={`flex-1 text-sm ${on ? 'text-slate-200' : 'text-slate-500'}`}>
+      <span
+        className={`flex-1 text-[13px] transition-colors ${
+          on ? 'text-fg' : 'text-fg3 group-hover:text-fg2'
+        }`}
+      >
         {meta.label}
       </span>
-      <span className="font-mono text-[11px] text-slate-600">{count}</span>
+      <span className="num text-[11px] text-fg3">{count}</span>
     </label>
   );
 }
@@ -254,30 +294,26 @@ function SideControls() {
   const sideFilter = useAnatomyStore((s) => s.sideFilter);
   const setSideFilter = useAnatomyStore((s) => s.setSideFilter);
 
+  // Palabras enteras: "Der." e "Izq." eran abreviaturas forzadas por el ancho
+  // del control segmentado. Como pestanas de texto las tres caben en los 228 px
+  // utiles del margen.
   const options: Array<{ value: SideFilter; label: string }> = [
     { value: 'both', label: 'Ambos' },
-    { value: 'right', label: 'Der.' },
-    { value: 'left', label: 'Izq.' },
+    { value: 'right', label: 'Derecho' },
+    { value: 'left', label: 'Izquierdo' },
   ];
 
   return (
     <div>
-      <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
-        Lado
-      </p>
-      <div className="flex gap-1 rounded-xl bg-slate-900/60 p-1">
+      <SubHead>Lado</SubHead>
+      <div role="group" aria-label="Lado que se muestra" className="tabs">
         {options.map((opt) => (
           <button
             key={opt.value}
             type="button"
             onClick={() => setSideFilter(opt.value)}
             aria-pressed={sideFilter === opt.value}
-            className={[
-              'min-h-[2rem] flex-1 rounded-lg px-2 py-1.5 text-sm font-medium transition-all',
-              sideFilter === opt.value
-                ? 'bg-accent text-ink-950 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200',
-            ].join(' ')}
+            className={`tab min-h-[44px] lg:min-h-0 ${sideFilter === opt.value ? 'is-active' : ''}`}
           >
             {opt.label}
           </button>
@@ -302,9 +338,7 @@ function DisplayControls() {
 
   return (
     <div>
-      <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-600">
-        Visualización
-      </p>
+      <SubHead>Visualización</SubHead>
       <DisplayToggle
         checked={showAtlasLabels}
         onChange={toggleAtlasLabels}
@@ -334,14 +368,18 @@ function DisplayToggle({
   label: string;
 }) {
   return (
-    <label className="group flex min-h-[2rem] w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-slate-800/40">
+    <label className="group flex min-h-[44px] w-full cursor-pointer items-center gap-2.5 lg:min-h-[2rem]">
       <input
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-600 bg-transparent accent-accent"
+        className="h-4 w-4 shrink-0 cursor-pointer accent-brand"
       />
-      <span className={`flex-1 text-sm ${checked ? 'text-slate-200' : 'text-slate-500'}`}>
+      <span
+        className={`flex-1 text-[13px] transition-colors ${
+          checked ? 'text-fg' : 'text-fg3 group-hover:text-fg2'
+        }`}
+      >
         {label}
       </span>
     </label>

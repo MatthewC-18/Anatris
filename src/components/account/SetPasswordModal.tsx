@@ -8,9 +8,25 @@
 //
 // Both paths call updatePassword() on the active session, so this component is
 // backend-agnostic like the rest of the auth UI.
+//
+// LAMINA (docs/sistema-lamina.md). Era el dialogo mas encajonado de la cuenta:
+// el banco le contaba 5 cajas y 2 bloques en 170 lineas. Un recuadro de 16 px
+// de radio con un degradado de acento arriba, dos campos de 12 px de radio con
+// su anillo, una caja verde de exito, una caja rosa de error y dos botones
+// rellenos con resplandor. Y estaba escrito en tinta fija (`bg-ink-950`,
+// `slate-*`, `accent`) aunque se abre "sobre cualquier pantalla", o sea tambien
+// sobre la landing en papel: un panel oscuro con brillo cian encima de una
+// pagina clara, el mismo defecto que AuthModal ya habia corregido.
+//
+// Ahora comparte superficie y campos con el inicio de sesion (`SiteDialog`,
+// `AuthField`), los avisos son notas con regla a la izquierda y los botones son
+// los del sistema. En modo recuperacion sigue sin poder cerrarse: ni aspa, ni
+// velo, ni Escape.
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
+import { AuthField } from './AuthModal';
+import { DialogClose, SiteDialog } from './SiteDialog';
 
 /**
  * App-wide gate that pops the "choose a new password" dialog whenever the user
@@ -39,6 +55,7 @@ export function SetPasswordModal({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+  const titleId = useId();
 
   if (!open) return null;
 
@@ -75,100 +92,82 @@ export function SetPasswordModal({
   }
 
   const title = mode === 'recovery' ? 'Elige una nueva contraseña' : 'Cambiar contraseña';
+  // Solo el cambio voluntario se puede abandonar. Ver la cabecera.
+  const dismiss = mode === 'change' ? finish : undefined;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="Cerrar"
-        onClick={mode === 'change' ? finish : undefined}
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        disabled={mode === 'recovery'}
-      />
+    <SiteDialog onClose={dismiss} labelledBy={titleId} layer="above" className="max-w-sm">
+      {dismiss && <DialogClose onClose={dismiss} className="absolute right-2 top-2 z-10" />}
 
-      <div className="relative z-10 w-full max-w-sm animate-scale-in overflow-hidden rounded-2xl border border-slate-800/70 bg-ink-950 shadow-glass-lg">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-accent/10 to-transparent" />
+      <div className="px-6 pb-6 pt-6">
+        <h2 id={titleId} className="font-display text-base font-semibold text-fg">
+          {title}
+        </h2>
+        <p className="mt-1 text-[13px] text-fg3">
+          {mode === 'recovery'
+            ? 'Casi listo: define tu nueva contraseña para entrar.'
+            : 'Introduce una nueva contraseña para tu cuenta.'}
+        </p>
 
-        <div className="relative px-6 pb-6 pt-6">
-          <h2 className="font-display text-base font-semibold text-slate-100">{title}</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            {mode === 'recovery'
-              ? 'Casi listo: define tu nueva contraseña para entrar.'
-              : 'Introduce una nueva contraseña para tu cuenta.'}
-          </p>
+        {done ? (
+          <div className="mt-5">
+            <p role="status" className="note note-brand text-[13px] text-fg">
+              Contraseña actualizada correctamente.
+            </p>
+            {mode === 'change' && (
+              <button
+                type="button"
+                onClick={finish}
+                data-autofocus
+                className="btn btn-primary mt-4 h-11 w-full text-sm"
+              >
+                Listo
+              </button>
+            )}
+          </div>
+        ) : (
+          <form onSubmit={submit} className="mt-5 flex flex-col gap-3">
+            <AuthField
+              label="Nueva contraseña"
+              type="password"
+              required
+              minLength={6}
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Mínimo 6 caracteres"
+              data-autofocus
+            />
+            <AuthField
+              label="Repetir contraseña"
+              type="password"
+              required
+              minLength={6}
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="Repite la contraseña"
+            />
 
-          {done ? (
-            <div className="mt-5">
-              <p className="rounded-lg border border-emerald-900/40 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-300">
-                Contraseña actualizada correctamente.
+            {error && (
+              <p role="alert" className="note border-rose-500 text-[13px] text-rose-500">
+                {error}
               </p>
+            )}
+
+            <div className="mt-1 flex gap-2">
               {mode === 'change' && (
-                <button
-                  type="button"
-                  onClick={finish}
-                  className="mt-4 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink-950 shadow-accent-glow transition-colors hover:bg-accent-soft"
-                >
-                  Listo
+                <button type="button" onClick={finish} className="btn btn-line h-11 flex-1 text-sm">
+                  Cancelar
                 </button>
               )}
+              <button type="submit" disabled={busy} className="btn btn-primary h-11 flex-1 text-sm">
+                {busy ? 'Guardando…' : 'Guardar'}
+              </button>
             </div>
-          ) : (
-            <form onSubmit={submit} className="mt-5 flex flex-col gap-3">
-              <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-400">
-                Nueva contraseña
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="rounded-xl border border-slate-800 bg-slate-900/60 px-3.5 py-2.5 text-sm text-slate-100 outline-none transition-colors focus:border-accent/60 focus:ring-2 focus:ring-accent/15"
-                  placeholder="Mínimo 6 caracteres"
-                />
-              </label>
-              <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-400">
-                Repetir contraseña
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  className="rounded-xl border border-slate-800 bg-slate-900/60 px-3.5 py-2.5 text-sm text-slate-100 outline-none transition-colors focus:border-accent/60 focus:ring-2 focus:ring-accent/15"
-                  placeholder="Repite la contraseña"
-                />
-              </label>
-
-              {error && (
-                <p className="rounded-lg border border-rose-900/40 bg-rose-950/30 px-3 py-2 text-xs text-rose-300">
-                  {error}
-                </p>
-              )}
-
-              <div className="mt-1 flex gap-2">
-                {mode === 'change' && (
-                  <button
-                    type="button"
-                    onClick={finish}
-                    className="flex-1 rounded-xl border border-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:border-slate-700 hover:text-slate-100"
-                  >
-                    Cancelar
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="flex-1 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink-950 shadow-accent-glow transition-colors hover:bg-accent-soft disabled:opacity-50"
-                >
-                  {busy ? 'Guardando…' : 'Guardar'}
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
+          </form>
+        )}
       </div>
-    </div>
+    </SiteDialog>
   );
 }

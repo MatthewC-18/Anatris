@@ -18,16 +18,32 @@
 // RESPONSIVE:
 //   - Desktop (lg and up): three-column layout.
 //   - Compact (below lg): the Viewer fills the screen; Sidebar and
-//     SelectionPanel become slide-in drawers opened from floating buttons. In
-//     "Aprender" the Viewer and PhaseTrack stack vertically.
+//     SelectionPanel become slide-in drawers ("Índice" and "Ficha") opened from
+//     the bar at the foot of the stage. In "Aprender" the Viewer and PhaseTrack
+//     stack vertically.
 //
 // LEGAL / PRODUCT:
 //   - A one-time medical-disclaimer GATE blocks the app until accepted.
 //   - A persistent disclaimer BANNER sits under the TopBar at all times.
 //   - "Acerca de" and "Legal" open the attribution / disclaimer screens as
 //     overlays.
+//
+// SIN CAJAS (sistema LAMINA, docs/sistema-lamina.md):
+//   El armazon dibujaba siete recuadros propios (`npm run audit-surfaces`: 4
+//   cajas, 1 bloque y 2 pastillas): dos capsulas flotando sobre el modelo para
+//   abrir los cajones, el aviso de pago cancelado, dos tarjetas rosas de error
+//   y el cascaron de las superposiciones con 16 px de radio. Ahora las puertas
+//   de los cajones son texto en la barra del escenario (`.stage-bar`), los
+//   estados de carga y de error son texto suelto con una regla a la izquierda,
+//   y lo unico que lleva superficie es lo que flota de verdad: los dialogos
+//   (`.instrument`).
+//
+// TECLADO:
+//   Las superposiciones y los cajones son dialogos de verdad (`useDialogFocus`):
+//   el foco entra, da la vuelta dentro, Escape cierra y el foco vuelve al boton
+//   que los abrio. Antes solo se cerraban con el raton.
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useAnatomyIndex } from './hooks/useAnatomyIndex';
 import { useMuscleResolution } from './hooks/useMuscleResolution';
 import { usePremiumRegion } from './hooks/usePremiumRegion';
@@ -101,6 +117,9 @@ import { isConceptModule, conceptForRegion } from './data/conceptByRegion';
 import { ConceptStage } from './components/ConceptStage';
 import { EVENTS, track, trackChange } from './lib/analytics';
 import { DEFAULT_REGION, readRoute, writeRoute } from './lib/routing';
+import { documentTitleFor, settledMode } from './lib/shellRoute';
+import { useDialogFocus } from './hooks/useDialogFocus';
+import { useIsCompact } from './hooks/useIsCompact';
 
 /** Which mobile drawer (if any) is open. Desktop never opens these. */
 type Drawer = 'none' | 'sidebar' | 'selection';
@@ -166,21 +185,8 @@ function writeEntered(): void {
   }
 }
 
-/** True when the viewport is below the lg breakpoint (Tailwind lg = 1024px). */
-function useIsCompact(): boolean {
-  const [compact, setCompact] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(max-width: 1023px)').matches;
-  });
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(max-width: 1023px)');
-    const onChange = (e: MediaQueryListEvent) => setCompact(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-  return compact;
-}
+// "Compacto" (por debajo de lg, 1024 px) sale de src/hooks/useIsCompact.ts. Aqui
+// habia una copia local del hook, la misma que su cabecera da por retirada.
 
 export default function App() {
   const { index, byMesh, status, error } = useAnatomyIndex();
@@ -197,6 +203,17 @@ export default function App() {
     () => readEntered() || readRoute() != null,
   );
   const [tourDone, setTourDone] = useState<boolean>(() => readTourDone());
+  const compact = useIsCompact();
+  const entitlement = useEntitlement();
+
+  // DOS PREGUNTAS QUE EL ARMAZON SE HACIA EN CADA EFECTO, Y CONTESTABA DISTINTO.
+  //   `inApp`     la landing ya quedo atras (entro, o es suscriptor y se la salta)
+  //   `toolShown` ademas acepto el aviso: la herramienta esta en pantalla
+  // Los efectos de abajo (ruta, titulo, analitica, precarga del modelo) corrian
+  // tambien con la landing o el aviso en pantalla, y de ahi salian tres
+  // defectos que estan explicados en cada uno.
+  const inApp = entered || entitlement.isPremium;
+  const toolShown = inApp && accepted;
 
   // EL MODELO 3D EMPIEZA A BAJAR AQUÍ, no cuando el visor existe.
   //
@@ -209,12 +226,14 @@ export default function App() {
   // Condicionado a `accepted` y `entered` a propósito: 9 MB traídos para
   // alguien que todavía está leyendo el aviso médico, y que puede cerrarlo, son
   // ancho de banda que paga el proyecto y no usa nadie. Ver src/lib/modelWarm.ts.
+  //
+  // `toolShown` y no `accepted && entered`: un suscriptor en un navegador nuevo
+  // se salta la landing sin pasar por `enterApp`, asi que `entered` es falso
+  // para el y la precarga no arrancaba nunca. Justo el que paga esperaba mas.
   useEffect(() => {
-    if (!accepted || !entered) return;
+    if (!toolShown) return;
     warmModelForMode(mode);
-  }, [accepted, entered, mode]);
-  const compact = useIsCompact();
-  const entitlement = useEntitlement();
+  }, [toolShown, mode]);
 
   // Active region lives in the store; the TopBar module nav is the single
   // switch. Default to the shoulder on first mount if unset.
@@ -270,16 +289,49 @@ export default function App() {
     setRegion(readRoute()?.region ?? DEFAULT_REGION);
   }, [region, setRegion]);
 
+  // El modo en el que la aplicacion se va a QUEDAR. Solo difiere de `mode` un
+  // instante: Fundamentos abierto en Explorar, que el efecto de mas abajo
+  // corrige a Aprender. Ver src/lib/shellRoute.ts.
+  const shownMode = settledMode(region, mode);
+
   // STATE -> ROUTE. The first write replaces (normalizing `/` into
   // `/hombro/explorar` must not create an entry the user's Back button gets
   // stuck on); every later region/mode change pushes, so Back retraces the path
   // they actually walked.
+  //
+  // DOS COSAS QUE ESTE EFECTO HACIA Y NO DEBIA:
+  //
+  // 1. ESCRIBIA CON LA LANDING EN PANTALLA. Los efectos corren aunque el
+  //    render devuelva la landing, asi que quien abria `/` veia la landing con
+  //    la direccion ya cambiada a `/hombro/explorar`. Y `entered` arranca en
+  //    `readRoute() != null`: recargar esa pagina, o pegarle el enlace a un
+  //    colega, saltaba la landing y aterrizaba en el aviso legal a pantalla
+  //    completa, que es justo lo que el orden "landing primero" queria evitar.
+  //    Ademas RouteNotice lee la direccion al montarse, y se monta al entrar:
+  //    para entonces una direccion equivocada ya estaba reescrita y el aviso de
+  //    "esa pagina no existe" no salia nunca a un visitante nuevo. Ahora la
+  //    direccion no se toca hasta que la landing queda atras (`inApp`).
+  //
+  // 2. ESCRIBIA UNA RUTA QUE IBA A CORREGIR. Con Fundamentos en Explorar
+  //    apilaba `/fundamentos/explorar` y despues `/fundamentos/aprender`, y la
+  //    primera rebota a la segunda: Atras no salia de Fundamentos. Ahora espera
+  //    al modo asentado.
   const routeSyncedRef = useRef(false);
   useEffect(() => {
-    if (region == null) return;
+    if (region == null || !inApp) return;
+    if (shownMode !== mode) return;
     writeRoute({ region, mode }, { replace: !routeSyncedRef.current });
     routeSyncedRef.current = true;
-  }, [region, mode]);
+  }, [region, mode, shownMode, inApp]);
+
+  // EL TITULO DE LA PESTANA DICE DONDE ESTAS: "Rodilla · Movimiento | Anatris".
+  // No se asignaba en ningun sitio, asi que las 36 rutas se llamaban igual en
+  // la pestana, en el historial del navegador y en los marcadores. Solo con la
+  // herramienta en pantalla: la landing y el aviso conservan el de index.html.
+  useEffect(() => {
+    if (region == null || !toolShown) return;
+    document.title = documentTitleFor(region, shownMode);
+  }, [region, shownMode, toolShown]);
 
   // PRODUCT ANALYTICS: which region and which mode people actually use.
   //
@@ -288,11 +340,16 @@ export default function App() {
   // effect instead of a dozen onClick handlers. `trackChange` collapses the
   // re-renders, so a user who reads the shoulder for ten minutes is one
   // `region_opened`, not one per render.
+  //
+  // Solo con la herramienta en pantalla: corria tambien sobre la landing, y
+  // cada visita a la portada contaba como un "hombro abierto en Explorar" de
+  // alguien que no habia abierto nada.
   useEffect(() => {
-    if (region == null) return;
+    if (region == null || !toolShown) return;
+    if (shownMode !== mode) return;
     trackChange(EVENTS.regionOpened, { region });
     trackChange(EVENTS.modeOpened, { mode, region });
-  }, [region, mode]);
+  }, [region, mode, shownMode, toolShown]);
 
   // ROUTE -> STATE on Back/Forward.
   useEffect(() => {
@@ -309,13 +366,31 @@ export default function App() {
   // Entering a conceptual module (Fundamentos) snaps to "Aprender": the concept
   // renderer (with its "Ver en 3D" overlay action) only lives in that mode.
   useEffect(() => {
-    if (concept && mode === 'explore') setMode('learn');
-  }, [concept, mode]);
+    if (shownMode !== mode) setMode(shownMode);
+  }, [shownMode, mode]);
 
   // Close any open drawer when growing back to desktop.
   useEffect(() => {
     if (!compact) setDrawer('none');
   }, [compact]);
+
+  // EL BUSCADOR SUSTITUYE A LO QUE HAYA ABIERTO. Vive por debajo de las
+  // superposiciones (mismo z-50, antes en el arbol), asi que Ctrl+K con la guia
+  // o los planes abiertos lo abria DETRAS de ellos, con el foco en un campo que
+  // no se veia: se escribia a ciegas. Abrirlo cierra la superposicion y el
+  // cajon, que es ademas lo que la propia guia promete ("Ctrl K: buscar").
+  const paletteOpen = useAnatomyStore((s) => s.paletteOpen);
+  useEffect(() => {
+    if (!paletteOpen) return;
+    setOverlay('none');
+    setDrawer('none');
+  }, [paletteOpen]);
+
+  // Hay algo seleccionado en Explorar: lo usa la puerta de la ficha en la vista
+  // compacta para avisar de que ya tiene contenido.
+  const hasSelection = useAnatomyStore(
+    (s) => s.selectedMeshName != null || s.selectedMuscleId != null || s.selectedBoneId != null,
+  );
 
   // Restrict the scene to the current region (hides head, abdomen, legs, ...).
   const regionMeshes = useMemo(() => {
@@ -359,7 +434,7 @@ export default function App() {
   // accepted. It just no longer blocks the sales pitch. Deep links
   // (/rodilla/movimiento) set `entered`, so they skip the landing and land on
   // the gate — consent before the tool, exactly as before.
-  if (!entered && !entitlement.isPremium) {
+  if (!inApp) {
     return (
       <>
         <LandingScreen onEnter={enterApp} onOpenAuth={() => setAuthOpen(true)} />
@@ -389,12 +464,20 @@ export default function App() {
     setOverlay(next);
   };
 
+  // EL ESPACIO DE TRABAJO ESTA EN PANTALLA: ni el muro de pago, ni la carga del
+  // contenido clinico, ni su error. Las puertas de los cajones solo se pintan
+  // entonces. Antes miraban solo `locked`, asi que con el contenido de una
+  // region de pago todavia bajando (o con su error en pantalla) los dos botones
+  // flotaban sobre el cartel y abrian un indice y una ficha vacios.
+  const workspaceShown =
+    !locked && !contentDenied && !contentPending && contentState !== 'error';
+
   return (
     <UpgradeProvider onOpenPricing={() => setOverlay('pricing')}>
     {/* `theme-ink` pins the product to the instrument theme, so the surfaces
         shared with the public site (Pricing, Paywall, AuthModal) resolve their
         semantic tokens to ink here and to paper there. See index.css. */}
-    <div className="theme-ink flex h-screen w-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
+    <div className="theme-ink flex h-screen w-screen flex-col overflow-hidden bg-page text-fg">
       <TopBar
         mode={mode}
         setMode={setMode}
@@ -438,7 +521,7 @@ export default function App() {
       ) : contentState === 'error' ? (
         <div className="flex min-h-0 flex-1">
           <main className="min-w-0 flex-1 overflow-hidden">
-            <ContentError />
+            <ContentError onGoFree={() => setRegion(DEFAULT_REGION)} />
           </main>
         </div>
       ) : mode === 'study' ? (
@@ -485,9 +568,9 @@ export default function App() {
         <div className="flex min-h-0 flex-1">
           <main className="min-w-0 flex-1 overflow-y-auto lg:overflow-hidden">
             <div className="flex min-h-0 flex-col lg:h-full lg:flex-row">
-              <div className="h-[45vh] shrink-0 lg:h-full lg:min-w-0 lg:flex-1 lg:border-r lg:border-slate-800/60">
+              <div className="h-[45vh] shrink-0 lg:h-full lg:min-w-0 lg:flex-1 lg:border-r lg:border-line/75">
                 {status === 'error' ? (
-                  <IndexError message={error} />
+                  <IndexError message={error} onOpenLab={() => setMode('movement')} />
                 ) : status === 'loading' ? (
                   <IndexLoading />
                 ) : (
@@ -523,7 +606,7 @@ export default function App() {
             <div className="flex min-h-0 flex-col lg:h-full">
               <div className="h-[45vh] shrink-0 lg:hidden">
                 {status === 'error' ? (
-                  <IndexError message={error} />
+                  <IndexError message={error} onOpenLab={() => setMode('movement')} />
                 ) : status === 'loading' ? (
                   <IndexLoading />
                 ) : (
@@ -554,7 +637,7 @@ export default function App() {
           )}
           <main className="relative min-w-0 flex-1">
             {status === 'error' ? (
-              <IndexError message={error} />
+              <IndexError message={error} onOpenLab={() => setMode('movement')} />
             ) : status === 'loading' ? (
               <IndexLoading />
             ) : (
@@ -579,37 +662,57 @@ export default function App() {
       </Suspense>
       </ErrorBoundary>
 
-      {/* Compact-only floating buttons to open the drawers. */}
-      {compact && mode !== 'study' && mode !== 'movement' && !locked && (
-        <>
-          {!concept && (
-            <button
-              type="button"
-              onClick={() => setDrawer('sidebar')}
-              className="fixed bottom-4 left-4 z-30 flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/90 px-4 py-2.5 text-sm font-medium text-slate-200 shadow-lg backdrop-blur"
-            >
-              <PanelIcon />
-              Controles
-            </button>
-          )}
-          {!concept && mode === 'explore' && (
+      {/* VISTA COMPACTA: LAS DOS PUERTAS A LOS MARGENES, EN LA BARRA DEL
+          ESCENARIO. Eran dos capsulas con borde, sombra y desenfoque flotando
+          sobre el modelo, y se llamaban "Controles" y "Detalle", que no dicen
+          que hay dentro. Ahora son texto al pie del escenario, sobre el velo de
+          `.stage-bar`, y llevan el nombre de lo que abren: el INDICE de la
+          region (musculos, huesos, nervios, capas) y la FICHA de lo que este
+          seleccionado, que son los nombres que usa el sistema para los dos
+          margenes (docs/sistema-lamina.md).
+
+          La barra mide 24 px de velo + 44 px de boton + el margen de
+          `pb-safe`: los botones quedan por debajo de los 76 px (4.75rem) que
+          ViewToolbar deja libres al pie en la vista compacta, que es la medida
+          que evita que las vistas de camara queden tapadas.
+
+          El punto de la ficha avisa de que ya hay algo que leer: en un telefono
+          tocar una estructura la resalta en el modelo, pero nada junto al boton
+          decia que su ficha estaba esperando detras. */}
+      {compact && workspaceShown && !concept && (mode === 'explore' || mode === 'learn') && (
+        <div className="stage-bar pb-safe fixed inset-x-0 bottom-0 z-30 justify-between lg:hidden">
+          <button
+            type="button"
+            onClick={() => setDrawer('sidebar')}
+            aria-haspopup="dialog"
+            className="btn btn-quiet h-11 px-3 text-fg"
+          >
+            <PanelIcon />
+            Índice
+          </button>
+          {mode === 'explore' && (
             <button
               type="button"
               onClick={() => setDrawer('selection')}
-              className="fixed bottom-4 right-4 z-30 flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/90 px-4 py-2.5 text-sm font-medium text-slate-200 shadow-lg backdrop-blur"
+              aria-haspopup="dialog"
+              className="btn btn-quiet h-11 px-3 text-fg"
             >
-              Detalle
+              {hasSelection && (
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden="true" />
+              )}
+              Ficha
+              {hasSelection && <span className="sr-only">(hay una estructura seleccionada)</span>}
               <InfoIcon />
             </button>
           )}
-        </>
+        </div>
       )}
 
       {/* Mobile drawers. */}
       {/* The drawers live OUTSIDE the body's Suspense, so the lazy panels need
           their own boundary here. */}
       {drawer === 'sidebar' && (
-        <DrawerShell side="left" onClose={() => setDrawer('none')}>
+        <DrawerShell side="left" title="Índice" onClose={() => setDrawer('none')}>
           <Suspense fallback={<PanelLoading />}>
             <Sidebar
               index={index}
@@ -621,7 +724,7 @@ export default function App() {
         </DrawerShell>
       )}
       {drawer === 'selection' && (
-        <DrawerShell side="right" onClose={() => setDrawer('none')}>
+        <DrawerShell side="right" title="Ficha" onClose={() => setDrawer('none')}>
           <Suspense fallback={<PanelLoading />}>
             <SelectionPanel byMesh={byMesh} resolution={resolution} />
           </Suspense>
@@ -723,13 +826,20 @@ function CheckoutToast() {
   if (checkoutNotice !== 'cancel') return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-[80] flex -translate-x-1/2 items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/95 px-4 py-2.5 text-sm text-slate-200 shadow-xl backdrop-blur">
+    // Flota de verdad (es un aviso que se va solo), asi que lleva superficie.
+    // `theme-ink` en el propio elemento porque tambien se pinta sobre la
+    // landing, que puede estar en papel: sin el, `text-fg` resolveria al texto
+    // oscuro del papel sobre el grafito de `.instrument` y no se leeria.
+    <div
+      role="status"
+      className="theme-ink instrument fixed bottom-4 left-1/2 z-[80] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 py-1.5 pl-4 pr-1.5 text-sm text-fg"
+    >
       <span>Pago cancelado. Sigues en el plan gratuito.</span>
       <button
         type="button"
         onClick={clearCheckoutNotice}
         aria-label="Cerrar aviso"
-        className="rounded-md p-0.5 text-slate-500 transition-colors hover:text-slate-200"
+        className="btn btn-quiet btn-icon shrink-0"
       >
         <CloseIcon />
       </button>
@@ -763,19 +873,21 @@ function DisclaimerGate({ onAccept }: { onAccept: () => void }) {
   // scroll region carries the notice with the action bar stuck to its bottom
   // edge, so the button is on screen whether the text overflows or not.
   return (
-    <div className="theme-ink fixed inset-0 z-50 flex flex-col bg-ink-950 text-slate-200">
+    <div className="theme-ink fixed inset-0 z-50 flex flex-col bg-page text-fg">
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <MedicalDisclaimerScreen />
-        <div className="sticky bottom-0 border-t border-slate-800/60 bg-ink-950/95 px-6 pt-4 backdrop-blur pb-safe">
+        {/* La barra es opaca: iba al 95% con desenfoque, y el texto del aviso
+            se transparentaba por debajo del boton que hay que leer para pulsar. */}
+        <div className="pb-safe sticky bottom-0 border-t border-line/75 bg-page px-6 pt-4">
           <div className="mx-auto flex max-w-2xl flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs leading-relaxed text-slate-500">
+            <p className="text-xs leading-relaxed text-fg3">
               Al continuar confirmas que has leído este aviso y que usarás la
               aplicación solo con fines educativos.
             </p>
             <button
               type="button"
               onClick={onAccept}
-              className="shrink-0 rounded-lg bg-brand-fill px-5 py-3 text-sm font-semibold text-brand-on transition-colors hover:bg-brand-deep"
+              className="btn btn-primary h-11 shrink-0 px-5 text-sm"
             >
               Acepto y continúo
             </button>
@@ -788,41 +900,58 @@ function DisclaimerGate({ onAccept }: { onAccept: () => void }) {
 
 /* ---------------------------------------------------------------------------
  * Slide-in drawer shell for compact screens.
+ *
+ * ES EL MARGEN, QUE ENTRA DESDE SU LADO: mismas clases que un margen acoplado
+ * (`.margin`, con el filo del lado del escenario), sin sombra ni radio. Lleva
+ * el nombre de lo que contiene en la cabecera, porque un cajon sin titulo
+ * obligaba a leer su contenido para saber cual de los dos se habia abierto.
+ *
+ * Es un dialogo (`useDialogFocus`): antes solo se cerraba tocando fuera o
+ * acertando al aspa; con teclado no habia forma, y el foco se quedaba en el
+ * boton de debajo. El velo ya no es un <button>: eran dos controles "Cerrar"
+ * seguidos para un lector de pantalla, uno de ellos del tamano de la pantalla.
  * ------------------------------------------------------------------------ */
 function DrawerShell({
   side,
+  title,
   onClose,
   children,
 }: {
   side: 'left' | 'right';
+  title: string;
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const panel = useRef<HTMLDivElement>(null);
+  useDialogFocus(panel, { onEscape: onClose, yieldToSearch: true });
+
   return (
     <div className="fixed inset-0 z-40 lg:hidden">
-      <button
-        type="button"
-        aria-label="Cerrar"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-      />
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden="true" />
       <div
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
         className={[
-          'absolute top-0 z-10 flex h-full max-w-[85vw] flex-col bg-ink-950 shadow-2xl',
-          side === 'left' ? 'left-0' : 'right-0',
+          'margin absolute top-0 z-10 h-full max-w-[85vw] outline-none',
+          side === 'left' ? 'margin-l left-0' : 'margin-r right-0',
         ].join(' ')}
       >
-        <div className="flex shrink-0 items-center justify-end border-b border-slate-800/60 px-3 py-2">
+        <div className="flex h-11 shrink-0 items-center justify-between border-b border-line/75 pl-4">
+          <span className="kicker">{title}</span>
+          {/* 44 px: es lo que se toca con el pulgar para salir. */}
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-800/60 hover:text-slate-200"
-            aria-label="Cerrar"
+            aria-label={`Cerrar ${title.toLowerCase()}`}
+            className="btn btn-quiet btn-icon h-11 w-11"
           >
             <CloseIcon />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </div>
   );
@@ -830,6 +959,11 @@ function DrawerShell({
 
 /* ---------------------------------------------------------------------------
  * Generic overlay shell.
+ *
+ * Una superficie flotante (`.instrument`): la guia, los planes, lo legal, los
+ * creditos y la evidencia. Era un recuadro de 16 px de radio con sombra de
+ * 50 px y el fondo desenfocado. Y no era un dialogo: sin `role`, sin Escape,
+ * sin mover el foco. Ahora lo es (`useDialogFocus`).
  * ------------------------------------------------------------------------ */
 function OverlayShell({
   title,
@@ -840,29 +974,35 @@ function OverlayShell({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const panel = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useDialogFocus(panel, { onEscape: onClose, yieldToSearch: true });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="Cerrar"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-      />
-      <div className="relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-800/60 bg-ink-950 shadow-2xl">
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-800/60 px-5 py-3">
-          <span className="font-display text-sm font-semibold text-slate-200">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden="true" />
+      <div
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="instrument relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden outline-none"
+      >
+        <div className="flex h-11 shrink-0 items-center justify-between border-b border-line/75 pl-5 pr-1.5">
+          <h2 id={titleId} className="font-display text-sm font-semibold text-fg">
             {title}
-          </span>
+          </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-800/60 hover:text-slate-200"
+            className="btn btn-quiet btn-icon"
             aria-label="Cerrar"
           >
             <CloseIcon />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </div>
   );
@@ -871,14 +1011,14 @@ function OverlayShell({
 /* ---- Small inline icons (no extra deps) ---- */
 function CloseIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
       <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
     </svg>
   );
 }
 function PanelIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <path d="M9 4v16" strokeLinecap="round" />
     </svg>
@@ -886,27 +1026,81 @@ function PanelIcon() {
 }
 function InfoIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />
       <path d="M12 11v5M12 8h.01" strokeLinecap="round" />
     </svg>
   );
 }
 
-function IndexLoading() {
+/* ---------------------------------------------------------------------------
+ * ESTADOS DEL ESCENARIO: cargando y error.
+ *
+ * Texto sobre el escenario, sin recuadro. Los de carga son una anotacion
+ * (`.stage-note`) en `text-fg2`: iban en `slate-600` (#525761) sobre el fondo
+ * del visor (#0b1120 a #070b14), que da entre 2,6:1 y 2,7:1 de contraste, o
+ * sea un cartel que casi no se veia justo mientras no hay otra cosa que mirar.
+ * Con `fg2` son 6,8:1 a 7,1:1. Los de error eran dos tarjetas rosas; ahora son
+ * rotulo, titulo y una nota con la regla a la izquierda, y SIEMPRE traen una
+ * salida.
+ * ------------------------------------------------------------------------ */
+function StageWait({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full items-center justify-center viewer-bg">
-      <p className="font-mono text-xs text-slate-600">Cargando índice anatómico...</p>
+    <div className="viewer-bg flex h-full items-center justify-center">
+      <p role="status" className="stage-note text-fg2">
+        {children}
+      </p>
     </div>
   );
 }
 
+function IndexLoading() {
+  return <StageWait>Cargando el índice anatómico</StageWait>;
+}
+
 /** Waiting on a premium region's clinical library from the content endpoint. */
 function ContentLoading() {
+  return <StageWait>Cargando el contenido clínico</StageWait>;
+}
+
+/** Fallback for a lazy panel rendered outside the body's Suspense. */
+function PanelLoading() {
   return (
-    <div className="flex h-full items-center justify-center viewer-bg">
-      <p className="font-mono text-xs text-slate-600">Cargando contenido clínico...</p>
+    <div className="flex h-full min-h-[8rem] items-center justify-center px-6 py-8">
+      <p role="status" className="stage-note text-fg2">
+        Cargando
+      </p>
     </div>
+  );
+}
+
+function StageError({
+  title,
+  children,
+  actions,
+}: {
+  title: string;
+  children: React.ReactNode;
+  actions: React.ReactNode;
+}) {
+  return (
+    <div className="viewer-bg flex h-full items-center justify-center px-6">
+      <div role="alert" className="w-full max-w-sm">
+        <p className="kicker text-rose-300">No se pudo cargar</p>
+        <p className="mt-2 font-display text-base font-semibold leading-snug text-fg">{title}</p>
+        <div className="note mt-3 border-rose-400/70">{children}</div>
+        <div className="mt-4 flex flex-wrap items-center gap-2">{actions}</div>
+      </div>
+    </div>
+  );
+}
+
+/** Recargar conserva la pantalla: la region y el modo viajan en la direccion. */
+function ReloadButton() {
+  return (
+    <button type="button" onClick={() => window.location.reload()} className="btn btn-line">
+      Reintentar
+    </button>
   );
 }
 
@@ -914,47 +1108,72 @@ function ContentLoading() {
  * The content endpoint failed for a reason that is NOT "you have not paid"
  * (network, function down). Says so plainly instead of showing an empty region,
  * which would read as missing content and make the product look broken.
+ *
+ * DECIA "VUELVE A INTENTARLO" Y NO HABIA CON QUE. El estado 'error' de
+ * usePremiumRegion no se reintenta solo, y la pantalla no traia ningun boton:
+ * la unica salida era adivinar que habia que cambiar de region y volver. Ahora
+ * hay dos: reintentar (recarga, y la direccion devuelve a esta misma region) y
+ * seguir en el hombro, cuyo contenido va en el paquete de la aplicacion y no
+ * pasa por ese servicio.
  */
-function ContentError() {
+function ContentError({ onGoFree }: { onGoFree: () => void }) {
   return (
-    <div className="flex h-full items-center justify-center viewer-bg px-6">
-      <div className="max-w-sm rounded-xl border border-rose-900/40 bg-rose-950/20 px-5 py-4 text-center">
-        <p className="text-sm font-medium text-rose-300">
-          No se pudo cargar el contenido clínico de esta región.
-        </p>
-        <p className="mt-2 text-xs leading-relaxed text-slate-500">
-          Revisa tu conexión y vuelve a intentarlo. Si el problema sigue, cambia
-          de región y vuelve a entrar.
-        </p>
-      </div>
-    </div>
+    <StageError
+      title="El contenido clínico de esta región no ha llegado."
+      actions={
+        <>
+          <ReloadButton />
+          <button type="button" onClick={onGoFree} className="btn btn-quiet">
+            Seguir en el hombro
+          </button>
+        </>
+      }
+    >
+      Suele ser la conexión. Reintenta; si sigue igual, el hombro no depende de
+      esta descarga: su contenido viene con la aplicación.
+    </StageError>
   );
 }
 
-/** Fallback for a lazy panel rendered outside the body's Suspense. */
-function PanelLoading() {
+/**
+ * El indice de Explorar no cargo.
+ *
+ * LE DECIA AL CLIENTE QUE EJECUTARA `npm run build-anatomy`. Es el mensaje de
+ * quien desarrolla, y estaba en la pantalla de quien paga. La pista de
+ * desarrollo sigue, pero solo en desarrollo (Vite la quita del paquete de
+ * produccion); al usuario se le ofrece reintentar y el laboratorio, que no usa
+ * este indice (ver la nota junto a MovementView en el cuerpo de App).
+ */
+function IndexError({
+  message,
+  onOpenLab,
+}: {
+  message: string | null;
+  onOpenLab: () => void;
+}) {
   return (
-    <div className="flex h-full min-h-[8rem] items-center justify-center px-6 py-8">
-      <p className="font-mono text-xs text-slate-600">Cargando...</p>
-    </div>
-  );
-}
-
-function IndexError({ message }: { message: string | null }) {
-  return (
-    <div className="flex h-full items-center justify-center viewer-bg">
-      <div className="max-w-sm rounded-xl border border-rose-900/40 bg-rose-950/20 px-5 py-4 text-center">
-        <p className="text-sm font-medium text-rose-300">
-          No se pudo cargar el índice anatómico.
-        </p>
-        <p className="mt-1 font-mono text-xs text-slate-500">
-          {message ?? 'Error desconocido'}
-        </p>
-        <p className="mt-3 text-xs text-slate-500">
-          Verifica que <code className="text-slate-400">public/anatomy-index.json</code>{' '}
-          exista. Si no, ejecuta <code className="text-slate-400">npm run build-anatomy</code>.
-        </p>
-      </div>
-    </div>
+    <StageError
+      title="El índice del atlas no ha llegado."
+      actions={
+        <>
+          <ReloadButton />
+          <button type="button" onClick={onOpenLab} className="btn btn-quiet">
+            Abrir Movimiento
+          </button>
+        </>
+      }
+    >
+      Suele ser la conexión. El modo Movimiento no depende de este índice y
+      puede abrirse mientras tanto.
+      <span className="num mt-1.5 block text-[11px] text-fg3">
+        {message ?? 'Error desconocido'}
+      </span>
+      {import.meta.env.DEV && (
+        <span className="mt-1.5 block text-[11px] text-fg3">
+          Desarrollo: comprueba que exista <code>public/anatomy-index.json</code> o
+          ejecuta <code>npm run build-anatomy</code>.
+        </span>
+      )}
+    </StageError>
   );
 }

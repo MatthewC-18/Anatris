@@ -1,20 +1,33 @@
 // src/components/study/ReviewView.tsx
 //
-// "Repaso inteligente" — the spaced-repetition review session. This is the
-// flagship premium study experience: instead of grinding the whole deck every
-// time, the student is shown only the cards that are DUE (about to be forgotten)
-// plus a humane daily trickle of new ones, and grades each with the four Anki
-// grades. Each grade reschedules the card via the SRS engine and feeds the
-// streak. The result is the same workflow medical/physio students already trust
-// from Anki, built into the 3D anatomy tool so they never leave the app.
+// "Repaso": la sesion de repeticion espaciada. En vez de pasar el mazo entero
+// cada vez, se ensenan solo las tarjetas que TOCAN (las que estan a punto de
+// olvidarse) mas un goteo diario de nuevas, y cada una se califica con las
+// cuatro notas de Anki. La nota reprograma la tarjeta y alimenta la racha.
 //
-// Pure scheduling lives in lib/srs.ts; persistence + queue building in
-// lib/srsStore.ts; the streak in lib/streak.ts. This component is just the UI
-// that drives them.
+// La agenda pura vive en lib/srs.ts; la persistencia y la cola en
+// lib/srsStore.ts; la racha en lib/streak.ts; las teclas en lib/studyKeys.ts.
+// Este componente solo las conduce.
+//
+// -----------------------------------------------------------------------------
+// QUE TIENE QUE ENTENDERSE DE UN VISTAZO
+// -----------------------------------------------------------------------------
+//   1. CUANTAS QUEDAN: una linea y una barra de 2 px encima de la tarjeta.
+//   2. CUAL ES LA ACCION: debajo de la tarjeta hay siempre UNA cosa que hacer.
+//      Primero "Mostrar respuesta"; despues, las cuatro notas.
+//   3. QUE PASA AL CALIFICAR: cada nota lleva escrito el plazo que produce
+//      ("10 min", "1 día", "4 días") y la linea de debajo dice lo que no cabe
+//      en el boton: que "Otra vez" la repite en esta misma sesion.
+//
+// Los botones de nota eran cuatro bloques tenidos de rosa, ambar, verde y azul.
+// En LAMINA el color no decora: son cuatro `.btn`, y solo "Bien" (la nota por
+// defecto, la del espacio) lleva relleno. La barra de acciones va pegada al
+// borde inferior (`sticky`) para que en un telefono las notas esten a la vista
+// aunque la respuesta sea larga.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { Muscle } from '../../types/muscle';
-import { buildStudyCards, type StudyCard } from '../../lib/studyEngine';
+import { buildStudyCards, type StudyCard, type StudyCardKind } from '../../lib/studyEngine';
 import {
   buildQueue,
   getCardSchedule,
@@ -28,12 +41,21 @@ import {
   type Grade,
 } from '../../lib/srs';
 import { recordStreakActivity } from '../../lib/streak';
+import { GRADE_KEYS, reviewKeyAction } from '../../lib/studyKeys';
+import { useStudyKeys } from '../../hooks/useStudyKeys';
+import { FlipCard } from './FlipCard';
 
 interface ReviewViewProps {
   region: string;
   muscles: Muscle[];
   /** Called after every graded card so the parent dashboard can refresh. */
   onReviewed?: () => void;
+  /**
+   * Lleva a otra forma de repasar. Es la salida de los dos finales de esta
+   * vista ("todo al dia" y "sesion completada"), que sin ella solo ofrecian
+   * adelantar tarjetas.
+   */
+  onGoTo?: (tab: 'cases' | 'quiz') => void;
 }
 
 /** Per-session tally shown on the summary screen. */
@@ -47,31 +69,23 @@ interface SessionTally {
   again: number;
 }
 
-const GRADES: { grade: Grade; label: string; classes: string }[] = [
-  {
-    grade: 'again',
-    label: 'Otra vez',
-    classes: 'border-rose-700/50 bg-rose-950/30 text-rose-200 hover:bg-rose-900/40',
-  },
-  {
-    grade: 'hard',
-    label: 'Difícil',
-    classes: 'border-amber-700/50 bg-amber-950/30 text-amber-200 hover:bg-amber-900/40',
-  },
-  {
-    grade: 'good',
-    label: 'Bien',
-    classes:
-      'border-emerald-700/50 bg-emerald-950/30 text-emerald-200 hover:bg-emerald-900/40',
-  },
-  {
-    grade: 'easy',
-    label: 'Fácil',
-    classes: 'border-sky-700/50 bg-sky-950/30 text-sky-200 hover:bg-sky-900/40',
-  },
-];
+const GRADE_LABEL: Record<Grade, string> = {
+  again: 'Otra vez',
+  hard: 'Difícil',
+  good: 'Bien',
+  easy: 'Fácil',
+};
 
-export function ReviewView({ region, muscles, onReviewed }: ReviewViewProps) {
+/** El rotulo de la esquina de la tarjeta: que dato se esta preguntando. */
+const KIND_LABEL: Record<StudyCardKind, string> = {
+  latin: 'Nombre en latín',
+  origin: 'Origen',
+  insertion: 'Inserción',
+  innervation: 'Inervación',
+  action: 'Acciones',
+};
+
+export function ReviewView({ region, muscles, onReviewed, onGoTo }: ReviewViewProps) {
   // All cards available for this region, indexed by id for O(1) lookup.
   const cardsById = useMemo(() => {
     const map = new Map<string, StudyCard>();
@@ -137,10 +151,17 @@ export function ReviewView({ region, muscles, onReviewed }: ReviewViewProps) {
     setReviewTick((t) => t + 1);
   }
 
-  /* ----- Empty / all-caught-up state ----- */
-  if (!current && !done) {
-    return <CaughtUp region={region} allIds={allIds} onStudyAhead={() => resetSession(true)} />;
-  }
+  // TECLADO: espacio o Intro muestran la respuesta y, ya a la vista, valen por
+  // "Bien"; 1 a 4 son las cuatro notas. Ver lib/studyKeys.ts.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  useStudyKeys(rootRef, (key) => {
+    if (!current || !currentCard || done) return false;
+    const action = reviewKeyAction(key, flipped);
+    if (!action) return false;
+    if (action.type === 'flip') setFlipped(true);
+    else grade(action.grade);
+    return true;
+  });
 
   /* ----- Session summary ----- */
   if (done) {
@@ -151,94 +172,110 @@ export function ReviewView({ region, muscles, onReviewed }: ReviewViewProps) {
         allIds={allIds}
         onAgain={() => resetSession(false)}
         onStudyAhead={() => resetSession(true)}
+        onGoTo={onGoTo}
+      />
+    );
+  }
+
+  /* ----- Empty / all-caught-up state ----- */
+  if (!current || !currentCard) {
+    return (
+      <CaughtUp
+        region={region}
+        allIds={allIds}
+        onStudyAhead={() => resetSession(true)}
+        onGoTo={onGoTo}
       />
     );
   }
 
   // Remaining count for the progress readout (current card included).
   const remaining = queue.length;
+  const sessionPct = Math.round((tally.completed / (tally.completed + remaining)) * 100);
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-5 px-6 py-6">
-      {/* Progress + queue size */}
-      <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-        <span className="inline-flex items-center gap-2">
-          {current?.isNew ? (
-            <span className="rounded bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-300">
-              Nueva
-            </span>
-          ) : (
-            <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-              Repaso
-            </span>
-          )}
-          <span>{remaining} en cola</span>
-        </span>
-        <span>Hechas: {tally.completed}</span>
-      </div>
-
-      {/* Card */}
-      <button
-        type="button"
-        onClick={() => setFlipped((f) => !f)}
-        className="flex min-h-[16rem] w-full flex-col justify-center rounded-2xl border border-slate-800 bg-slate-900/40 px-6 py-8 text-left transition-colors hover:border-slate-700"
-      >
-        {!flipped ? (
-          <div className="flex flex-col items-center gap-2 text-center">
-            <span className="font-display text-2xl font-bold text-slate-50">
-              {currentCard?.front}
-            </span>
-            {currentCard?.sub && (
-              <span className="text-sm italic text-slate-500">{currentCard.sub}</span>
-            )}
-            {currentCard?.prompt && (
-              <span className="mt-3 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-sm font-medium text-accent">
-                {currentCard.prompt}
-              </span>
-            )}
-            <span className="mt-4 text-xs uppercase tracking-wide text-slate-600">
-              Toca para revelar
-            </span>
-          </div>
-        ) : (
-          <dl className="flex flex-col gap-3">
-            {currentCard?.facts.map((f) => (
-              <div key={f.label}>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-accent/80">
-                  {f.label}
-                </dt>
-                <dd className="text-sm leading-relaxed text-slate-200">{f.value}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-      </button>
-
-      {/* Grade controls — only after the card is flipped, like Anki. */}
-      {flipped ? (
-        <div className="grid grid-cols-4 gap-2">
-          {GRADES.map(({ grade: g, label, classes }) => {
-            const days = currentSchedule ? previewIntervalDays(currentSchedule, g) : 0;
-            return (
-              <button
-                key={g}
-                type="button"
-                onClick={() => grade(g)}
-                className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-sm font-medium transition-colors ${classes}`}
-              >
-                <span>{label}</span>
-                <span className="text-[10px] font-normal opacity-80">
-                  {formatInterval(days)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="text-center text-xs text-slate-600">
-          Responde mentalmente y luego gírala para calificar tu recuerdo.
+    <div ref={rootRef} className="mx-auto flex max-w-2xl flex-col px-6 pt-5">
+      {/* 1. Cuantas quedan. */}
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-sm text-fg2">
+          <span className="num font-medium text-fg">{remaining}</span>{' '}
+          {remaining === 1 ? 'tarjeta por repasar' : 'tarjetas por repasar'}
         </p>
-      )}
+        <p className="tag">
+          {tally.completed} {tally.completed === 1 ? 'hecha' : 'hechas'}
+        </p>
+      </div>
+      <div
+        className="meter mb-4 mt-2 text-brand"
+        style={{ '--v': sessionPct } as CSSProperties}
+        role="progressbar"
+        aria-label="Avance de la sesión"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={sessionPct}
+      />
+
+      <FlipCard
+        kicker={KIND_LABEL[currentCard.kind]}
+        status={current.isNew ? 'Nueva' : 'Repaso'}
+        front={currentCard.front}
+        sub={currentCard.sub}
+        prompt={currentCard.prompt}
+        facts={currentCard.facts}
+        flipped={flipped}
+        onFlip={() => setFlipped((f) => !f)}
+      />
+
+      {/* 2 y 3. La accion, y lo que pasa despues. */}
+      <div className="sticky bottom-0 -mx-6 bg-page px-6 pb-4 pt-3">
+        {flipped ? (
+          <>
+            <div
+              role="group"
+              aria-label="Califica tu recuerdo"
+              className="grid grid-cols-4 gap-2"
+            >
+              {GRADE_KEYS.map((g) => {
+                const days = currentSchedule ? previewIntervalDays(currentSchedule, g) : 0;
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => grade(g)}
+                    className={`btn h-auto min-h-[44px] flex-col gap-1 px-1 py-2 ${
+                      g === 'good' ? 'btn-primary' : 'btn-line'
+                    }`}
+                  >
+                    <span>{GRADE_LABEL[g]}</span>
+                    <span className="num text-[10px] font-normal opacity-80">
+                      {formatInterval(days)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2.5 text-xs leading-relaxed text-fg3">
+              Cada nota indica cuándo vuelve la tarjeta. «Otra vez» la repite en
+              esta misma sesión.
+            </p>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => setFlipped(true)}
+              className="btn btn-primary h-auto min-h-[44px] w-full"
+            >
+              Mostrar respuesta
+            </button>
+            <p className="mt-2.5 text-xs leading-relaxed text-fg3">
+              Responde mentalmente y luego muestra la respuesta para calificar tu
+              recuerdo.
+            </p>
+          </>
+        )}
+        <KeyHints />
+      </div>
     </div>
   );
 }
@@ -247,15 +284,36 @@ export function ReviewView({ region, muscles, onReviewed }: ReviewViewProps) {
  * SUB-VIEWS
  * ======================================================================== */
 
+/**
+ * Los atajos, a la vista. Solo donde hay raton (`hover: hover`): en una
+ * pantalla tactil no hay teclado que anunciar y la linea le quitaria sitio a la
+ * tarjeta.
+ */
+function KeyHints() {
+  return (
+    <p className="mt-2 hidden items-center gap-1.5 text-[11px] text-fg3 [@media(hover:hover)]:flex">
+      <span className="kbd">Espacio</span>
+      <span>muestra la respuesta y vale por «Bien»</span>
+      <span aria-hidden="true">·</span>
+      <span className="kbd">1</span>
+      <span>a</span>
+      <span className="kbd">4</span>
+      <span>califican</span>
+    </p>
+  );
+}
+
 /** Shown when there is nothing due right now. */
 function CaughtUp({
   region,
   allIds,
   onStudyAhead,
+  onGoTo,
 }: {
   region: string;
   allIds: string[];
   onStudyAhead: () => void;
+  onGoTo?: (tab: 'cases' | 'quiz') => void;
 }) {
   const next = useMemo(() => nextDueLabel(region, allIds), [region, allIds]);
   const hasUnseen = useMemo(
@@ -263,24 +321,16 @@ function CaughtUp({
     [region, allIds],
   );
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-6 py-12 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-2xl">
-        ✓
-      </div>
-      <p className="font-display text-lg font-bold text-slate-50">¡Todo al día!</p>
-      <p className="text-sm text-slate-400">
+    <div className="mx-auto flex max-w-2xl flex-col px-6 py-10">
+      <p className="kicker">Repaso</p>
+      <p className="mt-2 font-display text-xl font-semibold text-fg">Todo al día</p>
+      <p className="mt-2 max-w-md text-sm leading-relaxed text-fg2">
         {next
-          ? `No hay cartas pendientes ahora. Tu próximo repaso es ${next}.`
-          : 'No hay cartas pendientes ahora.'}
-        {hasUnseen && ' Ya completaste tus cartas nuevas de hoy.'}
+          ? `No hay tarjetas pendientes ahora. Tu próximo repaso es ${next}.`
+          : 'No hay tarjetas pendientes ahora.'}
+        {hasUnseen && ' Ya completaste tus tarjetas nuevas de hoy.'}
       </p>
-      <button
-        type="button"
-        onClick={onStudyAhead}
-        className="mt-2 rounded-lg border border-slate-700 px-5 py-2.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800/60"
-      >
-        Adelantar repaso
-      </button>
+      <NextSteps onStudyAhead={onStudyAhead} onGoTo={onGoTo} />
     </div>
   );
 }
@@ -292,12 +342,14 @@ function SessionSummary({
   allIds,
   onAgain,
   onStudyAhead,
+  onGoTo,
 }: {
   tally: SessionTally;
   region: string;
   allIds: string[];
   onAgain: () => void;
   onStudyAhead: () => void;
+  onGoTo?: (tab: 'cases' | 'quiz') => void;
 }) {
   const next = useMemo(() => nextDueLabel(region, allIds), [region, allIds]);
   const moreDue = useMemo(
@@ -305,50 +357,86 @@ function SessionSummary({
     [region, allIds],
   );
   return (
-    <div className="mx-auto flex max-w-lg flex-col items-center gap-4 px-6 py-10 text-center">
-      <p className="font-display text-sm font-semibold uppercase tracking-wide text-slate-500">
-        Sesión completada
-      </p>
-      <p className="font-display text-5xl font-bold text-slate-50">{tally.completed}</p>
-      <p className="text-sm text-slate-400">cartas repasadas</p>
-
-      <div className="mt-2 flex gap-6 text-center">
+    <div className="mx-auto flex max-w-2xl flex-col px-6 py-10">
+      <p className="kicker">Sesión completada</p>
+      {/* Una fila partida por filos, como la de la cabecera: la cifra que
+          importa mas grande y las otras dos a su lado. */}
+      <dl className="mt-4 flex">
+        <SummaryStat
+          label={tally.completed === 1 ? 'Tarjeta repasada' : 'Tarjetas repasadas'}
+          value={tally.completed}
+          lead
+        />
         <SummaryStat label="Nuevas" value={tally.newCards} />
         <SummaryStat label="Repetidas" value={tally.again} />
-      </div>
+      </dl>
 
-      {next && (
-        <p className="mt-2 text-xs text-slate-500">Próximo repaso {next}.</p>
-      )}
+      {next && <p className="mt-5 text-sm text-fg2">Tu próximo repaso es {next}.</p>}
 
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
-        {moreDue ? (
-          <button
-            type="button"
-            onClick={onAgain}
-            className="rounded-lg bg-accent/20 px-5 py-2.5 text-sm font-medium text-accent transition-colors hover:bg-accent/30"
-          >
+      {moreDue ? (
+        <div className="mt-5">
+          <button type="button" onClick={onAgain} className="btn btn-primary">
             Seguir repasando
           </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onStudyAhead}
-            className="rounded-lg border border-slate-700 px-5 py-2.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800/60"
-          >
-            Adelantar repaso
-          </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <NextSteps onStudyAhead={onStudyAhead} onGoTo={onGoTo} />
+      )}
     </div>
   );
 }
 
-function SummaryStat({ label, value }: { label: string; value: number }) {
+function SummaryStat({ label, value, lead }: { label: string; value: number; lead?: boolean }) {
   return (
-    <div>
-      <p className="font-display text-2xl font-bold text-slate-100">{value}</p>
-      <p className="text-[10px] uppercase tracking-wide text-slate-600">{label}</p>
+    <div
+      className={`flex flex-col justify-end ${
+        lead ? 'pr-5' : 'border-l border-line/75 px-5'
+      }`}
+    >
+      <dt className="kicker order-2 mt-2">{label}</dt>
+      <dd className={`readout order-1 ${lead ? 'text-5xl' : 'text-2xl'}`}>{value}</dd>
+    </div>
+  );
+}
+
+/**
+ * Que hacer cuando no queda nada pendiente. Antes la unica salida era
+ * "Adelantar repaso"; quien no queria adelantar se quedaba mirando una marca
+ * de verificacion. Ahora se ofrecen tambien las otras dos formas de trabajar
+ * la region, que no dependen de la agenda.
+ */
+function NextSteps({
+  onStudyAhead,
+  onGoTo,
+}: {
+  onStudyAhead: () => void;
+  onGoTo?: (tab: 'cases' | 'quiz') => void;
+}) {
+  return (
+    <div className="mt-6">
+      <div className="sec-head">
+        <span className="kicker">Mientras tanto</span>
+        <span className="sec-rule" />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {onGoTo && (
+          <>
+            <button type="button" onClick={() => onGoTo('cases')} className="btn btn-line">
+              Resolver un caso
+            </button>
+            <button type="button" onClick={() => onGoTo('quiz')} className="btn btn-line">
+              Hacer un cuestionario
+            </button>
+          </>
+        )}
+        <button type="button" onClick={onStudyAhead} className="btn btn-quiet">
+          Adelantar repaso
+        </button>
+      </div>
+      <p className="mt-3 max-w-md text-xs leading-relaxed text-fg3">
+        Adelantar repasa ahora tarjetas que todavía no tocan y las reprograma
+        desde hoy.
+      </p>
     </div>
   );
 }

@@ -1,13 +1,34 @@
 // src/components/ui/Controls.tsx
 //
-// The lab's control primitives. Three shapes cover every setting in the panels:
+// Los tres mandos primitivos del laboratorio. Cubren todos los ajustes de los
+// margenes:
 //
-//   Switch     a labelled on/off row (replaces the native checkbox + "On/Off" text)
-//   Segmented  2..4 mutually exclusive options in one track (replaces small selects)
-//   IconButton a square action, icon only, with an accessible name
+//   Switch     una fila con su interruptor (encendido / apagado)
+//   Segmented  de 2 a 4 opciones excluyentes, cortas, en una fila
+//   IconButton una accion cuadrada, solo icono, con nombre accesible
 //
-// They render as ROWS inside an .instrument surface, never as bordered cards, and
-// they carry the whole control's hit area so a tap anywhere on the row works.
+// SISTEMA LAMINA (docs/sistema-lamina.md): NINGUNO DIBUJA UNA CAJA.
+//
+// `Segmented` era una pista redondeada con borde y, dentro, una ficha blanca
+// rellena para la opcion activa: una caja dentro de otra, y ademas el objeto
+// mas brillante del panel para decir "Derecho". Ahora son pestanas (`.tabs` y
+// `.tab`): texto y un subrayado de 2 px bajo la activa, que es la receta del
+// sistema para "un control segmentado de 2 a 4 opciones cortas".
+//
+// `IconButton` era un cuadrado de 8 px de radio, y su variante principal un
+// relleno del acento con un halo de 16 px: el boton de reproducir brillaba mas
+// que el musculo que se estaba estudiando. Ahora es `.btn .btn-icon`: la
+// variante `primary` usa `.btn-primary` (el relleno sobrio del sistema, sin
+// sombra) y la otra `.btn-quiet` (texto que responde al pasar).
+//
+// `Switch` conserva la pista y el pulgar, que ES el objeto y no una caja (la
+// regla admite `rounded-full` para pulgares de interruptor), con las medidas de
+// las filas de capas (28 x 16) para que los dos interruptores del laboratorio
+// sean el mismo.
+//
+// LA API NO CAMBIA: mismos props, mismos roles y mismos `aria-*`. Los usan
+// otros paneles (la ficha de diseccion, la consola) y ninguno tiene que tocar
+// nada para recibir el aspecto nuevo.
 
 import type { ReactNode } from 'react';
 import { LockGlyph } from '../account/PremiumGate';
@@ -39,9 +60,7 @@ export function Switch({
 }) {
   const on = checked && !locked;
   const trackOn =
-    tone === 'amber'
-      ? 'bg-[#ff8c1a]/70 border-[#ff8c1a]/60'
-      : 'bg-accent/60 border-accent/50';
+    tone === 'amber' ? 'border-[#ff8c1a]/60 bg-[#ff8c1a]/70' : 'border-brand/50 bg-brand/60';
   return (
     <button
       type="button"
@@ -52,19 +71,17 @@ export function Switch({
       className="group flex w-full items-center gap-2.5 py-1.5 text-left transition-opacity disabled:opacity-40"
     >
       {icon && (
-        <span className={on ? 'text-accent' : 'text-slate-500 group-hover:text-slate-300'}>
-          {icon}
-        </span>
+        <span className={on ? 'text-brand' : 'text-fg3 group-hover:text-fg2'}>{icon}</span>
       )}
       <span className="min-w-0 flex-1">
         <span
-          className={`block truncate text-xs font-medium ${
-            locked ? 'text-amber-200/90' : on ? 'text-slate-100' : 'text-slate-400'
+          className={`block truncate text-xs font-medium transition-colors ${
+            locked ? 'text-amber-200/90' : on ? 'text-fg' : 'text-fg2 group-hover:text-fg'
           }`}
         >
           {label}
         </span>
-        {hint && <span className="mt-0.5 block truncate text-[10px] text-slate-500">{hint}</span>}
+        {hint && <span className="mt-0.5 block truncate text-[11px] text-fg3">{hint}</span>}
       </span>
       {locked ? (
         <span className="text-amber-300/80">
@@ -72,13 +89,13 @@ export function Switch({
         </span>
       ) : (
         <span
-          className={`relative h-[18px] w-[32px] shrink-0 rounded-full border transition-colors duration-200 ${
-            on ? trackOn : 'border-slate-700 bg-slate-800/80'
+          className={`relative h-[16px] w-[28px] shrink-0 rounded-full border transition-colors duration-200 ${
+            on ? trackOn : 'border-line bg-card'
           }`}
         >
           <span
-            className={`absolute top-[2px] h-3 w-3 rounded-full bg-slate-100 shadow transition-all duration-200 ${
-              on ? 'left-[15px]' : 'left-[2px] bg-slate-400'
+            className={`absolute top-[2px] h-[10px] w-[10px] rounded-full transition-all duration-200 ${
+              on ? 'left-[14px] bg-fg' : 'left-[2px] bg-fg3'
             }`}
           />
         </span>
@@ -103,12 +120,19 @@ export function Segmented<T extends string | number>({
   ariaLabel: string;
   size?: 'sm' | 'xs';
 }) {
-  const pad = size === 'xs' ? 'px-2 py-[3px] text-[10px]' : 'px-2.5 py-1 text-[11px]';
+  // Los dos tamanos solo cambian el cuerpo y el aire; el subrayado es el mismo.
+  // `.tab` trae 13 px y 10 px de relleno, pensado para las pestanas de un
+  // margen entero; en linea con un rotulo tiene que ser mas bajo o descuadra la
+  // fila en la que se sienta.
+  const pad = size === 'xs' ? 'py-1.5 text-[11px]' : 'py-2 text-xs';
+  const gap = size === 'xs' ? 'gap-3' : 'gap-4';
   return (
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      className="inline-flex rounded-lg border border-slate-700/70 bg-slate-900/70 p-[2px]"
+      // `inline-flex`: el filo de base mide lo que miden las opciones, no el
+      // ancho del padre. Es un mando en linea, no la cabecera de un panel.
+      className={`tabs inline-flex shrink-0 ${gap}`}
     >
       {options.map((o) => {
         const active = o.value === value;
@@ -119,11 +143,10 @@ export function Segmented<T extends string | number>({
             role="radio"
             aria-checked={active}
             onClick={() => onChange(o.value)}
-            className={`rounded-[6px] font-medium transition-colors ${pad} ${
-              active
-                ? 'bg-slate-200/95 text-ink-950 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            // `.tab` se enciende con `aria-selected`, que es de pestana; esto es
+            // un grupo de radio y su atributo es `aria-checked`, asi que la
+            // activa se marca con la clase.
+            className={`tab ${pad} ${active ? 'is-active' : ''}`}
           >
             {o.label}
           </button>
@@ -152,10 +175,7 @@ export function IconButton({
   disabled?: boolean;
   className?: string;
 }) {
-  const skin =
-    variant === 'primary'
-      ? 'bg-accent text-ink-950 hover:bg-accent-soft shadow-[0_0_16px_-4px_rgba(79,182,199,0.6)]'
-      : 'text-slate-300 hover:bg-slate-100/[0.07] hover:text-slate-100';
+  const skin = variant === 'primary' ? 'btn-primary' : 'btn-quiet';
   return (
     <button
       type="button"
@@ -163,7 +183,7 @@ export function IconButton({
       disabled={disabled}
       aria-label={label}
       title={label}
-      className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-40 ${skin} ${className}`}
+      className={`btn btn-icon shrink-0 ${skin} ${className}`}
     >
       {children}
     </button>
