@@ -55,6 +55,7 @@
 //
 // UI strings Spanish LATAM; code/ids ASCII; no `any`.
 
+import { createPortal } from 'react-dom';
 import { REFERENCES } from '../../data/references';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { rigChannel, type RigHighlight } from './RigModel';
@@ -185,6 +186,14 @@ interface MovementControlsProps {
    * cap would fight the sheet's height for the same pixels.
    */
   inSheet?: boolean;
+  /**
+   * Donde va la lista de movimientos, si no es dentro de la consola. En el
+   * margen de escritorio va ARRIBA del todo --que se estudia-- y el arco abajo,
+   * a la altura de la regla del escenario --cuanto se mueve--. La consola sigue
+   * siendo una pieza con su estado (gesto, angulo, reproduccion); la lista solo
+   * se pinta en otro sitio, con un portal.
+   */
+  movementSlot?: HTMLElement | null;
 }
 
 export function MovementControls({
@@ -192,6 +201,7 @@ export function MovementControls({
   patientMode = false,
   embedded = false,
   inSheet = false,
+  movementSlot = null,
 }: MovementControlsProps) {
   const movements = useMemo(() => romForRegion(region), [region]);
   const reducedMotion = usePrefersReducedMotion();
@@ -1161,7 +1171,7 @@ export function MovementControls({
           </>
         ) : (
           <>
-            {movementSection}
+            {movementSlot ? createPortal(movementSection, movementSlot) : movementSection}
             {/* Unsupported movement notice */}
             {control?.kind === 'unsupported' && (
               <section className="sec pb-2.5">

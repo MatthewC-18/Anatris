@@ -336,9 +336,19 @@ interface RhythmReadoutProps {
    * the two and the body in between is what scrolls.
    */
   embedded?: boolean;
+  /**
+   * EL ESCENARIO YA LEE EL GESTO. Con la lectura sobre el cuerpo (StageReadout:
+   * el gesto, el plano, el lado, el angulo en grande y la fase; LabCallouts: los
+   * musculos con su porcentaje), la cabecera, el goniometro y la tarjeta del
+   * protagonista de este margen decian lo mismo por segunda vez, en pequeno y
+   * lejos del cuerpo. Con `stageReads` el margen se queda con lo que el
+   * escenario NO dice: que pasa en esta fase y por que, los avisos clinicos, el
+   * ritmo y el reclutamiento entero. Es como se monta en escritorio.
+   */
+  stageReads?: boolean;
 }
 
-export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) {
+export function RhythmReadout({ region, embedded = false, stageReads = false }: RhythmReadoutProps) {
   const [cmd, setCmd] = useState<
     Pick<RigCommand, 'movementId' | 'side' | 'angleDeg' | 'pathologyId' | 'demo'>
   >(() => {
@@ -635,6 +645,51 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
 
   const nameOf = (muscleId: string) => muscleNameById(muscleRegion, muscleId);
 
+  // LA FASE, entera: su nombre, SU tramo y lo que pasa en ella. La cifra que
+  // hubo aqui era el arco completo, no el tramo de la fase, y al lado del nombre
+  // de un sector se leia como una contradiccion; esta es la del sector.
+  //
+  // Con `stageReads` va PRIMERA y con letra de lectura (el nombre de la fase y
+  // el angulo ya estan en el escenario; esto es el porque, y se lee entero).
+  const phaseSection =
+    at && !demo ? (
+      <section className="sec">
+        <div className="sec-head">
+          <span className="kicker">
+            {stageReads
+              ? 'Qué pasa ahora'
+              : at.total > 1
+                ? `Fase ${at.index + 1} de ${at.total}`
+                : 'Fase'}
+          </span>
+          <span className="sec-rule" />
+          <span className="num shrink-0 text-[11px] text-fg3">
+            {grados(at.phase.startDeg)}° a {grados(at.phase.endDeg)}°
+          </span>
+        </div>
+        <p
+          className={`font-semibold leading-snug text-fg ${
+            stageReads ? 'font-display text-[15px]' : 'text-xs'
+          }`}
+        >
+          {at.phase.label}
+        </p>
+        {at.phase.description && (
+          <p
+            className={`mt-1.5 text-fg2 ${
+              stageReads ? 'text-[13px] leading-relaxed' : 'text-[11px] leading-snug'
+            }`}
+          >
+            {at.phase.description}
+          </p>
+        )}
+        {/* Source of the sector claim (honest attribution, not a footnote). */}
+        {at.phase.cite.length > 0 && (
+          <p className="num mt-2 text-[10px] text-fg3">Fuente: {citeLabel(at.phase.cite)}</p>
+        )}
+      </section>
+    ) : null;
+
   return (
     // Una columna. Embebida llena el alto que la consola le deja (`flex-1`): la
     // parte fija arriba, el aviso del modelo abajo y, entre los dos, el cuerpo
@@ -645,7 +700,9 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
       }`}
     >
       {/* CABECERA: el gesto, el plano y el lado. Durante un demo el titulo es la
-          maniobra y el gesto pasa a la linea de debajo. */}
+          maniobra y el gesto pasa a la linea de debajo. Con `stageReads` no se
+          pinta: lo dice el escenario, en grande y junto al cuerpo. */}
+      {!stageReads && (
       <div className="shrink-0 px-4 pb-1 pt-3">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="line-clamp-2 min-w-0 font-display text-[15px] font-semibold leading-tight text-fg">
@@ -665,8 +722,12 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
           {demo ? gestureName : movement.joint}
         </p>
       </div>
+      )}
 
-      {/* GONIOMETRO DE SECTOR, con la cifra sentada en su boca. */}
+      {/* GONIOMETRO DE SECTOR, con la cifra sentada en su boca. Con
+          `stageReads` no: el angulo grande y la regla del arco estan en el
+          escenario. */}
+      {!stageReads && (
       <div
         className={`relative mx-auto mt-1 w-full max-w-[208px] shrink-0 ${
           compact ? 'h-[62px]' : 'h-[74px]'
@@ -765,9 +826,11 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
         </div>
       </div>
 
+      )}
+
       {/* LA FASE, al pie del dial: es el nombre del sector que esta encendido.
           Una linea; el nombre entero, su tramo y su prosa estan en el cuerpo. */}
-      {at && !demo && (
+      {at && !demo && !stageReads && (
         <p
           className="mt-1 shrink-0 truncate px-4 text-center text-xs font-semibold leading-tight text-brand"
           title={at.phase.label}
@@ -782,7 +845,7 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
       {/* Hidden during a demo: the recruited muscles and their percentages are
           per-angle values, so on a sweep they flicker. The demo section below
           names the structure under test instead, and the model still glows it. */}
-      {hero && !demo && (
+      {hero && !demo && !stageReads && (
         <div className="shrink-0 px-4 pb-2.5 pt-1.5">
           <div className="sec-head mb-1.5">
             <span className="kicker">
@@ -830,10 +893,13 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
         </div>
       )}
 
-      <div className="rule" />
+      {!stageReads && <div className="rule" />}
 
       {/* EL CUERPO: todo lo que no es imprescindible, y se desplaza. */}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3" style={fade}>
+        {/* Con el escenario leyendo el gesto, lo PRIMERO del margen es lo que
+            el escenario no dice: que pasa en esta fase y por que. */}
+        {stageReads && phaseSection}
         {/* P1: pathological state — what preset is active and WHY it hurts,
             with the implicated structure and its source. Amber = caution. */}
         {pathology && (
@@ -1151,7 +1217,9 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
                 return (
                   <li
                     key={m.muscleId}
-                    className="grid min-h-[22px] grid-cols-[minmax(0,1fr)_4rem_2.25rem] items-center gap-x-2.5"
+                    className={`grid grid-cols-[minmax(0,1fr)_4rem_2.25rem] items-center gap-x-2.5 ${
+                      stageReads ? 'min-h-[26px]' : 'min-h-[22px]'
+                    }`}
                   >
                     {canIsolate(m.muscleId) ? (
                       <button
@@ -1163,7 +1231,9 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
                             ? 'Mostrar el resto otra vez'
                             : `${ROM_ROLE_LABEL[m.role]}. Ver este músculo solo en el modelo`
                         }
-                        className={`truncate text-left text-xs underline-offset-4 transition-colors hover:text-fg hover:underline ${tone}`}
+                        className={`truncate text-left underline-offset-4 transition-colors hover:text-fg hover:underline ${
+                          stageReads ? 'text-[12.5px]' : 'text-xs'
+                        } ${tone}`}
                       >
                         {nameOf(m.muscleId)}
                       </button>
@@ -1200,33 +1270,7 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
           </section>
         )}
 
-        {/* LA FASE, entera: su nombre, SU tramo y lo que pasa en ella. La cifra
-            que hubo aqui era el arco completo, no el tramo de la fase, y al
-            lado del nombre de un sector se leia como una contradiccion; esta es
-            la del sector. */}
-        {at && !demo && (
-          <section className="sec">
-            <div className="sec-head">
-              <span className="kicker">
-                {at.total > 1 ? `Fase ${at.index + 1} de ${at.total}` : 'Fase'}
-              </span>
-              <span className="sec-rule" />
-              <span className="num shrink-0 text-[11px] text-fg3">
-                {grados(at.phase.startDeg)}° a {grados(at.phase.endDeg)}°
-              </span>
-            </div>
-            <p className="text-xs font-semibold leading-snug text-fg">{at.phase.label}</p>
-            {at.phase.description && (
-              <p className="mt-1 text-[11px] leading-snug text-fg2">{at.phase.description}</p>
-            )}
-            {/* Source of the sector claim (honest attribution, not a footnote). */}
-            {at.phase.cite.length > 0 && (
-              <p className="num mt-2 text-[10px] text-fg3">
-                Fuente: {citeLabel(at.phase.cite)}
-              </p>
-            )}
-          </section>
-        )}
+        {!stageReads && phaseSection}
       </div>
 
       {/* HONEST FRAMING (G3): the %/ratios above are a recruitment MODEL grounded

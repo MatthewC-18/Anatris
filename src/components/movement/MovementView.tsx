@@ -98,6 +98,8 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
   // las otras. Vuelve a Capas al cambiar de region, para que cada articulacion
   // empiece igual.
   const [tool, setTool] = useState<Tool>('capas');
+  // La ranura de arriba del margen izquierdo, para la lista de movimientos.
+  const [movementSlot, setMovementSlot] = useState<HTMLElement | null>(null);
   useEffect(() => setTool('capas'), [region]);
 
   // Reset any click-to-dissect peel when the studied region changes or the lab
@@ -363,12 +365,26 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
               ritmo, musculo protagonista) y abajo la consola que lo mueve,
               partidas por un filo. La lectura se encoge y la consola no: tiene
               su alto acotado dentro de MovementControls. */}
+          {/* ARRIBA, QUE SE ESTUDIA: la lista de movimientos y el lado. La
+              pinta la consola (es suya: elegir un gesto cambia su estado) a
+              traves de un portal a esta ranura. */}
+          <div ref={setMovementSlot} className="shrink-0" />
+          <div className="rule" />
+          {/* EN MEDIO, LO QUE EL ESCENARIO NO DICE: que pasa en esta fase y por
+              que, los avisos, el ritmo y el reclutamiento entero. */}
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <RhythmReadout region={region} embedded />
+            <RhythmReadout region={region} embedded stageReads />
           </div>
           <div className="rule" />
+          {/* ABAJO, CUANTO SE MUEVE: el arco, a la altura de la regla del
+              escenario, y lo que se pone una vez por sesion. */}
           <div className="shrink-0">
-            <MovementControls key={region ?? 'shoulder'} region={region} embedded />
+            <MovementControls
+              key={region ?? 'shoulder'}
+              region={region}
+              embedded
+              movementSlot={movementSlot}
+            />
           </div>
         </aside>
       )}
