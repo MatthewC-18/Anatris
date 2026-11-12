@@ -157,6 +157,13 @@ export interface TestDemo {
    * Hawkins forces internal rotation with the elbow at 90.
    */
   components?: TestDemoComponent[];
+  /**
+   * En que orden entran la base y los componentes (src/lib/demoTimeline.ts). Sin
+   * el campo, primero la base y despues la maniobra. Solo se declara cuando
+   * `npm run audit-demo-path` mide que otro orden mete menos el miembro en el
+   * tronco.
+   */
+  order?: import('../lib/demoTimeline').DemoOrder;
   /** What the rig approximation leaves out (shown as a caveat). */
   note?: string;
 }

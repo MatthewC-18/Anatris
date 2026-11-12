@@ -174,7 +174,11 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Muy específico y, en roturas de espesor completo, muy sensible: un lag positivo confirma el déficit de rotadores externos. Su sensibilidad baja en roturas parciales.',
-    demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }], movementId: 'glenohumeral-external-rotation', angleDeg: 60, highlightMuscleId: 'infraspinatus' },
+    // SIN `elbow-flexion` EN LOS COMPONENTES: la rotacion de hombro ya se lee
+    // con el codo a 90 (su postura, `ELBOW_AT_90` en boneMap) y el componente
+    // se sumaba encima. Medido: el codo acababa doblado a 156 grados, el
+    // antebrazo atravesando el biceps. Ver src/data/__tests__/demoComponents.test.ts.
+    demo: { movementId: 'glenohumeral-external-rotation', angleDeg: 60, highlightMuscleId: 'infraspinatus' },
     cite: [{ ref: 'hertel-1996', verified: true, locator: 'ERLS espesor completo 97/93' }],
   },
 
@@ -260,7 +264,11 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Muy específico: un positivo confirma déficit del subescapular. Poco sensible aislado, aunque el doble que el lift-off en la misma serie.',
-    demo: { components: [{ movementId: 'elbow-flexion', angleDeg: 90 }], movementId: 'glenohumeral-internal-rotation', angleDeg: 45, highlightMuscleId: 'subscapularis', note: 'La palma presiona el abdomen con el codo por delante del cuerpo.' },
+    // SIN `elbow-flexion` EN LOS COMPONENTES: la rotacion de hombro ya se lee
+    // con el codo a 90 (su postura, `ELBOW_AT_90` en boneMap) y el componente
+    // se sumaba encima. Medido: el codo acababa doblado a 156 grados, el
+    // antebrazo atravesando el biceps. Ver src/data/__tests__/demoComponents.test.ts.
+    demo: { movementId: 'glenohumeral-internal-rotation', angleDeg: 45, highlightMuscleId: 'subscapularis', note: 'La palma presiona el abdomen con el codo por delante del cuerpo.' },
     cite: [
       {
         ref: 'barth-2006',

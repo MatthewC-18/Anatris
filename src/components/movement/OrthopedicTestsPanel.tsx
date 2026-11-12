@@ -47,7 +47,7 @@
 // Data: src/data/orthopedicTests. Type: OrthopedicTest. UI Spanish LATAM; code
 // ASCII.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { testsForRegion } from '../../data/orthopedicTests';
 import {
   clusterLrPositive,
@@ -63,6 +63,7 @@ import { getReference, formatReference, type ReferenceId } from '../../data/refe
 import { rigChannel } from './RigModel';
 import { demoChannel, useActiveDemo } from './demoChannel';
 import { readPose } from './consolePoseStore';
+import { startDemoLoop } from '../../lib/demoTimeline';
 import { getBoneControl } from '../../lib/boneMap';
 import { EVENTS, track } from '../../lib/analytics';
 import { structureLabel } from '../../lib/clinicalStructures';
@@ -1470,7 +1471,6 @@ export function OrthopedicTestsPanel({
   // ANIMATE the active demo: sweep 0 -> target -> 0 (with holds) so the maneuver
   // is shown MOVING, not snapped. Loops while active; releases on stop/unmount.
   // Honors prefers-reduced-motion (snap to the provocative position).
-  const rafRef = useRef(0);
   useEffect(() => {
     if (!demoId) return;
     // CON EL PANEL CERRADO, NO. Cerrar con la X solo pone `rightPanel = 'none'`
@@ -1528,7 +1528,7 @@ export function OrthopedicTestsPanel({
     // ghostSkin: true forces the translucent glass skin for the WHOLE demo, even
     // for tests that glow no muscle, so the body never shows as opaque skin that
     // clips/"se sale" while the joint moves.
-    const push = (deg: number) =>
+    const push = (deg: number, components: typeof d.components) =>
       rigChannel.set({
         movementId: d.movementId,
         side,
@@ -1546,9 +1546,10 @@ export function OrthopedicTestsPanel({
         // apagada por defecto, asi que sin eso el resalte caia en mallas
         // invisibles y el boton seguia sin encender nada.
         structures: d.highlightStructureIds,
-        // The joints that make this maneuver itself, held while the base
-        // movement sweeps.
-        components: d.components,
+        // The joints that make this maneuver itself, YA ESCALADOS por la linea
+        // de tiempo (src/lib/demoTimeline.ts): entran despues de la base, no
+        // fijos desde el principio. Ver `startDemoLoop`.
+        components,
         // Fixed for the whole demo, so the readout can describe the maneuver
         // instead of recomputing (and flickering) its analysis every frame.
         demo: demoInfo,
@@ -1582,57 +1583,25 @@ export function OrthopedicTestsPanel({
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) {
-      push(heldDeg);
-      return release;
-    }
 
-    // Claim the rig for this maneuver straight away, before the first animation
-    // frame: pressing Demostrar switches the readout to the test immediately
-    // instead of after the browser gets round to scheduling a frame.
-    push(fromMax ? target : 0);
-
-    // Exam pace, not animation pace. The old 55 deg/s with a 1 s hold swept a
-    // 90 deg test in under two seconds, which is faster than the position can
-    // be read (and far faster than a physio moves a patient's limb). Half the
-    // speed plus a long hold AT the provocative position is what makes the
-    // maneuver legible.
-    const DPS = 26;
-    const HOLD_AT_TARGET_MS = 2800;
-    const HOLD_AT_REST_MS = 800;
-    let last = 0;
-    // En un arco compartido la maniobra ABRE doblada y se estira hacia 0, que
-    // es donde esta la postura que la prueba nombra; en todo lo demas abre en
-    // reposo y sale hacia su objetivo.
-    let dir: 1 | -1 = fromMax ? -1 : 1;
-    let angle = fromMax ? target : 0;
-    let holdUntil = 0;
-    const step = (ts: number) => {
-      if (!last) last = ts;
-      const dt = Math.min(0.05, (ts - last) / 1000);
-      last = ts;
-      if (holdUntil) {
-        if (ts >= holdUntil) holdUntil = 0;
-      } else {
-        angle += dir * DPS * dt;
-        if (angle >= target) {
-          angle = target;
-          dir = -1;
-          // La espera LARGA va en la posicion que se sostiene: en un arco
-          // compartido ese extremo es el punto de partida, no la prueba.
-          holdUntil = ts + (fromMax ? HOLD_AT_REST_MS : HOLD_AT_TARGET_MS);
-        } else if (angle <= 0) {
-          angle = 0;
-          dir = 1;
-          holdUntil = ts + (fromMax ? HOLD_AT_TARGET_MS : HOLD_AT_REST_MS);
-        }
-      }
-      push(angle);
-      rafRef.current = requestAnimationFrame(step);
-    };
-    rafRef.current = requestAnimationFrame(step);
+    // EL BUCLE ES EL COMPARTIDO (src/lib/demoTimeline.ts). Este panel llevaba
+    // el suyo, con los componentes FIJOS durante todo el barrido: en
+    // Hawkins-Kennedy el codo a 90 y la rotacion interna a 70 se aplicaban ya
+    // con el brazo abajo, y el antebrazo --y la mano del examinador, que va
+    // colocada sobre el-- quedaba DENTRO del torax. MEDIDO con
+    // `npm run audit-demo-path`: el 19,4% del antebrazo y la mano dentro del
+    // tronco, con un punto en el centro mismo del torax; con la base primero y
+    // la maniobra despues, el 0,2% (el roce del brazo en reposo).
+    const stop = startDemoLoop({
+      target,
+      fromMax,
+      components: d.components,
+      order: d.order,
+      reduceMotion: reduce,
+      push,
+    });
     return () => {
-      cancelAnimationFrame(rafRef.current);
+      stop();
       release();
     };
   }, [demoId, byId, open, bare, region]);

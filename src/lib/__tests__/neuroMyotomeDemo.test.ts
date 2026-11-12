@@ -42,6 +42,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { baseAngle } from '../demoTimeline';
 import { CERVICAL_NEURO } from '../../data/neuro/cervical';
 import { LUMBOSACRAL_NEURO } from '../../data/neuro/lumbosacral';
 import { NEURO_BY_REGION } from '../../data/neuro';
@@ -256,7 +257,15 @@ describe('los demos de miotoma', () => {
     // dos son arcos compartidos (`arcFrom: 'max'`), donde 0 ES la articulacion
     // estirada. La rama de movimiento reducido hacia `push(target)` y ensenaba
     // el codo doblado 120 grados bajo el rotulo "Extension de codo".
-    expect(readPanel()).toMatch(/push\(fromMax \? 0 : target\)/);
+    //
+    // Desde que los dos paneles usan el bucle compartido
+    // (src/lib/demoTimeline.ts), esa rama es `startDemoLoop` con
+    // `reduceMotion`: posa la fraccion final del trazo, y en un arco compartido
+    // la fraccion final es el 0.
+    const src = readPanel();
+    expect(src).toMatch(/startDemoLoop\(\{[\s\S]*?fromMax,[\s\S]*?reduceMotion: reduce,/);
+    expect(baseAngle(1, 120, true)).toBe(0);
+    expect(baseAngle(1, 90, true)).toBe(0);
   });
 
   it('y el demo se para al cerrar el panel', () => {

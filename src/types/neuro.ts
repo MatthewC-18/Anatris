@@ -106,6 +106,8 @@ export interface MyotomeDemo {
    * de codo". Same mechanism as the orthopedic tests' TestDemoComponent.
    */
   components?: { movementId: string; angleDeg: number }[];
+  /** Orden de base y componentes. Ver `TestDemo.order` y src/lib/demoTimeline.ts. */
+  order?: import('../lib/demoTimeline').DemoOrder;
   /** What the rig approximation leaves out (shown as a caveat). */
   note?: string;
 }

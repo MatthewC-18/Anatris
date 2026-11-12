@@ -59,7 +59,7 @@
 // mode for the mobile bottom sheet. Data: src/data/neuro. UI Spanish LATAM; code
 // and comments ASCII/English.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { neuroForRegion } from '../../data/neuro';
 import { pigmentFor } from '../../data/neuro/plate';
 import type { NerveRoot } from '../../types/neuro';
@@ -80,6 +80,7 @@ import {
 import { neuroSkinChannel } from './neuroSkinChannel';
 import { useAllMuscles } from '../../hooks/useMuscleResolution';
 import { readPose } from './consolePoseStore';
+import { startDemoLoop } from '../../lib/demoTimeline';
 import { clearScreen, readScreen, writeScreen } from './neuroScreenStore';
 import { HowToUse, Kicker, NeuroRootRow, shortReflex } from './NeuroRootRow';
 import { ChevronDownIcon, CloseIcon } from '../ui/Icons';
@@ -472,7 +473,6 @@ export function NeuroPanel({
 
   // ANIMATE the active myotome demo on the rig: sweep 0 -> target -> 0 with holds
   // (same pattern as OrthopedicTestsPanel). Honors prefers-reduced-motion.
-  const rafRef = useRef(0);
   useEffect(() => {
     if (!demoId) return;
     // Y SI EL PANEL ESTA CERRADO, NO. Cerrar con la X solo pone
@@ -527,13 +527,14 @@ export function NeuroPanel({
             : `Del miotoma ${mute.length === 1 ? 'queda 1 músculo' : `quedan ${mute.length} músculos`} sin iluminar: su ficha pertenece a otra región del atlas.`,
       note: d.note,
     };
-    const push = (deg: number) =>
+    const push = (deg: number, components: typeof d.components) =>
       rigChannel.set({
         movementId: d.movementId,
         side,
         angleDeg: deg,
-        // The joints that complete this myotome (C5 is abduction AND elbow flexion).
-        components: d.components,
+        // The joints that complete this myotome (C5 is abduction AND elbow
+        // flexion), ya escalados por la linea de tiempo compartida.
+        components,
         highlight,
         showMarkers: false,
         ghostSkin: true,
@@ -582,58 +583,20 @@ export function NeuroPanel({
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) {
-      // Y AQUI TAMBIEN MANDA `fromMax`. El bucle animado ya lo respetaba y esta
-      // rama no: en C7 ensenaba el codo doblado 120 grados bajo el rotulo
-      // "Extension de codo" (la mano a 40,6 cm del reposo) y en L3 la rodilla
-      // doblada 90 bajo "Extension de rodilla" (el pie a 53,8 cm). Para un arco
-      // compartido, el final del movimiento que se nombra es el 0.
-      push(fromMax ? 0 : target);
-      return release;
-    }
 
-    // Claim the rig straight away, before the first animation frame, so the
-    // readout switches to the myotome the moment the button is pressed.
-    push(0);
-
-    // Exam pace (same as the orthopedic-test demos): slow enough to follow, with
-    // a long hold at the tested position so it can actually be read.
-    const DPS = 26;
-    const HOLD_AT_TARGET_MS = 2800;
-    const HOLD_AT_REST_MS = 800;
-    let last = 0;
-    // A shared-arc movement opens BENT and straightens toward 0; everything else
-    // opens at rest and travels out to its target.
-    let dir: 1 | -1 = fromMax ? -1 : 1;
-    let angle = fromMax ? target : 0;
-    let holdUntil = 0;
-    const step = (ts: number) => {
-      if (!last) last = ts;
-      const dt = Math.min(0.05, (ts - last) / 1000);
-      last = ts;
-      if (holdUntil) {
-        if (ts >= holdUntil) holdUntil = 0;
-      } else {
-        angle += dir * DPS * dt;
-        if (angle >= target) {
-          angle = target;
-          dir = -1;
-          // For a shared-arc movement the target end is the STARTING position, so
-          // it is the brief pause; the long hold belongs at 0, where the movement
-          // being named actually ends.
-          holdUntil = ts + (fromMax ? HOLD_AT_REST_MS : HOLD_AT_TARGET_MS);
-        } else if (angle <= 0) {
-          angle = 0;
-          dir = 1;
-          holdUntil = ts + (fromMax ? HOLD_AT_TARGET_MS : HOLD_AT_REST_MS);
-        }
-      }
-      push(angle);
-      rafRef.current = requestAnimationFrame(step);
-    };
-    rafRef.current = requestAnimationFrame(step);
+    // EL MISMO BUCLE QUE LOS TESTS (src/lib/demoTimeline.ts), que ya respeta el
+    // arco compartido (`fromMax`: en C7 y L3 la posicion que se nombra es el 0)
+    // y mete los componentes DESPUES de la base, no fijos desde el principio.
+    const stop = startDemoLoop({
+      target,
+      fromMax,
+      components: d.components,
+      order: d.order,
+      reduceMotion: reduce,
+      push,
+    });
     return () => {
-      cancelAnimationFrame(rafRef.current);
+      stop();
       release();
     };
     // `nameByMuscleId` y `region` entran porque el demo los lee: el primero
