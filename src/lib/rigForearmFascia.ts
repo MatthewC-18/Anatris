@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { agreeTriangleWinding } from './faceWinding';
 
 /**
  * LA FASCIA DEL ANTEBRAZO TIENE QUE SER FONDO, Y PARA SERLO HAY QUE HUNDIRLA.
@@ -77,6 +78,15 @@ export function sinkForearmFascia(mesh: THREE.Mesh, metros = FASCIA_SINK_M): boo
     );
   }
   pos.needsUpdate = true;
+  // HUNDIR PLIEGA. Mover cada vertice lo mismo a lo largo de su normal es
+  // desplazar la superficie entera, y donde la curvatura es mas cerrada que el
+  // desplazamiento la copia se dobla sobre si misma: MEDIDO en el navegador,
+  // 123 y 121 triangulos (el 7% de cada fascia) quedaban girando contra sus
+  // normales, y con DoubleSide eso son motas negras en el antebrazo. Antes de
+  // hundir no habia ninguno (la tabla de rigWindingBake.ts no los lista). Se
+  // ponen de acuerdo aqui mismo, para que el banco offline (rigPose.mts), que
+  // llama a esta funcion, vea lo mismo que la app.
+  agreeTriangleWinding(mesh);
   geom.computeBoundingSphere();
   geom.computeBoundingBox();
   geom.userData = { ...(geom.userData ?? {}), [SUNK_KEY]: true };

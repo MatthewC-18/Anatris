@@ -27,7 +27,10 @@ import {
   type BoneControl,
 } from '../../src/lib/boneMap.ts';
 import { bindClaviclesToShoulderGirdle } from '../../src/lib/clavicleBinding.ts';
-import { repairFaceWinding } from '../../src/lib/faceWinding.ts';
+import { agreeTriangleWinding, repairFaceWinding } from '../../src/lib/faceWinding.ts';
+import { applyBakedWinding } from '../../src/lib/rigWindingBake.ts';
+import { closeSkinMidline } from '../../src/lib/rigSkinMidline.ts';
+import { addEyes } from '../../src/lib/rigEyes.ts';
 import { bridgeShoulderSkin } from '../../src/lib/shoulderSkinBridge.ts';
 import { gradeShoulderMuscleBinding } from '../../src/lib/shoulderMuscleBinding.ts';
 import { relaxSkinSeams } from '../../src/lib/skinSeamRelax.ts';
@@ -183,7 +186,26 @@ export function createRigPoser(
     sinkForearmFascia(mesh);
   });
   inflateSkinShell(scene);
+  // LO QUE LA APLICACION HACE CON LA CABEZA Y LOS GIROS (noviembre 2026), para
+  // que la hoja de revision no ensene una coronilla abierta, triangulos negros
+  // o la cara sin ojos que el usuario ya no ve. Mismo orden relativo que
+  // RigModel: la linea media va pegada al engorde; la tabla de giros, justo
+  // despues de `repairFaceWinding`; el giro de la piel y los ojos, al final de
+  // la preparacion de mallas.
+  const esPiel = (mesh: THREE.Mesh) => {
+    const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    return layerForMaterial((first as THREE.Material | undefined)?.name ?? null) === 'skin'
+      ? ('skin' as const)
+      : ('other' as const);
+  };
+  closeSkinMidline(scene, esPiel);
   repairFaceWinding(scene);
+  applyBakedWinding(scene);
+  scene.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (mesh.isMesh && esPiel(mesh) === 'skin') agreeTriangleWinding(mesh);
+  });
+  addEyes(scene);
   marca('bloque:antes', scene);
   bindClaviclesToShoulderGirdle(scene);
   bridgeShoulderSkin(scene);

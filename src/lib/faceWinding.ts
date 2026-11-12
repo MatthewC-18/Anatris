@@ -168,6 +168,40 @@ const _tf = new THREE.Vector3();
 const _tn = new THREE.Vector3();
 const _tm = new THREE.Vector3();
 
+type Attr = THREE.BufferAttribute | THREE.InterleavedBufferAttribute;
+
+/**
+ * True si el triangulo que empieza en `i` (posicion en el indice, multiplo de 3)
+ * gira contra la normal media de sus tres vertices. Los degenerados y los de
+ * normales opuestas entre si no dicen nada: false.
+ */
+export function triangleWindsAgainst(
+  pos: Attr,
+  nor: Attr,
+  arr: ArrayLike<number>,
+  i: number,
+): boolean {
+  _t0.fromBufferAttribute(pos, arr[i]);
+  _t1.fromBufferAttribute(pos, arr[i + 1]).sub(_t0);
+  _t2.fromBufferAttribute(pos, arr[i + 2]).sub(_t0);
+  _tf.crossVectors(_t1, _t2);
+  const fl = _tf.length();
+  if (fl < 1e-12) return false; // degenerado: no dice nada
+  _tn.fromBufferAttribute(nor, arr[i]);
+  _tn.add(_tm.fromBufferAttribute(nor, arr[i + 1]));
+  _tn.add(_tm.fromBufferAttribute(nor, arr[i + 2]));
+  const nl = _tn.length();
+  if (nl < 1e-6) return false; // normales opuestas entre si: tampoco
+  return _tf.dot(_tn) / (fl * nl) < TRIANGLE_AGAINST_COS;
+}
+
+/** Invierte el triangulo que empieza en `i`: cambia de sitio dos indices. */
+export function flipTriangle(arr: Uint16Array | Uint32Array, i: number): void {
+  const t = arr[i + 1];
+  arr[i + 1] = arr[i + 2];
+  arr[i + 2] = t;
+}
+
 /**
  * Invierte cada triangulo cuyo giro va contra la normal media de sus tres
  * vertices. Idempotente (un triangulo ya de acuerdo no se toca), asi que tambien
@@ -184,24 +218,29 @@ export function agreeTriangleWinding(mesh: THREE.Mesh): number {
   const arr = index.array as Uint16Array | Uint32Array;
   let flipped = 0;
   for (let i = 0; i + 2 < arr.length; i += 3) {
-    _t0.fromBufferAttribute(pos, arr[i]);
-    _t1.fromBufferAttribute(pos, arr[i + 1]).sub(_t0);
-    _t2.fromBufferAttribute(pos, arr[i + 2]).sub(_t0);
-    _tf.crossVectors(_t1, _t2);
-    const fl = _tf.length();
-    if (fl < 1e-12) continue; // degenerado: no dice nada
-    _tn.fromBufferAttribute(nor, arr[i]);
-    _tn.add(_tm.fromBufferAttribute(nor, arr[i + 1]));
-    _tn.add(_tm.fromBufferAttribute(nor, arr[i + 2]));
-    const nl = _tn.length();
-    if (nl < 1e-6) continue; // normales opuestas entre si: tampoco
-    if (_tf.dot(_tn) / (fl * nl) < TRIANGLE_AGAINST_COS) {
-      const t = arr[i + 1];
-      arr[i + 1] = arr[i + 2];
-      arr[i + 2] = t;
+    if (triangleWindsAgainst(pos, nor, arr, i)) {
+      flipTriangle(arr, i);
       flipped++;
     }
   }
   if (flipped > 0) index.needsUpdate = true;
   return flipped;
+}
+
+/**
+ * Las posiciones (en triangulos, no en indices) de los que giran contra sus
+ * normales, sin tocar nada. Es lo que guarda el horneado de rigWindingBake.ts.
+ */
+export function trianglesAgainst(mesh: THREE.Mesh): number[] {
+  const geom = mesh.geometry;
+  const pos = geom?.getAttribute('position');
+  const nor = geom?.getAttribute('normal');
+  const index = geom?.getIndex();
+  if (!pos || !nor || !index) return [];
+  const arr = index.array;
+  const out: number[] = [];
+  for (let i = 0; i + 2 < arr.length; i += 3) {
+    if (triangleWindsAgainst(pos, nor, arr, i)) out.push(i / 3);
+  }
+  return out;
 }

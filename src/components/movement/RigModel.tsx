@@ -75,6 +75,7 @@ import { blendHipSkin } from '../../lib/rigHipSkin';
 import { regradeAnkleCrossers } from '../../lib/rigAnkleRebind';
 import { addEyes, eyesIn, eyesVisibleFor } from '../../lib/rigEyes';
 import { closeSkinMidline } from '../../lib/rigSkinMidline';
+import { applyBakedWinding } from '../../lib/rigWindingBake';
 import {
   smoothNeckSkin,
   smoothTrunkSkin,
@@ -2165,6 +2166,19 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
         console.info(
           `[RigModel] reversed the winding of ${winding.flipped} mirrored meshes ` +
             `(${winding.left} were already consistent)`,
+        );
+      }
+      // Y LOS TRIANGULOS SUELTOS DEL MUSCULO Y DEL HUESO, por tabla
+      // (src/lib/rigWindingBake.ts): 4.661 que salian negros desde las dos
+      // caras. Buscarlos aqui costaba 553 ms; la tabla dice donde mirar y cada
+      // uno se comprueba antes de invertirlo. AQUI y no despues: el recorte del
+      // antebrazo quita triangulos y cambiaria sus posiciones.
+      const bakedWinding = applyBakedWinding(scene);
+      if (bakedWinding.stale > 0 || bakedWinding.missing.length > 0) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[RigModel] la tabla de giros no cuadra: ${bakedWinding.stale} entradas viejas, ` +
+            `${bakedWinding.missing.length} mallas que faltan (npm run build-winding-bake)`,
         );
       }
 
