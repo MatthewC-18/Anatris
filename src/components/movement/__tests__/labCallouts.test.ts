@@ -101,7 +101,9 @@ describe('las etiquetas siguen al cuerpo', () => {
 
   it('no se renderiza con React mientras el gesto corre', () => {
     expect(src).toContain('r.pct.textContent = `${cifra}%`');
-    expect(src).toContain('useEffect(() => calloutChannel.subscribe(setIds), [])');
+    // La lamina se suscribe al canal que le toca (musculos o raices) y solo
+    // vuelve a pintar cuando cambia QUIEN esta.
+    expect(src).toContain('return channel.subscribe(setIds);');
   });
 });
 

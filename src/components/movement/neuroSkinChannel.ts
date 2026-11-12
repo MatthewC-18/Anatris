@@ -17,11 +17,20 @@ import type { PlateFigure } from '../../data/neuro/plate';
 export interface NeuroSkinCommand {
   /** Which limb's map, or null when nothing should be painted. */
   figure: PlateFigure | null;
-  /** Selected roots, in the panel's own order. Empty means paint nothing. */
+  /** Roots PAINTED on the skin, in the panel's own order. Empty paints nothing. */
   roots: string[];
+  /**
+   * Roots the user has PICKED. Distinct from `roots` since the body became the
+   * dermatome chart: with nothing picked the panel paints EVERY root (the whole
+   * map), and the stage needs to tell "the chart" from "this one root".
+   */
+  picked: string[];
 }
 
-const EMPTY: NeuroSkinCommand = { figure: null, roots: [] };
+const EMPTY: NeuroSkinCommand = { figure: null, roots: [], picked: [] };
+
+const same = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((v, i) => v === b[i]);
 
 type Listener = (cmd: NeuroSkinCommand) => void;
 
@@ -42,15 +51,16 @@ export const neuroSkinChannel = (() => {
      * re-renders on every hover and grade, and the in-canvas layer does real work
      * (material swaps across dozens of meshes) on each change.
      */
-    set: (cmd: NeuroSkinCommand): void => {
+    set: (cmd: { figure: PlateFigure | null; roots: string[]; picked?: string[] }): void => {
+      const picked = cmd.picked ?? cmd.roots;
       if (
         current.figure === cmd.figure &&
-        current.roots.length === cmd.roots.length &&
-        current.roots.every((r, i) => r === cmd.roots[i])
+        same(current.roots, cmd.roots) &&
+        same(current.picked, picked)
       ) {
         return;
       }
-      current = { figure: cmd.figure, roots: [...cmd.roots] };
+      current = { figure: cmd.figure, roots: [...cmd.roots], picked: [...picked] };
       notify();
     },
     /** Stop painting (panel closed, region without a neuro screen, unmount). */
