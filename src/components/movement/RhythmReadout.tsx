@@ -823,7 +823,9 @@ export function RhythmReadout({ region, embedded = false, stageReads = false }: 
           {demo ? (
             demoSection
           ) : (
-            <>
+            // Un envoltorio sin estilo: LabTrio lo observa para saber cuanto mide
+            // el centro cuando entra o sale una seccion (un cuadro, una postura).
+            <div data-lab-center="">
               {examPostures.length > 0 && (
                 <section className="px-4 pt-2.5">
                   <button
@@ -1161,7 +1163,7 @@ export function RhythmReadout({ region, embedded = false, stageReads = false }: 
                   isolate={isolateByName}
                 />
               )}
-            </>
+            </div>
           )}
         </div>
       </div>

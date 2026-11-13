@@ -961,30 +961,20 @@
 
   /* VENTANAS ALTAS. A 1920 x 1080 (el tamano al que se graban los videos) la
      columna mide unos 1.010 px y el contenido unos 810: medido, 195 px vacios
-     bajo el trio. En vez de un hueco, lo que ahi estaba plegado se ve: la nota
-     del "Por que" de cada musculo, y la frase y las curvas crecen un punto. */
-  .lab-why {
-    display: none;
-  }
-  .lab-why.is-on {
-    display: block;
-  }
-  .lab-why-spacer {
-    display: none;
-  }
+     bajo el trio. Ahi la frase y las curvas crecen un punto, y las notas del
+     "Por que" se ven solas SI CABEN (lo decide LabTrio midiendo). */
   @media (min-height: 1000px) {
-    .lab-why {
-      display: block;
-    }
-    .lab-why-toggle {
-      display: none;
-    }
-    .lab-why-spacer {
-      display: block;
-    }
     .strip:not(.is-small) {
       height: 26px;
     }
+  }
+  /* Una nota del "Por que" que no se ve: fuera del flujo y medible. */
+  .lab-why-probe {
+    position: absolute;
+    left: 0;
+    right: 0;
+    visibility: hidden;
+    pointer-events: none;
   }
   @media (min-height: 1000px) and (min-width: 1280px) {
     .lede {

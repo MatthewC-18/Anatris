@@ -349,7 +349,7 @@ function MuscleRow({
     <span className={small ? 'text-xs font-medium' : 'text-[13px] font-semibold'}>{nameOf(id)}</span>
   );
   return (
-    <li className={small ? 'mt-1.5 first:mt-0' : 'mt-2 first:mt-0'}>
+    <li className={`relative ${small ? 'mt-1.5 first:mt-0' : 'mt-2 first:mt-0'}`}>
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
         {canIsolate(id) ? (
           <button
@@ -399,7 +399,11 @@ function MuscleRow({
         </div>
       ) : null}
       {note !== undefined && (
-        <p className={`lab-why mt-1 text-xs leading-snug text-fg2 ${whyOpen ? 'is-on' : ''}`}>
+        <p
+          data-lab-why=""
+          aria-hidden={whyOpen ? undefined : true}
+          className={`mt-1 text-xs leading-snug text-fg2 ${whyOpen ? '' : 'lab-why-probe'}`}
+        >
           {note ?? 'Sin nota en el dato: queda el papel.'}
         </p>
       )}
@@ -412,6 +416,50 @@ export function LabTrio(props: TrioProps) {
   const [why, setWhy] = useState(false);
   const [all, setAll] = useState(false);
   const [modelo, setModelo] = useState(false);
+
+  // LAS NOTAS DEL "POR QUE" SE VEN SOLAS SI CABEN. En una ventana alta (la de
+  // grabacion, 1920 x 1080) el margen dejaba 195 px vacios bajo el trio; con las
+  // notas a la vista se llenan. Pero con un cuadro clinico abierto ya no caben
+  // (medido: 115 px de desplazamiento con la discinesia), y un margen que se
+  // desplaza delante de la camara es peor que un hueco. Asi que se MIDE: las
+  // notas ocultas se dibujan fuera del flujo (`.lab-why-probe`), se suma su alto
+  // al del contenido sin ellas y solo entran si el total cabe. La cuenta no
+  // depende de si se ven, asi que no oscila; se hace antes de pintar (sin
+  // parpadeo) y no se rehace con el cuerpo en movimiento (nada salta al
+  // reproducir).
+  const sectionRef = useRef<HTMLElement>(null);
+  const [caben, setCaben] = useState(false);
+  useLayoutEffect(() => {
+    const sec = sectionRef.current;
+    const centro = sec?.closest('[data-lab-center]') as HTMLElement | null;
+    const sc = centro?.parentElement ?? null;
+    if (!sec || !centro || !sc || all) return;
+    const medir = () => {
+      if (labMotionChannel.isMoving()) return;
+      if (!window.matchMedia('(min-height: 1000px)').matches) {
+        setCaben(false);
+        return;
+      }
+      const notas = [...sec.querySelectorAll<HTMLElement>('[data-lab-why]')];
+      const altoNotas = notas.reduce((acc, n) => acc + n.getBoundingClientRect().height + 4, 0);
+      const cs = getComputedStyle(sc);
+      const contenido =
+        centro.getBoundingClientRect().height +
+        parseFloat(cs.paddingTop || '0') +
+        parseFloat(cs.paddingBottom || '0');
+      // Lo que mide el contenido SIN notas (si ya se ven, se descuentan).
+      const base = contenido - (caben ? altoNotas : 0);
+      const ok = base + altoNotas <= sc.clientHeight + 1;
+      if (ok !== caben) setCaben(ok);
+    };
+    medir();
+    // El hueco (la ventana) y el contenido (entra o sale un cuadro, una postura).
+    const ro = new ResizeObserver(medir);
+    ro.observe(sc);
+    ro.observe(centro);
+    return () => ro.disconnect();
+  }, [caben, all, phase]);
+  const verNotas = why || caben;
   // "Por que" es de la fase: se pliega al cambiar de fase.
   useEffect(() => setWhy(false), [phase]);
 
@@ -469,13 +517,13 @@ export function LabTrio(props: TrioProps) {
       level={levelOf(id)}
       small={small}
       note={small ? undefined : phaseWhyNote(movement, phase, id, roleOf(id))}
-      whyOpen={why}
+      whyOpen={verNotas}
       {...props}
     />
   );
 
   return (
-    <section className="px-4 pb-1 pt-3">
+    <section ref={sectionRef} className="px-4 pb-1 pt-3">
       <div className="sec-head mb-1.5">
         <span className="kicker">Quién lo hace</span>
         <span className="sec-rule" />
@@ -536,18 +584,21 @@ export function LabTrio(props: TrioProps) {
         <>
           <ul>{trio.map((id) => row(id))}</ul>
           <div className="mt-2 flex min-h-[18px] items-center justify-between gap-3">
-            {/* En una ventana alta las notas ya estan a la vista y el boton se va;
-                el hueco lo guarda este espaciador para que "Ver los N" no salte. */}
-            <span className="lab-why-spacer" aria-hidden="true" />
-            <button
-              type="button"
-              className="lab-why-toggle link-quiet"
-              aria-expanded={why}
-              onClick={() => setWhy((w) => !w)}
-            >
-              Por qué
-              <ChevronDownIcon size={12} className={`transition-transform ${why ? 'rotate-180' : ''}`} />
-            </button>
+            {/* Con las notas a la vista solas, el boton sobra: su hueco lo guarda
+                un espaciador para que "Ver los N" no salte. */}
+            {caben ? (
+              <span aria-hidden="true" />
+            ) : (
+              <button
+                type="button"
+                className="link-quiet"
+                aria-expanded={why}
+                onClick={() => setWhy((w) => !w)}
+              >
+                Por qué
+                <ChevronDownIcon size={12} className={`transition-transform ${why ? 'rotate-180' : ''}`} />
+              </button>
+            )}
             {total > trio.length && (
               <button type="button" className="link-quiet" aria-expanded={false} onClick={() => setAll(true)}>
                 Ver los {total} · {activos} activos

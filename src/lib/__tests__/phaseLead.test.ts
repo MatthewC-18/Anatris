@@ -146,3 +146,23 @@ describe('la geometria compartida del arco', () => {
     expect(destinos[trans]).toBe(103);
   });
 });
+
+describe('las mayusculas de los textos de fase', () => {
+  // `typeset` (LabMarginParts) compone en minuscula seminegrita las palabras en
+  // mayusculas de cuatro letras o mas, salvo las siglas de SIGLAS. Si el dato
+  // trae una palabra nueva en mayusculas, esta prueba falla hasta que alguien
+  // decida si es enfasis o sigla: si no, una sigla nueva saldria en minuscula.
+  it('cada palabra en mayusculas es enfasis conocido o una sigla de la lista', async () => {
+    const { SIGLAS } = await import('../../components/movement/LabMarginParts');
+    const ENFASIS = new Set(['JUNTOS', 'TODO', 'ANTES']);
+    const sinClasificar = new Set<string>();
+    for (const f of FASES) {
+      for (const t of [f.description ?? '', f.flag?.detail ?? '']) {
+        for (const w of t.match(/\b[A-ZÁÉÍÓÚÑ]{4,}\b/g) ?? []) {
+          if (!SIGLAS.has(w) && !ENFASIS.has(w)) sinClasificar.add(w);
+        }
+      }
+    }
+    expect([...sinClasificar]).toEqual([]);
+  });
+});
