@@ -1012,66 +1012,139 @@ export function RhythmReadout({ region, embedded = false, stageReads = false }: 
                 </section>
               )}
 
-              {/* Los equivalentes del ritmo en la rodilla, el cuello y el tronco. */}
+              {/* LOS EQUIVALENTES DEL RITMO en la rodilla, el cuello y el tronco,
+                  CON LA MISMA FORMA: una linea que se pulsa, la barra con su
+                  cifra y la leyenda; la nota y la fuente, al pulsar. Abiertos
+                  de entrada empujaban el trio fuera: medido en la flexion de
+                  rodilla a 1440 x 900, 96 px de desplazamiento. El aviso de
+                  que la pelvis no se mueve en el 3D NO se pliega: sin el, la
+                  cifra parece medida en el modelo. */}
               {screwHome && (
-                <section className="px-4 pt-3.5">
-                  <div className="sec-head mb-2">
-                    <span className="kicker">Mecanismo de tornillo</span>
-                    <span className="sec-rule" />
-                    <span className="shrink-0 text-xs font-medium text-fg">
-                      {SCREW_ZONE[screwHome.zone].label}
+                <section className="px-4 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setRitmoOpen((o) => !o)}
+                    aria-expanded={ritmoOpen}
+                    className="sec-head group mb-1.5 w-full text-left"
+                  >
+                    <span className="kicker transition-colors group-hover:text-fg2">
+                      Mecanismo de tornillo
                     </span>
-                  </div>
-                  <div className="flex items-center gap-2.5">
+                    <span className="sec-rule" />
+                    <ChevronDownIcon
+                      size={13}
+                      className={`shrink-0 text-fg3 transition-transform ${ritmoOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                  <div className="flex items-center gap-3">
                     <span
-                      className="meter flex-1 text-brand"
+                      className="meter min-w-0 flex-1 text-brand"
                       style={{ ['--v' as string]: (screwHome.tibialErDeg / 15) * 100 }}
                       aria-hidden="true"
                     />
-                    <span className="num shrink-0 text-xs font-medium text-fg">
+                    <span className="num w-[4.5rem] shrink-0 text-right text-[13px] font-medium text-fg">
                       {screwHome.tibialErDeg.toFixed(1).replace('.', ',')}°
                     </span>
-                    <span className="shrink-0 text-[11px] text-fg3">RE tibial</span>
                   </div>
-                  <p className="mt-2 text-xs leading-snug text-fg2">{SCREW_ZONE[screwHome.zone].note}</p>
-                  <p className="num mt-1.5 text-[11px] text-fg3">Fuente: Kapandji, Oatis</p>
+                  <p className="mt-2 flex items-baseline justify-between gap-2 text-xs">
+                    <span className="text-fg2">Rotación externa de la tibia</span>
+                    <span className="font-medium text-fg">{SCREW_ZONE[screwHome.zone].label}</span>
+                  </p>
+                  {ritmoOpen && (
+                    <div className="mt-2 space-y-1.5 text-xs leading-snug text-fg2">
+                      <p>{SCREW_ZONE[screwHome.zone].note}</p>
+                      <p className="num text-[11px] text-fg3">Fuente: Kapandji, Oatis</p>
+                    </div>
+                  )}
                 </section>
               )}
-              {cervicalSplit && (
-                <SegmentSplit
-                  title="Reparto de la rotación"
-                  ratio={cervicalSplit.ratio}
-                  note="La articulación atlanto-axoidea (C1-C2) aporta ~la mitad de la rotación cervical y lidera el inicio; los segmentos C2-C7 completan el arco."
-                  source="Kapandji, Oatis"
-                  segs={[
-                    { label: 'C1-C2', deg: cervicalSplit.c1c2Deg, pct: cervicalSplit.c1c2Pct },
-                    { label: 'C2-C7', deg: cervicalSplit.subaxialDeg, pct: cervicalSplit.subaxialPct },
-                  ]}
-                />
-              )}
-              {lumboPelvic && (
-                <SegmentSplit
-                  title="Ritmo lumbopélvico"
-                  ratio={lumboPelvic.ratio}
-                  notPosed={
-                    LUMBOPELVIC_PELVIS_POSED
-                      ? undefined
-                      : 'La pelvis no bascula en el 3D: en este modelo la cadera no es una articulación entre pelvis y fémur. Los grados de pelvis son del modelo; lo que ves moverse es el raquis lumbar.'
-                  }
-                  note={
-                    lumboPelvic.leader === 'lumbar'
-                      ? 'El raquis lumbar lidera el inicio del gesto (invierte la lordosis); la pelvis aún apenas rota.'
-                      : lumboPelvic.leader === 'pelvis'
-                        ? 'La pelvis (flexión de cadera) domina ya el gesto; el raquis lumbar aporta menos.'
-                        : 'Lumbar y pelvis se reparten el gesto de forma pareja.'
-                  }
-                  source="Kapandji, Oatis"
-                  segs={[
-                    { label: 'Lumbar', deg: lumboPelvic.lumbarDeg, pct: lumboPelvic.lumbarPct },
-                    { label: 'Pelvis', deg: lumboPelvic.pelvicDeg, pct: lumboPelvic.pelvicPct },
-                  ]}
-                />
-              )}
+              {(cervicalSplit || lumboPelvic) &&
+                (() => {
+                  const eq = cervicalSplit
+                    ? {
+                        title: 'Reparto de la rotación',
+                        ratio: cervicalSplit.ratio,
+                        segs: [
+                          { label: 'C1-C2', deg: cervicalSplit.c1c2Deg, pct: cervicalSplit.c1c2Pct },
+                          { label: 'C2-C7', deg: cervicalSplit.subaxialDeg, pct: cervicalSplit.subaxialPct },
+                        ],
+                        note: 'La articulación atlanto-axoidea (C1-C2) aporta ~la mitad de la rotación cervical y lidera el inicio; los segmentos C2-C7 completan el arco.',
+                        notPosed: undefined as string | undefined,
+                      }
+                    : {
+                        title: 'Ritmo lumbopélvico',
+                        ratio: lumboPelvic!.ratio,
+                        segs: [
+                          { label: 'Lumbar', deg: lumboPelvic!.lumbarDeg, pct: lumboPelvic!.lumbarPct },
+                          { label: 'Pelvis', deg: lumboPelvic!.pelvicDeg, pct: lumboPelvic!.pelvicPct },
+                        ],
+                        note:
+                          lumboPelvic!.leader === 'lumbar'
+                            ? 'El raquis lumbar lidera el inicio del gesto (invierte la lordosis); la pelvis aún apenas rota.'
+                            : lumboPelvic!.leader === 'pelvis'
+                              ? 'La pelvis (flexión de cadera) domina ya el gesto; el raquis lumbar aporta menos.'
+                              : 'Lumbar y pelvis se reparten el gesto de forma pareja.',
+                        notPosed: LUMBOPELVIC_PELVIS_POSED
+                          ? undefined
+                          : 'La pelvis no bascula en el 3D: en este modelo la cadera no es una articulación entre pelvis y fémur. Los grados de pelvis son del modelo; lo que ves moverse es el raquis lumbar.',
+                      };
+                  const ratio = /\d/.test(eq.ratio ?? '') ? eq.ratio.replace('.', ',').replace(':', ' : ') : '';
+                  return (
+                    <section className="px-4 pt-3">
+                      <button
+                        type="button"
+                        onClick={() => setRitmoOpen((o) => !o)}
+                        aria-expanded={ritmoOpen}
+                        className="sec-head group mb-1.5 w-full text-left"
+                      >
+                        <span className="kicker transition-colors group-hover:text-fg2">{eq.title}</span>
+                        <span className="sec-rule" />
+                        <ChevronDownIcon
+                          size={13}
+                          className={`shrink-0 text-fg3 transition-transform ${ritmoOpen ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                      <div className="lab-legend">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-1 min-w-0 flex-1 gap-0.5" aria-hidden="true">
+                            {eq.segs
+                              .filter((sg) => sg.pct > 0.5)
+                              .map((sg, i) => (
+                                <span
+                                  key={sg.label}
+                                  className="h-full basis-0 transition-[flex-grow] duration-150"
+                                  style={{ flexGrow: sg.pct, backgroundColor: SPLIT_TONE[i] }}
+                                />
+                              ))}
+                          </div>
+                          <span className="num w-[4.5rem] shrink-0 text-right text-[13px] font-medium text-fg">
+                            {ratio}
+                          </span>
+                        </div>
+                        <dl className="mt-2 flex items-baseline gap-5">
+                          {eq.segs.map((sg, i) => (
+                            <div key={sg.label} className="flex items-baseline gap-1.5">
+                              <span
+                                aria-hidden="true"
+                                className="h-1.5 w-1.5 shrink-0 -translate-y-px"
+                                style={{ backgroundColor: SPLIT_TONE[i] }}
+                              />
+                              <dt className="text-xs text-fg2">{sg.label}</dt>
+                              <dd className="num text-xs font-medium text-fg">{Math.round(sg.deg)}°</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                      {eq.notPosed && <p className="note note-warn mt-2">{eq.notPosed}</p>}
+                      {ritmoOpen && (
+                        <div className="mt-2 space-y-1.5 text-xs leading-snug text-fg2">
+                          <p>{eq.note}</p>
+                          <p className="num text-[11px] text-fg3">Fuente: Kapandji, Oatis</p>
+                        </div>
+                      )}
+                    </section>
+                  );
+                })()}
 
               {at && (
                 <LabTrio
