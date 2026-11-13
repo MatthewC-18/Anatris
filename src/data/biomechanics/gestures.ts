@@ -151,7 +151,7 @@ const abduction: Gesture = {
     },
   ],
   note:
-    'El supraespinoso inicia la abduccion (0-15 grados) y centra la cabeza humeral; el deltoides medio es el motor principal a partir de ~15 grados. Tras la fase de ajuste la escapula rota hacia arriba aportando ~1/3 del movimiento (ritmo escapulohumeral ~2:1).',
+    'El supraespinoso inicia la abducción (0-15 grados) y centra la cabeza humeral; el deltoides medio es el motor principal a partir de ~15 grados. Tras la fase de ajuste la escápula rota hacia arriba aportando ~1/3 del movimiento (ritmo escapulohumeral ~2:1).',
   status: 'tuned',
 };
 
@@ -205,7 +205,7 @@ const flexion: Gesture = {
     },
   ],
   note:
-    'La flexion ocurre en el plano sagital. El deltoides anterior y la cabeza clavicular del pectoral mayor son los motores; el coracobraquial asiste. Se aprecia mejor desde una vista lateral (pendiente de afinar).',
+    'La flexión ocurre en el plano sagital. El deltoides anterior y la cabeza clavicular del pectoral mayor son los motores; el coracobraquial asiste. Se aprecia mejor desde una vista lateral (pendiente de afinar).',
   status: 'draft',
 };
 
@@ -214,7 +214,7 @@ const flexion: Gesture = {
 // ---------------------------------------------------------------------------
 const externalRotation: Gesture = {
   id: 'external-rotation',
-  name: 'Rotacion externa',
+  name: 'Rotación externa',
   plane: 'transverse',
   defaultView: 'posterior',
   rangeDeg: 90,
@@ -246,7 +246,7 @@ const externalRotation: Gesture = {
     },
   ],
   note:
-    'La rotacion externa es principalmente glenohumeral (sin aporte escapular relevante). Infraespinoso y redondo menor son los motores. Se aprecia mejor desde atras (pendiente de afinar).',
+    'La rotación externa es principalmente glenohumeral (sin aporte escapular relevante). Infraespinoso y redondo menor son los motores. Se aprecia mejor desde atrás (pendiente de afinar).',
   status: 'draft',
 };
 
@@ -255,7 +255,7 @@ const externalRotation: Gesture = {
 // ---------------------------------------------------------------------------
 const internalRotation: Gesture = {
   id: 'internal-rotation',
-  name: 'Rotacion interna',
+  name: 'Rotación interna',
   plane: 'transverse',
   defaultView: 'anterior',
   rangeDeg: 90,
@@ -287,7 +287,7 @@ const internalRotation: Gesture = {
     },
   ],
   note:
-    'La rotacion interna es principalmente glenohumeral. El subescapular es el motor del manguito; el pectoral mayor y el dorsal ancho asisten. Se aprecia mejor de frente (pendiente de afinar).',
+    'La rotación interna es principalmente glenohumeral. El subescapular es el motor del manguito; el pectoral mayor y el dorsal ancho asisten. Se aprecia mejor de frente (pendiente de afinar).',
   status: 'draft',
 };
 

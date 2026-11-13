@@ -87,7 +87,7 @@ const tests: OrthopedicTest[] = [
       {
         ref: 'langdon-2010',
         verified: true,
-        locator: 'percusion con puno cerrado 87,5/90 (resumen)',
+        locator: 'percusión con puño cerrado 87,5/90 (resumen)',
       },
     ],
   },
@@ -164,7 +164,7 @@ const tests: OrthopedicTest[] = [
         ref: 'cote-1998',
         verified: true,
         locator:
-          'mas sensible que el escaliometro en curvas toracicas >=20 grados; concordancia POBRE en la lumbar (resumen)',
+          'más sensible que el escoliómetro en curvas torácicas >=20 grados; concordancia POBRE en la lumbar (resumen)',
       },
     ],
   },
@@ -197,7 +197,7 @@ const tests: OrthopedicTest[] = [
       {
         ref: 'vanderlinden-1984',
         verified: true,
-        locator: 'el criterio de expansion toracica es "demasiado poco sensible" (resumen)',
+        locator: 'el criterio de expansión torácica es "demasiado poco sensible" (resumen)',
       },
     ],
   },

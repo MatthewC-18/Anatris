@@ -238,7 +238,7 @@ const INTERNAL_ROTATION_GUIDE: GestureGuide = {
       title: 'El subescapular como motor del manguito',
       rangeLabel: '0-45 grados',
       caption: {
-        text: 'El subescapular es el único componente anterior del manguito y el principal rotador interno fino; además previene la traslación anterior de la cabeza humeral. Inicia y controla la rotación interna con precision, incluso sin carga externa.',
+        text: 'El subescapular es el único componente anterior del manguito y el principal rotador interno fino; además previene la traslación anterior de la cabeza humeral. Inicia y controla la rotación interna con precisión, incluso sin carga externa.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       muscles: [
@@ -433,7 +433,7 @@ const tests: TestsPhase = {
           {
             finding: 'Marcada: el brazo cae, con o sin dolor.',
             interpretation: {
-              text: 'Alta sospecha de rotura de espesor completo; la caida indolora es especialmente sugestiva.',
+              text: 'Alta sospecha de rotura de espesor completo; la caída indolora es especialmente sugestiva.',
               cite: [{ ref: 'oatis', pageVerified: false }],
             },
           },
@@ -635,11 +635,11 @@ const tests: TestsPhase = {
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       procedure: {
-        text: 'La palma sobre el abdomen; el paciente presiona el vientre manteniendo el codo adelante (sin dejarlo caer hacia atras), lo que exige rotación interna activa.',
+        text: 'La palma sobre el abdomen; el paciente presiona el vientre manteniendo el codo adelante (sin dejarlo caer hacia atrás), lo que exige rotación interna activa.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       positiveSign: {
-        text: 'Si el codo cae hacia atras y la muñeca se flexiona para compensar, el subescapular es deficitario.',
+        text: 'Si el codo cae hacia atrás y la muñeca se flexiona para compensar, el subescapular es deficitario.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       grading: {
@@ -652,7 +652,7 @@ const tests: TestsPhase = {
             },
           },
           {
-            finding: 'Marcada: el codo cae claramente atras y compensa con la muñeca.',
+            finding: 'Marcada: el codo cae claramente atrás y compensa con la muñeca.',
             interpretation: {
               text: 'Sugiere rotura significativa del subescapular.',
               cite: [{ ref: 'oatis', pageVerified: false }],
@@ -679,7 +679,7 @@ const tests: TestsPhase = {
       },
       grading: {
         painVsWeakness: {
-          text: 'Lo relevante aquí no es dolor ni fuerza, sino la APRENSION (miedo a la luxación). El alivio con la recolocación confirma el origen anterior; el dolor posterior sin aprensión orienta más a conflicto interno.',
+          text: 'Lo relevante aquí no es dolor ni fuerza, sino la APRENSIÓN (miedo a la luxación). El alivio con la recolocación confirma el origen anterior; el dolor posterior sin aprensión orienta más a conflicto interno.',
           cite: [{ ref: 'oatis', pageVerified: false }],
         },
         grades: [
@@ -705,7 +705,7 @@ const tests: TestsPhase = {
       id: 'speed',
       name: 'Prueba de Speed',
       assesses: {
-        text: 'Tendinopatía de la porcion larga del biceps.',
+        text: 'Tendinopatía de la porción larga del bíceps.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       procedure: {
@@ -713,7 +713,7 @@ const tests: TestsPhase = {
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       positiveSign: {
-        text: 'Dolor en el surco intertubercular orienta a compromiso de la porcion larga del biceps.',
+        text: 'Dolor en el surco intertubercular orienta a compromiso de la porción larga del bíceps.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       grading: {
@@ -728,7 +728,7 @@ const tests: TestsPhase = {
       id: 'yergason',
       name: 'Prueba de Yergason',
       assesses: {
-        text: 'Porcion larga del biceps y estabilidad del tendón en el surco.',
+        text: 'Porción larga del bíceps y estabilidad del tendón en el surco.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       procedure: {
@@ -736,7 +736,7 @@ const tests: TestsPhase = {
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       positiveSign: {
-        text: 'Dolor en el surco intertubercular, o sensación de resalte del tendón, orientan a tendinopatía o inestabilidad de la porcion larga del biceps.',
+        text: 'Dolor en el surco intertubercular, o sensación de resalte del tendón, orientan a tendinopatía o inestabilidad de la porción larga del bíceps.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       grading: {
@@ -744,7 +744,7 @@ const tests: TestsPhase = {
           {
             finding: 'Leve: dolor en el surco sin resalte.',
             interpretation: {
-              text: 'Tendinopatía de la porcion larga del biceps.',
+              text: 'Tendinopatía de la porción larga del bíceps.',
               cite: [{ ref: 'oatis', pageVerified: false }],
             },
           },
@@ -763,7 +763,7 @@ const tests: TestsPhase = {
       id: 'scapular-assistance',
       name: 'Test de asistencia escapular',
       assesses: {
-        text: 'Contribucion de la discinesia escapular al dolor de hombro.',
+        text: 'Contribución de la discinesia escapular al dolor de hombro.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       procedure: {
@@ -809,7 +809,7 @@ const pathology: PathologyPhase = {
       id: 'subacromial-impingement',
       name: 'Síndrome de pinzamiento subacromial',
       description: {
-        text: 'Compresion del tendón del supraespinoso y la bolsa subacromial en el espacio bajo el arco coracoacromial durante la elevación.',
+        text: 'Compresión del tendón del supraespinoso y la bolsa subacromial en el espacio bajo el arco coracoacromial durante la elevación.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       presentation: {
@@ -821,13 +821,13 @@ const pathology: PathologyPhase = {
     },
     {
       id: 'biceps-long-head-tendinopathy',
-      name: 'Tendinopatía/rotura de la porcion larga del biceps',
+      name: 'Tendinopatía/rotura de la porción larga del bíceps',
       description: {
-        text: 'Irritacion o rotura del tendón de la porcion larga del biceps en el surco intertubercular, con frecuencia asociada a patología del manguito o del subescapular.',
+        text: 'Irritación o rotura del tendón de la porción larga del bíceps en el surco intertubercular, con frecuencia asociada a patología del manguito o del subescapular.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       presentation: {
-        text: 'Dolor anterior del hombro a la palpacion del surco; la rotura produce la deformidad en "Popeye" por descenso del vientre muscular.',
+        text: 'Dolor anterior del hombro a la palpación del surco; la rotura produce la deformidad en "Popeye" por descenso del vientre muscular.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       relatedMuscleIds: ['biceps-brachii', 'subscapularis'],
@@ -837,7 +837,7 @@ const pathology: PathologyPhase = {
       id: 'anterior-instability',
       name: 'Inestabilidad anterior del hombro',
       description: {
-        text: 'Perdida de la contención anterior de la cabeza humeral, frecuente tras una luxación anterior; puede asociar lesión de Bankart y déficit del subescapular.',
+        text: 'Pérdida de la contención anterior de la cabeza humeral, frecuente tras una luxación anterior; puede asociar lesión de Bankart y déficit del subescapular.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       presentation: {
@@ -851,7 +851,7 @@ const pathology: PathologyPhase = {
       id: 'scapular-dyskinesis',
       name: 'Discinesia escapular',
       description: {
-        text: 'Alteracion del ritmo escapulohumeral por desequilibrio entre estabilizadores escapulares (trapecio inferior y serrato débiles; trapecio superior y pectoral menor sobreactivos/acortados).',
+        text: 'Alteración del ritmo escapulohumeral por desequilibrio entre estabilizadores escapulares (trapecio inferior y serrato débiles; trapecio superior y pectoral menor sobreactivos/acortados).',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       presentation: {
@@ -865,7 +865,7 @@ const pathology: PathologyPhase = {
       id: 'axillary-nerve-palsy',
       name: 'Parálisis del nervio axilar',
       description: {
-        text: 'Lesion del nervio axilar, típicamente por luxación glenohumeral o fractura del cuello quirúrgico del húmero, que denerva el deltoides (y el redondo menor).',
+        text: 'Lesión del nervio axilar, típicamente por luxación glenohumeral o fractura del cuello quirúrgico del húmero, que denerva el deltoides (y el redondo menor).',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       presentation: {
@@ -878,11 +878,11 @@ const pathology: PathologyPhase = {
       id: 'long-thoracic-nerve-palsy',
       name: 'Parálisis del nervio torácico largo (escápula alada)',
       description: {
-        text: 'Lesion del nervio torácico largo que denerva el serrato anterior, con pérdida de su función estabilizadora y de rotación superior.',
+        text: 'Lesión del nervio torácico largo que denerva el serrato anterior, con pérdida de su función estabilizadora y de rotación superior.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       presentation: {
-        text: 'Escapula alada clásica: el borde medial se despega del tórax, especialmente al empujar contra una pared o elevar el brazo al frente; limitacion de la elevación completa.',
+        text: 'Escápula alada clásica: el borde medial se despega del tórax, especialmente al empujar contra una pared o elevar el brazo al frente; limitación de la elevación completa.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       relatedMuscleIds: ['serratus-anterior'],
@@ -891,11 +891,11 @@ const pathology: PathologyPhase = {
       id: 'adhesive-capsulitis',
       name: 'Capsulitis adhesiva (hombro congelado)',
       description: {
-        text: 'Inflamacion y fibrosis progresiva de la cápsula glenohumeral que restringe el rango tanto activo como pasivo, en fases de dolor, rigidez y recuperacion.',
+        text: 'Inflamación y fibrosis progresiva de la cápsula glenohumeral que restringe el rango tanto activo como pasivo, en fases de dolor, rigidez y recuperación.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       presentation: {
-        text: 'Perdida global del rango, sobre todo de la rotación externa pasiva, con dolor difuso; más frecuente en mujeres de mediana edad y en diabéticos.',
+        text: 'Pérdida global del rango, sobre todo de la rotación externa pasiva, con dolor difuso; más frecuente en mujeres de mediana edad y en diabéticos.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       relatedMuscleIds: ['subscapularis', 'infraspinatus'],
@@ -930,7 +930,7 @@ const treatment: TreatmentPhase = {
     },
     {
       id: 'cuff-strengthening-progression',
-      title: 'Progresion de fuerza del manguito rotador',
+      title: 'Progresión de fuerza del manguito rotador',
       rationale: {
         text: 'Recuperar la función depresora y centradora del manguito para que el deltoides eleve sin ascenso de la cabeza humeral. Se progresa de isométricos indoloros a trabajo dinámico en rangos crecientes.',
         cite: [{ ref: 'oatis', pageVerified: false }],
@@ -965,14 +965,14 @@ const treatment: TreatmentPhase = {
       id: 'instability-neuromuscular-control',
       title: 'Control neuromuscular en inestabilidad',
       rationale: {
-        text: 'Tras inestabilidad anterior, el objetivo es reforzar los estabilizadores dinámicos (manguito, sobre todo subescapular) y el control escapular para suplir la contención pasiva pérdida, evitando las posiciones de aprensión al inicio.',
+        text: 'Tras inestabilidad anterior, el objetivo es reforzar los estabilizadores dinámicos (manguito, sobre todo subescapular) y el control escapular para suplir la contención pasiva perdida, evitando las posiciones de aprensión al inicio.',
         cite: [{ ref: 'oatis', pageVerified: false }],
       },
       relatedPathologyIds: ['anterior-instability'],
     },
     {
       id: 'load-management',
-      title: 'Gestion de la carga y del gesto repetido',
+      title: 'Gestión de la carga y del gesto repetido',
       rationale: {
         text: 'En cuadros por sobreuso (trabajo o deporte con brazos elevados), modificar temporalmente el volumen y la altura del gesto permite que el tejido tolere la progresión; la educación sobre la actividad es parte del tratamiento.',
         cite: [{ ref: 'oatis', pageVerified: false }],
@@ -1019,7 +1019,7 @@ const caseStudy: CasePhase = {
           id: 'interpret-grading',
           prompt: 'Jobe reproduce dolor en arco medio pero la fuerza se mantiene 10 segundos. ¿Qué sugiere esa graduación?',
           answer: {
-            text: 'Dolor con fuerza conservada orienta a tendinopatía/pinzamiento más que a rotura: la respuesta es leve-moderada, no marcada. La ausencia de debilidad franca o caida del brazo aleja (sin descartar del todo) un desgarro completo.',
+            text: 'Dolor con fuerza conservada orienta a tendinopatía/pinzamiento más que a rotura: la respuesta es leve-moderada, no marcada. La ausencia de debilidad franca o caída del brazo aleja (sin descartar del todo) un desgarro completo.',
             cite: [{ ref: 'oatis', pageVerified: false }],
           },
           muscleIds: ['supraspinatus'],
@@ -1038,7 +1038,7 @@ const caseStudy: CasePhase = {
           id: 'reassessment',
           prompt: '¿Qué criterios indican que la progresión va bien?',
           answer: {
-            text: 'Reducción del dolor nocturno, ampliacion del arco indoloro, mejor calidad del gesto escapular y tolerancia creciente a la actividad laboral. Si tras varias semanas persiste debilidad o el arco no mejora, reconsiderar desgarro e imagen.',
+            text: 'Reducción del dolor nocturno, ampliación del arco indoloro, mejor calidad del gesto escapular y tolerancia creciente a la actividad laboral. Si tras varias semanas persiste debilidad o el arco no mejora, reconsiderar desgarro e imagen.',
             cite: [{ ref: 'oatis', pageVerified: false }],
           },
           testIds: ['jobe', 'neer'],
@@ -1057,7 +1057,7 @@ const caseStudy: CasePhase = {
           id: 'hypothesis',
           prompt: '¿Qué explica la aprensión en la posición de remate tras una luxación previa?',
           answer: {
-            text: 'La posición de abducción + rotación externa es la de máxima tension anterior; la aprensión tras una luxación anterior orienta a inestabilidad anterior con posible déficit de la contención (lesión capsulolabral y/o subescapular).',
+            text: 'La posición de abducción + rotación externa es la de máxima tensión anterior; la aprensión tras una luxación anterior orienta a inestabilidad anterior con posible déficit de la contención (lesión capsulolabral y/o subescapular).',
             cite: [{ ref: 'oatis', pageVerified: false }],
           },
           muscleIds: ['subscapularis'],
@@ -1066,7 +1066,7 @@ const caseStudy: CasePhase = {
           id: 'exam-plan',
           prompt: '¿Cómo confirmar el origen anterior y diferenciarlo de un conflicto interno?',
           answer: {
-            text: 'Maniobra de aprensión seguida de recolocación: si la aprensión cede al empujar la cabeza humeral hacia atras, confirma inestabilidad anterior. Valorar también el subescapular (belly-press) como estabilizador anterior dinámico.',
+            text: 'Maniobra de aprensión seguida de recolocación: si la aprensión cede al empujar la cabeza humeral hacia atrás, confirma inestabilidad anterior. Valorar también el subescapular (belly-press) como estabilizador anterior dinámico.',
             cite: [{ ref: 'oatis', pageVerified: false }],
           },
           muscleIds: ['subscapularis'],
@@ -1094,7 +1094,7 @@ const caseStudy: CasePhase = {
           id: 'reassessment',
           prompt: '¿Qué vigilar y cuándo derivar?',
           answer: {
-            text: 'Vigilar la tolerancia creciente a la posición de remate sin aprensión y la ausencia de nuevos episodios. La recidiva en deportista joven, o la aprensión que no mejora, justifican valoracion quirurgica (reparacion capsulolabral).',
+            text: 'Vigilar la tolerancia creciente a la posición de remate sin aprensión y la ausencia de nuevos episodios. La recidiva en deportista joven, o la aprensión que no mejora, justifican valoración quirúrgica (reparación capsulolabral).',
             cite: [{ ref: 'oatis', pageVerified: false }],
           },
         },

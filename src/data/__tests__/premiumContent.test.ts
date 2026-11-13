@@ -78,7 +78,11 @@ describe('app code never imports the full clinical library', () => {
       .map((f) => f.slice(SRC.length + 1).replace(/\\/g, '/'));
 
     expect(offenders).toEqual([]);
-  });
+    // Lee TODO src/ del disco, y es el primero en hacerlo (el siguiente ya lo
+    // encuentra en la cache del sistema). Medido el 12 nov: 1,4 s suelto, pero
+    // 5,1 y 8,0 s dentro de la suite completa con la maquina ocupada, y los 5 s
+    // por defecto lo daban por fallido sin que hubiera nada mal.
+  }, 30_000);
 
   it('no app file imports a PREMIUM region data file directly', () => {
     // The gap that actually shipped. `useMuscleResolution` imported

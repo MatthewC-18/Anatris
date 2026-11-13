@@ -109,7 +109,7 @@ const tests: OrthopedicTest[] = [
     metrics: {
       sensitivity: 24,
       specificity: 98,
-      note: 'Benjaminse 2006, sensibilidad agrupada 24% (IC 95% 21-27) y especificidad 98% (96-99). Esta aplicación mostraba un 32% que no está en esa fuente. La revisión lo recomienda precisamente por lo especifico que es, tanto en agudo como en crónico: tres de cada cuatro roturas se le escapan, pero un resalte positivo no deja dudas.'
+      note: 'Benjaminse 2006, sensibilidad agrupada 24% (IC 95% 21-27) y especificidad 98% (96-99). Esta aplicación mostraba un 32% que no está en esa fuente. La revisión lo recomienda precisamente por lo específico que es, tanto en agudo como en crónico: tres de cada cuatro roturas se le escapan, pero un resalte positivo no deja dudas.'
     },
     utility: 'rule-in',
     interpretation:

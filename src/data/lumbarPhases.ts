@@ -328,7 +328,7 @@ const tests: TestsPhase = {
         cite: [{ ref: 'dufour', pageVerified: false }],
       },
       positiveSign: {
-        text: 'La sustitución por el recto del abdomen (la pared se abomba o la pelvis báscula) o la incapacidad de mantener el ahuecamiento indica un déficit de control del transverso.',
+        text: 'La sustitución por el recto del abdomen (la pared se abomba o la pelvis bascula) o la incapacidad de mantener el ahuecamiento indica un déficit de control del transverso.',
         cite: [{ ref: 'dufour', pageVerified: false }],
       },
       grading: {
