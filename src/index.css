@@ -594,7 +594,12 @@
     justify-content: center;
     gap: 1.75rem;
     padding: 1.5rem;
-    background: rgb(var(--c-page));
+    /* EL MISMO AMBIENTE QUE EL ESCENARIO (`.viewer-bg`): el azul noche del
+       laboratorio con su luz cenital. La pantalla de carga es el escenario antes
+       de que llegue el cuerpo, no una pagina aparte. */
+    background:
+      radial-gradient(ellipse 80% 80% at 50% 35%, rgba(79, 182, 199, 0.05), transparent 60%),
+      radial-gradient(ellipse 120% 120% at 50% 120%, #0b1120, #070b14 70%);
     overflow: hidden;
   }
   /* El hueco del video. El acercamiento lento va en un hijo, con `transform`,
@@ -608,19 +613,44 @@
     aspect-ratio: 16 / 9;
     max-height: 56%;
   }
+  /* El halo del holograma: la luz que el cuerpo proyecta en el ambiente. Va
+     detras del video y es mas grande que el, asi que no tiene borde que se vea. */
+  .carga-video::before {
+    content: '';
+    position: absolute;
+    inset: -30% -20%;
+    pointer-events: none;
+    background: radial-gradient(
+      closest-side,
+      rgba(79, 182, 199, 0.11),
+      rgba(79, 182, 199, 0.035) 55%,
+      transparent
+    );
+  }
+  /* SIN RECUADRO. El fondo del clip es negro PURO (medido: 0,0,0 en las cuatro
+     esquinas, en todos los fotogramas) y el del escenario no: era un rectangulo
+     negro sobre azul noche, por mucho que la mascara le fundiera el borde. En
+     modo `screen` el negro no suma nada y lo claro suma su luz, asi que el
+     holograma flota en el ambiente en vez de estar pegado encima. Va en el hijo
+     que se anima y no en el <video>: ese hijo es un contexto de apilamiento
+     propio (por el `transform`) y, puesto dentro, el video se mezclaria con el
+     vacio de su grupo y no con el fondo. */
   .carga-acercar {
     position: absolute;
     inset: 0;
     will-change: transform;
+    mix-blend-mode: screen;
     animation: carga-acercar 42s linear both;
   }
   @keyframes carga-acercar {
     from { transform: scale(1); }
     to { transform: scale(1.07); }
   }
-  /* El video llena su hueco y se funde con el fondo por una mascara radial: el
-     clip es negro alrededor del cuerpo y la pagina casi negra, asi que no se ve
-     ningun rectangulo, y de paso se apagan los paneles de datos de las esquinas. */
+  /* El video llena su hueco. Con la mezcla de arriba el negro ya no se ve; la
+     mascara radial queda para lo CLARO que el encuadre corta: los anillos del
+     suelo llegan al borde de abajo y las particulas al de arriba, y sin ella se
+     verian cortados en recto. De paso apaga los paneles de datos de las
+     esquinas. */
   .loader-video-host {
     position: absolute;
     inset: 0;
