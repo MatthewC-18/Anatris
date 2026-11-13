@@ -35,6 +35,7 @@ import { parseMeshName } from '../lib/parseMeshName';
 import { getLandmarks } from '../data/attachmentLandmarks';
 import { mergeNearbyMarkers, resolveAttachmentPart } from '../lib/attachmentParts';
 import { attachmentCallout } from './AttachmentCallout';
+import { pinScreenScale } from '../lib/attachmentCallout';
 import type { MuscleResolution } from '../lib/muscleResolver';
 import type { SideFilter } from '../store/anatomyStore';
 
@@ -50,6 +51,15 @@ const INSERTION_COLOR = 0x2ee6a6;
 // point ON a landmark rather than as the landmark.
 const PIN_RADIUS = 0.006;
 const HALO_RADIUS = 0.013;
+// El halo respira: su escala va de 1 - HALO_PULSE a 1 + HALO_PULSE.
+const HALO_PULSE = 0.18;
+// TOPE EN PANTALLA. El tamano de mundo vale lejos, pero al acercar la camara el
+// nucleo llego a 206 px de diametro y el halo a mas del doble (medido en
+// capturas, ver pinScreenScale): tapaban el sitio que se queria ver. El halo, en
+// lo mas alto de su pulso, no pasa de 22 px; asi el nucleo de la esfera (origen)
+// queda en ~8,6 px y el del octaedro (insercion) en ~11,6, los dos dentro del
+// anillo de pantalla (12,75 px de diametro interior, AttachmentCallout).
+const HALO_MAX_PX = 22;
 
 interface AttachmentTarget {
   position: THREE.Vector3;
@@ -77,7 +87,10 @@ export function AttachmentMarkers({ resolution }: AttachmentMarkersProps) {
 
   const groupRef = useRef<THREE.Group>(null);
   const haloRefs = useRef<THREE.Mesh[]>([]);
+  const pinRefs = useRef<THREE.Group[]>([]);
   const clockRef = useRef(0);
+  // Memoria de trabajo del tope en pantalla, reutilizada en cada fotograma.
+  const work = useRef(new THREE.Vector3()).current;
 
   // Resolve the world positions of the focused part's marker meshes for the
   // selected muscle. Recomputed when selection / part / side changes.
@@ -163,6 +176,7 @@ export function AttachmentMarkers({ resolution }: AttachmentMarkersProps) {
       disposeObject(child);
     }
     haloRefs.current = [];
+    pinRefs.current = [];
 
     for (const t of targets) {
       const color = t.part === 'origin' ? ORIGIN_COLOR : INSERTION_COLOR;
@@ -200,6 +214,7 @@ export function AttachmentMarkers({ resolution }: AttachmentMarkersProps) {
       haloRefs.current.push(halo);
 
       group.add(pin);
+      pinRefs.current.push(pin);
     }
 
     return () => {
@@ -215,9 +230,30 @@ export function AttachmentMarkers({ resolution }: AttachmentMarkersProps) {
   }, [targets]);
 
   // Gentle breathing pulse on the halos so the pin reads as "active".
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     clockRef.current += delta;
-    const s = 1 + Math.sin(clockRef.current * 3) * 0.18;
+    // El tope en pantalla: cada punto se encoge lo justo para que su halo, con
+    // el pulso, no pase de HALO_MAX_PX a la profundidad a la que esta. Lejos no
+    // se toca. La camara se pone al dia antes (los controles dejan la inversa a
+    // medias hasta el render; ver AttachmentCallout).
+    const cam = state.camera as THREE.PerspectiveCamera;
+    if (cam.isPerspectiveCamera && pinRefs.current.length > 0) {
+      cam.updateMatrixWorld();
+      for (const pin of pinRefs.current) {
+        pin.getWorldPosition(work).applyMatrix4(cam.matrixWorldInverse);
+        pin.scale.setScalar(
+          pinScreenScale(
+            HALO_RADIUS * 2 * (1 + HALO_PULSE),
+            -work.z,
+            cam.fov,
+            state.size.height,
+            HALO_MAX_PX,
+            cam.zoom,
+          ),
+        );
+      }
+    }
+    const s = 1 + Math.sin(clockRef.current * 3) * HALO_PULSE;
     for (const halo of haloRefs.current) {
       halo.scale.setScalar(s);
       const mat = halo.material as THREE.MeshBasicMaterial;

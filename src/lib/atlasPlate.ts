@@ -18,6 +18,16 @@ export const MAX_SPINE_LEVEL_LABELS = 14;
 export const SPINE_REGIONS = new Set(['cervical', 'thoracic', 'lumbar']);
 
 /**
+ * Franjas del escenario donde no se escribe: arriba la del aviso al pasar el
+ * raton, abajo la de la barra de vistas. Las comparten los nombres del atlas y
+ * la etiqueta de origen / insercion (AttachmentCallout), que al acercar la
+ * camara se metia debajo de la barra (medido a 1440 x 900: la etiqueta en
+ * y 818-856 y la barra en 820-875, tapada entera).
+ */
+export const PLATE_PAD_TOP = 72;
+export const PLATE_PAD_BOTTOM = 96;
+
+/**
  * Bones worth naming outside the spine, in the order they should be offered.
  * Everything else stays unlabelled: a plate names landmarks, not inventory.
  */

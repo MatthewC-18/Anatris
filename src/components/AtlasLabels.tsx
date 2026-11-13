@@ -40,7 +40,14 @@ import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useAnatomyStore } from '../store/anatomyStore';
-import { stackColumn, type LabelTarget, type PlacedLabel } from '../lib/atlasPlate';
+import {
+  PLATE_PAD_BOTTOM,
+  PLATE_PAD_TOP,
+  stackColumn,
+  type LabelTarget,
+  type PlacedLabel,
+} from '../lib/atlasPlate';
+import { STAGE_TOOLBAR_AIR, toolbarReserve } from '../lib/stageToolbar';
 
 /** Vertical gap between two stacked labels, in CSS px. */
 const LABEL_GAP = 26;
@@ -74,9 +81,10 @@ const ELBOW = 20;
  * the shallow angles most labels sit at.
  */
 const CURVE_CONTROL = 0.45;
-/** Room kept clear for the hover chip on top and the toolbar at the bottom. */
-const PAD_TOP = 72;
-const PAD_BOTTOM = 96;
+/** Room kept clear for the hover chip on top and the toolbar at the bottom.
+ *  Shared with the origin / insertion callout (lib/atlasPlate.ts). */
+const PAD_TOP = PLATE_PAD_TOP;
+const PAD_BOTTOM = PLATE_PAD_BOTTOM;
 /**
  * Below this canvas width there is no margin left to write in, so the plate
  * would crowd the model instead of framing it. Measured on the CANVAS, not the
@@ -124,6 +132,12 @@ function hideRow(row: LabelRow | undefined): void {
 export function AtlasProjector({ targets }: { targets: LabelTarget[] }) {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
+  const gl = useThree((s) => s.gl);
+  // La franja de abajo: la de escritorio o la barra de vistas MEDIDA, la mayor.
+  // En la tableta la barra sube y los nombres quedaban detras (lib/stageToolbar,
+  // medido a 768 x 1024). Se mide cada 30 fotogramas: solo cambia al redimensionar.
+  const padBottom = useRef(PAD_BOTTOM);
+  const frame = useRef(0);
 
   // Scratch, reused every frame so the loop never allocates.
   const ndc = useRef(new THREE.Vector3()).current;
@@ -136,6 +150,14 @@ export function AtlasProjector({ targets }: { targets: LabelTarget[] }) {
     if (size.width < MIN_WIDTH_FOR_LABELS) {
       for (let i = 0; i < targets.length; i++) hideRow(rows[i]);
       return;
+    }
+    // La camara al dia antes de proyectar: los controles (prioridad -1) llaman
+    // a lookAt, que deja la inversa con la posicion nueva y el giro viejo hasta
+    // el render, y los nombres se separaban de su estructura al girar la vista
+    // (ver AttachmentCallout, donde se simulo). Idempotente.
+    camera.updateMatrixWorld();
+    if (frame.current++ % 30 === 0) {
+      padBottom.current = Math.max(PAD_BOTTOM, toolbarReserve(gl.domElement) + STAGE_TOOLBAR_AIR);
     }
     placed.length = 0;
     let minAx = Infinity;
@@ -188,8 +210,8 @@ export function AtlasProjector({ targets }: { targets: LabelTarget[] }) {
     leftCol.length = 0;
     rightCol.length = 0;
     for (const p of placed) (p.left ? leftCol : rightCol).push(p);
-    stackColumn(leftCol, size.height, LABEL_GAP, PAD_TOP, PAD_BOTTOM);
-    stackColumn(rightCol, size.height, LABEL_GAP, PAD_TOP, PAD_BOTTOM);
+    stackColumn(leftCol, size.height, LABEL_GAP, PAD_TOP, padBottom.current);
+    stackColumn(rightCol, size.height, LABEL_GAP, PAD_TOP, padBottom.current);
 
     // 3. Write the geometry. No React involved.
     for (const p of placed) {

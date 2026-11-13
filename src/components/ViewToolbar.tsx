@@ -116,6 +116,10 @@ export function ViewToolbar() {
 
   return (
     <div
+      // La etiqueta de origen / insercion mide aqui donde empieza la barra para
+      // no meterse debajo (AttachmentCallout): en el movil la barra sube a
+      // 4,75rem y una franja fija de escritorio no la libraba.
+      data-stage-toolbar=""
       className={[
         'pointer-events-auto absolute z-20 animate-slide-up',
         // Phone: clear of the "Controles" / "Detalle" row, and never wider than

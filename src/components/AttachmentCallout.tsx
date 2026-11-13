@@ -25,7 +25,14 @@
 import { useRef, useSyncExternalStore } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { placeCallout } from '../lib/attachmentCallout';
+import {
+  leaderPath,
+  placeCallout,
+  type CalloutReserve,
+  type CalloutSide,
+} from '../lib/attachmentCallout';
+import { PLATE_PAD_TOP } from '../lib/atlasPlate';
+import { toolbarReserve } from '../lib/stageToolbar';
 
 export type AttachmentPart = 'origin' | 'insertion';
 
@@ -82,6 +89,7 @@ function hideAll(): void {
   for (const p of dom.pins) if (p) p.style.visibility = 'hidden';
 }
 
+
 /* ------------------------------------------------------------------ */
 /*  Dentro del Canvas: proyeccion y colocacion, sin DOM propio          */
 /* ------------------------------------------------------------------ */
@@ -89,8 +97,18 @@ function hideAll(): void {
 export function AttachmentProjector() {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
+  const gl = useThree((s) => s.gl);
+  // Las franjas donde la etiqueta no va: arriba la misma que los nombres del
+  // atlas; abajo la barra de vistas, medida cada 30 fotogramas (medio segundo),
+  // que solo cambia al redimensionar.
+  const reserve = useRef<CalloutReserve>({ top: PLATE_PAD_TOP, bottom: 0 }).current;
+  const frame = useRef(0);
+  // El lado del fotograma anterior: con el grupo centrado la etiqueta no salta
+  // de encima a debajo por medio pixel de camara (placeCallout, banda muerta).
+  const lastSide = useRef<CalloutSide | null>(null);
   // Memoria de trabajo, reutilizada en cada fotograma.
   const ndc = useRef(new THREE.Vector3()).current;
+  const box = useRef({ left: 0, top: 0, width: 0, height: 0 }).current;
   // ALINEADO CON LOS PUNTOS: screen[i] es el punto i, o null si queda detras de
   // la camara. Saltarlo sin hueco desplazaba las lineas: la del punto 3 iba al 4.
   const screen = useRef<({ x: number; y: number } | null)[]>([]).current;
@@ -100,8 +118,19 @@ export function AttachmentProjector() {
     const s = attachmentCallout.get();
     if (!s.part || s.pins.length === 0 || !dom.label) {
       hideAll();
+      frame.current = 0;
+      lastSide.current = null;
       return;
     }
+    // LA CAMARA AL DIA ANTES DE PROYECTAR. Los controles de camara (useFrame de
+    // prioridad -1) mueven la camara y llaman a lookAt, que recalcula la matriz
+    // ANTES de escribir el giro nuevo: hasta el render, la inversa lleva la
+    // posicion nueva con el giro viejo. Proyectar con ella separaba anillos y
+    // lineas de los puntos 3D mientras la vista giraba (simulado con las
+    // versiones instaladas: hasta 52 px al pulsar Origen desde la vista 3/4 y
+    // 11-13 px arrastrando). Recalcularla aqui es idempotente; el render repite.
+    camera.updateMatrixWorld();
+    if (frame.current++ % 30 === 0) reserve.bottom = toolbarReserve(gl.domElement);
     screen.length = 0;
     visibles.length = 0;
     for (let i = 0; i < s.pins.length; i++) {
@@ -119,17 +148,25 @@ export function AttachmentProjector() {
       screen.push(dentro ? p : null);
       if (dentro) visibles.push(p);
     }
+    box.width = dom.label.offsetWidth;
+    box.height = dom.label.offsetHeight;
     const where = placeCallout(
       visibles,
       size.width,
       size.height,
-      dom.label.offsetWidth,
-      dom.label.offsetHeight,
+      box.width,
+      box.height,
+      reserve,
+      lastSide.current,
     );
     if (!where) {
       hideAll();
+      lastSide.current = null;
       return;
     }
+    lastSide.current = where.side;
+    box.left = where.left;
+    box.top = where.top;
     dom.label.style.visibility = 'visible';
     dom.label.style.transform = `translate3d(${where.left}px, ${where.top}px, 0)`;
     for (let i = 0; i < dom.leaders.length; i++) {
@@ -142,17 +179,10 @@ export function AttachmentProjector() {
         continue;
       }
       if (leader) {
-        // Sale de la etiqueta perpendicular a su borde y entra en el punto en la
-        // misma direccion: una S suave sin esquinas, que se abre en abanico
-        // cuando hay varios puntos. Vertical si la etiqueta va encima o debajo;
-        // horizontal si va al lado.
-        const lado = where.side === 'left' || where.side === 'right';
-        const dx = lado ? (p.x - where.anchorX) * 0.5 : 0;
-        const dy = lado ? 0 : (p.y - where.anchorY) * 0.5;
-        leader.setAttribute(
-          'd',
-          `M${where.anchorX},${where.anchorY}C${where.anchorX + dx},${where.anchorY + dy} ${p.x - dx},${p.y - dy} ${p.x},${p.y}`,
-        );
+        // Cada linea sale por el borde de la etiqueta que mira a SU punto, en
+        // una S suave que no vuelve a entrar en la caja (leaderPath): con la
+        // etiqueta entre puntos, las lineas ya no cruzan el texto.
+        leader.setAttribute('d', leaderPath(box, p));
         leader.style.visibility = 'visible';
       }
       if (pin) {
