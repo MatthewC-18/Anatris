@@ -606,12 +606,15 @@
      que el compositor anima aunque el hilo principal este bloqueado: si la carga
      dura mas que la construccion, el cuerpo ya construido espera acercandose
      despacio en vez de quedarse congelado. */
+  /* Algo mas grande que al principio (36rem): sin recuadro el video ya no pesa
+     como un bloque, y el cuerpo es lo unico que se mira. Lo pidio el usuario
+     ("un poco mas grande y con mas brillo"). */
   .carga-video {
     position: relative;
     flex: 0 1 auto;
-    width: min(46vw, 36rem);
+    width: min(54vw, 44rem);
     aspect-ratio: 16 / 9;
-    max-height: 56%;
+    max-height: 60%;
   }
   /* El halo del holograma: la luz que el cuerpo proyecta en el ambiente. Va
      detras del video y es mas grande que el, asi que no tiene borde que se vea. */
@@ -622,8 +625,8 @@
     pointer-events: none;
     background: radial-gradient(
       closest-side,
-      rgba(79, 182, 199, 0.11),
-      rgba(79, 182, 199, 0.035) 55%,
+      rgba(79, 182, 199, 0.16),
+      rgba(79, 182, 199, 0.05) 55%,
       transparent
     );
   }
@@ -635,10 +638,15 @@
      que se anima y no en el <video>: ese hijo es un contexto de apilamiento
      propio (por el `transform`) y, puesto dentro, el video se mezclaria con el
      vacio de su grupo y no con el fondo. */
+  /* EL BRILLO, aqui y no en el fichero: un filtro fijo lo aplica el compositor
+     en la misma pasada que la mezcla (el filtro va antes que la mezcla en el
+     orden de pintado), asi que no anade otra capa. Y el negro multiplicado
+     sigue siendo negro: sigue sin pintarse. */
   .carga-acercar {
     position: absolute;
     inset: 0;
     will-change: transform;
+    filter: brightness(1.3) saturate(1.15);
     mix-blend-mode: screen;
     animation: carga-acercar 42s linear both;
   }
@@ -736,7 +744,7 @@
   }
   @media (max-width: 1023px) {
     .carga { gap: 1.25rem; }
-    .carga-video { width: min(86vw, 26rem); }
+    .carga-video { width: min(92vw, 30rem); }
   }
   @media (prefers-reduced-motion: reduce) {
     .carga-acercar, .carga-lanzadera { animation: none; }
