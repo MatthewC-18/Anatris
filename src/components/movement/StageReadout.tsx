@@ -22,6 +22,7 @@
 // pudiendo girar por debajo.
 
 import { useLabDemo, useLabLive, type LabDemo, type LabLive } from './useLabLive';
+import { grados, sinRango } from '../../lib/phaseLabel';
 import { useNeuroSkin } from './neuroSkinChannel';
 import { useActiveDemo } from './demoChannel';
 import { NEURO_BY_REGION } from '../../data/neuro';
@@ -30,24 +31,15 @@ import type { NerveRoot } from '../../types/neuro';
 
 const SIDE_LABEL = { R: 'Derecho', L: 'Izquierdo' } as const;
 
-/**
- * El nombre de la fase sin su coletilla de grados.
- *
- * Los datos la traen pegada --"Transicion a la elevacion (90-120°)"-- porque en
- * el panel de texto el nombre iba solo. Aqui la fase se escribe junto a su
- * rango y encima de una regla graduada: repetir las cifras dentro del nombre
- * lo alargaba hasta montarlo sobre el de la fase vecina. Solo se quita un
- * parentesis FINAL que lleve cifras; "(deltoides + manguito)" se queda.
- */
-function sinRango(label: string): string {
-  return label.replace(/\s*\([^()]*\d[^()]*\)\s*$/, '').trim() || label;
-}
-
-/** "-30" con el signo tipografico, no con un guion. */
-function grados(n: number): string {
-  const r = Math.round(n);
-  return r < 0 ? `−${Math.abs(r)}` : String(r);
-}
+// El nombre de la fase sin su coletilla de grados (`sinRango`) y los grados con
+// el signo tipografico (`grados`) viven en src/lib/phaseLabel.ts: los usa
+// tambien el paginador del margen.
+//
+// Los datos traen el tramo pegado --"Transicion a la elevacion (90-120°)"--
+// porque en el panel de texto el nombre iba solo. Aqui la fase se escribe junto
+// a su rango y encima de una regla graduada: repetir las cifras dentro del
+// nombre lo alargaba hasta montarlo sobre el de la fase vecina. Solo se quita un
+// parentesis FINAL que lleve cifras; "(deltoides + manguito)" se queda.
 
 /**
  * True mientras la pestana Neuro ensena la CARTA de dermatomas: hay figura
