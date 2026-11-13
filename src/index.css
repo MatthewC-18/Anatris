@@ -1445,6 +1445,65 @@
   .atlas-leader.is-active {
     color: rgb(251 191 36);
   }
+
+  /* ------------------------------------------------------------------------
+   * ORIGEN / INSERCION EN EXPLORAR (AttachmentCallout.tsx)
+   *
+   * UNA etiqueta por parte, en pantalla y con letra de tamano fijo, y una guia
+   * fina hasta cada punto. Antes cada punto llevaba su propio cartel de 5 cm en
+   * el mundo 3D con el mismo texto: apilados e ilegibles, y mas grandes cuanto
+   * mas se acercaba la camara. Como los nombres del atlas: texto suelto con una
+   * sombra del color del fondo, sin caja. El color es el de la parte (ambar el
+   * origen, verde la insercion), el mismo de los puntos en 3D.
+   * --------------------------------------------------------------------- */
+  .attach-origin {
+    color: rgb(255 178 77);
+  }
+  .attach-insertion {
+    color: rgb(46 230 166);
+  }
+  .attach-leader {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1;
+    stroke-linecap: round;
+    opacity: 0.6;
+  }
+  .attach-ring {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.25;
+    opacity: 0.9;
+  }
+  .attach-core {
+    fill: currentColor;
+  }
+  .attach-callout {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    max-width: 15rem;
+    text-align: center;
+    text-shadow:
+      0 1px 8px rgba(3, 7, 18, 0.95),
+      0 0 2px rgba(3, 7, 18, 0.9);
+  }
+  .attach-callout-part {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .attach-callout-text {
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: rgb(241 242 244);
+  }
   .atlas-leader.is-active .atlas-leader-ring {
     opacity: 0.9;
   }

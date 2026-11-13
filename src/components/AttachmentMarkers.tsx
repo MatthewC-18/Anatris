@@ -19,14 +19,22 @@
 //
 // This component lives INSIDE the Canvas. It does not touch AnatomyModel's
 // material/highlight logic — it only adds overlay geometry.
+//
+// EL TEXTO YA NO VA AQUI. Cada punto llevaba su propio sprite de texto de 5 cm
+// en el mundo, todos con el mismo texto: apilados, ilegibles y mas grandes al
+// acercar la camara ("sale muy grande, uno encima de otro, y no se lee"). Los
+// puntos se quedan (nucleo + halo, en 3D) y el texto va UNA vez, en pantalla y
+// con tamano fijo, con una linea guia a cada punto: AttachmentCallout.tsx, al
+// que este componente le publica los puntos.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useAnatomyStore } from '../store/anatomyStore';
 import { parseMeshName } from '../lib/parseMeshName';
 import { getLandmarks } from '../data/attachmentLandmarks';
 import { mergeNearbyMarkers, resolveAttachmentPart } from '../lib/attachmentParts';
+import { attachmentCallout } from './AttachmentCallout';
 import type { MuscleResolution } from '../lib/muscleResolver';
 import type { SideFilter } from '../store/anatomyStore';
 
@@ -46,7 +54,8 @@ const HALO_RADIUS = 0.013;
 interface AttachmentTarget {
   position: THREE.Vector3;
   part: 'origin' | 'insertion';
-  label: string;
+  /** El accidente oseo del mapa de referencias, o vacio. */
+  landmark: string;
 }
 
 interface AttachmentMarkersProps {
@@ -60,62 +69,6 @@ function sidePasses(side: 'left' | 'right' | 'center', filter: SideFilter): bool
   return side === filter;
 }
 
-/**
- * Build a small canvas-based text sprite that always faces the camera. Cheap
- * and dependency-free (no drei Html overlay, no layout interference).
- */
-function makeLabelSprite(text: string, hex: number): THREE.Sprite {
-  const pad = 16;
-  const fontSize = 44;
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  ctx.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`;
-  const metrics = ctx.measureText(text);
-  const w = Math.ceil(metrics.width) + pad * 2;
-  const h = fontSize + pad * 2;
-  canvas.width = w;
-  canvas.height = h;
-
-  // Rounded translucent dark plate.
-  ctx.fillStyle = 'rgba(10, 15, 26, 0.82)';
-  const r = 14;
-  ctx.beginPath();
-  ctx.moveTo(r, 0);
-  ctx.arcTo(w, 0, w, h, r);
-  ctx.arcTo(w, h, 0, h, r);
-  ctx.arcTo(0, h, 0, 0, r);
-  ctx.arcTo(0, 0, w, 0, r);
-  ctx.closePath();
-  ctx.fill();
-
-  // Accent left bar.
-  const c = new THREE.Color(hex);
-  ctx.fillStyle = `rgb(${c.r * 255 | 0}, ${c.g * 255 | 0}, ${c.b * 255 | 0})`;
-  ctx.fillRect(0, 0, 6, h);
-
-  // Text.
-  ctx.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`;
-  ctx.fillStyle = '#eef2f6';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, pad + 6, h / 2 + 2);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  const mat = new THREE.SpriteMaterial({
-    map: tex,
-    transparent: true,
-    depthTest: false, // always readable, never buried in tissue
-    depthWrite: false,
-  });
-  const sprite = new THREE.Sprite(mat);
-  // Scale the sprite to a sensible world size based on its aspect ratio.
-  const worldH = 0.05;
-  sprite.scale.set((w / h) * worldH, worldH, 1);
-  sprite.renderOrder = 999;
-  return sprite;
-}
-
 export function AttachmentMarkers({ resolution }: AttachmentMarkersProps) {
   const { scene } = useThree();
   const selectedMuscleId = useAnatomyStore((s) => s.selectedMuscleId);
@@ -125,13 +78,6 @@ export function AttachmentMarkers({ resolution }: AttachmentMarkersProps) {
   const groupRef = useRef<THREE.Group>(null);
   const haloRefs = useRef<THREE.Mesh[]>([]);
   const clockRef = useRef(0);
-
-  // Spanish label per part. Kept generic; a future per-muscle map can refine it
-  // (e.g. "Inserción: troquíter") but the part name alone already teaches.
-  const partLabel = useMemo(
-    () => ({ origin: 'Origen', insertion: 'Inserción' }) as const,
-    [],
-  );
 
   // Resolve the world positions of the focused part's marker meshes for the
   // selected muscle. Recomputed when selection / part / side changes.
@@ -175,14 +121,11 @@ export function AttachmentMarkers({ resolution }: AttachmentMarkersProps) {
           ? landmarks.origin
           : landmarks.insertion
         : null;
-      const label = landmark
-        ? `${partLabel[partFocus]}: ${landmark}`
-        : partLabel[partFocus];
 
       out.push({
         position: wpos.clone(),
         part: partFocus,
-        label,
+        landmark: landmark ?? '',
       });
     });
 
@@ -190,7 +133,22 @@ export function AttachmentMarkers({ resolution }: AttachmentMarkersProps) {
     // centimetre apart for a single attachment, and each used to get its own
     // sphere and its own label.
     setTargets(mergeNearbyMarkers(out));
-  }, [selectedMuscleId, partFocus, sideFilter, resolution, scene, partLabel]);
+  }, [selectedMuscleId, partFocus, sideFilter, resolution, scene]);
+
+  // Los puntos y su texto, a la etiqueta de pantalla (AttachmentCallout). Una vez
+  // por parte: el accidente es el mismo para todos los puntos de un musculo.
+  useEffect(() => {
+    if (targets.length === 0) {
+      attachmentCallout.clear();
+      return;
+    }
+    attachmentCallout.set({
+      part: targets[0].part,
+      text: targets[0].landmark,
+      pins: targets.map((t) => t.position),
+    });
+  }, [targets]);
+  useEffect(() => () => attachmentCallout.clear(), []);
 
   // Build the marker objects (sphere + halo + label) whenever targets change.
   // We rebuild rather than diff because the set is tiny (1-2 markers).
@@ -240,11 +198,6 @@ export function AttachmentMarkers({ resolution }: AttachmentMarkersProps) {
       halo.renderOrder = 997;
       pin.add(halo);
       haloRefs.current.push(halo);
-
-      // Camera-facing label, lifted slightly above the pin.
-      const sprite = makeLabelSprite(t.label, color);
-      sprite.position.set(0, HALO_RADIUS + 0.04, 0);
-      pin.add(sprite);
 
       group.add(pin);
     }

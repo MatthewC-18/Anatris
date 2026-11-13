@@ -20,6 +20,7 @@ import * as THREE from 'three';
 import { AnatomyModel } from './AnatomyModel';
 import { AtlasPlate, AtlasProjector } from './AtlasLabels';
 import { AttachmentMarkers } from './AttachmentMarkers';
+import { AttachmentPlate, AttachmentProjector } from './AttachmentCallout';
 import { RomMuscleMarkers } from './RomMuscleMarkers';
 import { ConceptOverlay3D } from './ConceptOverlay3D';
 import { ShoulderRotationRig } from './ShoulderRotationPrototype';
@@ -471,8 +472,11 @@ function SceneContents({
           itself. */}
       <AtlasProjector targets={labelTargets ?? EMPTY_TARGETS} />
 
-      {/* Origin/insertion pins (sphere + halo + label) for the selected muscle. */}
+      {/* Origin/insertion pins (sphere + halo) for the selected muscle. Their
+          ONE label lives in the DOM (AttachmentPlate), placed every frame by
+          AttachmentProjector. */}
       <AttachmentMarkers resolution={resolution} />
+      <AttachmentProjector />
 
       {/* Numbered identity pins for muscles active in a ROM highlight. Sibling
           of AttachmentMarkers; overlay-only, does not touch material logic. */}
@@ -662,6 +666,8 @@ export function Viewer3D({
           buttons themselves opt back in -- so dragging the model still works
           everywhere in between. */}
       {ready && <AtlasPlate targets={labelTargets} />}
+      {/* Origen / insercion: una etiqueta en pantalla con una guia a cada punto. */}
+      {ready && <AttachmentPlate />}
       {ready && <ViewerHud byMesh={byMesh} resolution={resolution} />}
 
       {!ready && <CanvasLoader progress={progress} />}
