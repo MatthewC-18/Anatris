@@ -37,8 +37,8 @@ Anatris es eso mismo con un cuerpo que se mueve:
 ```
 
 - **Margen izquierdo**: contexto y lectura. En Explorar, el índice de la región
-  (músculos, huesos, nervios). En Movimiento, el goniómetro, el músculo
-  protagonista y la consola.
+  (músculos, huesos, nervios). En Movimiento, la frase de la fase con su
+  paginador, los tres músculos que la hacen y la consola.
 - **Escenario**: el modelo. Solo lleva encima anotaciones tipográficas
   (`.stage-note`) y, al pie, la barra de acciones de vista (`.stage-bar`).
 - **Margen derecho**: detalle y herramientas. En Explorar, la ficha de lo
@@ -106,6 +106,21 @@ semánticos (`bg-page`, `bg-card`, `border-line`, `text-fg`, `text-fg2`,
 | `.field` | campo de una línea | input con caja |
 | `.stage-note` | anotación sobre el escenario | chip flotante |
 | `.stage-bar` | acciones de vista al pie del escenario | pastilla flotante |
+| `.lede` | LA cosa grande de un margen: una frase en Sora 18 (17 a 304 px de margen, 20 en ventanas altas) | párrafo largo a la vista |
+| `.pager-row` `.tramo` `.pager` `.pip` | paginador: el tramo en acento y una raya por paso; la actual, de acento y 3 px | lista de fases o pastillas numeradas |
+| `.byline` `.src-line` `.link-quiet` | la fuente en mono y un "Seguir leyendo" de texto | botón con borde bajo un texto |
+| `.lab-axis` | rejilla del eje: botón \| pista \| cifra (2rem, 1fr, 2.375rem); la comparten el deslizador y las curvas de los músculos para que el cursor caiga sobre el pulgar | dos piezas con anchos sueltos |
+| `.strip` (`ActivationStrip`) | curva de un músculo en todo el arco, con cursor y punto; dibujo solo en el recorrido del centro del pulgar | barra de % del grado actual |
+| `.lab-menu` (`.instrument`) | menú flotante que sube desde el pie del margen; uno abierto, Esc y clic fuera lo cierran | cajón en el flujo que empuja la lectura |
+| `.lab-switch` | interruptor con el rótulo ENCIMA (pie de tres columnas) | interruptor con rótulo al lado |
+| `.attach-callout` `.attach-leader` | Explorar: UNA etiqueta en pantalla con una guía a cada punto (origen, inserción) | un cartel 3D por punto |
+
+**El margen izquierdo del laboratorio** (`RhythmReadout` + `LabMarginParts`,
+noviembre de 2026) es la receta completa: arriba lo que se elige, en medio UNA
+frase grande (`.lede`) con su paginador y, debajo, tres músculos con su curva en
+la rejilla del eje; abajo la consola y un pie de tres columnas con menús
+flotantes. La celda de la frase mide siempre lo que la fase más alta y la llena
+la continuación del texto, para que nada salte al cambiar de fase.
 
 Radios: **0** en contenedores, **4 px** en controles (`rounded`), **6 px** en
 superficies flotantes. `rounded-full` solo para puntos, pulgares de interruptor

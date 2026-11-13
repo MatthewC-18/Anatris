@@ -30,7 +30,7 @@ describe('donde va la etiqueta', () => {
       { x: 480, y: 250 },
     ];
     const p = placeCallout(pins, W, H, LW, LH)!;
-    expect(p.above).toBe(true);
+    expect(p.side).toBe('above');
     expect(p.top + LH).toBeLessThanOrEqual(250 - CALLOUT_GAP + 0.001);
     // Centrada sobre el grupo, y las guias salen del borde de abajo.
     expect(p.anchorX).toBeCloseTo(440, 6);
@@ -41,10 +41,43 @@ describe('donde va la etiqueta', () => {
   it('debajo si el grupo esta abajo', () => {
     const pins = [{ x: 450, y: 520 }];
     const p = placeCallout(pins, W, H, LW, LH)!;
-    expect(p.above).toBe(false);
+    expect(p.side).toBe('below');
     expect(p.top).toBeGreaterThanOrEqual(520);
     expect(p.anchorY).toBeCloseTo(p.top, 6);
     expect(cubre(p, pins)).toBe(false);
+  });
+
+  it('con la camara muy cerca (el grupo llena el alto) va al lado, sin tapar ningun punto', () => {
+    // Medido al acercar la camara en Explorar: los puntos del deltoides ocupan
+    // del techo al suelo del lienzo y ni encima ni debajo cabe la etiqueta.
+    const pins = [
+      { x: 300, y: 30 },
+      { x: 340, y: 360 },
+      { x: 320, y: 680 },
+    ];
+    const p = placeCallout(pins, W, H, LW, LH)!;
+    expect(['left', 'right']).toContain(p.side);
+    expect(cubre(p, pins)).toBe(false);
+    // Las guias salen del borde que mira a los puntos.
+    expect(p.anchorX).toBeCloseTo(p.side === 'right' ? p.left : p.left + LW, 6);
+  });
+
+  it('en ningun caso de una rejilla de grupos tapa un punto si hay donde ponerla', () => {
+    // Barrido: grupos de dos puntos por todo el lienzo, juntos y separados.
+    let tapados = 0;
+    for (let x = 20; x < W; x += 110) {
+      for (let y = 20; y < H; y += 90) {
+        for (const d of [0, 60, 220]) {
+          const pins = [
+            { x, y },
+            { x: Math.min(W - 5, x + d), y: Math.min(H - 5, y + d / 2) },
+          ];
+          const p = placeCallout(pins, W, H, LW, LH)!;
+          if (cubre(p, pins)) tapados++;
+        }
+      }
+    }
+    expect(tapados).toBe(0);
   });
 
   it('siempre dentro del lienzo, tambien con el grupo pegado a un borde', () => {
@@ -84,6 +117,11 @@ describe('el cartel 3D por punto no vuelve', () => {
     expect(cuerpo.slice(0, hasta)).toContain('return null;');
     expect(cuerpo.slice(0, hasta)).not.toMatch(/<[a-z]/);
     expect(etiqueta).not.toContain("from 'react-dom'");
+  });
+
+  it('las guias no se desalinean si un punto queda detras de la camara', () => {
+    // screen[i] tiene que ser el punto i: un hueco (null), no un salto.
+    expect(etiqueta).toContain('screen.push(null)');
   });
 
   it('una etiqueta por parte, con su guia a cada punto', () => {

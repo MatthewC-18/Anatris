@@ -91,7 +91,10 @@ export function AttachmentProjector() {
   const size = useThree((s) => s.size);
   // Memoria de trabajo, reutilizada en cada fotograma.
   const ndc = useRef(new THREE.Vector3()).current;
-  const screen = useRef<{ x: number; y: number }[]>([]).current;
+  // ALINEADO CON LOS PUNTOS: screen[i] es el punto i, o null si queda detras de
+  // la camara. Saltarlo sin hueco desplazaba las lineas: la del punto 3 iba al 4.
+  const screen = useRef<({ x: number; y: number } | null)[]>([]).current;
+  const visibles = useRef<{ x: number; y: number }[]>([]).current;
 
   useFrame(() => {
     const s = attachmentCallout.get();
@@ -100,16 +103,24 @@ export function AttachmentProjector() {
       return;
     }
     screen.length = 0;
+    visibles.length = 0;
     for (let i = 0; i < s.pins.length; i++) {
       ndc.copy(s.pins[i]).project(camera);
-      if (ndc.z > 1) continue; // detras de la camara
-      screen.push({
-        x: (ndc.x * 0.5 + 0.5) * size.width,
-        y: (-ndc.y * 0.5 + 0.5) * size.height,
-      });
+      if (ndc.z > 1) {
+        screen.push(null); // detras de la camara
+        continue;
+      }
+      const p = { x: (ndc.x * 0.5 + 0.5) * size.width, y: (-ndc.y * 0.5 + 0.5) * size.height };
+      // FUERA DEL LIENZO NO SE APUNTA. Con la camara muy cerca (medido: dentro
+      // del torax, los seis puntos del deltoides a miles de px) la etiqueta
+      // quedaba arriba con lineas hacia ningun sitio. Solo cuentan los puntos
+      // que se ven; si no se ve ninguno, no hay etiqueta.
+      const dentro = p.x >= -20 && p.x <= size.width + 20 && p.y >= -20 && p.y <= size.height + 20;
+      screen.push(dentro ? p : null);
+      if (dentro) visibles.push(p);
     }
     const where = placeCallout(
-      screen,
+      visibles,
       size.width,
       size.height,
       dom.label.offsetWidth,
@@ -131,12 +142,16 @@ export function AttachmentProjector() {
         continue;
       }
       if (leader) {
-        // Sale vertical de la etiqueta y entra vertical en el punto: una S suave
-        // sin esquinas, que se abre en abanico cuando hay varios puntos.
-        const dy = (p.y - where.anchorY) * 0.5;
+        // Sale de la etiqueta perpendicular a su borde y entra en el punto en la
+        // misma direccion: una S suave sin esquinas, que se abre en abanico
+        // cuando hay varios puntos. Vertical si la etiqueta va encima o debajo;
+        // horizontal si va al lado.
+        const lado = where.side === 'left' || where.side === 'right';
+        const dx = lado ? (p.x - where.anchorX) * 0.5 : 0;
+        const dy = lado ? 0 : (p.y - where.anchorY) * 0.5;
         leader.setAttribute(
           'd',
-          `M${where.anchorX},${where.anchorY}C${where.anchorX},${where.anchorY + dy} ${p.x},${p.y - dy} ${p.x},${p.y}`,
+          `M${where.anchorX},${where.anchorY}C${where.anchorX + dx},${where.anchorY + dy} ${p.x - dx},${p.y - dy} ${p.x},${p.y}`,
         );
         leader.style.visibility = 'visible';
       }

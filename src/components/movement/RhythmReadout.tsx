@@ -276,11 +276,13 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
   const [postureOpen, setPostureOpen] = useState(false);
   // MARGEN NUEVO: el detalle del ritmo, plegado.
   const [ritmoOpen, setRitmoOpen] = useState(false);
-  // EL AVISO DEL CUADRO CLINICO, PLEGADO EN UNA LINEA salvo en una ventana alta.
-  // Abierto (por que duele, la estructura clave y la fuente) el centro no cabia:
-  // medido a 1440 x 800, 154 px de desplazamiento con la discinesia y 170 con el
-  // hombro congelado. Plegado dice el cuadro y se abre con un toque; a partir de
-  // 1000 px de alto (la grabacion) sale abierto.
+  // EL AVISO DEL CUADRO CLINICO, PLEGADO salvo en una ventana alta. Abierto (por
+  // que duele entero, la estructura clave y la fuente) el centro no cabia: medido
+  // a 1440 x 800, 154 px de desplazamiento con la discinesia y 170 con el hombro
+  // congelado. Plegado dice el nombre del cuadro y se abre con un toque; a partir
+  // de 1000 px de alto (la grabacion) sale abierto. Se probo a dejar dos lineas
+  // de por que duele siempre a la vista: a 1440 x 900 el centro pasaba de 28 a
+  // 70 px de desplazamiento, y el trio quedaba bajo el pliegue.
   const [cuadroOpen, setCuadroOpen] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(min-height: 1000px)').matches,
   );
