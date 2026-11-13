@@ -54,6 +54,29 @@
 //
 // Lo que no hace nunca es ensenar una fase terminada que no ha terminado: la
 // linea no llega al final hasta que el laboratorio aparece.
+//
+// -----------------------------------------------------------------------------
+// CUANDO LA PREVISION FALLA (medido el 12 nov, build de produccion, ?perf=1)
+// -----------------------------------------------------------------------------
+// En este equipo el montaje (bytes -> primer fotograma) tarda 10,5 s de
+// costumbre, 9,6 a 11,0 en cinco cargas. Pero la PRIMERA visita de un navegador
+// sin cache de shaders tardo 15,9 s: el primer fotograma, 9,5 s en vez de 4.
+// Con eso pasaban dos cosas:
+//   - En esa primera visita la prevision (10 s) se quedaba corta y la linea
+//     llegaba a su tope a los 10 s y se quedaba QUIETA seis segundos: lo que el
+//     usuario describia como "termina y todavia no acaba de cargar".
+//   - Se guardaba tal cual, y la visita SIGUIENTE se coreografiaba para 15,9 s:
+//     el laboratorio aparecia con la linea al 65 % (0,97 x 10,65 / 15,92, con
+//     los tiempos medidos de esa carga) mientras el video ya habia terminado.
+// Por eso, dos cosas:
+//   1. La linea del montaje llega al 90 % cuando la prevision dice que acaba (y
+//      ahi acaba tambien la construccion del video) y, si la carga se alarga,
+//      sigue avanzando cada vez mas despacio hacia el 98 % durante otro tanto,
+//      en vez de pararse. Si acaba antes, el laboratorio la completa de golpe.
+//   2. Lo aprendido es una media movil (`learnTimings`, la mitad de lo nuevo y la
+//      mitad de lo anterior): una carga rara mueve la prevision la mitad, no
+//      entera. Con los numeros de arriba la visita siguiente a la primera se
+//      preve en 13 s y no en 15,9.
 
 import { useEffect, useRef, useState } from 'react';
 import { modelPhase, onModelPhase } from '../../lib/modelPhase';
@@ -106,13 +129,50 @@ export function readTimings(): LoadTimings {
   return DEFAULT_TIMINGS;
 }
 
+/** Cuanto pesa una carga nueva en la prevision: la mitad (ver la cabecera). */
+export const LEARN_RATE = 0.5;
+
+/**
+ * La prevision siguiente: cada tramo se acerca a lo medido la mitad de la
+ * distancia. Sin nada guardado, lo anterior son los tiempos por defecto, asi
+ * que tampoco la primera visita (la de la cache de shaders vacia) manda entera.
+ */
+export function learnTimings(prev: LoadTimings, medido: LoadTimings): LoadTimings {
+  const mezcla = (a: number, b: number) => Math.round(a + LEARN_RATE * (b - a));
+  return {
+    download: mezcla(prev.download, medido.download),
+    parse: mezcla(prev.parse, medido.parse),
+    prep: mezcla(prev.prep, medido.prep),
+    paint: mezcla(prev.paint, medido.paint),
+  };
+}
+
 /** Lo que dura el tramo que no se puede medir: del fin de la descarga al primer fotograma. */
 export const buildMs = (t: LoadTimings): number => t.parse + t.prep + t.paint;
 
 // El cronometro de ESTA carga. Vive en el modulo y no en el componente porque
 // los dos ultimos instantes los da RigViewer (el rig preparado, el primer
 // fotograma) y pueden caer cuando la pantalla ya se esta retirando.
-const marks: { fetching?: number; bytes?: number; parsed?: number; ready?: number } = {};
+const marks: {
+  fetching?: number;
+  bytes?: number;
+  parsed?: number;
+  ready?: number;
+  /** La pestana estuvo oculta en algun momento de ESTA carga. */
+  oculta?: boolean;
+} = {};
+
+// UNA CARGA CON LA PESTANA OCULTA NO MIDE EL EQUIPO. Oculta, el navegador no
+// pinta (el primer fotograma espera a que vuelva), frena los temporizadores a uno
+// por segundo y pausa el video sin sonido. Medido el 12 nov en este equipo: el
+// primer fotograma tardo 6,8 y 9,3 s con la pestana oculta, contra 4,0 a 4,6 a
+// la vista. Aprender de eso seria coreografiar la visita siguiente con el rato
+// que el usuario paso en otra pestana.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') marks.oculta = true;
+  });
+}
 
 onModelPhase((url, state) => {
   if (url !== RIG_URL) return;
@@ -121,6 +181,7 @@ onModelPhase((url, state) => {
     marks.bytes = undefined;
     marks.parsed = undefined;
     marks.ready = undefined;
+    marks.oculta = typeof document !== 'undefined' && document.visibilityState === 'hidden';
   } else if (state.phase === 'parsing') {
     marks.bytes = state.at.parsing;
   } else if (state.phase === 'done') {
@@ -135,8 +196,8 @@ export function noteRigReady(): void {
 
 /**
  * El primer fotograma esta en pantalla. Lo llama RigViewer. Si esta carga se
- * vio entera --de los bytes al fotograma--, se guarda lo que tardo cada tramo
- * para coreografiar la siguiente.
+ * vio entera --de los bytes al fotograma--, lo que tardo cada tramo entra en la
+ * prevision de la siguiente (a medias con lo que habia: `learnTimings`).
  */
 export function noteRigPainted(): void {
   const { fetching, bytes, parsed, ready } = marks;
@@ -149,10 +210,11 @@ export function noteRigPainted(): void {
   };
   // Se consume: un remontaje sobre la escena ya cacheada no es una carga.
   marks.bytes = undefined;
+  if (marks.oculta) return;
   if (!sane(t.parse) || !sane(t.prep) || !sane(t.paint)) return;
   if (!sane(t.download)) t.download = DEFAULT_TIMINGS.download;
   try {
-    window.localStorage.setItem(TIMINGS_KEY, JSON.stringify(t));
+    window.localStorage.setItem(TIMINGS_KEY, JSON.stringify(learnTimings(readTimings(), t)));
   } catch {
     /* sin almacenamiento: la proxima vez se usan los de por defecto */
   }
@@ -382,11 +444,23 @@ export const CSS = `
 }
 .cg[data-run='1'] .cg-relleno-1 { transform: scaleX(1); animation: none; inset: 0; width: auto; background: rgb(var(--c-brand)); }
 .cg-relleno-2 { transform: scaleX(0); }
-/* El montaje: UN trazo lineal, tan largo como lo que tardo este equipo. No
-   llega al final: lo que lo completa es el laboratorio. */
-.cg[data-run='1'] .cg-relleno-2 { animation: cg-construir calc(var(--tb) * 1ms) linear both; }
+/* El montaje: un trazo lineal hasta el 90 % en lo que se espera que tarde
+   (--tb, donde acaba tambien la construccion del video) y, si la carga se
+   alarga, otro tanto acercandose al 98 % cada vez mas despacio: nunca se queda
+   quieto en su tope. No llega al final: lo que lo completa es el laboratorio. */
+.cg[data-run='1'] .cg-relleno-2 { animation: cg-construir calc(var(--tb) * 2ms) linear both; }
 .cg[data-fuera='1'] .cg-relleno-2 { animation: none; transform: scaleX(1); }
-@keyframes cg-construir { from { transform: scaleX(0); } to { transform: scaleX(.97); } }
+/* La segunda mitad frena como 1 - (1 - x)^2, en tramos rectos: asi el bloque
+   solo lleva transform y el compositor lo anima con el hilo bloqueado. */
+@keyframes cg-construir {
+  0% { transform: scaleX(0); }
+  50% { transform: scaleX(.9); }
+  60% { transform: scaleX(.929); }
+  70% { transform: scaleX(.951); }
+  80% { transform: scaleX(.967); }
+  90% { transform: scaleX(.977); }
+  100% { transform: scaleX(.98); }
+}
 @keyframes cg-lanzar { from { transform: translateX(-110%); } to { transform: translateX(270%); } }
 
 /* --- los rotulos de fase ------------------------------------------------ */

@@ -45,6 +45,22 @@
 //    1,25, para no notarlo) para que la construccion acabe cuando se espera que
 //    acabe la carga; lo llama la pantalla del laboratorio en la descarga y en el
 //    relevo, con los mismos tiempos que mueven su barra.
+//
+// -----------------------------------------------------------------------------
+// LO QUE SE MIDIO DESPUES (12 nov, build de produccion, `?perf=1`, a la vista)
+// -----------------------------------------------------------------------------
+//   - UN video de punta a punta: en todas las cargas, cero muestras en pausa y
+//     `currentTime` nunca hacia atras en el relevo del indice al laboratorio.
+//   - La construccion acabo con la carga: a 1440, entre 0,3 s antes y 0,6 s
+//     despues del primer fotograma (lo que falta se ve a doble velocidad en el
+//     fundido de salida, `finishReveal`).
+//   - Fotogramas perdidos en el bloqueo: 8,0 / 9,0 / 8,6 / 8,7 % a 1440 x 900 y
+//     11,9 % a 1920 x 1080 (antes, 8,9 %). El bloqueo cuesta lo mismo que antes:
+//     lo que se quito es el corte del relevo y el reinicio del bucle. La mascara
+//     radial NO es la causa: sin ella y sin el acercamiento, 6,5 y 11,2 %.
+//   - Con la pestana OCULTA el navegador pausa el video sin sonido y frena los
+//     temporizadores a uno por segundo: esas cargas no valen como medida (y no
+//     se aprenden, ver RigLoadingScreen).
 
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 

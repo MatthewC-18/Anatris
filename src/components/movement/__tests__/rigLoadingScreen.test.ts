@@ -18,6 +18,8 @@ import {
   CSS,
   DEFAULT_TIMINGS,
   FASES,
+  LEARN_RATE,
+  learnTimings,
   readTimings,
   remainingDuringDownload,
 } from '../RigLoadingScreen';
@@ -117,9 +119,37 @@ describe('la coreografia de la pantalla de carga', () => {
 
   it('cuatro fases, y la linea no se completa sola', () => {
     expect(FASES).toHaveLength(4);
-    // Lo que completa la linea es el laboratorio, no un temporizador.
-    expect(CSS).toContain('@keyframes cg-construir { from { transform: scaleX(0); } to { transform: scaleX(.97); } }');
+    // Lo que completa la linea es el laboratorio, no un temporizador: el
+    // montaje no pasa del 98 %.
+    const construir = keyframes(CSS).find((f) => f.name === 'cg-construir')!.body;
+    const pasos = [...construir.matchAll(/(\d+)%\s*\{\s*transform:\s*scaleX\(([\d.]+)\);\s*\}/g)].map(
+      (m) => [Number(m[1]), Number(m[2])] as const,
+    );
+    expect(pasos[pasos.length - 1]).toEqual([100, 0.98]);
     expect(CSS).toContain(".cg[data-fuera='1'] .cg-relleno-2 { animation: none; transform: scaleX(1); }");
+  });
+
+  it('si la carga se alarga, la linea sigue avanzando: nunca se queda quieta en su tope', () => {
+    // Medido el 12 nov: la primera visita sin cache de shaders tardo 15,9 s con
+    // una prevision de 10; la linea de antes llegaba a su tope a los 10 s y se
+    // quedaba quieta seis segundos.
+    const construir = keyframes(CSS).find((f) => f.name === 'cg-construir')!.body;
+    const pasos = [...construir.matchAll(/(\d+)%\s*\{\s*transform:\s*scaleX\(([\d.]+)\);\s*\}/g)].map(
+      (m) => [Number(m[1]), Number(m[2])] as const,
+    );
+    expect(pasos.length).toBeGreaterThanOrEqual(6);
+    // Al 50 % de la animacion (lo previsto) va por el 90 %, y ahi acaba la
+    // construccion del video.
+    expect(pasos).toContainEqual([50, 0.9]);
+    // Despues, cada tramo avanza pero menos que el anterior: frena sin pararse.
+    const cola = pasos.filter(([pc]) => pc >= 50);
+    let antes = Infinity;
+    for (let i = 1; i < cola.length; i++) {
+      const paso = cola[i][1] - cola[i - 1][1];
+      expect(paso).toBeGreaterThan(0);
+      expect(paso).toBeLessThan(antes);
+      antes = paso;
+    }
   });
 });
 
@@ -128,8 +158,10 @@ describe('un solo reloj para la linea y para el video', () => {
     const src = leer('src/components/movement/RigLoadingScreen.tsx');
     expect(src).toContain('style={{ flexGrow: Math.max(1, Math.round(t.download)) }}');
     expect(src).toContain('style={{ flexGrow: Math.max(1, Math.round(tb)) }}');
-    // Y el montaje se anima en lo mismo que mide su tramo.
-    expect(CSS).toContain('animation: cg-construir calc(var(--tb) * 1ms) linear both');
+    // Y el montaje se anima en lo mismo que mide su tramo: la mitad de la
+    // animacion (el 90 % de la linea) es lo previsto, y la otra mitad, la cola
+    // por si se alarga.
+    expect(CSS).toContain('animation: cg-construir calc(var(--tb) * 2ms) linear both');
   });
 
   it('el video se acompasa en el MISMO instante del relevo, con el mismo numero', () => {
@@ -209,6 +241,37 @@ describe('los tiempos aprendidos', () => {
       prep: 2500,
       paint: 1500,
     });
+  });
+
+  it('lo nuevo entra a medias con lo anterior: una carga rara no manda entera', () => {
+    // Los tiempos medidos el 12 nov: la primera visita sin cache de shaders.
+    const fria = { download: 663, parse: 889, prep: 5574, paint: 9461 };
+    expect(LEARN_RATE).toBe(0.5);
+    const siguiente = learnTimings(DEFAULT_TIMINGS, fria);
+    // Guardada tal cual, la visita siguiente se preveia en 15,9 s (tardo 10,5).
+    expect(buildMs(fria)).toBe(15_924);
+    expect(buildMs(siguiente)).toBe(12_976);
+    // Y converge: tres cargas iguales despues, a menos de un 15 % de lo medido.
+    const normal = { download: 120, parse: 852, prep: 5631, paint: 4044 };
+    let t = siguiente;
+    for (let i = 0; i < 3; i++) t = learnTimings(t, normal);
+    expect(Math.abs(buildMs(t) - buildMs(normal)) / buildMs(normal)).toBeLessThan(0.15);
+  });
+
+  it('lo guardado es la mezcla, no la ultima carga', () => {
+    const src = leer('src/components/movement/RigLoadingScreen.tsx');
+    expect(src).toContain('JSON.stringify(learnTimings(readTimings(), t))');
+  });
+
+  it('una carga con la pestana oculta no se aprende', () => {
+    // Oculta, el primer fotograma espera a que vuelva: medido, 6,8 y 9,3 s
+    // contra 4,0 a 4,6 a la vista.
+    const src = leer('src/components/movement/RigLoadingScreen.tsx');
+    expect(src).toMatch(/visibilitychange[\s\S]{0,120}marks\.oculta = true/);
+    expect(src).toContain("marks.oculta = typeof document !== 'undefined' && document.visibilityState === 'hidden';");
+    const guardar = src.slice(src.indexOf('export function noteRigPainted'));
+    expect(guardar.indexOf('if (marks.oculta) return;')).toBeGreaterThan(0);
+    expect(guardar.indexOf('if (marks.oculta) return;')).toBeLessThan(guardar.indexOf('localStorage.setItem'));
   });
 
   it('un dato roto o absurdo no se usa', () => {
