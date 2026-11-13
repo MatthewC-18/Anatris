@@ -169,7 +169,7 @@ describe('el contorno de Fresnel', () => {
 
 describe('la paleta del papel vive en un solo sitio', () => {
   const overlays = readFileSync('src/components/movement/RigOverlays.tsx', 'utf8');
-  const readout = readFileSync('src/components/movement/RhythmReadout.tsx', 'utf8');
+  const margen = readFileSync('src/components/movement/LabMarginParts.tsx', 'utf8');
 
   it('los cuatro tonos son los mismos en three y en CSS', () => {
     for (const role of ROLE_ORDER) {
@@ -196,10 +196,16 @@ describe('la paleta del papel vive en un solo sitio', () => {
     expect(model).toContain('setRim(clone, SELECTION_EMISSIVE');
   });
 
-  it('el panel tiene leyenda, porque sin ella el color del borde no se traduce', () => {
-    expect(readout).toContain('ROLE_TONE_CSS[role]');
-    expect(readout).toContain('roleCounts');
-    // Y nombra a TODOS los activos, no a los tres primeros.
-    expect(readout).not.toContain('live.slice(1, 4)');
+  it('el panel traduce el color del borde: cada musculo lleva su papel con su tono', () => {
+    // Desde el rediseño del margen (nov 2026) no hay una leyenda aparte: cada
+    // fila del trio y de la lista entera lleva el cuadrado del tono y el papel
+    // escrito, que es la misma traduccion pegada a cada musculo.
+    expect(margen).toContain('ROLE_TONE_CSS[role]');
+    expect(margen).toContain('ROM_ROLE_LABEL[role]');
+    // Y la lista entera ("Ver los N") nombra a TODOS los musculos del gesto,
+    // agrupados por papel, no a los tres primeros.
+    expect(margen).toContain('ROLE_ORDER.map((role)');
+    expect(margen).toContain('(movement.activations ?? [])');
+    expect(margen).not.toContain('live.slice(1, 4)');
   });
 });

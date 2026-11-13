@@ -951,6 +951,10 @@
     .lab-legend dl {
       display: none;
     }
+    /* Y las curvas del trio, 4 px mas bajas: se leen igual. */
+    .strip:not(.is-small) {
+      height: 16px;
+    }
     .lab-lede-clamp {
       display: -webkit-box;
       -webkit-box-orient: vertical;

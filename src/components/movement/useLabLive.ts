@@ -17,9 +17,11 @@ import { rigChannel, type RigCommand } from './RigModel';
 import { movementById } from '../../data/romByRegion';
 import { getBoneControl, type Side } from '../../lib/boneMap';
 import { buildLabArc, phaseAtAngleIn, type LabArc, type PhaseAtAngle } from '../../lib/romPhaseAtAngle';
+import { effectiveArc, type EffectiveArc } from '../../lib/labArc';
+import { pathologyById } from '../../data/pathologies';
 import type { RomMovement } from '../../types/rom';
 
-type Slice = Pick<RigCommand, 'movementId' | 'side' | 'angleDeg' | 'demo'>;
+type Slice = Pick<RigCommand, 'movementId' | 'side' | 'angleDeg' | 'demo' | 'pathologyId'>;
 
 export interface LabLive {
   movement: RomMovement;
@@ -36,6 +38,12 @@ export interface LabLive {
   isSpine: boolean;
   /** El demo de una prueba o un miotoma, si hay uno moviendo el rig. */
   demo: RigCommand['demo'] | null;
+  /**
+   * Lo que el cuadro clinico activo deja recorrer (con el hombro congelado, hasta
+   * 115°). Sin cuadro, el arco entero. La regla del escenario dibuja el arco
+   * entero como referencia y marca en ambar lo que el cuadro no deja alcanzar.
+   */
+  reach: EffectiveArc;
 }
 
 const pick = (c: RigCommand): Slice => ({
@@ -43,6 +51,7 @@ const pick = (c: RigCommand): Slice => ({
   side: c.side,
   angleDeg: c.angleDeg,
   demo: c.demo ?? null,
+  pathologyId: c.pathologyId ?? null,
 });
 
 /** El estado vivo del laboratorio, o null si no hay un gesto que el rig mueva. */
@@ -55,7 +64,8 @@ export function useLabLive(): LabLive | null {
           prev.movementId === c.movementId &&
           prev.side === c.side &&
           prev.angleDeg === c.angleDeg &&
-          (prev.demo ?? null) === (c.demo ?? null)
+          (prev.demo ?? null) === (c.demo ?? null) &&
+          (prev.pathologyId ?? null) === (c.pathologyId ?? null)
             ? prev
             : pick(c),
         ),
@@ -78,6 +88,7 @@ export function useLabLive(): LabLive | null {
     gestureName: angle < 0 && movement.labReverse ? movement.labReverse.name : movement.name,
     isSpine: control.kind === 'spine',
     demo: cmd.demo ?? null,
+    reach: effectiveArc(arc, pathologyById(cmd.pathologyId ?? null)),
   };
 }
 

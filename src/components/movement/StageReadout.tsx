@@ -272,6 +272,16 @@ export function StageArcTrack({ compact = false }: { compact?: boolean }) {
     cifras.pop();
     cifras.push(arc.max);
   }
+  // Y el tope del cuadro, si recorta el arco, lleva su cifra (en ambar): se
+  // quitan las que caerian encima.
+  const topes = [live.reach.max < arc.max ? live.reach.max : null, live.reach.min > arc.min ? live.reach.min : null].filter(
+    (d): d is number => d !== null,
+  );
+  for (const t of topes) {
+    for (let i = cifras.length - 1; i >= 0; i--) {
+      if (Math.abs(enRegla(live, cifras[i]) - enRegla(live, t)) < 7) cifras.splice(i, 1);
+    }
+  }
 
   return (
     <div
@@ -313,6 +323,36 @@ export function StageArcTrack({ compact = false }: { compact?: boolean }) {
 
         {/* La regla. */}
         <div className="absolute inset-x-0 top-[22px] h-px bg-fg3/40" />
+        {/* LO QUE EL CUADRO NO DEJA ALCANZAR, en ambar. La regla sigue mostrando
+            el arco entero (la referencia), pero con el hombro congelado el brazo
+            se para en 115° y sin marcarlo parecia que el gesto llegaba a 180°. */}
+        {live.reach.max < arc.max && (
+          <>
+            <div
+              className="absolute top-[21px] h-[3px] bg-amber-300/25"
+              style={{
+                left: `${enRegla(live, live.reach.max)}%`,
+                width: `${100 - enRegla(live, live.reach.max)}%`,
+              }}
+            />
+            <span
+              className="absolute top-[16px] h-[11px] w-px bg-amber-300"
+              style={{ left: `${enRegla(live, live.reach.max)}%` }}
+            />
+          </>
+        )}
+        {live.reach.min > arc.min && (
+          <>
+            <div
+              className="absolute top-[21px] h-[3px] bg-amber-300/25"
+              style={{ left: 0, width: `${enRegla(live, live.reach.min)}%` }}
+            />
+            <span
+              className="absolute top-[16px] h-[11px] w-px bg-amber-300"
+              style={{ left: `${enRegla(live, live.reach.min)}%` }}
+            />
+          </>
+        )}
         {/* El tramo de la fase activa, en el acento. */}
         {at && (
           <div
@@ -336,6 +376,15 @@ export function StageArcTrack({ compact = false }: { compact?: boolean }) {
           <span
             key={`c-${d}`}
             className="num absolute top-[30px] -translate-x-1/2 text-[10px] text-fg3"
+            style={{ left: `${enRegla(live, d)}%` }}
+          >
+            {grados(d)}°
+          </span>
+        ))}
+        {topes.map((d) => (
+          <span
+            key={`t-${d}`}
+            className="num absolute top-[30px] -translate-x-1/2 text-[10px] text-amber-200"
             style={{ left: `${enRegla(live, d)}%` }}
           >
             {grados(d)}°

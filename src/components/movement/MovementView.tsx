@@ -373,7 +373,7 @@ export function MovementView({ region, onOpenEvidence }: MovementViewProps) {
           {/* EN MEDIO, LO QUE EL ESCENARIO NO DICE: que pasa en esta fase y por
               que, los avisos, el ritmo y el reclutamiento entero. */}
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <RhythmReadout region={region} embedded stageReads />
+            <RhythmReadout region={region} embedded />
           </div>
           <div className="rule" />
           {/* ABAJO, CUANTO SE MUEVE: el arco, a la altura de la regla del
