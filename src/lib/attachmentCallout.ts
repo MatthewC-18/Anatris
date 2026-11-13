@@ -29,10 +29,12 @@
 //   fotograma) aunque su sitio siguiera libre. Ahora se queda donde estaba
 //   mientras su sitio siga libre y dentro de la banda.
 // - Si no cabia ni encima, ni debajo, ni al lado, solo se probaban dos esquinas;
-//   luego una rejilla de 12 px, que no veia huecos mas estrechos y valoraba
-//   igual un punto bajo el texto que uno rozando el aire. Ahora el barrido mira
-//   tambien los bordes exactos de cada hueco y puntua por orden: puntos bajo el
-//   texto, puntos en el aire, distancia al grupo.
+//   luego una rejilla de 12 px, que no veia huecos mas estrechos, valoraba
+//   igual un punto bajo el texto que uno rozando el aire y costaba 21,7 ms con
+//   50 puntos. Ahora el barrido prueba los bordes exactos de cada hueco y
+//   puntua por orden: puntos bajo el texto, puntos en el aire, distancia al
+//   grupo.
+// - Los anillos de pantalla de puntos muy juntos se montaban (ringRadii).
 // - En un lienzo bajo se soltaban a la vez las dos franjas reservadas; ahora se
 //   suelta primero la de arriba y la barra de vistas la ultima.
 
@@ -67,8 +69,6 @@ export const CALLOUT_MARGIN = 12;
  * diametro con su pulso, AttachmentMarkers): con 12 ninguno toca el texto.
  */
 export const PIN_CLEARANCE = 12;
-/** Paso de la rejilla del barrido cuando nada de lo anterior cabe. */
-const SCAN_STEP = 12;
 /** Un poco por fuera del borde exacto de un hueco, para quedar dentro de el. */
 const EDGE_EPS = 0.5;
 
@@ -177,37 +177,112 @@ export function placeCallout(
     }
   }
 
-  // 3. Barrido de la banda: una rejilla y, ademas, los bordes exactos de los
-  //    huecos que deja cada punto (por estrecho que sea el hueco, hay un
-  //    candidato dentro). Gana, por orden: menos puntos bajo el texto, menos
-  //    puntos en el aire de alrededor, mas cerca del centro del grupo.
-  const xs: number[] = [xLo, xHi];
-  const ys: number[] = [yLo, yHi];
-  for (let x = xLo + SCAN_STEP; x < xHi; x += SCAN_STEP) xs.push(x);
-  for (let y = yLo + SCAN_STEP; y < yHi; y += SCAN_STEP) ys.push(y);
+  // 3. Barrido de la banda: el hueco mas cercano al grupo, primero con todo su
+  //    aire alrededor y, si no lo hay, al menos sin ningun punto debajo del
+  //    texto. Si ni eso (puntos por toda la banda mas juntos que la etiqueta),
+  //    centrada sobre el grupo.
+  const ux = cx - labelW / 2;
+  const uy = cy - labelH / 2;
+  const box = { w: labelW, h: labelH, xLo, xHi, yLo, yHi, ux, uy };
+  const free = nearestClear(pins, c, box) ?? nearestClear(pins, 0, box);
+  if (free) return { left: free.left, top: free.top, side: 'free' };
+  return { left: clampX(ux), top: clampY(uy), side: 'free' };
+}
+
+/**
+ * El sitio de la etiqueta mas cercano a la posicion centrada (ux, uy), dentro
+ * de la banda, con al menos `k` px de aire entre la caja y cada punto; null si
+ * no hay ninguno.
+ *
+ * Los huecos estan limitados por los bordes de la banda y por las lineas donde
+ * un punto entra o sale de la caja agrandada; dentro de cada hueco, el sitio
+ * mas cercano es la posicion centrada llevada al hueco. Basta, pues, probar
+ * esas coordenadas: ningun hueco, por estrecho que sea, se queda sin
+ * candidato (una rejilla fija de 12 px no veia uno de 1 px en un caso real del
+ * pectoral). Filas y columnas van ordenadas por distancia y se corta en cuanto
+ * ninguna puede quedar mas cerca: con 50 puntos en 1660 x 1014 la rejilla
+ * costaba 21,7 ms por llamada.
+ */
+function nearestClear(
+  pins: readonly ScreenPoint[],
+  k: number,
+  b: { w: number; h: number; xLo: number; xHi: number; yLo: number; yHi: number; ux: number; uy: number },
+): { left: number; top: number } | null {
+  const fx: number[] = [b.xLo, b.xHi, Math.min(Math.max(b.ux, b.xLo), b.xHi)];
+  const fy: number[] = [b.yLo, b.yHi, Math.min(Math.max(b.uy, b.yLo), b.yHi)];
   for (const p of pins) {
-    for (const x of [p.x + c + EDGE_EPS, p.x - labelW - c - EDGE_EPS]) if (x > xLo && x < xHi) xs.push(x);
-    for (const y of [p.y + c + EDGE_EPS, p.y - labelH - c - EDGE_EPS]) if (y > yLo && y < yHi) ys.push(y);
+    const x1 = p.x + k + EDGE_EPS;
+    const x2 = p.x - b.w - k - EDGE_EPS;
+    const y1 = p.y + k + EDGE_EPS;
+    const y2 = p.y - b.h - k - EDGE_EPS;
+    if (x1 > b.xLo && x1 < b.xHi) fx.push(x1);
+    if (x2 > b.xLo && x2 < b.xHi) fx.push(x2);
+    if (y1 > b.yLo && y1 < b.yHi) fy.push(y1);
+    if (y2 > b.yLo && y2 < b.yHi) fy.push(y2);
   }
-  let best = { left: xLo, top: yLo, under: Infinity, near: Infinity, d: Infinity };
-  for (const top of ys) {
-    for (const left of xs) {
-      let under = 0;
-      let near = 0;
-      for (const p of pins) {
-        if (p.x >= left - c && p.x <= left + labelW + c && p.y >= top - c && p.y <= top + labelH + c) {
-          if (p.x >= left && p.x <= left + labelW && p.y >= top && p.y <= top + labelH) under++;
-          else near++;
+  fx.sort((a, z) => Math.abs(a - b.ux) - Math.abs(z - b.ux));
+  fy.sort((a, z) => Math.abs(a - b.uy) - Math.abs(z - b.uy));
+  // Los puntos de la franja vertical de cada columna, una sola vez.
+  const cols = fx.map((left) => pins.filter((p) => p.x >= left - k && p.x <= left + b.w + k));
+  let best: { left: number; top: number } | null = null;
+  let bestD = Infinity;
+  for (const top of fy) {
+    const dy2 = (top - b.uy) * (top - b.uy);
+    if (dy2 >= bestD) break;
+    for (let i = 0; i < fx.length; i++) {
+      const left = fx[i];
+      const d = (left - b.ux) * (left - b.ux) + dy2;
+      if (d >= bestD) break;
+      let ok = true;
+      for (const p of cols[i]) {
+        if (p.y >= top - k && p.y <= top + b.h + k) {
+          ok = false;
+          break;
         }
       }
-      if (under > best.under || (under === best.under && near > best.near)) continue;
-      const dx = left + labelW / 2 - cx;
-      const dy = top + labelH / 2 - cy;
-      const d = dx * dx + dy * dy;
-      if (under < best.under || near < best.near || d < best.d) best = { left, top, under, near, d };
+      if (ok) {
+        best = { left, top };
+        bestD = d;
+        break;
+      }
     }
   }
-  return { left: best.left, top: best.top, side: 'free' };
+  return best;
+}
+
+/** Radio del anillo de pantalla de un punto aislado (AttachmentCallout). */
+export const RING_RADIUS = 7;
+/** El menor: por debajo el anillo ya no se distingue del nucleo. */
+export const RING_RADIUS_MIN = 2.5;
+
+/**
+ * EL RADIO DEL ANILLO DE CADA PUNTO, PARA QUE NO SE MONTEN UNOS SOBRE OTROS.
+ *
+ * En la vista con que se abre el origen del pectoral los diez puntos quedan a
+ * 6-13 px unos de otros en el movil (8 pares mas cerca que los 14 px de dos
+ * anillos) y a 10 px un par en escritorio: un racimo de circulos encima del
+ * sitio que se queria ver. Cada anillo mide como mucho la mitad de la
+ * distancia a su vecino mas cercano (menos 1 px de aire), entre RING_RADIUS_MIN
+ * y RING_RADIUS. `screen[i]` null (punto que no se ve) da 0.
+ */
+export function ringRadii(screen: readonly (ScreenPoint | null)[], out: number[] = []): number[] {
+  out.length = screen.length;
+  for (let i = 0; i < screen.length; i++) {
+    const a = screen[i];
+    if (!a) {
+      out[i] = 0;
+      continue;
+    }
+    let nearest = Infinity;
+    for (let j = 0; j < screen.length; j++) {
+      const b = screen[j];
+      if (!b || j === i) continue;
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d < nearest) nearest = d;
+    }
+    out[i] = Math.min(RING_RADIUS, Math.max(RING_RADIUS_MIN, nearest / 2 - 1));
+  }
+  return out;
 }
 
 /**

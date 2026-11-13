@@ -14,9 +14,12 @@ import {
   CALLOUT_GAP,
   CALLOUT_MARGIN,
   PIN_CLEARANCE,
+  RING_RADIUS,
+  RING_RADIUS_MIN,
   leaderPath,
   pinScreenScale,
   placeCallout,
+  ringRadii,
   type CalloutPlacement,
   type CalloutSide,
   type ScreenPoint,
@@ -445,6 +448,65 @@ describe('la etiqueta no se mete bajo la barra de vistas', () => {
   });
 });
 
+describe('los anillos de puntos muy juntos no se montan', () => {
+  // La vista con que se abre el origen del pectoral, medida en Chrome sin
+  // cabeza: con anillos fijos de 7 px de radio, 1 par montado en escritorio
+  // (a 10 px) y 8 en el movil (a 6-13 px), un racimo de circulos.
+  const escritorio = [
+    { x: 442, y: 377 },
+    { x: 398, y: 377 },
+    { x: 415, y: 414 },
+    { x: 425, y: 414 },
+    { x: 413, y: 387 },
+    { x: 427, y: 387 },
+    { x: 447, y: 458 },
+    { x: 393, y: 458 },
+    { x: 442, y: 439 },
+    { x: 398, y: 439 },
+  ];
+  const movil = [
+    { x: 206, y: 435 },
+    { x: 184, y: 435 },
+    { x: 192, y: 453 },
+    { x: 198, y: 453 },
+    { x: 192, y: 440 },
+    { x: 198, y: 440 },
+    { x: 208, y: 475 },
+    { x: 182, y: 475 },
+    { x: 206, y: 466 },
+    { x: 184, y: 466 },
+  ];
+  const montados = (pts: ScreenPoint[], r: number[]) => {
+    let n = 0;
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        if (Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y) < r[i] + r[j]) n++;
+      }
+    }
+    return n;
+  };
+
+  it('el caso medido: ningun par montado, ni en escritorio ni en el movil', () => {
+    expect(montados(escritorio, escritorio.map(() => RING_RADIUS))).toBe(1);
+    expect(montados(movil, movil.map(() => RING_RADIUS))).toBe(8);
+    expect(montados(escritorio, ringRadii(escritorio))).toBe(0);
+    expect(montados(movil, ringRadii(movil))).toBe(0);
+  });
+
+  it('un punto aislado conserva su anillo entero, y uno que no se ve no tiene', () => {
+    expect(ringRadii([{ x: 10, y: 10 }, { x: 300, y: 300 }])).toEqual([RING_RADIUS, RING_RADIUS]);
+    expect(ringRadii([{ x: 10, y: 10 }, null])).toEqual([RING_RADIUS, 0]);
+  });
+
+  it('nunca por debajo del minimo, aunque dos puntos coincidan', () => {
+    const r = ringRadii([
+      { x: 10, y: 10 },
+      { x: 10, y: 10 },
+    ]);
+    expect(Math.min(...r)).toBe(RING_RADIUS_MIN);
+  });
+});
+
 describe('la barra de vistas, medida', () => {
   // Sin navegador: un documento y un lienzo de mentira con los rectangulos
   // medidos (1440 x 900: lienzo hasta y = 900, barra desde y = 818).
@@ -525,7 +587,9 @@ describe('el cartel 3D por punto no vuelve', () => {
     const cuerpo = etiqueta.slice(etiqueta.indexOf('export function AttachmentProjector'));
     const hasta = cuerpo.indexOf('\n}\n');
     expect(cuerpo.slice(0, hasta)).toContain('return null;');
-    expect(cuerpo.slice(0, hasta)).not.toMatch(/<[a-z]/);
+    // Una etiqueta JSX en minusculas (<div, <svg...), no un generico de
+    // TypeScript (useRef<number[]>), que va pegado a un nombre.
+    expect(cuerpo.slice(0, hasta)).not.toMatch(/(^|[\s({>])<[a-z]/m);
     expect(etiqueta).not.toContain("from 'react-dom'");
   });
 
@@ -538,6 +602,11 @@ describe('el cartel 3D por punto no vuelve', () => {
     expect(etiqueta.match(/className="attach-callout"/g)?.length).toBe(1);
     expect(etiqueta).toContain('s.pins.map(');
     expect(etiqueta).toContain('leaderPath(box, p)');
+  });
+
+  it('el proyector da a cada anillo el radio de ringRadii', () => {
+    expect(etiqueta).toContain('ringRadii(screen, radii)');
+    expect(etiqueta).toMatch(/firstElementChild\?\.setAttribute\('r'/);
   });
 
   it('el proyector pasa a la colocacion las franjas medidas y el sitio anterior, y lo guarda', () => {

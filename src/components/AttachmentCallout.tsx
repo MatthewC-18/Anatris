@@ -28,6 +28,8 @@ import * as THREE from 'three';
 import {
   leaderPath,
   placeCallout,
+  ringRadii,
+  RING_RADIUS,
   type CalloutPlacement,
   type CalloutReserve,
 } from '../lib/attachmentCallout';
@@ -114,6 +116,10 @@ export function AttachmentProjector() {
   // la camara. Saltarlo sin hueco desplazaba las lineas: la del punto 3 iba al 4.
   const screen = useRef<({ x: number; y: number } | null)[]>([]).current;
   const visibles = useRef<{ x: number; y: number }[]>([]).current;
+  // El radio del anillo de cada punto (ringRadii) y el ultimo escrito, para
+  // tocar el DOM solo cuando cambia.
+  const radii = useRef<number[]>([]).current;
+  const written = useRef<number[]>([]).current;
 
   useFrame(() => {
     const s = attachmentCallout.get();
@@ -122,11 +128,14 @@ export function AttachmentProjector() {
       frame.current = 0;
       last.current = null;
       lastState.current = null;
+      written.length = 0;
       return;
     }
     if (s !== lastState.current) {
       last.current = null;
       lastState.current = s;
+      // Los circulos pueden ser nuevos: se vuelven a escribir todos.
+      written.length = 0;
     }
     // LA CAMARA AL DIA ANTES DE PROYECTAR. Los controles de camara (useFrame de
     // prioridad -1) mueven la camara y llaman a lookAt, que recalcula la matriz
@@ -174,6 +183,10 @@ export function AttachmentProjector() {
     last.current = where;
     box.left = where.left;
     box.top = where.top;
+    // Anillos que no se montan: con el origen del pectoral recien abierto, los
+    // puntos quedan a 6-13 px en el movil (ringRadii).
+    ringRadii(screen, radii);
+    written.length = screen.length;
     dom.label.style.visibility = 'visible';
     dom.label.style.transform = `translate3d(${where.left}px, ${where.top}px, 0)`;
     for (let i = 0; i < dom.leaders.length; i++) {
@@ -197,6 +210,12 @@ export function AttachmentProjector() {
       if (pin) {
         pin.setAttribute('transform', `translate(${p.x},${p.y})`);
         pin.style.visibility = 'visible';
+        const r = Math.round(radii[i] * 4) / 4;
+        if (written[i] !== r) {
+          written[i] = r;
+          pin.firstElementChild?.setAttribute('r', String(r));
+          pin.lastElementChild?.setAttribute('r', String(Math.min(2.25, r - 1)));
+        }
       }
     }
   });
@@ -240,7 +259,7 @@ export function AttachmentPlate() {
               }}
               style={{ visibility: 'hidden' }}
             >
-              <circle className="attach-ring" r="7" />
+              <circle className="attach-ring" r={RING_RADIUS} />
               <circle className="attach-core" r="2.25" />
             </g>
           </g>
