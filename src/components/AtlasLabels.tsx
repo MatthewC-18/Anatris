@@ -153,8 +153,8 @@ export function AtlasProjector({ targets }: { targets: LabelTarget[] }) {
     }
     // La camara al dia antes de proyectar: los controles (prioridad -1) llaman
     // a lookAt, que deja la inversa con la posicion nueva y el giro viejo hasta
-    // el render, y los nombres se separaban de su estructura al girar la vista
-    // (ver AttachmentCallout, donde se simulo). Idempotente.
+    // el render, y lo proyectado se separaba de su estructura al girar la vista
+    // (medido en AttachmentCallout: hasta 24,4 px sin esta llamada). Idempotente.
     camera.updateMatrixWorld();
     if (frame.current++ % 30 === 0) {
       padBottom.current = Math.max(PAD_BOTTOM, toolbarReserve(gl.domElement) + STAGE_TOOLBAR_AIR);

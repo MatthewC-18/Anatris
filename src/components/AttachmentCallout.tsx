@@ -28,8 +28,8 @@ import * as THREE from 'three';
 import {
   leaderPath,
   placeCallout,
+  type CalloutPlacement,
   type CalloutReserve,
-  type CalloutSide,
 } from '../lib/attachmentCallout';
 import { PLATE_PAD_TOP } from '../lib/atlasPlate';
 import { toolbarReserve } from '../lib/stageToolbar';
@@ -89,7 +89,6 @@ function hideAll(): void {
   for (const p of dom.pins) if (p) p.style.visibility = 'hidden';
 }
 
-
 /* ------------------------------------------------------------------ */
 /*  Dentro del Canvas: proyeccion y colocacion, sin DOM propio          */
 /* ------------------------------------------------------------------ */
@@ -103,9 +102,11 @@ export function AttachmentProjector() {
   // que solo cambia al redimensionar.
   const reserve = useRef<CalloutReserve>({ top: PLATE_PAD_TOP, bottom: 0 }).current;
   const frame = useRef(0);
-  // El lado del fotograma anterior: con el grupo centrado la etiqueta no salta
-  // de encima a debajo por medio pixel de camara (placeCallout, banda muerta).
-  const lastSide = useRef<CalloutSide | null>(null);
+  // Donde quedo la etiqueta en el fotograma anterior: se queda alli mientras su
+  // sitio siga libre (placeCallout). Se olvida al cambiar lo que se nombra, para
+  // que un musculo nuevo empiece por la regla y no por el sitio del anterior.
+  const last = useRef<CalloutPlacement | null>(null);
+  const lastState = useRef<CalloutState | null>(null);
   // Memoria de trabajo, reutilizada en cada fotograma.
   const ndc = useRef(new THREE.Vector3()).current;
   const box = useRef({ left: 0, top: 0, width: 0, height: 0 }).current;
@@ -119,16 +120,22 @@ export function AttachmentProjector() {
     if (!s.part || s.pins.length === 0 || !dom.label) {
       hideAll();
       frame.current = 0;
-      lastSide.current = null;
+      last.current = null;
+      lastState.current = null;
       return;
+    }
+    if (s !== lastState.current) {
+      last.current = null;
+      lastState.current = s;
     }
     // LA CAMARA AL DIA ANTES DE PROYECTAR. Los controles de camara (useFrame de
     // prioridad -1) mueven la camara y llaman a lookAt, que recalcula la matriz
     // ANTES de escribir el giro nuevo: hasta el render, la inversa lleva la
     // posicion nueva con el giro viejo. Proyectar con ella separaba anillos y
-    // lineas de los puntos 3D mientras la vista giraba (simulado con las
-    // versiones instaladas: hasta 52 px al pulsar Origen desde la vista 3/4 y
-    // 11-13 px arrastrando). Recalcularla aqui es idempotente; el render repite.
+    // lineas de los puntos 3D mientras la vista giraba: medido en Chrome sin
+    // cabeza quitando esta llamada y sus dos gemelas (AtlasLabels,
+    // AttachmentMarkers), hasta 24,4 px al cambiar de vista; con ellas, 0 en
+    // todas las muestras. Es idempotente; el render la repite.
     camera.updateMatrixWorld();
     if (frame.current++ % 30 === 0) reserve.bottom = toolbarReserve(gl.domElement);
     screen.length = 0;
@@ -157,14 +164,14 @@ export function AttachmentProjector() {
       box.width,
       box.height,
       reserve,
-      lastSide.current,
+      last.current,
     );
     if (!where) {
       hideAll();
-      lastSide.current = null;
+      last.current = null;
       return;
     }
-    lastSide.current = where.side;
+    last.current = where;
     box.left = where.left;
     box.top = where.top;
     dom.label.style.visibility = 'visible';
@@ -181,9 +188,11 @@ export function AttachmentProjector() {
       if (leader) {
         // Cada linea sale por el borde de la etiqueta que mira a SU punto, en
         // una S suave que no vuelve a entrar en la caja (leaderPath): con la
-        // etiqueta entre puntos, las lineas ya no cruzan el texto.
-        leader.setAttribute('d', leaderPath(box, p));
-        leader.style.visibility = 'visible';
+        // etiqueta entre puntos, las lineas ya no cruzan el texto. Un punto
+        // debajo de la etiqueta (solo si no habia hueco) no lleva linea.
+        const d = leaderPath(box, p);
+        leader.setAttribute('d', d);
+        leader.style.visibility = d ? 'visible' : 'hidden';
       }
       if (pin) {
         pin.setAttribute('transform', `translate(${p.x},${p.y})`);

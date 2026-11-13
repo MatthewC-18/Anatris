@@ -14,7 +14,6 @@ import {
   CALLOUT_GAP,
   CALLOUT_MARGIN,
   PIN_CLEARANCE,
-  SIDE_HYSTERESIS,
   leaderPath,
   pinScreenScale,
   placeCallout,
@@ -22,6 +21,7 @@ import {
   type CalloutSide,
   type ScreenPoint,
 } from '../attachmentCallout';
+import { toolbarReserve } from '../stageToolbar';
 
 const W = 900;
 const H = 700;
@@ -199,6 +199,54 @@ describe('donde va la etiqueta', () => {
     const p = placeCallout(pins, 390, 800, 217, LH, { top: 72, bottom: 136 })!;
     expect(pegado(p, pins, 217)).toBe(false);
   });
+
+  it('encuentra huecos mas estrechos que la rejilla del barrido', () => {
+    // Segunda revision adversarial: con una rejilla de 12 px el hueco libre
+    // (1 px de ancho aqui, 6 px de alto en el segundo caso) no tenia candidato
+    // y la etiqueta acababa con un punto debajo del texto. El primero son
+    // puntos reales del pectoral, con la camara dentro del torax en un lienzo
+    // apaisado de movil; el segundo, una columna de puntos.
+    const pectoral = [
+      { x: 190, y: 109 },
+      { x: 673, y: 109 },
+      { x: 450, y: 174 },
+      { x: 402, y: 174 },
+      { x: 478, y: 113 },
+      { x: 379, y: 113 },
+      { x: 338, y: 260 },
+      { x: 512, y: 260 },
+      { x: 346, y: 228 },
+      { x: 505, y: 228 },
+    ];
+    const a = placeCallout(pectoral, 844, 300, 170, LH, { top: 72, bottom: 138 })!;
+    expect(cubre(a, pectoral, 170)).toBe(false);
+    expect(pegado(a, pectoral, 170)).toBe(false);
+    const columna = [
+      { x: 176, y: 100 },
+      { x: 205, y: 168 },
+      { x: 188, y: 228 },
+      { x: 214, y: 288 },
+      { x: 181, y: 348 },
+      { x: 209, y: 408 },
+      { x: 190, y: 468 },
+      { x: 200, y: 528 },
+      { x: 186, y: 588 },
+    ];
+    const b = placeCallout(columna, 390, 778, 217, LH, { top: 72, bottom: 138 })!;
+    expect(cubre(b, columna, 217)).toBe(false);
+    expect(pegado(b, columna, 217)).toBe(false);
+  });
+
+  it('si no hay ningun hueco, prefiere rozar puntos a tenerlos debajo del texto', () => {
+    // Una rejilla de puntos tan densa que ninguna caja queda libre del todo.
+    const pins: ScreenPoint[] = [];
+    for (let x = 20; x < 400; x += 45) for (let y = 20; y < 300; y += 45) pins.push({ x, y });
+    const p = placeCallout(pins, 400, 300, 120, LH)!;
+    const debajo = pins.filter(
+      (q) => q.x >= p.left && q.x <= p.left + 120 && q.y >= p.top && q.y <= p.top + LH,
+    ).length;
+    expect(debajo).toBe(0);
+  });
 });
 
 describe('las lineas guia no cruzan la etiqueta', () => {
@@ -254,9 +302,14 @@ describe('las lineas guia no cruzan la etiqueta', () => {
     expect(leaderPath(box, { x: 400, y: 120 }).startsWith('M260,119')).toBe(true); // derecha
     expect(leaderPath(box, { x: 10, y: 110 }).startsWith('M100,119')).toBe(true); // izquierda
   });
+
+  it('un punto debajo de la etiqueta no lleva linea (cruzaria el texto)', () => {
+    const box = { left: 100, top: 100, width: 160, height: 38 };
+    expect(leaderPath(box, { x: 150, y: 120 })).toBe('');
+  });
 });
 
-describe('la etiqueta no salta de encima a debajo con el grupo centrado', () => {
+describe('la etiqueta no salta de lado mientras su sitio siga libre', () => {
   it('el caso medido: el encuadre deja el grupo a 0,5 px de la mitad', () => {
     // Vista del pectoral al pulsar Origen: centro del grupo en y = 417,5 de un
     // lienzo de 834. Medio pixel de camara bastaba para cambiar de lado.
@@ -273,27 +326,75 @@ describe('la etiqueta no salta de encima a debajo con el grupo centrado', () => 
       { x: 398, y: 439 },
     ];
     const reserve = { top: 72, bottom: 82 };
-    let prev: CalloutSide | null = null;
+    let prev: CalloutPlacement | null = null;
     const lados = new Set<CalloutSide>();
     for (const dy of [0, -1, 1, -2, 2, -0.6, 0.6, -3, 3]) {
       const pins = base.map((q) => ({ x: q.x, y: q.y + dy }));
       const p: CalloutPlacement = placeCallout(pins, 840, 834, 170, LH, reserve, prev)!;
       lados.add(p.side);
-      prev = p.side;
+      prev = p;
     }
     expect(lados.size).toBe(1);
-    // Sin el lado anterior, ese mismo temblor si cambia de lado: la banda muerta
-    // es la que lo sujeta.
+    // Sin el sitio anterior, ese mismo temblor si cambia de lado: la memoria es
+    // la que lo sujeta.
     const sinMemoria = new Set(
       [-1, 1].map((dy) => placeCallout(base.map((q) => ({ x: q.x, y: q.y + dy })), 840, 834, 170, LH, reserve)!.side),
     );
     expect(sinMemoria.size).toBe(2);
   });
 
-  it('fuera de la banda muerta si cambia de lado', () => {
-    const pins = [{ x: 420, y: 417 + SIDE_HYSTERESIS + 30 }];
-    const p = placeCallout(pins, 840, 834, 170, LH, { top: 72, bottom: 82 }, 'above')!;
-    expect(p.side).toBe('below');
+  it('al acercar la camara no cruza el grupo mientras su sitio siga libre', () => {
+    // Segunda revision adversarial: al acercar la camara desde el encuadre (la
+    // etiqueta debajo) hasta la captura de casi la barra, en un fotograma
+    // saltaba ENCIMA, 570 px, con su sitio de debajo aun libre. Se interpolan
+    // las dos capturas medidas, punto a punto, pasando el sitio anterior.
+    const desde = [
+      { x: 442, y: 377 },
+      { x: 398, y: 377 },
+      { x: 415, y: 414 },
+      { x: 425, y: 414 },
+      { x: 413, y: 387 },
+      { x: 427, y: 387 },
+      { x: 447, y: 458 },
+      { x: 393, y: 458 },
+      { x: 442, y: 439 },
+      { x: 398, y: 439 },
+    ];
+    const hasta = [
+      { x: 554, y: 173 },
+      { x: 286, y: 173 },
+      { x: 384, y: 395 },
+      { x: 456, y: 395 },
+      { x: 375, y: 223 },
+      { x: 465, y: 223 },
+      { x: 612, y: 712 },
+      { x: 228, y: 712 },
+      { x: 573, y: 573 },
+      { x: 267, y: 573 },
+    ];
+    const reserve = { top: 72, bottom: 80 };
+    let prev: CalloutPlacement | null = null;
+    let salto = 0;
+    for (let k = 0; k <= 200; k++) {
+      const t = k / 200;
+      const pins = desde.map((a, i) => ({ x: a.x + (hasta[i].x - a.x) * t, y: a.y + (hasta[i].y - a.y) * t }));
+      const p: CalloutPlacement = placeCallout(pins, 840, 834, 170, LH, reserve, prev)!;
+      expect(pegado(p, pins, 170)).toBe(false);
+      if (prev) salto = Math.max(salto, Math.hypot(p.left - prev.left, p.top - prev.top));
+      prev = p;
+    }
+    expect(salto).toBeLessThan(60);
+  });
+
+  it('si su sitio deja de estar libre, cambia', () => {
+    const anterior: CalloutPlacement = { left: 335, top: 300, side: 'above' };
+    const pins = [
+      { x: 420, y: 100 },
+      { x: 420, y: 495 },
+    ];
+    const p = placeCallout(pins, 840, 834, 170, LH, { top: 72, bottom: 82 }, anterior)!;
+    expect(p.side).not.toBe('above');
+    expect(pegado(p, pins, 170)).toBe(false);
   });
 });
 
@@ -341,6 +442,36 @@ describe('la etiqueta no se mete bajo la barra de vistas', () => {
     const p = placeCallout([{ x: 200, y: 60 }], 400, 150, LW, LH, RESERVA)!;
     expect(p.top).toBeGreaterThanOrEqual(CALLOUT_MARGIN);
     expect(p.top + LH).toBeLessThanOrEqual(150 - RESERVA.bottom - CALLOUT_MARGIN + 0.001);
+  });
+});
+
+describe('la barra de vistas, medida', () => {
+  // Sin navegador: un documento y un lienzo de mentira con los rectangulos
+  // medidos (1440 x 900: lienzo hasta y = 900, barra desde y = 818).
+  const lienzo = (bottom: number, top = 66) =>
+    ({ getBoundingClientRect: () => ({ top, bottom }) }) as unknown as HTMLElement;
+  const conBarra = (rect: { top: number; bottom: number; height: number } | null, fn: () => void) => {
+    const antes = (globalThis as { document?: unknown }).document;
+    (globalThis as { document?: unknown }).document = {
+      querySelector: () => (rect ? { getBoundingClientRect: () => rect } : null),
+    };
+    try {
+      fn();
+    } finally {
+      (globalThis as { document?: unknown }).document = antes;
+    }
+  };
+
+  it('ocupa desde el borde de ARRIBA de la barra hasta el pie del lienzo', () => {
+    conBarra({ top: 818, bottom: 875, height: 57 }, () => expect(toolbarReserve(lienzo(900))).toBe(82));
+    // Tableta (768 x 1024): la barra sube por encima de Indice y Ficha.
+    conBarra({ top: 886, bottom: 948, height: 62 }, () => expect(toolbarReserve(lienzo(1024))).toBe(138));
+  });
+
+  it('sin barra, oculta o fuera del lienzo, no reserva nada', () => {
+    conBarra(null, () => expect(toolbarReserve(lienzo(900))).toBe(0));
+    conBarra({ top: 0, bottom: 0, height: 0 }, () => expect(toolbarReserve(lienzo(900))).toBe(0));
+    conBarra({ top: 950, bottom: 1000, height: 50 }, () => expect(toolbarReserve(lienzo(900))).toBe(0));
   });
 });
 
@@ -409,8 +540,18 @@ describe('el cartel 3D por punto no vuelve', () => {
     expect(etiqueta).toContain('leaderPath(box, p)');
   });
 
-  it('el proyector pasa a la colocacion las franjas medidas y el lado anterior', () => {
-    expect(etiqueta).toMatch(/placeCallout\([\s\S]*?reserve,\s*lastSide\.current,?\s*\)/);
+  it('el proyector pasa a la colocacion las franjas medidas y el sitio anterior, y lo guarda', () => {
+    expect(etiqueta).toMatch(/placeCallout\([\s\S]*?reserve,\s*last\.current,?\s*\)/);
+    expect(etiqueta).toContain('last.current = where;');
+    // Y lo olvida al cambiar lo que se nombra.
+    expect(etiqueta).toMatch(/if \(s !== lastState\.current\) \{\s*last\.current = null;/);
+  });
+
+  it('el aire de la etiqueta cubre el halo de los puntos 3D', () => {
+    // Si alguien sube el tope del halo, el aire tiene que subir con el.
+    const m = marcadores.match(/const HALO_MAX_PX = (\d+);/);
+    expect(m).not.toBeNull();
+    expect(Number(m![1]) / 2).toBeLessThanOrEqual(PIN_CLEARANCE);
   });
 
   it('la etiqueta y los nombres del atlas miden la barra de vistas por su marca, y la barra la lleva', () => {
