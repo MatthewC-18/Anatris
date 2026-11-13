@@ -128,7 +128,9 @@ describe('la lectura del escenario', () => {
     // Un parentesis con palabras es parte del nombre.
     expect(limpia('Rango medio (deltoides + manguito)')).toBe('Rango medio (deltoides + manguito)');
     expect(limpia('Final')).toBe('Final');
-    // Y es la misma expresion que usa el componente.
-    expect(src).toContain(String(re));
+    // Y es la misma expresion que usa el componente, que desde el rediseño del
+    // margen la toma de src/lib/phaseLabel.ts (la comparte con el paginador).
+    expect(src).toContain("import { grados, sinRango } from '../../lib/phaseLabel';");
+    expect(readFileSync('src/lib/phaseLabel.ts', 'utf8')).toContain(String(re));
   });
 });

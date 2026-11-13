@@ -77,6 +77,8 @@ import { pathologyById } from '../../data/pathologies';
 import { musclesForRomLookup } from '../../data/musclesByRegion';
 import { dissectChannel, type DissectState } from './dissectChannel';
 import { ChevronDownIcon } from '../ui/Icons';
+import { LabTrio, PhasePager, PhaseStack } from './LabMarginParts';
+import { effectiveArc } from '../../lib/labArc';
 
 /**
  * LO QUE MIDE LA PARTE FIJA DE LA LECTURA, en px, en una ventana baja.
@@ -543,6 +545,8 @@ export function RhythmReadout({ region, embedded = false, stageReads = false }: 
   // La explicacion de la postura de exploracion se pliega. `null` = lo que
   // toque por el alto de la ventana; un clic lo fija.
   const [postureOpen, setPostureOpen] = useState<boolean | null>(null);
+  // MARGEN NUEVO: el detalle del ritmo, plegado.
+  const [ritmoOpen, setRitmoOpen] = useState(false);
 
   // A maneuver is being DEMONSTRATED (orthopedic test / myotome). While it runs
   // the angle sweeps, so every per-angle reading below — the sector, the rhythm,
@@ -789,6 +793,307 @@ export function RhythmReadout({ region, embedded = false, stageReads = false }: 
         )}
       </section>
     ) : null;
+
+  // ---------------------------------------------------------------------------
+  // EL MARGEN DE ESCRITORIO (rediseño de noviembre de 2026)
+  // ---------------------------------------------------------------------------
+  // Una cosa grande cada vez: el paginador y la frase de la fase arriba; el
+  // aviso del cuadro y la postura de exploracion si los hay; el ritmo en una
+  // barra; y QUIEN LO HACE, tres musculos con la curva de todo el arco. Ver
+  // LabMarginParts. El texto largo, la lista entera y los detalles van detras
+  // de un toque. Durante un demo, la ficha fija de la maniobra.
+  if (stageReads) {
+    const eff = effectiveArc(arc, pathology);
+    const ratioTxt =
+      rhythm && /\d/.test(rhythm.ratio) ? rhythm.ratio.replace('.', ',').replace(':', ' : ') : '';
+    const normalTxt =
+      rhythm?.normalRatio && /\d/.test(rhythm.normalRatio)
+        ? rhythm.normalRatio.replace('.', ',').replace(':', ' : ')
+        : '';
+    const rhythmSegs = rhythm
+      ? [
+          { label: 'Húmero', deg: rhythm.gh, pct: rhythm.ghPct, tone: 0 },
+          { label: 'Escápula', deg: rhythm.sc, pct: rhythm.scPct, tone: 1 },
+          { label: 'Tronco', deg: rhythm.tr, pct: rhythm.trPct, tone: 2 },
+        ]
+      : [];
+    return (
+      <div className="flex min-h-0 w-full flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2" style={fade}>
+          {demo ? (
+            demoSection
+          ) : (
+            <>
+              {examPostures.length > 0 && (
+                <section className="px-4 pt-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setPostureOpen(!postureOpen)}
+                    aria-expanded={!!postureOpen}
+                    className="sec-head group mb-0 w-full text-left"
+                  >
+                    <span className="kicker transition-colors group-hover:text-fg2">
+                      Posición de exploración
+                    </span>
+                    <span className="sec-rule" />
+                    <ChevronDownIcon
+                      size={13}
+                      className={`shrink-0 text-fg3 transition-transform ${postureOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                  {/* PLEGADA, UNA LINEA. Abierta de entrada (como en el panel
+                      viejo, a partir de 860 px de ventana) empujaba el trio por
+                      debajo del pliegue: medido en la rotacion externa a 1440 x
+                      900, 132 px de desplazamiento. La primera linea ya dice por
+                      que el codo esta doblado; el resto, al pulsar. */}
+                  {postureOpen
+                    ? examPostures.map((p) => (
+                        <p key={p.bone} className="note note-brand mt-1.5">
+                          {p.reason}
+                        </p>
+                      ))
+                    : (
+                        <p className="mt-1 line-clamp-1 text-xs leading-snug text-fg2">
+                          {examPostures[0].reason}
+                        </p>
+                      )}
+                </section>
+              )}
+
+              {at && (
+                <section className="px-4 pt-2.5">
+                  <PhasePager
+                    phases={arc.phases}
+                    index={at.index}
+                    effMin={eff.min}
+                    effMax={eff.max}
+                  />
+                  <PhaseStack phases={arc.phases} index={at.index} citeLabel={citeLabel} />
+                </section>
+              )}
+
+              {pathology && (
+                <section className="px-4 pt-3">
+                  <div className="note note-warn">
+                    <p className="flex items-baseline gap-2">
+                      <span className="kicker shrink-0 text-amber-300/80">Patológico</span>
+                      <span className="min-w-0 text-xs font-semibold text-amber-100">
+                        {pathology.name}
+                      </span>
+                    </p>
+                    <p className="mt-1.5 text-amber-100/85">{pathology.whyItHurts}</p>
+                    {pathology.implicated.length > 0 && (
+                      <p className="mt-1.5 text-amber-200/70">
+                        Estructura clave: {pathology.implicated.map((id) => nameOf(id)).join(', ')}
+                      </p>
+                    )}
+                    <p className="num mt-1.5 text-[11px] text-fg3">
+                      Fuente: {citeLabel(pathology.cite)}
+                    </p>
+                  </div>
+                </section>
+              )}
+
+              {/* EL RITMO, en una barra. La razon nunca enseña la raya que
+                  devuelve el modelo cuando la escapula aun no ha girado; por
+                  debajo de 0° el hueco se conserva para que nada salte. */}
+              {isChain && (
+                <section className="px-4 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setRitmoOpen((o) => !o)}
+                    aria-expanded={ritmoOpen}
+                    disabled={!rhythm}
+                    className="sec-head group mb-1.5 w-full text-left"
+                  >
+                    {/* "Desde 0°": el reparto es ACUMULADO, no el de este grado. */}
+                    <span className="kicker transition-colors group-hover:text-fg2">
+                      Ritmo escapulohumeral desde 0°
+                    </span>
+                    <span className="sec-rule" />
+                    {rhythm && (
+                      <ChevronDownIcon
+                        size={13}
+                        className={`shrink-0 text-fg3 transition-transform ${ritmoOpen ? 'rotate-180' : ''}`}
+                      />
+                    )}
+                  </button>
+                  {rhythm ? (
+                    <div className="lab-legend">
+                      {/* LA BARRA Y LA RAZON EN UNA FILA. La razon va en un hueco
+                          fijo de 72 px, donde cabe "18,8 : 1": la barra no cambia
+                          de largo cuando la cifra crece. */}
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-1 min-w-0 flex-1 gap-0.5" aria-hidden="true">
+                          {rhythmSegs
+                            .filter((sg) => sg.pct > 0.5)
+                            .map((sg) => (
+                              <span
+                                key={sg.label}
+                                className="h-full basis-0 transition-[flex-grow] duration-150"
+                                style={{ flexGrow: sg.pct, backgroundColor: SPLIT_TONE[sg.tone] }}
+                              />
+                            ))}
+                        </div>
+                        <span className="num w-[4.5rem] shrink-0 text-right text-[13px] font-medium text-fg">
+                          {ratioTxt}
+                        </span>
+                      </div>
+                      <dl className="mt-2 flex items-baseline justify-between gap-2">
+                        {rhythmSegs.map((sg) => {
+                          // Un tramo a cero (el tronco por debajo de 150°) se
+                          // queda en su sitio, pero apagado.
+                          const cero = Math.round(sg.deg) === 0;
+                          return (
+                            <div key={sg.label} className="flex items-baseline gap-1.5">
+                              <span
+                                aria-hidden="true"
+                                className="h-1.5 w-1.5 shrink-0 -translate-y-px"
+                                style={{ backgroundColor: SPLIT_TONE[sg.tone] }}
+                              />
+                              <dt className={`text-xs ${cero ? 'text-fg3' : 'text-fg2'}`}>{sg.label}</dt>
+                              <dd className={`num text-xs font-medium ${cero ? 'text-fg2' : 'text-fg'}`}>
+                                {Math.round(sg.deg)}°
+                              </dd>
+                            </div>
+                          );
+                        })}
+                      </dl>
+                    </div>
+                  ) : (
+                    // EL MISMO ALTO QUE CON LA BARRA: la frase ocupa la fila de la
+                    // barra y la leyenda guarda su hueco, asi que al cruzar 0° no
+                    // salta nada (medido: 17 px de salto sin esto).
+                    <div className="lab-legend">
+                      <div className="flex min-h-[19px] items-center">
+                        <p className="text-xs text-fg3">Solo en la elevación, por encima de 0°.</p>
+                      </div>
+                      <dl className="mt-2 min-h-[16px]" aria-hidden="true" />
+                    </div>
+                  )}
+                  {rhythm && ritmoOpen && (
+                    <div className="mt-2 space-y-1.5 text-xs leading-snug text-fg2">
+                      {/* En una ventana baja la leyenda de la barra se esconde y
+                          sus grados pasan aqui. */}
+                      <p className="lab-short-only num">
+                        Húmero {Math.round(rhythm.gh)}° · Escápula {Math.round(rhythm.sc)}° · Tronco{' '}
+                        {Math.round(rhythm.tr)}°
+                      </p>
+                      {normalTxt && (
+                        <p className="num text-amber-200/90">Ritmo normal en este ángulo: {normalTxt}</p>
+                      )}
+                      {rhythm.sc > 1 && (
+                        <p>
+                          De la escápula:{' '}
+                          <span className="num text-fg">
+                            {Math.round(rhythm.girdle.sternoclavicularDeg)}°
+                          </span>{' '}
+                          esternoclavicular (la clavícula se eleva) y{' '}
+                          <span className="num text-fg">
+                            {Math.round(rhythm.girdle.acromioclavicularDeg)}°
+                          </span>{' '}
+                          acromioclavicular (la escápula gira sobre ella).
+                        </p>
+                      )}
+                      {rhythm.scPlane - rhythm.sc > 2 && (
+                        <p>
+                          Rotación ascendente de la escápula:{' '}
+                          <span className="num text-fg">{Math.round(rhythm.scPlane)}°</span> en su
+                          propio plano, inclinado ~34° por delante del frontal; de ahí los{' '}
+                          <span className="num text-fg">{Math.round(rhythm.sc)}°</span> que aporta al
+                          ángulo que se mide.
+                        </p>
+                      )}
+                      <p className="num text-[11px] text-fg3">
+                        Reparto acumulado desde 0°. Fuente: Inman, Ludewig, Kapandji
+                      </p>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {/* Los equivalentes del ritmo en la rodilla, el cuello y el tronco. */}
+              {screwHome && (
+                <section className="px-4 pt-3.5">
+                  <div className="sec-head mb-2">
+                    <span className="kicker">Mecanismo de tornillo</span>
+                    <span className="sec-rule" />
+                    <span className="shrink-0 text-xs font-medium text-fg">
+                      {SCREW_ZONE[screwHome.zone].label}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className="meter flex-1 text-brand"
+                      style={{ ['--v' as string]: (screwHome.tibialErDeg / 15) * 100 }}
+                      aria-hidden="true"
+                    />
+                    <span className="num shrink-0 text-xs font-medium text-fg">
+                      {screwHome.tibialErDeg.toFixed(1).replace('.', ',')}°
+                    </span>
+                    <span className="shrink-0 text-[11px] text-fg3">RE tibial</span>
+                  </div>
+                  <p className="mt-2 text-xs leading-snug text-fg2">{SCREW_ZONE[screwHome.zone].note}</p>
+                  <p className="num mt-1.5 text-[11px] text-fg3">Fuente: Kapandji, Oatis</p>
+                </section>
+              )}
+              {cervicalSplit && (
+                <SegmentSplit
+                  title="Reparto de la rotación"
+                  ratio={cervicalSplit.ratio}
+                  note="La articulación atlanto-axoidea (C1-C2) aporta ~la mitad de la rotación cervical y lidera el inicio; los segmentos C2-C7 completan el arco."
+                  source="Kapandji, Oatis"
+                  segs={[
+                    { label: 'C1-C2', deg: cervicalSplit.c1c2Deg, pct: cervicalSplit.c1c2Pct },
+                    { label: 'C2-C7', deg: cervicalSplit.subaxialDeg, pct: cervicalSplit.subaxialPct },
+                  ]}
+                />
+              )}
+              {lumboPelvic && (
+                <SegmentSplit
+                  title="Ritmo lumbopélvico"
+                  ratio={lumboPelvic.ratio}
+                  notPosed={
+                    LUMBOPELVIC_PELVIS_POSED
+                      ? undefined
+                      : 'La pelvis no bascula en el 3D: en este modelo la cadera no es una articulación entre pelvis y fémur. Los grados de pelvis son del modelo; lo que ves moverse es el raquis lumbar.'
+                  }
+                  note={
+                    lumboPelvic.leader === 'lumbar'
+                      ? 'El raquis lumbar lidera el inicio del gesto (invierte la lordosis); la pelvis aún apenas rota.'
+                      : lumboPelvic.leader === 'pelvis'
+                        ? 'La pelvis (flexión de cadera) domina ya el gesto; el raquis lumbar aporta menos.'
+                        : 'Lumbar y pelvis se reparten el gesto de forma pareja.'
+                  }
+                  source="Kapandji, Oatis"
+                  segs={[
+                    { label: 'Lumbar', deg: lumboPelvic.lumbarDeg, pct: lumboPelvic.lumbarPct },
+                    { label: 'Pelvis', deg: lumboPelvic.pelvicDeg, pct: lumboPelvic.pelvicPct },
+                  ]}
+                />
+              )}
+
+              {at && (
+                <LabTrio
+                  movement={movement}
+                  phase={at.phase}
+                  arcMin={arc.min}
+                  arcMax={arc.max}
+                  effMin={eff.min}
+                  effMax={eff.max}
+                  angle={Math.max(eff.min, Math.min(angle, eff.max))}
+                  nameOf={nameOf}
+                  canIsolate={canIsolate}
+                  isIsolated={isIsolated}
+                  isolate={isolateByName}
+                />
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     // Una columna. Embebida llena el alto que la consola le deja (`flex-1`): la

@@ -44,8 +44,8 @@ interface ActivationStripProps {
   windowEnd: number;
   /** El angulo actual. */
   angle: number;
-  /** Alto en px. */
-  height?: number;
+  /** La tira de la lista entera, mas baja (el alto lo pone el CSS: `.strip`). */
+  small?: boolean;
 }
 
 /** Los puntos de la envolvente entre `a` y `b`: los extremos y los nudos de dentro. */
@@ -82,7 +82,7 @@ export const ActivationStrip = memo(function ActivationStrip({
   windowStart,
   windowEnd,
   angle,
-  height = 22,
+  small = false,
 }: ActivationStripProps) {
   const clipId = useId();
   const tone = ROLE_TONE_CSS[role];
@@ -107,13 +107,12 @@ export const ActivationStrip = memo(function ActivationStrip({
   const tramo = (p: { line: string; area: string } | null, color: string, key: string) =>
     p && (
       <g key={key} style={{ color }}>
-        {/* Todo el arco, tenue. */}
-        <path d={p.area} fill="currentColor" fillOpacity={0.05} />
+        {/* Todo el arco: solo el trazo, sin relleno. */}
         <path
           d={p.line}
           fill="none"
           stroke="currentColor"
-          strokeOpacity={0.35}
+          strokeOpacity={0.6}
           strokeWidth={1.25}
           vectorEffect="non-scaling-stroke"
         />
@@ -132,7 +131,7 @@ export const ActivationStrip = memo(function ActivationStrip({
     );
 
   return (
-    <div className="strip" style={{ height }} aria-hidden="true">
+    <div className={`strip ${small ? 'is-small' : ''}`} aria-hidden="true">
       <div className="strip-in">
         <svg
           viewBox={`0 0 ${VB_W} ${VB_H}`}
