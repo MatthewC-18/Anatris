@@ -78,6 +78,23 @@ describe('las etiquetas siguen al cuerpo', () => {
     expect(src).toContain('v.applyMatrix4(mesh.matrixWorld).project(camera)');
   });
 
+  it('la camara al dia antes de proyectar', () => {
+    // Los controles de camara (useFrame de prioridad -1) giran la camara con
+    // lookAt, que deja la inversa con la posicion nueva y el giro viejo hasta
+    // el render. MEDIDO en Chrome con la grafica, fotograma a fotograma: sin la
+    // llamada, las guias se separaban del cuerpo al menos 48 px al arrastrar
+    // (3 grados por fotograma) y 111 px en un giro de 90 grados; con ella, 0.
+    // Se mira el CODIGO, sin comentarios: una llamada comentada no cuenta.
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    const i = code.indexOf('camera.updateMatrixWorld();');
+    expect(i).toBeGreaterThan(0);
+    // Dentro del fotograma (no en el cuerpo del componente, que corre una vez)...
+    expect(i).toBeGreaterThan(code.indexOf('useFrame(() => {'));
+    // ...y antes de la PRIMERA proyeccion, que es la del eje del cuerpo.
+    expect(i).toBeLessThan(code.indexOf('.project(camera)'));
+    expect(i).toBeLessThan(code.indexOf('v.set(0, MIDLINE_Y, 0).project(camera)'));
+  });
+
   it('el margen lo decide el EJE DEL CUERPO, no el centro del escenario', () => {
     // MEDIDO en la abduccion a 95 grados: el guardian de encuadre desplaza la
     // camara para meter la mano, el eje del cuerpo queda en x=439 de 728 y las

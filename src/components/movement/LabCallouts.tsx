@@ -186,6 +186,19 @@ export function LabCalloutProjector({
     // etiquetas se apilaban encima del torax, al lado contrario del brazo. El
     // plano sagital del cuerpo es x=0 en el mundo: se proyecta y se compara
     // contra eso.
+    //
+    // LA CAMARA AL DIA ANTES DE PROYECTAR, la misma trampa que en Explorar (ver
+    // AttachmentCallout.tsx). Los controles de camara corren antes (useFrame de
+    // prioridad -1) y giran con lookAt, que recalcula la matriz ANTES de
+    // escribir el giro nuevo: hasta el render, la inversa lleva la posicion
+    // nueva con el giro viejo. MEDIDO en Chrome con la tarjeta grafica,
+    // avanzando fotogramas de 1/60 s: sin esta llamada los puntos y las guias se
+    // separaban del cuerpo al menos 48 px al arrastrar (3 grados por
+    // fotograma), 24 px en un giro vertical de 20 grados y 111 px en uno de 90;
+    // con ella, 0 en todos. Acercar, desplazar y el gesto ya daban 0: no giran
+    // la camara, y la consola mueve el cuerpo fuera del bucle con las matrices
+    // ya al dia. Es idempotente; el render la repite.
+    camera.updateMatrixWorld();
     v.set(0, MIDLINE_Y, 0).project(camera);
     const midX = (v.x * 0.5 + 0.5) * size.width;
 
