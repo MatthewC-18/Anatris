@@ -249,16 +249,33 @@ export function relaxSkinSeams(scene: THREE.Object3D): SeamRelaxResult {
     const n = baseName(o.name);
     if (!spineBones.has(n)) spineBones.set(n, o);
   });
+  // EL HOMBRO Y LA PIERNA. Esta tabla nacio con la pasada, que entonces solo
+  // cosia el hombro, y tenia solo `Shoulder_Armature_*`. Al abrir la pasada a
+  // todo el cuerpo nadie le anadio la pierna, y al escribir los pesos
+  // `femur_base`, `shin_flex` o la raiz de la pierna no se encontraban: se
+  // descartaban y lo que quedaba se normalizaba. Un nodo del muslo con femur y
+  // algo de sacro salia 100% sacro (792 vertices de piel de muslo y rodilla con
+  // mas de la mitad en el sacro), y un nodo todo pierna no se escribia, asi que
+  // esas costuras ni se soldaban.
+  //
+  // MEDIDO con el banco de render, antes y despues: a 90 grados de flexion de
+  // cadera, 470 de 721 vertices de piel del muslo se quedaban quietos (una
+  // cortina colgando del muslo) y ahora 43; de perfil, la caja de la cadera
+  // pasa de 83,8% a 99,6% de piel. Pixeles que no son piel a 120 grados de
+  // flexion, de frente, 1,926% -> 1,093%. Lo que empeora, poco: rotacion externa
+  // de cadera a 45 grados, de frente, 1,670% -> 1,857%, en la ingle que ya
+  // estaba documentada como limite (ver GROIN_*). Hombro, raquis y rodilla,
+  // iguales.
   const limbBones = new Map<'R' | 'L', Map<string, THREE.Object3D>>();
   for (const side of ['R', 'L'] as const) {
-    const root = scene.getObjectByName(`Shoulder_Armature_${side}`);
-    if (!root) continue;
     const m = new Map<string, THREE.Object3D>();
-    root.traverse((o) => {
-      const n = baseName(o.name);
-      if (!m.has(n)) m.set(n, o);
-    });
-    limbBones.set(side, m);
+    for (const rootName of [`Shoulder_Armature_${side}`, `Leg_Armature_${side}`]) {
+      scene.getObjectByName(rootName)?.traverse((o) => {
+        const n = baseName(o.name);
+        if (!m.has(n)) m.set(n, o);
+      });
+    }
+    if (m.size) limbBones.set(side, m);
   }
 
   interface Mesh {

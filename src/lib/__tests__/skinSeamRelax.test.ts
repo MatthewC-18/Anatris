@@ -93,6 +93,56 @@ function buildScene() {
   return { scene, chest, deltoid };
 }
 
+/**
+ * LA PIERNA: un muslo en el esqueleto de la pierna (`femur_base`) y una nalga
+ * en el sacro, que se tocan en x = 0,40 a la altura del muslo (y = 0,70). El
+ * muslo es GRUESO, como en el rig: 7 vertices en 30 cm, de modo que los seis
+ * anillos del reparto llegan a todo el muslo.
+ */
+function buildLegScene() {
+  const scene = new THREE.Group();
+  const sacrum = new THREE.Bone();
+  sacrum.name = 'vert_sacrum';
+  const spineRoot = new THREE.Group();
+  spineRoot.name = 'Spine_Armature';
+  spineRoot.add(sacrum);
+  const femur = new THREE.Bone();
+  femur.name = 'femur_base';
+  const legRoot = new THREE.Group();
+  legRoot.name = 'Leg_Armature_R';
+  legRoot.add(femur);
+  scene.add(spineRoot, legRoot);
+  scene.updateMatrixWorld(true);
+
+  const strip = (name: string, x0: number, x1: number, count: number, bone: THREE.Bone) => {
+    const positions: number[] = [];
+    const skinIndex: number[] = [];
+    const skinWeight: number[] = [];
+    for (let row = 0; row < 2; row++)
+      for (let i = 0; i < count; i++) {
+        positions.push(x0 + ((x1 - x0) * i) / (count - 1), 0.7 + row * 0.01, 0);
+        skinIndex.push(0, 0, 0, 0);
+        skinWeight.push(1, 0, 0, 0);
+      }
+    const index: number[] = [];
+    for (let i = 0; i < count - 1; i++) index.push(i, i + 1, count + i, i + 1, count + i + 1, count + i);
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geom.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndex, 4));
+    geom.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeight, 4));
+    geom.setIndex(index);
+    const mesh = new THREE.SkinnedMesh(geom, skinMaterial());
+    mesh.name = name;
+    mesh.bind(new THREE.Skeleton([bone]));
+    return mesh;
+  };
+  const thigh = strip('Posterior_region_of_thigh', 0.1, 0.4, 7, femur);
+  const buttock = strip('Gluteal_region', 0.4, 0.46, 4, sacrum);
+  scene.add(thigh, buttock);
+  scene.updateMatrixWorld(true);
+  return { scene, thigh, buttock };
+}
+
 /** Bone name -> weight for one vertex of a mesh. */
 function weightsAt(mesh: THREE.SkinnedMesh, i: number): Record<string, number> {
   const si = mesh.geometry.getAttribute('skinIndex');
@@ -190,6 +240,35 @@ describe('relaxSkinSeams', () => {
     expect(result.disagreeing).toBeGreaterThan(0);
     // ...but the vertices inside the midline band keep the bone they shipped on.
     expect(weightsAt(chest, 0)).toEqual({ vert_T9: 1 });
+  });
+
+  it('resolves LEG bones too: a thigh node keeps its femur, and leg seams weld', () => {
+    // MEDIDO en el rig: la busqueda de huesos solo conocia el hombro y el raquis,
+    // asi que `femur_base` se descartaba al escribir. Un nodo del muslo con femur
+    // y algo de sacro salia 100% sacro (la cortina de piel colgando del muslo a
+    // 90 grados de flexion de cadera), y un nodo todo pierna no se escribia: esas
+    // costuras ni se soldaban (13 cm abiertos detras de la rodilla a 135 grados).
+    const { scene, thigh, buttock } = buildLegScene();
+    relaxSkinSeams(scene);
+    // La costura se suelda: las dos copias del vertice compartido, iguales.
+    const a = weightsAt(thigh, 6);
+    const b = weightsAt(buttock, 0);
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)]))
+      expect(a[k] ?? 0, `hueso ${k} a los dos lados`).toBeCloseTo(b[k] ?? 0, 5);
+    // Y el muslo junto a la costura conserva el femur: no se aplasta al sacro.
+    expect(weightsAt(thigh, 5).femur_base ?? 0).toBeGreaterThan(0.3);
+    expect(a.femur_base ?? 0).toBeGreaterThan(0.1);
+  });
+
+  it('a thigh far from the seam still ends on the femur, not on the sacrum', () => {
+    // El fallo dejaba el muslo entero en el sacro: lo que el reparto mezclaba
+    // con el femur se escribia sin femur. Ahora, en el extremo del muslo, manda
+    // el femur.
+    const { scene, thigh } = buildLegScene();
+    relaxSkinSeams(scene);
+    const lejos = weightsAt(thigh, 0);
+    expect(lejos.femur_base ?? 0).toBeGreaterThan(0.9);
+    expect(lejos.vert_sacrum ?? 0).toBeLessThan(0.1);
   });
 
   it('leaves skin far from a disagreeing seam exactly as it shipped', () => {
