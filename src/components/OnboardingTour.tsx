@@ -6,7 +6,7 @@
 // -----------------------------------------------------------------------------
 // WHY IT LOOKS LIKE THIS
 // -----------------------------------------------------------------------------
-// This is the FIRST screen anyone sees inside the product, and it used to be the
+// This is the first screen most people see inside the product, and it used to be the
 // loudest thing in the entire app: an 80px icon in a glowing box, a neon
 // progress bar, a cyan pill, a solid cyan button, everything centred. That is
 // the house style of a generic product tour, and after the site was rebuilt
@@ -28,6 +28,11 @@
 // Ahora son los botones del sistema (`.btn-quiet` y `.btn-primary`), y el foco
 // se queda dentro del dialogo (`useDialogFocus`): antes entraba, pero Tab lo
 // sacaba a la aplicacion tapada por el velo.
+//
+// EN EL LABORATORIO NO SALE SOLO. Quien llegaba por enlace a un laboratorio (el
+// de un video) lo veia encima de la pantalla de carga, y lo que cuenta habla
+// del atlas. Espera al primer modo que no sea el laboratorio, salvo que se pida
+// desde la guia: la regla es `tourOpens`, en src/lib/shellRoute.ts.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDialogFocus } from '../hooks/useDialogFocus';
@@ -46,7 +51,9 @@ export function readTourDone(): boolean {
   }
 }
 
-function writeTourDone(): void {
+/** Lo marca como visto. Lo usa tambien App cuando el recorrido se va de la
+ *  pantalla sin terminarlo (ver `tourLeftUnfinished` en src/lib/shellRoute.ts). */
+export function writeTourDone(): void {
   try {
     window.localStorage.setItem(TOUR_KEY, TOUR_VERSION);
   } catch {}

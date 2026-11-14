@@ -9,7 +9,13 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { allRoutes, formatRoute, parseRoute, type AppRoute } from '../routing';
-import { documentTitleFor, regionDisplayName, settledMode } from '../shellRoute';
+import {
+  documentTitleFor,
+  regionDisplayName,
+  settledMode,
+  tourLeftUnfinished,
+  tourOpens,
+} from '../shellRoute';
 import type { AppMode } from '../../components/TopBar';
 
 /** El historial del navegador, lo justo: una pila y un indice. */
@@ -142,5 +148,90 @@ describe('el titulo del documento', () => {
   it('App lo asigna', () => {
     const app = readFileSync('src/App.tsx', 'utf8');
     expect(app).toContain('document.title = documentTitleFor(');
+  });
+});
+
+describe('el recorrido de bienvenida', () => {
+  // Un perfil nuevo que llegaba por enlace al laboratorio (el de un video) veia
+  // el recorrido ENCIMA de la pantalla de carga. En el laboratorio solo sale si
+  // se pide desde la guia; si no, espera al primer modo que no sea el
+  // laboratorio. La tabla entera: visto, pedido, modo.
+  const MODOS: AppMode[] = ['explore', 'learn', 'study', 'movement'];
+
+  it('la tabla entera', () => {
+    for (const done of [false, true]) {
+      for (const asked of [false, true]) {
+        for (const mode of MODOS) {
+          const esperado = !done && (asked || mode !== 'movement');
+          expect(tourOpens(done, asked, mode), `${done} ${asked} ${mode}`).toBe(esperado);
+        }
+      }
+    }
+  });
+
+  it('en el laboratorio no sale solo, y en los demas modos si', () => {
+    expect(tourOpens(false, false, 'movement')).toBe(false);
+    expect(tourOpens(false, false, 'explore')).toBe(true);
+    expect(tourOpens(false, false, 'learn')).toBe(true);
+    expect(tourOpens(false, false, 'study')).toBe(true);
+  });
+
+  it('pedido desde la guia sale tambien en el laboratorio', () => {
+    expect(tourOpens(false, true, 'movement')).toBe(true);
+  });
+
+  it('si se va de la pantalla sin terminarlo, cuenta como visto', () => {
+    for (const wasOpen of [false, true]) {
+      for (const isOpen of [false, true]) {
+        for (const done of [false, true]) {
+          const esperado = wasOpen && !isOpen && !done;
+          expect(tourLeftUnfinished(wasOpen, isOpen, done), `${wasOpen} ${isOpen} ${done}`).toBe(esperado);
+        }
+      }
+    }
+  });
+
+  /** Lo que hace App con el recorrido, render a render, para una serie de
+   *  modos: `tourOpens`, y si se fue sin terminarlo lo apunta como visto. */
+  function enPantalla(modos: AppMode[], inicio = { done: false, asked: false }): boolean[] {
+    let { done, asked } = inicio;
+    let wasOpen = false;
+    return modos.map((m) => {
+      const open = tourOpens(done, asked, m);
+      if (tourLeftUnfinished(wasOpen, open, done)) {
+        done = true;
+        asked = false;
+      }
+      wasOpen = open;
+      return open;
+    });
+  }
+
+  it('por enlace al laboratorio: no sale; en Explorar si; Atras y vuelta, ya no', () => {
+    // Quien llega por enlace al laboratorio y pasa a Explorar tiene el
+    // laboratorio justo detras en el historial. Atras mientras lee el recorrido
+    // (el gesto que cierra los dialogos en el movil) lo quitaba sin apuntarlo,
+    // y volvia a salir desde el paso 1 al volver a Explorar.
+    expect(enPantalla(['movement', 'explore', 'movement', 'explore'])).toEqual([false, true, false, false]);
+    // Pedido desde la guia en el laboratorio, Atras no lo quita.
+    expect(enPantalla(['movement', 'explore'], { done: false, asked: true })).toEqual([true, true]);
+  });
+
+  it('App lo aplica con el modo asentado y con la peticion de la guia', () => {
+    const app = readFileSync('src/App.tsx', 'utf8');
+    // La regla, con el modo ASENTADO, y solo con la herramienta en pantalla.
+    expect(app).toContain('const tourOpen = toolShown && tourOpens(tourDone, tourAsked, shownMode);');
+    expect(app).toContain('{tourOpen && (');
+    // La peticion arranca apagada: encendida, `tourOpens` volveria a ser
+    // "no visto" y el recorrido taparia otra vez la carga del laboratorio.
+    expect(app).toMatch(/const \[tourAsked, setTourAsked\] = useState\(false\);/);
+    // "Reabrir el tour" lo pone como no visto Y marca la peticion: sin lo
+    // primero no saldria a quien ya lo vio; sin lo segundo, en el laboratorio
+    // no saldria nada y despues apareceria solo al pasar a Explorar.
+    const reabrir = app.slice(app.indexOf('onReopenTour={() => {'), app.indexOf('onReopenTour={() => {') + 200);
+    expect(reabrir).toContain('setTourDone(false);');
+    expect(reabrir).toContain('setTourAsked(true);');
+    // Si se va sin terminarlo, se apunta como visto (en el navegador y aqui).
+    expect(app).toMatch(/tourLeftUnfinished\(tourWasOpen\.current, tourOpen, tourDone\)\) \{\s*writeTourDone\(\);\s*setTourDone\(true\);/);
   });
 });

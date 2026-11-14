@@ -105,7 +105,7 @@ import {
   MedicalDisclaimerBanner,
   MedicalDisclaimerScreen,
 } from './components/MedicalDisclaimer';
-import { OnboardingTour, readTourDone } from './components/OnboardingTour';
+import { OnboardingTour, readTourDone, writeTourDone } from './components/OnboardingTour';
 import { LegalScreen } from './components/LegalScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GuideHub } from './components/GuideHub';
@@ -119,7 +119,7 @@ import { isConceptModule, conceptForRegion } from './data/conceptByRegion';
 import { ConceptStage } from './components/ConceptStage';
 import { EVENTS, track, trackChange } from './lib/analytics';
 import { DEFAULT_REGION, readRoute, writeRoute } from './lib/routing';
-import { documentTitleFor, settledMode } from './lib/shellRoute';
+import { documentTitleFor, settledMode, tourLeftUnfinished, tourOpens } from './lib/shellRoute';
 import { useDialogFocus } from './hooks/useDialogFocus';
 import { useIsCompact } from './hooks/useIsCompact';
 
@@ -205,6 +205,9 @@ export default function App() {
     () => readEntered() || readRoute() != null,
   );
   const [tourDone, setTourDone] = useState<boolean>(() => readTourDone());
+  // Pedido desde la guia ("Reabrir el tour"): ese sale tambien en el
+  // laboratorio, donde el automatico no sale (ver `tourOpens`).
+  const [tourAsked, setTourAsked] = useState(false);
   const compact = useIsCompact();
   const entitlement = useEntitlement();
 
@@ -370,6 +373,22 @@ export default function App() {
   useEffect(() => {
     if (shownMode !== mode) setMode(shownMode);
   }, [shownMode, mode]);
+
+  // EL RECORRIDO DE BIENVENIDA. En el laboratorio no sale solo (tapaba la
+  // pantalla de carga a quien llegaba por enlace): espera al primer modo que no
+  // sea el laboratorio, salvo que se pida desde la guia. Y si se va de la
+  // pantalla sin terminarlo (Atras de vuelta al laboratorio), cuenta como
+  // visto, igual que Saltar. Las dos reglas, en src/lib/shellRoute.ts.
+  const tourOpen = toolShown && tourOpens(tourDone, tourAsked, shownMode);
+  const tourWasOpen = useRef(false);
+  useEffect(() => {
+    if (tourLeftUnfinished(tourWasOpen.current, tourOpen, tourDone)) {
+      writeTourDone();
+      setTourDone(true);
+      setTourAsked(false);
+    }
+    tourWasOpen.current = tourOpen;
+  }, [tourOpen, tourDone]);
 
   // Close any open drawer when growing back to desktop.
   useEffect(() => {
@@ -738,8 +757,14 @@ export default function App() {
 
             <CommandPalette index={index} />
 
-      {!tourDone && (
-        <OnboardingTour onDone={() => setTourDone(true)} />
+      {/* En el laboratorio no sale solo: ver `tourOpen` arriba. */}
+      {tourOpen && (
+        <OnboardingTour
+          onDone={() => {
+            setTourDone(true);
+            setTourAsked(false);
+          }}
+        />
       )}
 
       {/* Auth / subscription modal. */}
@@ -792,6 +817,7 @@ export default function App() {
             onReopenTour={() => {
               setOverlay('none');
               setTourDone(false);
+              setTourAsked(true);
             }}
             onOpenPricing={() => setOverlay('pricing')}
             onOpenEvidence={openEvidence}
