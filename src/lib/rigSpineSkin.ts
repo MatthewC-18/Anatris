@@ -48,16 +48,130 @@ import * as THREE from 'three';
 // ---------------------------------------------------------------------------
 const _vw = new THREE.Vector3();
 
-export function smoothSkinSpine(mesh: THREE.Mesh, vertY: Map<string, number>): boolean {
+// ---------------------------------------------------------------------------
+// EL SUELO DE LA CABEZA ES LA MANDIBULA, NO LA ALTURA DEL ATLAS.
+//
+// El reparto por altura daba por hecho que "lo que esta por encima de C1 -- la
+// cara, el craneo -- queda intacto". La mitad de abajo de la cara NO esta por
+// encima de C1: medido en el GLB, C1 esta en y=1,543 y la mandibula baja hasta
+// y=1,496; la boca, el menton, las mejillas, los labios, el suelo de la boca y
+// el platisma de la cara quedan entre las dos alturas. Venian al 100% en
+// `vert_C1` (como el craneo) y este pase los repartia entre C1, C2, C3 y C4
+// como si fueran cuello. Resultado, MEDIDO contra la transformacion de C1 a 80
+// grados de rotacion cervical: el craneo y la mandibula giraban con C1 (0 mm) y
+// la piel y los musculos del menton y de la boca se quedaban atras hasta 96 mm.
+// En la pantalla, la boca retorcida y el labio rojo asomando en la prueba de
+// insuficiencia vertebrobasilar, y el hueso de la mandibula saliendo por debajo
+// del menton en la flexion de Lhermitte: "se deforma la cara".
+//
+// Asi que el techo del cuello se mide en la propia mandibula: su borde
+// inferior, de perfil (la y minima del hueso por franjas de z, del menton al
+// angulo). Por encima de ese borde, la cabeza: el vertice obedece a C1 entero,
+// como el craneo. Por debajo, el cuello de siempre. Y entre medias una franja
+// de 46 mm (de 48 a 2 mm bajo el borde) donde se pasa de uno a otro, que es la
+// piel que cuelga entre la mandibula y el cuello. Probadas 14, 30 y 46 mm: con
+// 14 el giro de 80 grados dejaba un escalon bajo la mandibula; con 46 la piel
+// se descuelga de la mandibula al cuello sin escalon. Detras del angulo de la
+// mandibula manda la altura de C1, como antes.
+//
+// MEDIDO, antes y despues, con el banco de render (cabeza y cuello, cinco
+// posturas cervicales): cara (hueso, musculo y conectivo por encima de la
+// franja) 0 mm de residuo contra C1 en todas; antes, hasta 96 mm. Las 2.470
+// costuras de piel de cabeza y cuello se separan como mucho 0,3 mm; antes 6,3
+// mm a 80 grados de rotacion. Y el cuello no pierde piel: de perfil a 25
+// grados de flexion (el caso por el que existe `smoothNeckSkin`) la piel tapa
+// el 92,4% (antes 91,9%), y a 80 grados de rotacion el 92,7% (antes 84,5%,
+// con un 10,1% de hueso al aire: la mandibula).
+// ---------------------------------------------------------------------------
+
+/** El borde inferior de la mandibula, de perfil: y minima por franja de z. */
+export interface HeadFloor {
+  /** z de la primera franja (la mas posterior). */
+  z0: number;
+  /** Ancho de franja, en metros. */
+  step: number;
+  /** y del borde en cada franja. */
+  y: Float32Array;
+}
+
+/** Ancho de las franjas del perfil de la mandibula. */
+const FLOOR_STEP = 0.004;
+/** La franja de paso del cuello a la cabeza, bajo el borde de la mandibula. */
+const FLOOR_BAND_LO = 0.048;
+const FLOOR_BAND_HI = 0.002;
+/** Mas lejos de la linea media ya no es cara (orejas: x de 0,07 a 0,08). */
+const FLOOR_HALF_WIDTH = 0.11;
+
+/**
+ * Mide el borde inferior de la mandibula en reposo. Null si el rig no trae
+ * mandibula (entonces se reparte como antes, por altura de C1).
+ */
+export function measureHeadFloor(scene: THREE.Object3D): HeadFloor | null {
+  const pts: { z: number; y: number }[] = [];
+  const p = new THREE.Vector3();
+  scene.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh || !/^Mandible(?:_\d+)?$/.test(mesh.name)) return;
+    const pos = mesh.geometry?.getAttribute('position');
+    if (!pos) return;
+    for (let i = 0; i < pos.count; i++) {
+      p.fromBufferAttribute(pos, i);
+      mesh.localToWorld(p);
+      pts.push({ z: p.z, y: p.y });
+    }
+  });
+  if (pts.length < 50) return null;
+  let zMin = Infinity;
+  let zMax = -Infinity;
+  for (const q of pts) {
+    if (q.z < zMin) zMin = q.z;
+    if (q.z > zMax) zMax = q.z;
+  }
+  const n = Math.max(2, Math.ceil((zMax - zMin) / FLOOR_STEP) + 1);
+  const y = new Float32Array(n).fill(Infinity);
+  for (const q of pts) {
+    const k = Math.min(n - 1, Math.round((q.z - zMin) / FLOOR_STEP));
+    if (q.y < y[k]) y[k] = q.y;
+  }
+  // Franjas sin hueso (no deberia haberlas): se rellenan con la vecina.
+  for (let k = 1; k < n; k++) if (!Number.isFinite(y[k])) y[k] = y[k - 1];
+  for (let k = n - 2; k >= 0; k--) if (!Number.isFinite(y[k])) y[k] = y[k + 1];
+  return { z0: zMin, step: FLOOR_STEP, y };
+}
+
+/**
+ * Cuanto de CABEZA es un punto de reposo: 1 si esta por encima del borde de la
+ * mandibula (cara), 0 si esta por debajo (cuello) o detras de la mandibula, y
+ * una rampa suave en la franja que envuelve el borde.
+ */
+export function headShare(floor: HeadFloor | null | undefined, p: THREE.Vector3): number {
+  if (!floor || Math.abs(p.x) > FLOOR_HALF_WIDTH || p.z < floor.z0) return 0;
+  const last = floor.y.length - 1;
+  const f = Math.min(last, (p.z - floor.z0) / floor.step);
+  const k = Math.min(last - 1, Math.floor(f));
+  const t = f - k;
+  const yFloor = floor.y[k] * (1 - t) + floor.y[k + 1] * t;
+  const lo = yFloor - FLOOR_BAND_LO;
+  const hi = yFloor - FLOOR_BAND_HI;
+  if (p.y <= lo) return 0;
+  if (p.y >= hi) return 1;
+  const u = (p.y - lo) / (hi - lo);
+  return u * u * (3 - 2 * u);
+}
+
+/** Alturas de las vertebras, con el suelo de la cabeza medido al lado. */
+export type VertebraHeights = Map<string, number> & { headFloor?: HeadFloor | null };
+
+export function smoothSkinSpine(mesh: THREE.Mesh, vertY: VertebraHeights): boolean {
   const sk = mesh as THREE.SkinnedMesh;
   if (!sk.isSkinnedMesh || !sk.skeleton) return false;
   // Vertebrae present in THIS mesh's skeleton, tagged with their rest world Y.
-  const verts: { idx: number; y: number }[] = [];
+  const verts: { idx: number; y: number; name: string }[] = [];
   sk.skeleton.bones.forEach((b, i) => {
     const bn = b.name.replace(/_\d+$/, '');
     if (/^vert_/.test(bn)) {
       const y = vertY.get(bn);
-      if (y !== undefined) verts.push({ idx: i, y });
+      if (y !== undefined) verts.push({ idx: i, y, name: bn });
     }
   });
   if (verts.length < 2) return false;
@@ -70,10 +184,14 @@ export function smoothSkinSpine(mesh: THREE.Mesh, vertY: Map<string, number>): b
   const yLo = verts[0].y;
   const yHi = verts[last].y;
   const vertIdx = new Set(verts.map((v) => v.idx));
+  // La cabeza obedece al atlas: solo si el atlas es la vertebra de arriba de
+  // ESTE esqueleto (el craneo cuelga de el) y hay mandibula medida.
+  const floor = verts[last].name === 'vert_C1' ? vertY.headFloor : null;
   for (let i = 0; i < pos.count; i++) {
     _vw.fromBufferAttribute(pos, i);
     mesh.localToWorld(_vw); // rest world pos (bones = identity at bind)
     const vy = _vw.y;
+    const head = vy < yHi ? headShare(floor, _vw) : 0;
     // Weight this vertex already carries on NON-vertebra bones -- for the
     // latissimus, its humeral helper. Collapse it onto the heaviest such bone
     // (after unilateralizeLats there is only one) and hand the vertebrae just
@@ -92,12 +210,15 @@ export function smoothSkinSpine(mesh: THREE.Mesh, vertY: Map<string, number>): b
     if (keep > 1) keep = 1;
     if (keepBone < 0) keepBone = 0;
     const spine = 1 - keep;
-    if (vy <= yLo) {
-      si.setXYZW(i, verts[0].idx, keepBone, 0, 0);
+    const top = verts[last].idx;
+    if (vy >= yHi || head >= 1) {
+      // Por encima de la vertebra de arriba, o cara: la vertebra de arriba
+      // entera (en el cuello, el atlas, del que cuelga el craneo).
+      si.setXYZW(i, top, keepBone, 0, 0);
       sw.setXYZW(i, spine, keep, 0, 0);
-    } else if (vy >= yHi) {
-      si.setXYZW(i, verts[last].idx, keepBone, 0, 0);
-      sw.setXYZW(i, spine, keep, 0, 0);
+    } else if (vy <= yLo) {
+      si.setXYZW(i, verts[0].idx, top, keepBone, 0);
+      sw.setXYZW(i, (1 - head) * spine, head * spine, keep, 0);
     } else {
       // Largest k with verts[k].y <= vy < verts[k+1].y -> the bracketing pair.
       let k = 0;
@@ -106,8 +227,17 @@ export function smoothSkinSpine(mesh: THREE.Mesh, vertY: Map<string, number>): b
       const hi = verts[k + 1];
       const span = hi.y - lo.y;
       const t = span > 1e-6 ? (vy - lo.y) / span : 0;
-      si.setXYZW(i, lo.idx, hi.idx, keepBone, 0);
-      sw.setXYZW(i, (1 - t) * spine, t * spine, keep, 0);
+      // En la franja del borde de la mandibula, lo que es de la cabeza va al
+      // atlas y el resto se reparte como cuello. Con `head` = 0 es lo de antes.
+      const wLo = (1 - head) * (1 - t) * spine;
+      const wHi = (1 - head) * t * spine;
+      if (hi.idx === top) {
+        si.setXYZW(i, lo.idx, hi.idx, keepBone, 0);
+        sw.setXYZW(i, wLo, wHi + head * spine, keep, 0);
+      } else {
+        si.setXYZW(i, lo.idx, hi.idx, top, keepBone);
+        sw.setXYZW(i, wLo, wHi, head * spine, keep);
+      }
     }
   }
   si.needsUpdate = true;
@@ -121,14 +251,18 @@ export function smoothSkinSpine(mesh: THREE.Mesh, vertY: Map<string, number>): b
  * Se lee del propio rig y no se escribe a mano: una reexportacion del GLB
  * mueve la columna unos centimetros y el reparto tiene que moverse con ella.
  */
-export function vertebraHeights(scene: THREE.Object3D): Map<string, number> {
-  const out = new Map<string, number>();
+export function vertebraHeights(scene: THREE.Object3D): VertebraHeights {
+  const out: VertebraHeights = new Map<string, number>();
   const root = scene.getObjectByName('Spine_Armature');
   root?.traverse((o) => {
     const bn = o.name.replace(/_\d+$/, '');
     if (/^vert_/.test(bn) && !out.has(bn))
       out.set(bn, o.getWorldPosition(new THREE.Vector3()).y);
   });
+  // Y el suelo de la cabeza (ver `measureHeadFloor`): viaja con las alturas
+  // para que todo el que reparte por altura -- la aplicacion y el banco -- lo
+  // aplique sin cambiar de firma.
+  out.headFloor = measureHeadFloor(scene);
   return out;
 }
 
@@ -153,10 +287,11 @@ export interface NeckSkinReport {
  *
  * Es el mismo fallo que el de los musculos del raquis y se arregla con el mismo
  * reparto, `smoothSkinSpine`: cada vertice obedece a las dos vertebras que lo
- * bracketan en altura. Lo que esta POR ENCIMA de C1 -- la cara, el craneo, que
- * tambien vienen pesados al atlas -- queda intacto, porque para esos vertices
- * el reparto se satura en C1 al 100%. Esa es justo la razon de no restringirlo
- * con una caja de alturas escrita a mano.
+ * bracketan en altura. La CABEZA, que tambien viene pesada al atlas, queda
+ * entera en C1: lo que esta por encima de C1 porque el reparto se satura ahi,
+ * y la mitad de abajo de la cara (boca, menton), que esta POR DEBAJO de C1,
+ * porque el techo del cuello es el borde de la mandibula (`measureHeadFloor`).
+ * Sin eso la cara se deformaba al girar el cuello (ver arriba).
  *
  * `classify` lo decide quien llama, porque la clasificacion por material vive
  * en su lado.
@@ -166,7 +301,7 @@ export interface NeckSkinReport {
  */
 export function smoothNeckSkin(
   scene: THREE.Object3D,
-  vertY: Map<string, number>,
+  vertY: VertebraHeights,
   classify: (mesh: THREE.Mesh) => 'skin' | 'other',
 ): NeckSkinReport {
   const report: NeckSkinReport = { meshes: 0 };
@@ -222,7 +357,7 @@ function dominantVertebra(sk: THREE.SkinnedMesh): string {
  */
 export function smoothSpineConnective(
   scene: THREE.Object3D,
-  vertY: Map<string, number>,
+  vertY: VertebraHeights,
   classify: (mesh: THREE.Mesh) => 'connective' | 'other',
 ): NeckSkinReport {
   const report: NeckSkinReport = { meshes: 0 };
@@ -272,7 +407,7 @@ const TRUNK = /^vert_(T\d+|L\d+|sacrum)$/;
  */
 export function smoothTrunkSkin(
   scene: THREE.Object3D,
-  vertY: Map<string, number>,
+  vertY: VertebraHeights,
   classify: (mesh: THREE.Mesh) => 'skin' | 'other',
 ): NeckSkinReport {
   const report: NeckSkinReport = { meshes: 0 };
