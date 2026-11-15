@@ -37,26 +37,35 @@ const tests: OrthopedicTest[] = [
     target: 'Raíz nerviosa cervical (foramen intervertebral)',
     purpose: 'Reproducir el dolor radicular por estrechamiento del foramen.',
     maneuver:
-      'Sentado, se lleva el cuello a extensión con inclinación y rotación hacia el lado sintomático; el explorador aplica una compresión axial suave sobre la cabeza.',
+      'Sentado, se inclina el cuello hacia el lado sintomático y el explorador aplica una compresión axial de unos 7 kg sobre la cabeza. Es el «Spurling A» de Wainner; el «Spurling B» suma extensión y rotación hacia el mismo lado.',
     positive:
       'Reproducción del dolor o parestesias irradiadas por el dermatoma del lado explorado (no solo dolor cervical local).',
     metrics: {
       sensitivity: 50,
       specificity: 86,
-      note: 'Wainner 2003 (frente a EMG): 50/86, LR+ 3.5. Tong 2002: 30/93. Muy específico y poco sensible.',
+      note: 'Wainner 2003 (frente a EMG), Spurling A (inclinación hacia el lado sintomático y compresión): 50/86, LR+ 3.5. Tong 2002: 30/93. Muy específico y poco sensible.',
     },
     utility: 'rule-in',
     interpretation:
       'Alta especificidad y baja sensibilidad (SpPin): un positivo confirma con fuerza la radiculopatía; un negativo NO la descarta. Es la clave confirmatoria del clúster de Wainner.',
     pearl:
       'No lo fuerces si aparecen mareo, síntomas bilaterales o signos medulares. Detén la compresión en cuanto se reproduzcan los síntomas.',
+    // INCLINACION, NO EXTENSION. El alias y las cifras (50/86) son del Spurling
+    // A de Wainner: inclinacion hacia el lado sintomatico y unos 7 kg de
+    // compresion, sin extension ni rotacion (tabla 1 del preprint de Wang 2022,
+    // Research Square rs-1621985 v2, y tabla 1 de Fellows y Dimond 2022,
+    // abiertas en la revision del 14 nov). La maniobra describia el B y el demo
+    // posaba 25 grados de extension, que el A no tiene. 30 grados es una
+    // eleccion del rig, sin fuente para el angulo del A, y queda lejos de los 15
+    // del ligamento alar, que usa el mismo control. El raquis del rig no lee
+    // `side`: la direccion es la fija del control.
     demo: {
       cannotShow:
         'La raíz nerviosa no se puede encender: el rig no trae raíces ni médula, y los nervios que sí trae vienen con un material que los deja en una capa que el laboratorio no muestra. Lo que se demuestra es la posición que cierra el foramen.',
-      movementId: 'cervical-extension',
-      angleDeg: 25,
+      movementId: 'cervical-lateral-flexion',
+      angleDeg: 30,
       side: 'R',
-      note: 'La maniobra añade inclinación y rotación hacia el lado sintomático más una compresión axial descendente.',
+      note: 'Inclinación hacia el lado sintomático, la posición del Spurling A que estrecha el foramen de ese lado. Falta la compresión axial de unos 7 kg: el modelo gira articulaciones, no empuja la cabeza.',
     },
     cite: [
       { ref: 'wainner-2003', verified: true, locator: 'Tabla 5 (frente a EMG)' },
@@ -110,7 +119,7 @@ const tests: OrthopedicTest[] = [
     target: 'Nervio mediano / raíces C5-C7',
     purpose: 'Detectar mecanosensibilidad neural (radiculopatía o neuropatía del MMSS).',
     maneuver:
-      'Secuencia con sesgo del mediano: depresión escapular, abducción del hombro ~90°, supinación y extensión de muñeca/dedos, rotación externa y extensión del codo; se sensibiliza con inclinación cervical contralateral.',
+      'Secuencia con sesgo del mediano: depresión escapular, abducción del hombro ~110°, supinación y extensión de muñeca/dedos, rotación externa y extensión del codo; se sensibiliza con inclinación cervical contralateral.',
     positive:
       'Reproducción de los síntomas del paciente, diferencia >10° respecto al lado sano o cambio de síntomas al modular la inclinación cervical.',
     metrics: {
@@ -126,23 +135,34 @@ const tests: OrthopedicTest[] = [
     // Lo que habia posaba SOLO una inclinacion cervical contralateral de 20
     // grados, que es el SENSIBILIZADOR, no la prueba: el alumno veia un cuello
     // inclinandose bajo el rotulo "test de tension neural del MMSS". La
-    // secuencia de verdad --abduccion de hombro, supinacion, extension de
-    // muneca y extension de codo-- el rig si la conduce, y es lo que ahora se
-    // ve. La inclinacion cervical no puede acompanarla porque las cadenas de
-    // raquis no valen como componente (solo las articulaciones de un hueso), y
-    // de todos modos iria al lado contrario que el brazo.
+    // secuencia de verdad (abduccion de hombro, rotacion externa, supinacion y
+    // extension de muneca) el rig si la conduce, y es lo que ahora se ve. La
+    // extension de codo NO: un componente solo crece de 0 a su angulo y
+    // RigModel lo aplica como `sign * angleDeg` sin mirar `arcFrom`, y
+    // `elbow-extension` comparte hueso, eje y signo con la flexion, asi que a 10
+    // grados DOBLABA el codo al final del trazo (revision del 14 nov). Se quito:
+    // el codo queda recto, que es su posicion final.
+    //
+    // 110 grados de abduccion y no 90 (ULNT1 de Physiotutors y Beddaa 2022; el
+    // texto completo de Wainner no se pudo abrir). A 110 la cadena ya pone 12
+    // grados de rotacion externa obligada ((110 - 90) x 0,6, shoulderChain.ts) y
+    // el componente 78: 90 en total; a 90 la cadena no ponia ninguna.
+    //
+    // La inclinacion cervical no puede acompanarla porque las cadenas de raquis
+    // no valen como componente (solo las articulaciones de un hueso), y de
+    // todos modos iria al lado contrario que el brazo.
     demo: {
       cannotShow:
         'El nervio mediano sí está en el rig, pero su material lo deja en una capa que el laboratorio no muestra, y las raíces C5-C7 no están. Se demuestra la secuencia de puesta en tensión, no el nervio.',
       components: [
-        { movementId: 'elbow-extension', angleDeg: 10 },
+        { movementId: 'glenohumeral-external-rotation', angleDeg: 78 },
         { movementId: 'elbow-supination', angleDeg: 85 },
         { movementId: 'wrist-extension', angleDeg: 60 },
       ],
       movementId: 'glenohumeral-abduction',
-      angleDeg: 90,
+      angleDeg: 110,
       side: 'R',
-      note: 'La secuencia con sesgo mediano: hombro en abducción de 90°, antebrazo supinado, muñeca en extensión y codo que se extiende al final. Falta la inclinación cervical CONTRALATERAL que la sensibiliza (va al lado opuesto del brazo, y el modelo solo posa un lado a la vez) y la depresión escapular, que este rig no conduce.',
+      note: 'La secuencia con sesgo mediano, de pie y no en supino: hombro en abducción de 110° con rotación externa, antebrazo supinado y muñeca en extensión. El codo está recto desde el principio, que es como termina la prueba: el último paso, extender despacio el codo desde 90° hasta que aparezcan los síntomas, no se puede animar. Faltan la extensión de los dedos y del pulgar (el modelo no conduce falanges), la depresión escapular y la inclinación cervical CONTRALATERAL que la sensibiliza (va al lado opuesto del brazo, y el modelo solo posa un lado a la vez).',
     },
 
     cite: [{ ref: 'wainner-2003', verified: true, locator: 'Tabla 5 (frente a EMG)' }],
@@ -253,8 +273,13 @@ const tests: OrthopedicTest[] = [
     purpose: 'Detectar mielopatía a nivel C5-C6 con respuesta refleja invertida.',
     maneuver:
       'Se percute el tendón del braquiorradial (reflejo supinador) con el antebrazo relajado.',
+    // EXTENSION DEL CODO, NO FLEXION. Decia "flexion ... del codo por reflejo
+    // tricipital paradojico", y el triceps extiende el codo; ademas chocaba con
+    // su propio arranque ("ausencia de flexion del codo"). Jiang 2024 (PMID
+    // 37903098, PMC11289551), Tabla 2, fila del supinador invertido: "Elbow
+    // extension and/or finger flexion" (abierta en la revision del 14 nov).
     positive:
-      'Ausencia de flexión del codo con flexión refleja de los dedos y/o del codo por reflejo tricipital paradójico.',
+      'Ausencia de flexión del codo, con flexión refleja de los dedos y/o extensión del codo.',
     metrics: {
       sensitivity: 19,
       specificity: 99,
