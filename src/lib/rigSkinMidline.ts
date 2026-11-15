@@ -293,3 +293,153 @@ export function closeSkinMidline(
   });
   return report;
 }
+
+// ---------------------------------------------------------------------------
+// LAS NORMALES DE LA CARA, SOLDADAS POR LAS COSTURAS.
+//
+// `closeSkinMidline` cierra la POSICION de las dos mitades de la cara, pero cada
+// tesela trae sus propias normales, y en la costura cada copia del vertice
+// apunta hacia donde le dice su tesela. Con la cabeza derecha no se nota; con
+// la cabeza inclinada la luz del estudio entra rasante y la nariz sale partida
+// en dos, como un escalon. MEDIDO en la app, en la prueba de Spurling (cuello
+// inclinado 30 grados): las dos mitades estan a 0,38 mm como mucho en 219
+// pares de la linea media (la geometria no se abre), pero se ve un escalon en
+// el dorso de la nariz y en el labio. Es sombreado, no forma.
+//
+// Asi que, en la piel de la cabeza (y >= MIDLINE_BAND_Y en reposo), las copias
+// de un mismo punto que viven en teselas distintas reciben la MISMA direccion
+// de normal: la media de las suyas. Cada copia conserva su sentido (si una
+// tesela tiene la normal al reves, sigue al reves), para no deshacer lo que
+// arreglan `repairFaceWinding` y `agreeTriangleWinding`. Las normales del GLB
+// son Int8 normalizadas: se escriben con `setXYZ`, que normaliza el valor, y
+// nunca con `computeVertexNormals()` (deja la malla negra).
+// ---------------------------------------------------------------------------
+
+/** Dos copias a menos de esto (m) son el mismo punto de piel. */
+const NORMAL_WELD_M = 0.0005;
+/** Por debajo de este angulo (grados) las normales ya coinciden. */
+const NORMAL_AGREE_DEG = 2;
+
+/** Lo que hizo `weldHeadSkinNormals`. */
+export interface NormalWeldReport {
+  /** Puntos con copias en dos o mas teselas. */
+  groups: number;
+  /** De esos, cuantos tenian normales distintas (mas de NORMAL_AGREE_DEG). */
+  disagreeing: number;
+  /** El mayor angulo entre copias antes de soldar, en grados. */
+  worstDeg: number;
+  /** Vertices escritos. */
+  vertices: number;
+}
+
+/**
+ * Suelda las normales de la piel de la cabeza en las costuras entre teselas
+ * (ver el bloque de arriba). Va despues de `closeSkinMidline`.
+ */
+export function weldHeadSkinNormals(
+  scene: THREE.Object3D,
+  classify: (mesh: THREE.Mesh) => 'skin' | 'other',
+): NormalWeldReport {
+  const report: NormalWeldReport = { groups: 0, disagreeing: 0, worstDeg: 0, vertices: 0 };
+  scene.updateMatrixWorld(true);
+  interface Copia {
+    mesh: THREE.Mesh;
+    i: number;
+    p: THREE.Vector3;
+    n: THREE.Vector3;
+  }
+  const copias: Copia[] = [];
+  const nm = new THREE.Matrix3();
+  scene.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh || classify(mesh) !== 'skin') return;
+    const pos = mesh.geometry?.getAttribute('position');
+    const nor = mesh.geometry?.getAttribute('normal');
+    if (!pos || !nor) return;
+    nm.getNormalMatrix(mesh.matrixWorld);
+    for (let i = 0; i < pos.count; i++) {
+      const p = new THREE.Vector3().fromBufferAttribute(pos, i);
+      mesh.localToWorld(p);
+      if (p.y < MIDLINE_BAND_Y) continue;
+      const n = new THREE.Vector3().fromBufferAttribute(nor, i).applyMatrix3(nm);
+      if (n.lengthSq() < 1e-12) continue;
+      copias.push({ mesh, i, p, n: n.normalize() });
+    }
+  });
+  if (copias.length === 0) return report;
+
+  // Rejilla para encontrar las copias de cada punto.
+  const grid = new Map<number, number[]>();
+  const C = NORMAL_WELD_M * 2;
+  // Celda de 1 mm: la clave de arriba (`cellKeyOf`) esta pensada para celdas de
+  // 2 mm y aqui se solaparia; una propia, holgada para +-5 m.
+  const celda = (cx: number, cy: number, cz: number) => (cx + 5000) * 1e8 + (cy + 5000) * 1e4 + (cz + 5000);
+  const key = (x: number, y: number, z: number) => celda(Math.floor(x / C), Math.floor(y / C), Math.floor(z / C));
+  copias.forEach((c, k) => {
+    const kk = key(c.p.x, c.p.y, c.p.z);
+    (grid.get(kk) ?? grid.set(kk, []).get(kk)!).push(k);
+  });
+  // Grupos por uniones: dos copias a menos de NORMAL_WELD_M van al mismo grupo,
+  // y la relacion se cierra (si A toca a B y B a C, los tres van juntos). Sin
+  // cerrarla quedaban 4 pares de 2.465 con hasta 11 grados entre si.
+  const padre = copias.map((_, k) => k);
+  const raiz = (k: number): number => {
+    while (padre[k] !== k) {
+      padre[k] = padre[padre[k]];
+      k = padre[k];
+    }
+    return k;
+  };
+  copias.forEach((A, a) => {
+    const cx = Math.floor(A.p.x / C), cy = Math.floor(A.p.y / C), cz = Math.floor(A.p.z / C);
+    for (let dx = -1; dx <= 1; dx++)
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dz = -1; dz <= 1; dz++)
+          for (const b of grid.get(celda(cx + dx, cy + dy, cz + dz)) ?? []) {
+            if (b <= a || copias[b].p.distanceTo(A.p) > NORMAL_WELD_M) continue;
+            const ra = raiz(a), rb = raiz(b);
+            if (ra !== rb) padre[rb] = ra;
+          }
+  });
+  const grupos = new Map<number, number[]>();
+  copias.forEach((_, k) => {
+    const r = raiz(k);
+    (grupos.get(r) ?? grupos.set(r, []).get(r)!).push(k);
+  });
+  const inv = new THREE.Matrix3();
+  const media = new THREE.Vector3();
+  const local = new THREE.Vector3();
+  for (const grupo of grupos.values()) {
+    if (grupo.length < 2 || new Set(grupo.map((b) => copias[b].mesh)).size < 2) continue;
+    const A = copias[grupo[0]];
+    report.groups++;
+    // Direccion comun: cada copia orientada hacia la primera, y la media.
+    media.set(0, 0, 0);
+    let peor = 0;
+    for (const b of grupo) {
+      const n = copias[b].n;
+      const s = n.dot(A.n) < 0 ? -1 : 1;
+      media.addScaledVector(n, s);
+      for (const c of grupo) {
+        const ang = (Math.acos(Math.min(1, Math.abs(n.dot(copias[c].n)))) * 180) / Math.PI;
+        if (ang > peor) peor = ang;
+      }
+    }
+    if (peor <= NORMAL_AGREE_DEG || media.lengthSq() < 1e-12) continue;
+    media.normalize();
+    report.disagreeing++;
+    if (peor > report.worstDeg) report.worstDeg = peor;
+    for (const b of grupo) {
+      const c = copias[b];
+      const s = c.n.dot(media) < 0 ? -1 : 1;
+      // De mundo a la malla: la inversa de la matriz de normales.
+      inv.getNormalMatrix(c.mesh.matrixWorld).invert();
+      local.copy(media).multiplyScalar(s).applyMatrix3(inv).normalize();
+      const nor = c.mesh.geometry.getAttribute('normal') as THREE.BufferAttribute;
+      nor.setXYZ(c.i, local.x, local.y, local.z);
+      nor.needsUpdate = true;
+      report.vertices++;
+    }
+  }
+  return report;
+}

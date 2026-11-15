@@ -29,7 +29,7 @@ import {
 import { bindClaviclesToShoulderGirdle } from '../../src/lib/clavicleBinding.ts';
 import { agreeTriangleWinding, repairFaceWinding } from '../../src/lib/faceWinding.ts';
 import { applyBakedWinding } from '../../src/lib/rigWindingBake.ts';
-import { closeSkinMidline } from '../../src/lib/rigSkinMidline.ts';
+import { closeSkinMidline, weldHeadSkinNormals } from '../../src/lib/rigSkinMidline.ts';
 import { addEyes } from '../../src/lib/rigEyes.ts';
 import { bridgeShoulderSkin } from '../../src/lib/shoulderSkinBridge.ts';
 import { gradeShoulderMuscleBinding } from '../../src/lib/shoulderMuscleBinding.ts';
@@ -199,6 +199,7 @@ export function createRigPoser(
       : ('other' as const);
   };
   closeSkinMidline(scene, esPiel);
+  weldHeadSkinNormals(scene, esPiel);
   repairFaceWinding(scene);
   applyBakedWinding(scene);
   scene.traverse((o) => {

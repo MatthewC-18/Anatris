@@ -74,7 +74,7 @@ import { attachRim, setRim } from '../../lib/rigRim';
 import { blendHipSkin } from '../../lib/rigHipSkin';
 import { regradeAnkleCrossers } from '../../lib/rigAnkleRebind';
 import { addEyes, eyesIn, eyesVisibleFor } from '../../lib/rigEyes';
-import { closeSkinMidline } from '../../lib/rigSkinMidline';
+import { closeSkinMidline, weldHeadSkinNormals } from '../../lib/rigSkinMidline';
 import { applyBakedWinding } from '../../lib/rigWindingBake';
 import {
   smoothNeckSkin,
@@ -2149,6 +2149,24 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
             `${midline.meshes} teselas, ${midline.holes} agujeros, ` +
             `${(midline.maxMove * 1000).toFixed(1)} mm como mucho, ` +
             `${(performance.now() - tMid).toFixed(0)} ms`,
+        );
+      }
+      // Y SUS NORMALES: cerrada la posicion, cada mitad seguia con las suyas, y
+      // con la cabeza inclinada la nariz salia partida en dos por la luz
+      // (src/lib/rigSkinMidline.ts, weldHeadSkinNormals).
+      const tNor = performance.now();
+      const normales = weldHeadSkinNormals(scene, (mesh) => {
+        const first = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+        return layerForMaterial((first as THREE.Material | undefined)?.name ?? null) === 'skin'
+          ? 'skin'
+          : 'other';
+      });
+      if (normales.vertices > 0) {
+        // eslint-disable-next-line no-console
+        console.info(
+          `[RigModel] normales de la cabeza: ${normales.disagreeing} de ${normales.groups} ` +
+            `costuras soldadas (hasta ${normales.worstDeg.toFixed(0)} grados), ` +
+            `${(performance.now() - tNor).toFixed(0)} ms`,
         );
       }
 

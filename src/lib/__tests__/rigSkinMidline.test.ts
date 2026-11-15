@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { closeSkinMidline, MIDLINE_HOLE_M, MIDLINE_SNAP_M } from '../rigSkinMidline';
+import { closeSkinMidline, MIDLINE_HOLE_M, MIDLINE_SNAP_M, weldHeadSkinNormals } from '../rigSkinMidline';
 
 /**
  * Una tira de piel de dos columnas en el plano z = 0,1: la interior (`inner`,
@@ -257,5 +257,79 @@ describe('RigModel lo llama donde debe', () => {
     expect(inflar).toBeGreaterThan(0);
     expect(cerrar).toBeGreaterThan(inflar);
     expect(cerrar).toBeLessThan(pesos);
+  });
+});
+
+describe('las normales de la cara, soldadas por las costuras', () => {
+  // MEDIDO en la app: 929 de 2.465 costuras de piel de la cabeza tenian
+  // normales distintas a cada lado (hasta 88 grados), y con el cuello inclinado
+  // la nariz salia partida por la luz. Dos teselas de juguete que se tocan en
+  // x = 0, cada una con su normal: tras soldar, la misma direccion.
+  function mitad(name: string, x0: number, x1: number, y0: number, normal: [number, number, number]) {
+    const pos = [x0, y0, 0.1, x1, y0, 0.1, x0, y0 + 0.01, 0.1, x1, y0 + 0.01, 0.1];
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    const n: number[] = [];
+    for (let i = 0; i < 4; i++) n.push(...normal);
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(n, 3));
+    g.setIndex([0, 1, 2, 1, 3, 2]);
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial());
+    m.name = name;
+    return m;
+  }
+  const nOf = (m: THREE.Mesh, i: number) =>
+    new THREE.Vector3().fromBufferAttribute(m.geometry.getAttribute('normal'), i);
+
+  it('las copias de la costura acaban con la misma direccion', () => {
+    const scene = new THREE.Scene();
+    const izq = mitad('Nasal_region_1', -0.01, 0, 1.6, [-0.5, 0, 0.866]);
+    const der = mitad('Nasal_region_3', 0, 0.01, 1.6, [0.5, 0, 0.866]);
+    scene.add(izq, der);
+    const r = weldHeadSkinNormals(scene, skin);
+    expect(r.disagreeing).toBe(2); // los dos puntos de la costura
+    expect(r.worstDeg).toBeGreaterThan(50);
+    // Costura: vertice 1 y 3 de la izquierda (x = 0) con 0 y 2 de la derecha.
+    for (const [a, b] of [[1, 0], [3, 2]] as const) {
+      const na = nOf(izq, a);
+      const nb = nOf(der, b);
+      expect(na.angleTo(nb)).toBeLessThan(0.01);
+      expect(na.z).toBeCloseTo(1, 3); // la media de las dos: de frente
+    }
+    // Lejos de la costura no se toca nada.
+    expect(nOf(izq, 0).x).toBeCloseTo(-0.5, 3);
+    expect(nOf(der, 1).x).toBeCloseTo(0.5, 3);
+  });
+
+  it('cada copia conserva su sentido (una tesela con la normal al reves sigue al reves)', () => {
+    const scene = new THREE.Scene();
+    const izq = mitad('Philtruml', -0.01, 0, 1.55, [-0.5, 0, 0.866]);
+    const der = mitad('Philtrumr', 0, 0.01, 1.55, [-0.5, 0, -0.866]); // al reves
+    scene.add(izq, der);
+    weldHeadSkinNormals(scene, skin);
+    const na = nOf(izq, 1);
+    const nb = nOf(der, 0);
+    expect(Math.abs(na.dot(nb))).toBeCloseTo(1, 3); // paralelas...
+    expect(na.dot(nb)).toBeLessThan(0); // ...y la del reves sigue mirando hacia dentro
+  });
+
+  it('por debajo de la cabeza no actua', () => {
+    const scene = new THREE.Scene();
+    const izq = mitad('Pectoral_region_1', -0.01, 0, 1.2, [-0.5, 0, 0.866]);
+    const der = mitad('Pectoral_region_3', 0, 0.01, 1.2, [0.5, 0, 0.866]);
+    scene.add(izq, der);
+    const r = weldHeadSkinNormals(scene, skin);
+    expect(r.vertices).toBe(0);
+    expect(nOf(izq, 1).x).toBeCloseTo(-0.5, 3);
+  });
+
+  it('RigModel y el banco lo llaman despues de cerrar la linea media', async () => {
+    const { readFileSync } = await import('node:fs');
+    for (const f of ['src/components/movement/RigModel.tsx', 'scripts/lib/rigPose.mts']) {
+      const src = readFileSync(f, 'utf8');
+      const cerrar = src.indexOf('closeSkinMidline(scene,');
+      const soldar = src.indexOf('weldHeadSkinNormals(scene,');
+      expect(cerrar, f).toBeGreaterThan(0);
+      expect(soldar, f).toBeGreaterThan(cerrar);
+    }
   });
 });
