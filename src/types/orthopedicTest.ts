@@ -152,6 +152,28 @@ export interface TestDemo {
    */
   examinerForce?: 'resists' | 'applies';
   /**
+   * `false`: LA FUERZA ES DEL EXPLORADOR, PERO LA MANO NO SE DIBUJA.
+   *
+   * `examinerForce` hacia dos cosas a la vez: el TEXTO (la etiqueta "Pasivo" o
+   * "Resistido" y sus instrucciones) y la MANO de `RigOverlays.placeResistance`.
+   * Esa mano es una sola: se apoya al 82% del segmento que mueve el gesto BASE
+   * y empuja hacia el reposo colgando, o sea, es la mano de una prueba
+   * resistida CONTRA ese gesto. Revisado demo por demo contra su captura (15
+   * nov): en Neer empujaba el brazo elevado hacia abajo, al reves de la
+   * elevacion forzada; en Hawkins y en la aprension caia sobre el humero cuando
+   * la fuerza va en el antebrazo y es de rotacion; en los cajones de rodilla se
+   * apoyaba junto al talon, no en la tibia proxima. Quitar `examinerForce` para
+   * borrar la mano borraba tambien el aviso de prueba pasiva, que en esas
+   * pruebas es justo lo correcto.
+   *
+   * Con `false` se queda el texto y se va la mano, y las frases que la
+   * prometen ("donde se apoya la mano del fisio en el modelo") no se imprimen.
+   * Sin `examinerForce` el campo no significa nada (lo vigila el test de
+   * estructuras clinicas). Tambien deja declarar quien hace la fuerza en una
+   * prueba de raquis, donde nunca hubo mano que dibujar.
+   */
+  examinerHand?: false;
+  /**
    * The joints that make this maneuver ITSELF, held while the base movement
    * sweeps. Neer and Hawkins are both flexion; what separates them is that
    * Hawkins forces internal rotation with the elbow at 90.
@@ -159,9 +181,15 @@ export interface TestDemo {
   components?: TestDemoComponent[];
   /**
    * En que orden entran la base y los componentes (src/lib/demoTimeline.ts). Sin
-   * el campo, primero la base y despues la maniobra. Solo se declara cuando
-   * `npm run audit-demo-path` mide que otro orden mete menos el miembro en el
-   * tronco.
+   * el campo, primero la base y despues la maniobra. Se declara por dos razones,
+   * y las dos se comprueban con `npm run audit-demo-path`:
+   *
+   *   - el CAMINO: otro orden mete menos el miembro en el tronco;
+   *   - la MANIOBRA: la prueba coloca primero los componentes y despues mueve
+   *     la base. Mill coloca muneca y antebrazo y DESPUES extiende el codo; el
+   *     pivot shift pone la rotacion interna desde la extension y despues
+   *     flexiona. Con la base primero el modelo ensenaba la pelicula al reves
+   *     (revision del 15 nov contra la maniobra escrita en cada ficha).
    */
   order?: import('../lib/demoTimeline').DemoOrder;
   /** What the rig approximation leaves out (shown as a caveat). */

@@ -40,6 +40,7 @@ import { movementById } from '../../data/romByRegion';
 import { readingAngleFor } from '../../lib/labCamera';
 import {
   getBoneControl,
+  MOVEMENT_PLANE,
   resolveArmatureName,
   rigSideFor,
   type GeomSide,
@@ -651,7 +652,21 @@ export function RigOverlays(): JSX.Element {
             belly = mesh;
           }
         });
-        if (belly) callouts.push({ id: h.muscleId, role: h.role, level, mesh: belly });
+        // EN UN DEMO, EL NOMBRE SIN CIFRA. Los paneles de pruebas y de miotomas
+        // empujan su musculo con `level: 1` fijo: no es una activacion medida,
+        // es "este es el musculo de la prueba". La etiqueta lo imprimia como
+        // "Gastrocnemio 100%" en Thompson, una prueba en la que el paciente
+        // esta RELAJADO y se le comprime la pantorrilla (captura del demo, a 1
+        // grado del bucle ya decia 100%). `detail: ''` quita la cifra
+        // (LabCallouts.cifra) y deja el nombre.
+        if (belly)
+          callouts.push({
+            id: h.muscleId,
+            role: h.role,
+            level,
+            mesh: belly,
+            ...(cmd.demo ? { detail: '' } : {}),
+          });
       }
       calloutChannel.set(callouts);
       // LAS ESTRUCTURAS NO MUSCULARES (ligamento, menisco, capsula, labrum).
@@ -775,7 +790,11 @@ export function RigOverlays(): JSX.Element {
     // (ver boneMap.rigSideFor): la camara se iba al lado opuesto al que se
     // mueve y el tronco tapaba el miembro.
     const planeView = (cmd: RigCommand): { azimuth: number; polar: number; plane: string } => {
-      const plane = movementById(cmd.movementId)?.plane ?? '';
+      // EL PLANO DE RESPALDO. Un demo puede mover otra region cuyo contenido no
+      // ha llegado (el Lasègue en la lumbar mueve la cadera): sin plano la
+      // camara se giraba de frente. Ver boneMap.MOVEMENT_PLANE.
+      const plane =
+        movementById(cmd.movementId)?.plane ?? MOVEMENT_PLANE[cmd.movementId ?? ''] ?? '';
       const angle = readingAngleFor(plane, cmd.side);
       return {
         azimuth: angle ? THREE.MathUtils.degToRad(angle.azimuthDeg) : 0,
@@ -789,7 +808,7 @@ export function RigOverlays(): JSX.Element {
       const { azimuth, polar, plane } = planeView(cmd);
       if (firstRef.current) {
         firstRef.current = false;
-        lastFramedRef.current = cmd.movementId;
+        lastFramedRef.current = `${cmd.movementId}|${cmd.side}`;
         // Orient the INITIAL view to the gesture's plane so the lab opens already
         // reading the movement -- entering the KNEE (sagittal flexion) lands on a
         // LATERAL/side-on view, where the knee fold reads in profile instead of the
@@ -801,8 +820,11 @@ export function RigOverlays(): JSX.Element {
         }
         return;
       }
-      if (cmd.movementId === lastFramedRef.current) return;
-      lastFramedRef.current = cmd.movementId;
+      // Por gesto Y LADO: el Lasègue cruzado mueve el mismo gesto que el
+      // Lasègue con la otra pierna, y la camara tiene que pasarse a ese lado.
+      const key = `${cmd.movementId}|${cmd.side}`;
+      if (key === lastFramedRef.current) return;
+      lastFramedRef.current = key;
       void controls.rotateTo(azimuth, polar, true);
     };
 

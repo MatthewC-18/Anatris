@@ -15,8 +15,11 @@
 // tambien deberia.
 //
 // Cada movimiento ya declara su plano (`RomMovement.plane`), los 34 sin
-// excepcion, asi que no hace falta una tabla nueva que se quede desfasada: la
-// vista se deduce del dato que ya existe.
+// excepcion, y la vista se deduce de ese dato. Pero el dato llega con el
+// contenido de su region, y un demo puede mover otra que aun no ha llegado (el
+// Lasègue en la lumbar mueve la cadera): para eso hay un respaldo,
+// `boneMap.MOVEMENT_PLANE`, que no puede quedarse desfasado porque
+// `labCameraPlane.test.ts` exige que de la MISMA vista que el dato en los 34.
 
 /** Angulos de camara-controls, en grados. */
 export interface ReadingAngle {

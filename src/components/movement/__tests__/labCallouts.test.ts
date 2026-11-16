@@ -147,7 +147,7 @@ describe('la lectura del escenario', () => {
     expect(limpia('Final')).toBe('Final');
     // Y es la misma expresion que usa el componente, que desde el rediseño del
     // margen la toma de src/lib/phaseLabel.ts (la comparte con el paginador).
-    expect(src).toContain("import { grados, sinRango } from '../../lib/phaseLabel';");
+    expect(src).toContain("import { grados, nombreDeFase } from '../../lib/phaseLabel';");
     expect(readFileSync('src/lib/phaseLabel.ts', 'utf8')).toContain(String(re));
   });
 });

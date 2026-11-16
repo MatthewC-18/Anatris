@@ -78,6 +78,7 @@ import { startDemoLoop } from '../../lib/demoTimeline';
 import { getBoneControl } from '../../lib/boneMap';
 import { EVENTS, track } from '../../lib/analytics';
 import { structureLabel } from '../../lib/clinicalStructures';
+import { examinerHandDrawn } from '../../lib/examinerHand';
 import { SaveButton } from '../SaveButton';
 import {
   CheckIcon,
@@ -1015,7 +1016,9 @@ function TestRow({
               demoing
                 ? 'Detener la demostración'
                 : test.demo?.examinerForce
-                  ? 'Colocar la posición en el modelo 3D (la fuerza del explorador se dibuja, no se simula)'
+                  ? examinerHandDrawn(test.demo)
+                    ? 'Colocar la posición en el modelo 3D (la fuerza del explorador se dibuja, no se simula)'
+                    : 'Colocar la posición en el modelo 3D (la fuerza del explorador no se simula)'
                   : 'Reproducir la maniobra en el modelo 3D'
             }
             // Un boton cuadrado de 4 px de radio, no un circulo con borde. En
@@ -1213,9 +1216,12 @@ function TestRow({
                 <li>1. El paciente sostiene la posición y empuja.</li>
                 <li>2. Aplica resistencia en el segmento distal, oponiéndote al movimiento.</li>
               </ol>
-              <p className="mt-1 text-[11px] text-fg3">
-                En Demostrar verás la mano del fisio resistiendo sobre el modelo.
-              </p>
+              {/* Solo se promete la mano donde el rig la dibuja (examinerHand). */}
+              {examinerHandDrawn(test.demo) && (
+                <p className="mt-1 text-[11px] text-fg3">
+                  En Demostrar verás la mano del fisio resistiendo sobre el modelo.
+                </p>
+              )}
             </div>
           )}
 
@@ -1233,8 +1239,8 @@ function TestRow({
                 <li>2. La fuerza la aplicas tú sobre el segmento distal.</li>
               </ol>
               <p className="mt-1 text-[11px] text-fg3">
-                Una contracción del paciente enmascara el hallazgo. En Demostrar verás
-                dónde se apoya la mano del fisio.
+                Una contracción del paciente enmascara el hallazgo.
+                {examinerHandDrawn(test.demo) && ' En Demostrar verás dónde se apoya la mano del fisio.'}
               </p>
             </div>
           )}
@@ -1633,6 +1639,7 @@ export function OrthopedicTestsPanel({
       targetDeg: heldDeg,
       structure: test.target,
       examinerForce: d.examinerForce,
+      handDrawn: examinerHandDrawn(d),
       // Lo que se enciende, y lo que no se puede encender: el readout tiene que
       // poder decir las dos cosas mientras el demo corre.
       structureLabels: (d.highlightStructureIds ?? [])
@@ -1653,10 +1660,11 @@ export function OrthopedicTestsPanel({
         showMarkers: false,
         ghostSkin: true,
         // La mano del explorador se dibuja en las dos clases de maniobra con
-        // contacto: la resistida (Jobe, Speed, O'Brien) y la pasiva (cajon
-        // anterior, estres en valgo). Quien hace la fuerza lo dice
-        // `examinerForce`, y de eso depende el TEXTO, no la mano.
-        resistance: d.examinerForce != null,
+        // contacto: la resistida (Jobe, Speed, O'Brien) y la pasiva (estres en
+        // valgo). Quien hace la fuerza lo dice `examinerForce`, y de eso depende
+        // el TEXTO; la mano, ademas, se puede quitar (`examinerHand: false`)
+        // donde la mano generica empujaria en otra direccion que la prueba.
+        resistance: examinerHandDrawn(d),
         // La estructura que la prueba VALORA (ligamento, menisco, capsula,
         // labrum). RigOverlays la fuerza visible: la capa conectiva esta
         // apagada por defecto, asi que sin eso el resalte caia en mallas

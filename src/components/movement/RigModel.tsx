@@ -1041,6 +1041,12 @@ export interface RigDemoInfo {
    * --y opuestas-- segun cual sea.
    */
   examinerForce?: 'resists' | 'applies';
+  /**
+   * Si la mano del explorador esta dibujada en el modelo. Con `examinerForce` y
+   * sin mano (TestDemo.examinerHand = false) la lectura NO puede decir "donde
+   * se apoya la mano del fisio en el modelo": no hay ninguna.
+   */
+  handDrawn?: boolean;
   /** Nombres clinicos de lo que se esta encendiendo, ya resueltos. */
   structureLabels?: string[];
   /** Lo que esta prueba NO puede ensenar en este modelo, en una frase. */
@@ -3491,7 +3497,10 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
 
       // Lumbopelvic counter-balance for standing hip flexion (see HIP_BALANCE_*).
       // Ramps a modest lumbar lean in past HIP_BALANCE_START_DEG so the trunk
-      // shifts back as the leg rises, then carries the arms with the leaning spine.
+      // inclina HACIA DELANTE con la pierna que sube (es lo calibrado arriba,
+      // HIP_BALANCE_DIR = +1; este comentario decia "hacia atras"), then carries
+      // the arms with the leaning spine. En los demos del Lasègue es el
+      // contrapeso del modelo de pie, no parte de la maniobra: lo dice su nota.
       const balanceDir = cmd.movementId ? HIP_BALANCE_DIR[cmd.movementId] : undefined;
       if (balanceDir && cmd.angleDeg > HIP_BALANCE_START_DEG) {
         const spineBones = byArmature.get('Spine_Armature');

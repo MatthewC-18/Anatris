@@ -327,14 +327,20 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
           </p>
         )}
 
+        {/* LA MANO SOLO SE NOMBRA SI ESTA EN EL MODELO. Con `examinerHand:
+            false` la prueba sigue siendo resistida o pasiva, pero la mano
+            generica empujaria en otra direccion que la prueba y no se dibuja:
+            "donde se apoya la mano del fisio" mandaba a buscar una mano que no
+            hay. `handDrawn` sale de la misma regla que la enciende en el rig. */}
         {demo.examinerForce === 'resists' && (
           <div className="note note-brand mt-2">
             <span className="tag text-fg2">Prueba resistida</span>
             <ol className="mt-1 space-y-1">
               <li>1. El paciente sostiene la posición y empuja.</li>
               <li>
-                2. Aplica resistencia en el segmento distal, donde se apoya la mano
-                del fisio en el modelo.
+                {demo.handDrawn
+                  ? '2. Aplica resistencia en el segmento distal, donde se apoya la mano del fisio en el modelo.'
+                  : '2. Aplica resistencia en el segmento distal, oponiéndote al movimiento.'}
               </li>
             </ol>
           </div>
@@ -346,8 +352,9 @@ export function RhythmReadout({ region, embedded = false }: RhythmReadoutProps) 
             <ol className="mt-1 space-y-1">
               <li>1. El paciente permanece relajado: no empuja.</li>
               <li>
-                2. La fuerza la aplicas tú donde se apoya la mano del fisio en el
-                modelo.
+                {demo.handDrawn
+                  ? '2. La fuerza la aplicas tú donde se apoya la mano del fisio en el modelo.'
+                  : '2. La fuerza la aplicas tú; el modelo no dibuja la mano.'}
               </li>
             </ol>
           </div>

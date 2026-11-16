@@ -1183,6 +1183,59 @@ export function resolveArmatureName(base: LimbArmatureBase, side: GeomSide): str
   return `${base}_${side}`;
 }
 
+/**
+ * EL PLANO DE CADA GESTO, PARA LA CAMARA, AUNQUE SU REGION NO ESTE CARGADA.
+ *
+ * El plano vive en `RomMovement.plane`, y los movimientos de las regiones de
+ * pago llegan con su contenido, de una region en una. Un demo que mueve OTRA
+ * region se quedaba sin plano: en la lumbar, el Lasègue, el Lasègue cruzado y
+ * la tension del nervio femoral mueven la cadera y la rodilla, `movementById`
+ * devolvia undefined y la camara se giraba DE FRENTE (capturas del 15 nov en un
+ * perfil nuevo que solo abre la lumbar: la pierna sube en escorzo hacia la
+ * camara y la tibia queda tapada por el muslo). Esta tabla es el respaldo; manda
+ * el dato cuando esta. La ata a `RomMovement.plane` el test
+ * `labCameraPlane.test.ts`, que compara la VISTA que dan las dos (en los datos
+ * conviven 'Transversal' y 'Transverso').
+ *
+ * Sin la muneca: ninguna fuente le da plano en los datos.
+ */
+export const MOVEMENT_PLANE: Readonly<Record<string, 'Sagital' | 'Frontal' | 'Transversal'>> = {
+  'glenohumeral-abduction': 'Frontal',
+  'glenohumeral-flexion': 'Sagital',
+  'glenohumeral-external-rotation': 'Transversal',
+  'glenohumeral-internal-rotation': 'Transversal',
+  'elbow-flexion': 'Sagital',
+  'elbow-extension': 'Sagital',
+  'elbow-pronation': 'Transversal',
+  'elbow-supination': 'Transversal',
+  'knee-flexion': 'Sagital',
+  'knee-extension': 'Sagital',
+  'knee-internal-rotation': 'Transversal',
+  'knee-external-rotation': 'Transversal',
+  'hip-flexion': 'Sagital',
+  'hip-extension': 'Sagital',
+  'hip-abduction': 'Frontal',
+  'hip-adduction': 'Frontal',
+  'hip-internal-rotation': 'Transversal',
+  'hip-external-rotation': 'Transversal',
+  'ankle-dorsiflexion': 'Sagital',
+  'ankle-plantarflexion': 'Sagital',
+  'ankle-inversion': 'Frontal',
+  'ankle-eversion': 'Frontal',
+  'lumbar-flexion': 'Sagital',
+  'lumbar-extension': 'Sagital',
+  'lumbar-lateral-flexion': 'Frontal',
+  'lumbar-rotation': 'Transversal',
+  'thoracic-flexion': 'Sagital',
+  'thoracic-extension': 'Sagital',
+  'thoracic-lateral-flexion': 'Frontal',
+  'thoracic-rotation': 'Transversal',
+  'cervical-flexion': 'Sagital',
+  'cervical-extension': 'Sagital',
+  'cervical-lateral-flexion': 'Frontal',
+  'cervical-rotation': 'Transversal',
+};
+
 /** The control for a movementId, or undefined if unmapped. */
 export function getBoneControl(movementId: string): BoneControl | undefined {
   return BONE_MAP[movementId];

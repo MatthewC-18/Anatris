@@ -20,6 +20,7 @@ import {
 } from '../clinicalStructures';
 import { ALL_TESTS_BY_REGION } from '../../data/fullContent';
 import { BONE_MAP } from '../boneMap';
+import { examinerHandDrawn } from '../examinerHand';
 
 const ids = Object.keys(CLINICAL_STRUCTURES);
 
@@ -129,7 +130,10 @@ describe('la promesa de cada demo', () => {
   it('solo promete la mano del fisio donde el rig la dibuja', () => {
     const enRaquis: string[] = [];
     for (const { region, t } of demos) {
-      if (!t.demo!.examinerForce) continue;
+      // Con `examinerHand: false` no se promete ninguna mano (ni la ficha ni la
+      // lectura la nombran), asi que quien hace la fuerza se puede declarar
+      // tambien en una prueba de raquis.
+      if (!examinerHandDrawn(t.demo)) continue;
       const c = BONE_MAP[t.demo!.movementId] as { kind?: string } | undefined;
       if (c?.kind !== 'joint' && c?.kind !== 'chain') {
         enRaquis.push(`${region}/${t.id} (${t.demo!.movementId}: ${c?.kind ?? 'sin control'})`);
@@ -139,6 +143,35 @@ describe('la promesa de cada demo', () => {
       enRaquis,
       'declaran quién hace la fuerza sobre un movimiento donde no se dibuja ninguna mano',
     ).toEqual([]);
+  });
+
+  // QUITAR LA MANO NO ES QUITAR QUIEN HACE LA FUERZA. `examinerHand: false`
+  // solo tiene sentido en una prueba que declara `examinerForce`: sin ella no
+  // hay mano que quitar, y el campo suelto haria creer que la ficha dice algo
+  // que no dice.
+  it('examinerHand: false solo acompaña a examinerForce', () => {
+    const sueltos = demos
+      .filter(({ t }) => t.demo!.examinerHand === false && !t.demo!.examinerForce)
+      .map(({ region, t }) => `${region}/${t.id}`);
+    expect(sueltos).toEqual([]);
+  });
+
+  // Y LA MISMA REGLA EN LOS TRES SITIOS: el bucle que la enciende en el rig, la
+  // ficha que la promete y la lectura que manda a buscarla. Si uno lo decide
+  // por su cuenta, el texto vuelve a nombrar una mano que no esta.
+  it('la mano se enciende y se promete con la misma regla', () => {
+    const panel = readFileSync('src/components/movement/OrthopedicTestsPanel.tsx', 'utf8');
+    expect(panel).toMatch(/resistance:\s*examinerHandDrawn\(d\)/);
+    expect(panel).toMatch(/handDrawn:\s*examinerHandDrawn\(d\)/);
+    // Las dos frases de la ficha que prometen la mano van condicionadas.
+    expect(panel).toMatch(/examinerHandDrawn\(test\.demo\)\s*&&\s*\(\s*<p[^>]*>\s*En Demostrar verás la mano del fisio/);
+    expect(panel).toMatch(/examinerHandDrawn\(test\.demo\)\s*&&\s*' En Demostrar verás dónde se apoya la mano del fisio\.'/);
+    const lectura = readFileSync('src/components/movement/RhythmReadout.tsx', 'utf8');
+    // Ninguna frase de la lectura nombra la mano del modelo fuera de `handDrawn ?`.
+    const sinCondicion = lectura
+      .split('\n')
+      .filter((l) => /mano del fisio en el modelo/.test(l) && !/^\s*\?\s*'/.test(l));
+    expect(sinCondicion).toEqual([]);
   });
 
   it('el panel ocupa el sitio del play con la razón', () => {

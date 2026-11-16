@@ -69,7 +69,9 @@ function signature(t: OrthopedicTest): string {
     .sort()
     .join(',');
   const side = d.side ?? 'R';
-  const res = d.examinerForce ?? 'none';
+  // La mano se VE o no: `examinerHand: false` deja la fuerza en el texto y
+  // quita la mano de la escena, asi que cuenta como otra firma.
+  const res = `${d.examinerForce ?? 'none'}${d.examinerHand === false ? '-sin-mano' : ''}`;
   return `${d.movementId}@${d.angleDeg}|${comps}|side=${side}|res=${res}`;
 }
 

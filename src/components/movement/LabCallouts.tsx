@@ -273,6 +273,15 @@ export function LabCalloutProjector({
           r.shown = cifra;
           r.pct.textContent = `${cifra}%`;
         }
+      } else if (r.pct) {
+        // Y DONDE NO LA HAY, QUE NO QUEDE LA DE ANTES. Si la consola ya
+        // rotulaba el musculo que enciende el demo (la flexion plantar antes de
+        // Thompson), la fila se reutiliza con el mismo id y su texto lo escribe
+        // solo este bucle: quedaba la ultima cifra de la consola congelada.
+        // `shown` a -1 para que la cifra vuelva al soltar el demo.
+        r.shown = -1;
+        const detalle = items[p.i].detail ?? '';
+        if (r.pct.textContent !== detalle) r.pct.textContent = detalle;
       }
       if (r.group) {
         r.group.style.visibility = 'visible';

@@ -22,7 +22,7 @@
 // pudiendo girar por debajo.
 
 import { useLabDemo, useLabLive, type LabDemo, type LabLive } from './useLabLive';
-import { grados, sinRango } from '../../lib/phaseLabel';
+import { grados, nombreDeFase } from '../../lib/phaseLabel';
 import { useNeuroSkin } from './neuroSkinChannel';
 import { useActiveDemo } from './demoChannel';
 import { NEURO_BY_REGION } from '../../data/neuro';
@@ -181,6 +181,7 @@ export function StageReadout({ compact = false }: { compact?: boolean }) {
   const neuro = useNeuroChart();
   const live = useLabLive();
   const demoOnly = useLabDemo();
+  const activeDemo = useActiveDemo();
   if (neuro) return <NeuroStageReadout figure={neuro} compact={compact} />;
   if (!live) return demoOnly ? <DemoStageReadout live={demoOnly} compact={compact} /> : null;
   const { movement, at, angle, gestureName, isSpine, side, demo } = live;
@@ -215,7 +216,7 @@ export function StageReadout({ compact = false }: { compact?: boolean }) {
           // lectura, y existe para que el cambio de fase se VEA sin leerlo.
           <div key={at.index} className={`animate-slide-up ${compact ? 'pb-0.5' : 'pb-1.5'}`}>
             <p className={`font-display font-semibold text-fg ${compact ? 'text-[13px]' : 'text-[15px]'}`}>
-              {sinRango(at.phase.label)}
+              {nombreDeFase(at.phase.label, activeDemo, demo)}
             </p>
             <p className="num mt-0.5 text-[11px] text-fg3">
               {grados(at.phase.startDeg)}° a {grados(at.phase.endDeg)}°
@@ -251,6 +252,7 @@ function enRegla(live: LabLive, deg: number): number {
 export function StageArcTrack({ compact = false }: { compact?: boolean }) {
   const neuro = useNeuroChart();
   const live = useLabLive();
+  const activeDemo = useActiveDemo();
   // En la carta de dermatomas no hay arco que leer.
   if (neuro || !live) return null;
   const { arc, at, angle } = live;
@@ -316,7 +318,7 @@ export function StageArcTrack({ compact = false }: { compact?: boolean }) {
                 maxWidth: `${activa ? Math.max(ancho, 34) : ancho}%`,
               }}
             >
-              {sinRango(p.label)}
+              {nombreDeFase(p.label, activeDemo, live.demo)}
             </p>
           );
         })}

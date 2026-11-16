@@ -42,7 +42,7 @@ import {
   regionFrameCore,
   regionFrameHeadroom,
 } from '../../lib/labFraming';
-import { rigSideFor } from '../../lib/boneMap';
+import { getBoneControl, rigSideFor } from '../../lib/boneMap';
 import { movementById } from '../../data/romByRegion';
 import { buildLabArc } from '../../lib/romPhaseAtAngle';
 
@@ -418,9 +418,24 @@ function AutoFit({
       // movimiento no se conoce todavia --una region de pago cuyo contenido aun
       // no ha llegado-- no se amplia: mejor un encuadre estrecho que uno que se
       // abre solo.
+      //
+      // SALVO EN UN DEMO, que si sabe donde empieza su gesto. Un demo de prueba
+      // puede mover otra region cuyo contenido no ha llegado (el Lasègue y la
+      // tension femoral en la lumbar mueven cadera y rodilla): sin esto el
+      // guardian no seguia el pie que el gesto saca de cuadro. Su inicio es la
+      // misma regla que usa el bucle del demo (OrthopedicTestsPanel: el arco
+      // compartido de codo y rodilla empieza en el maximo).
       const mv = cmd.movementId ? movementById(cmd.movementId) : null;
-      if (!mv) return;
-      if (Math.abs(cmd.angleDeg - buildLabArc(mv).startDeg) <= 8) return;
+      const ctl = cmd.movementId ? getBoneControl(cmd.movementId) : undefined;
+      const start = mv
+        ? buildLabArc(mv).startDeg
+        : cmd.demo && (ctl?.kind === 'joint' || ctl?.kind === 'chain')
+          ? ctl.kind === 'joint' && ctl.arcFrom === 'max'
+            ? ctl.clinicalRange.max
+            : 0
+          : null;
+      if (start == null) return;
+      if (Math.abs(cmd.angleDeg - start) <= 8) return;
       const ndc = new THREE.Vector3();
       const need = keptBox.current.clone();
       let grew = false;

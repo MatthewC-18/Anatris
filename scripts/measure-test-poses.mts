@@ -247,6 +247,8 @@ const marks = (t: (typeof tests)[number]): string =>
     (t.demo!.highlightStructureIds ?? []).slice().sort(),
     t.demo!.highlightMuscleId ?? null,
     t.demo!.examinerForce ?? null,
+    // Con `examinerHand: false` la mano no sale: lo que se ve es otra cosa.
+    t.demo!.examinerHand === false ? 'sin-mano' : 'mano',
   ]);
 
 /**
