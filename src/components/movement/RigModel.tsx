@@ -88,6 +88,7 @@ import { redistributeSkinRootWeight } from '../../lib/rigSkinRootWeight';
 import { SCAPULA_WRAP_SIGN, scapulaWrap } from '../../lib/biomech/scapulaWrap';
 import { muscleDepthLevel, type MuscleDepthLevel } from '../../lib/muscleDepth';
 import { parseMeshName, structureKey, type ParsedSide } from '../../lib/parseMeshName';
+import { prepareCullSpheres, refreshCullSpheres, type CullSphereTable } from '../../lib/rigCullSpheres';
 import { buildMuscleResolution } from '../../lib/muscleResolver';
 import { useAllMuscles } from '../../hooks/useMuscleResolution';
 import {
@@ -1310,6 +1311,12 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
   const layerMeshesRef = useRef<LayerMesh[]>([]);
   /** Los dos globos oculares (src/lib/rigEyes.ts), fuera de la lista de capas. */
   const eyesRef = useRef<THREE.Object3D[]>([]);
+  /**
+   * Las esferas de recorte por hueso de cada malla con piel (rigCullSpheres).
+   * Sin ellas three recorta con la esfera de REPOSO y, con la camara cerca, una
+   * pierna o una cabeza movidas desaparecen a trozos.
+   */
+  const cullTableRef = useRef<CullSphereTable | null>(null);
 
   // Glass-skin fade. bodySkinMatRef is the body skin's OWN material (distinct
   // from the distal caps'); skinFadeRef is the eased 0..1 fade amount and
@@ -2920,6 +2927,13 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
     });
     layerMeshesRef.current = list;
     eyesRef.current = eyesIn(scene);
+    // LAS ESFERAS DE RECORTE, AL FINAL: despues de todo lo que reescribe
+    // geometria o pesos al cargar (recortes, horneado, costuras). Una esfera
+    // por hueso de cada malla; `apply` las lleva con la pose. Ver
+    // rigCullSpheres.ts: en el Slump tras el Lasègue faltaban 261 mallas en
+    // cuadro (coronilla abierta, pierna cortada en la rodilla).
+    cullTableRef.current = prepareCullSpheres(scene);
+    refreshCullSpheres(cullTableRef.current);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as unknown as { __rigScene?: THREE.Object3D }).__rigScene = scene;
     applyLayers(layerChannel.get());
@@ -3559,6 +3573,10 @@ export function RigModel({ onReady }: { onReady?: () => void } = {}): JSX.Elemen
       driveForearmTwist();
       driveLatsHelpers();
       done();
+      // Con la pose ya puesta y las matrices al dia: cada malla con piel lleva
+      // su esfera de recorte con sus huesos (rigCullSpheres), para que three no
+      // descarte lo que la pose ha metido en cuadro.
+      refreshCullSpheres(cullTableRef.current);
     },
     [rig, scene],
   );
