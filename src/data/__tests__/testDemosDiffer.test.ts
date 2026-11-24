@@ -32,13 +32,13 @@ const shoulder = ALL_TESTS_BY_REGION.shoulder ?? [];
 /**
  * Maneuvers that genuinely share a limb position. Not a loophole -- these are
  * clinical facts, and each one's note says so:
- *   - the painful arc and the drop-arm test are both 90 deg of abduction; what
- *     differs is that one is an active ascent and the other a controlled descent;
  *   - apprehension, relocation and surprise-release are three steps AT one
  *     position, differing only in what the examiner's hand does.
+ * El arco doloroso y el brazo caido salieron de la lista el 23 nov: el arco
+ * recorre ahora 0 -> 150 -> 0 (cruza el tramo medio y el punto en que el dolor
+ * cede) y el brazo caido sostiene 90, asi que ya no son la misma pose.
  */
 const SHARED_POSITION_PAIRS: ReadonlyArray<readonly [string, string]> = [
-  ['painful-arc', 'drop-arm'],
   ['apprehension', 'relocation'],
   ['apprehension', 'surprise-release'],
   ['relocation', 'surprise-release'],
