@@ -17,6 +17,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
 import {
+  demoHeldAngle,
   getBoneControl,
   resolveArmatureName,
   rigSideFor,
@@ -129,7 +130,9 @@ async function poseTest(
   const gl = await new Promise<any>((r, j) => ld.parse(ab.slice(0), '', r, j));
   const scene = gl.scene as THREE.Group;
   const poser = createRigPoser(scene, demo.movementId, side, true);
-  poser.pose(demo.angleDeg);
+  // La pose SOSTENIDA, como la aplicacion (boneMap.demoHeldAngle: la extension
+  // de codo y rodilla se sostiene en 0, no en el angulo de partida).
+  poser.pose(demoHeldAngle(demo.movementId, demo.angleDeg));
 
   // The maneuver's own components, applied on top exactly as RigModel does.
   for (const comp of demo.components ?? []) {
@@ -234,12 +237,14 @@ console.log(`región ${REGION} — ${tests.length} tests con demo\n`);
  *
  * Varios pares comparten pose A PROPOSITO, porque la comparten en la clinica:
  * la aprension, la recolocacion y la liberacion son tres fases del mismo brazo;
- * el arco doloroso y el brazo caido son el mismo brazo subiendo o bajando; el
- * cajon anterior y el posterior son la misma rodilla a 90 grados y lo que cambia
+ * el cajon anterior y el posterior son la misma rodilla a 90 grados y lo que cambia
  * es hacia donde traslada el explorador. En pantalla no se diferencian por la
- * postura: se diferencian por lo que se ENCIENDE (el colateral medial en el
- * estres en valgo, nada y un aviso en el varo), por la mano del explorador y por
- * el texto. Un banco que llame "defecto" a eso obliga a inventar diferencias de
+ * postura: se diferencian por lo que se ENCIENDE, por la mano del explorador y
+ * por el texto. Ojo con el valgo y el varo: en la ficha difieren por el
+ * colateral medial que se enciende en el valgo, pero desde la camara del demo
+ * apenas se ve (44 px de diferencia en la interlinea a 30 grados, capturas de la
+ * pose sostenida del 23 nov): ahi los separan sobre todo la nota y el aviso del
+ * varo. Un banco que llame "defecto" a eso obliga a inventar diferencias de
  * angulo que no existen en la realidad, asi que se separan en dos listas.
  */
 const marks = (t: (typeof tests)[number]): string =>
@@ -255,8 +260,7 @@ const marks = (t: (typeof tests)[number]): string =>
  * Y CUANDO LA POSE COMPARTIDA ES DELIBERADA, LA NOTA LO DICE.
  *
  * Quedan pares que comparten pose y tampoco se distinguen por el resalte,
- * porque en la clinica son la misma posicion: el arco doloroso y el brazo caido
- * (el mismo brazo a 90 grados, subiendo o bajando), las tres fases de la
+ * porque en la clinica son la misma posicion: las tres fases de la
  * aprension, el cajon anterior y el posterior (la misma rodilla a 90 grados, y
  * lo que cambia es hacia donde traslada el explorador). Eso no es un defecto
  * que haya que "arreglar" inventandose angulos: es una limitacion del modelo,

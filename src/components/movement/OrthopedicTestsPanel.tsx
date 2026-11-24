@@ -1617,11 +1617,14 @@ export function OrthopedicTestsPanel({
     // la extension es el regreso hacia 0 (`arcFrom: 'max'` en boneMap). Este
     // bucle no lo miraba: barria 0 -> objetivo y hacia la espera LARGA en el
     // objetivo, que en una extension es el extremo DOBLADO. Medido sobre el
-    // catalogo, son tres pruebas y las tres son del codo --cozen, mill y
+    // catalogo cuando se escribio, eran tres pruebas del codo --cozen, mill y
     // maudsley, con `elbow-extension` a 10 grados-- y las tres dicen en su
     // maniobra "codo en extension": el modelo sostenia los 10 grados de flexion
-    // y pasaba de largo por la postura que la prueba nombra. El NeuroPanel ya
-    // lo resolvio asi para los miotomas de C7 y L3.
+    // y pasaba de largo por la postura que la prueba nombra. Desde la revision
+    // del 15 nov Mill parte de 90 y la epicondilalgia medial tambien usa
+    // `elbow-extension`; la regla es la misma (y los bancos la toman de
+    // `boneMap.demoHeldAngle`). El NeuroPanel ya lo resolvio asi para los
+    // miotomas de C7 y L3.
     const ctrl = getBoneControl(d.movementId);
     const fromMax = ctrl?.kind === 'joint' && ctrl.arcFrom === 'max';
     // Y LA TARJETA ANUNCIA LA POSICION QUE SE SOSTIENE, no el extremo del arco:

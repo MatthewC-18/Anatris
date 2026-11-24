@@ -1241,6 +1241,21 @@ export function getBoneControl(movementId: string): BoneControl | undefined {
   return BONE_MAP[movementId];
 }
 
+/**
+ * EL ANGULO QUE UN DEMO SOSTIENE, que no siempre es el que declara.
+ *
+ * En el arco compartido de codo y rodilla (`arcFrom: 'max'`, la extension) el
+ * demo parte del angulo pedido y se SOSTIENE en 0, la articulacion recta: es lo
+ * que hace el bucle del panel (OrthopedicTestsPanel, `heldDeg`). Los bancos
+ * posaban `demo.angleDeg` a pelo, asi que median Mill (codo a 90 de partida) y
+ * la epicondilalgia medial con el codo doblado, al reves de la pose que ensena
+ * la aplicacion (revision de las pruebas, 15 nov).
+ */
+export function demoHeldAngle(movementId: string, angleDeg: number): number {
+  const c = BONE_MAP[movementId];
+  return c?.kind === 'joint' && c.arcFrom === 'max' ? 0 : angleDeg;
+}
+
 /** True when the movement can actually drive the rig. */
 export function isDrivable(movementId: string): boolean {
   const c = BONE_MAP[movementId];

@@ -28,7 +28,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { rigGlbPath } from './lib/rigPath.mts';
 import { createRigPoser, baseName, type Side } from './lib/rigPose.mts';
-import { getBoneControl, resolveArmatureName, rigSideFor } from '../src/lib/boneMap.ts';
+import { demoHeldAngle, getBoneControl, resolveArmatureName, rigSideFor } from '../src/lib/boneMap.ts';
 import { ALL_TESTS_BY_REGION } from '../src/data/fullContent.ts';
 import type { OrthopedicTest } from '../src/types/orthopedicTest.ts';
 
@@ -62,7 +62,8 @@ async function handRoll(test: OrthopedicTest): Promise<number | null> {
   const gl = await ld.parseAsync(ab.slice(0) as ArrayBuffer, '');
   const scene = gl.scene;
   const poser = createRigPoser(scene, demo.movementId, side, true);
-  poser.pose(demo.angleDeg);
+  // La pose SOSTENIDA, como la aplicacion (boneMap.demoHeldAngle).
+  poser.pose(demoHeldAngle(demo.movementId, demo.angleDeg));
   for (const comp of demo.components ?? []) {
     const cc = getBoneControl(comp.movementId);
     if (!cc || cc.kind !== 'joint') continue;

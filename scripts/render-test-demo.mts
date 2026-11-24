@@ -28,7 +28,7 @@ import {
   layerForMaterial,
   materialIsSkin,
 } from '../src/lib/materialColors.ts';
-import { getBoneControl, resolveArmatureName, rigSideFor } from '../src/lib/boneMap.ts';
+import { demoHeldAngle, getBoneControl, resolveArmatureName, rigSideFor } from '../src/lib/boneMap.ts';
 import { ALL_TESTS_BY_REGION } from '../src/data/fullContent.ts';
 import { applyMirrorRepair } from './lib/mirrorRepair.mts';
 import { pick, rasterize, writePng, type View } from './lib/raster.mts';
@@ -66,7 +66,8 @@ if (!hit || !hit.t.demo) {
   process.exit(1);
 }
 const demo = hit.t.demo;
-const DEGS = (process.env.DEG ?? String(demo.angleDeg)).split(',').map(Number);
+// Por defecto la pose SOSTENIDA, como la aplicacion (boneMap.demoHeldAngle).
+const DEGS = (process.env.DEG ?? String(demoHeldAngle(demo.movementId, demo.angleDeg))).split(',').map(Number);
 const SIDE = rigSideFor((demo.side ?? 'R') as Side);
 const BOX = (process.env.BOX ?? '-0.75,0.75,0.55,1.85').split(',').map(Number) as
   [number, number, number, number];

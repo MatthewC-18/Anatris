@@ -474,6 +474,27 @@ export const REFERENCES: Record<string, Reference> = {
     note:
       'Los signos más SENSIBLES fueron el de Trömner y la hiperreflexia; los más ESPECÍFICOS, el de Babinski, el de Trömner, el clonus y el signo del supinador invertido. Cinco estudios miraron si la presencia del signo se relaciona con la gravedad: no encontraron relación definida para Hoffmann, Babinski ni hiperreflexia, de modo que un signo presente indica que hay que pedir imagen, no cuán avanzada está la enfermedad.',
   },
+  // La revision HERMANA de jiang-2024, la de los SINTOMAS (Lhermitte). Verificada
+  // por E-utilities (esummary de PMID 37917661, 23 nov: autores, Global Spine J
+  // 2024;14(4):1395-1421, DOI) y, la frecuencia del 25%, en el texto completo
+  // (PMC11289544, Europe PMC fullTextXML, apartado "Other Symptoms").
+  'jiang-2024b': {
+    id: 'jiang-2024b',
+    pmid: '37917661',
+    doi: '10.1177/21925682231210468',
+    authors: 'Jiang Z, Davies B, Zipser C, et al.',
+    title:
+      'The frequency of symptoms in patients with a diagnosis of degenerative cervical myelopathy: results of a scoping review',
+    edition: '',
+    publisher: 'Global Spine J',
+    year: 2024,
+    sample:
+      'Revisión de alcance de los estudios primarios de mielopatía cervical degenerativa publicados entre 2005 y 2020: 3 estudios con grupo control para la precisión de los síntomas y 58 que describen su frecuencia en cohortes de pacientes',
+    standard:
+      'El diagnóstico de mielopatía cervical degenerativa de cada estudio incluido; para el fenómeno de Lhermitte solo hay frecuencia en cohortes, sin grupo control',
+    note:
+      'Mide con qué frecuencia los pacientes con mielopatía refieren cada síntoma. El fenómeno de Lhermitte aparece en una cuarta parte (media ponderada del 25%, IC 95% 23-29%, entre el 2 y el 77% en cuatro estudios), así que su ausencia no descarta la mielopatía; la revisión no publica su especificidad.',
+  },
 
   // ---- LUMBAR: radiculopatía/hernia, inestabilidad y dolor sacroilíaco.
   'deville-2000': {
@@ -551,7 +572,32 @@ export const REFERENCES: Record<string, Reference> = {
     sample: '54 pacientes con lumbalgia NO radicular derivados a fisioterapia',
     standard:
       'No es un estudio diagnóstico: el desenlace es la RESPUESTA a ocho semanas de ejercicio de estabilización, medida por el cambio en el Oswestry (18 éxitos, 15 fracasos, 21 mejoría parcial)',
-    note: 'Cuidado al citarlo: este estudio NO publica sensibilidad ni especificidad del test de inestabilidad en prono, porque no mide si acierta un diagnóstico. Lo que publica es una regla de predicción de RESPUESTA AL TRATAMIENTO con razón de verosimilitud positiva 4,0 para el éxito y negativa 0,18 para el fracaso, construida con seis variables: edad, Lasègue, test de inestabilidad en prono, movimientos aberrantes, hipermovilidad lumbar y creencias de miedo-evitación.',
+    // Revisado contra el resumen (PMID 16181938, E-utilities, 23 nov): "preliminary
+    // clinical prediction rules" en plural, una de exito (LR+ 4,0) y otra de
+    // fracaso (LR- 0,18), y "straight-leg raise" como variable en una muestra sin
+    // dolor radicular: es la AMPLITUD de la pierna recta, no el signo de Lasègue.
+    // El 72/58 que se le atribuye a la prueba no esta en el resumen.
+    note: 'Cuidado al citarlo: este estudio no mide si el test de inestabilidad en prono acierta un diagnóstico, así que no puede dar su precisión diagnóstica. Lo que publica son dos reglas preliminares de predicción de la RESPUESTA AL TRATAMIENTO: una para el éxito, con razón de verosimilitud positiva 4,0, y otra para el fracaso, con razón de verosimilitud negativa 0,18. Las variables que más pesaron fueron seis: edad, amplitud de la elevación de la pierna recta (no el signo de Lasègue: la muestra no tenía dolor radicular), test de inestabilidad en prono, movimientos aberrantes, hipermovilidad lumbar y creencias de miedo y evitación. Las cifras de 72% / 58% que se le atribuyen a la prueba no están en el resumen.',
+  },
+  // Verificado por E-utilities (esummary y resumen de PMID 24261926, 23 nov):
+  // autores, revista, DOI, 105 pacientes, estabilizacion frente a terapia manual,
+  // Oswestry modificado a las 8 semanas; la regla no se valido ni, por poca
+  // potencia, se pudo invalidar; la version de 2 elementos salio post hoc.
+  'rabin-2014': {
+    id: 'rabin-2014',
+    pmid: '24261926',
+    authors: 'Rabin A, Shashua A, Pizem K, Dickstein R, Dar G',
+    title:
+      'A clinical prediction rule to identify patients with low back pain who are likely to experience short-term success following lumbar stabilization exercises: a randomized controlled validation study',
+    edition: '',
+    publisher: 'J Orthop Sports Phys Ther',
+    year: 2014,
+    doi: '10.2519/jospt.2014.4888',
+    sample:
+      '105 pacientes con lumbalgia, estratificados según la regla de Hicks y aleatorizados a ejercicio de estabilización o a terapia manual con ejercicios de movilidad y flexibilidad',
+    standard:
+      'No es un estudio diagnóstico: el desenlace es la discapacidad (Oswestry modificado) al terminar ocho semanas de tratamiento',
+    note: 'Intento de validar la regla del éxito de Hicks 2005: no la validó y, por su poca potencia, tampoco pudo descartarla. Una versión con solo dos elementos (movimientos aberrantes y test de inestabilidad en prono positivo) sí mostró interacción con el tratamiento, pero salió de un análisis a posteriori y los autores piden confirmarla en un estudio nuevo.',
   },
   'laslett-2005': {
     id: 'laslett-2005',
@@ -579,17 +625,24 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Ann R Coll Surg Engl',
     year: 2010,
+    // Texto completo (PMC3025244, pagina del articulo, 23 nov): "Eighty-three
+    // consecutive patients", 8 hombres y 75 mujeres, 78,4 anos (72-95); cinco
+    // excluidos (dos con marcapasos y dos con claustrofobia, que no podian
+    // hacerse la resonancia, y una metastasis); "Of the 78 patients"; todos
+    // explorados por el autor senior; fractura = edema en STIR, "an acute or
+    // chronic, but non-healed" fracture. Edad y sexo son de los 83 que entraron.
     sample:
-      '83 pacientes con sospecha de fractura vertebral osteoporótica aguda, estudio prospectivo',
+      '83 pacientes consecutivos con sospecha de fractura vertebral osteoporótica sintomática (8 hombres y 75 mujeres, edad media 78,4 años, de 72 a 95), estudio prospectivo: 5 excluidos (4 no podían hacerse la resonancia, 1 metástasis vertebral) y 78 analizados; a todos los exploró el autor sénior',
     standard:
-      'Resonancia magnética (la radiografía simple no distingue una fractura aguda de una antigua consolidada)',
+      'Resonancia magnética: cuenta como fractura el edema en STIR, aguda o crónica sin consolidar (la radiografía simple no distingue una fractura aguda de una antigua consolidada)',
     note:
       'Percusión con el puño cerrado: sensibilidad 87,5% y especificidad 90%. Signo en supino: 81,25% y 93,33%. Las dos son maniobras de consulta, sin coste, para decidir a quién se le pide la resonancia.',
   },
   'cote-1998': {
     id: 'cote-1998',
     pmid: '9563110',
-    authors: 'Côté P, Kreitz BG, Cassidy JD, Dzus AK, Hurley J',
+    // Quinto autor comprobado por esummary (PMID 9563110, 23 nov): Martel J, no Hurley J.
+    authors: 'Côté P, Kreitz BG, Cassidy JD, Dzus AK, Martel J',
     title:
       "A study of the diagnostic accuracy and reliability of the Scoliometer and Adam's forward bend test",
     edition: '',
@@ -660,6 +713,59 @@ export const REFERENCES: Record<string, Reference> = {
     note:
       'Cifras agrupadas: Lachman 85% (IC 95% 83-87) y 94% (92-95); pivot shift 24% (21-27) y 98% (96-99); cajón anterior 92% (88-95) y 91% (87-94) EN LESIÓN CRÓNICA, y expresamente no en la aguda. Los resultados entre estudios fueron heterogéneos. La recomendación es hacer el Lachman siempre y añadir el pivot shift por lo específico que es.',
   },
+  // Las tres replicas del Thessaly que cita knee.ts. Verificadas por E-utilities
+  // (esummary y resumen de PMID 26243431, 25420009 y 19124977, 23 nov): autores,
+  // revista, año y DOI del esummary; muestras, cifras y conclusiones del resumen.
+  'blyth-2015': {
+    id: 'blyth-2015',
+    pmid: '26243431',
+    doi: '10.3310/hta19620',
+    authors:
+      'Blyth M, Anthony I, Francq B, Brooksbank K, Downie P, Powell A, Jones B, MacLean A, McConnachie A, Norrie J',
+    title:
+      "Diagnostic accuracy of the Thessaly test, standardised clinical history and other clinical examination tests (Apley's, McMurray's and joint line tenderness) for meniscal tears in comparison with magnetic resonance imaging diagnosis",
+    edition: '',
+    publisher: 'Health Technol Assess',
+    year: 2015,
+    sample:
+      'Estudio prospectivo de un solo centro de atención especializada, diseñado para reproducir lo que se obtendría en atención primaria: 292 pacientes con patología de rodilla y 75 controles sin ella; a cada uno lo exploraron un clínico de atención primaria y un clínico musculoesquelético',
+    standard:
+      'Resonancia magnética. En el subgrupo que pasó a artroscopia, la propia resonancia tuvo una sensibilidad del 100% pero una especificidad de solo el 53% (IC 95% 28-77)',
+    note:
+      'Thessaly con clínicos de atención primaria: sensibilidad 66%, especificidad 39% y exactitud del 54%; con clínicos musculoesqueléticos: 62%, 55% y 59%. El resumen no da intervalos de confianza de estas cifras. Con clínicos de atención primaria, McMurray, Apley y el dolor en la interlínea rindieron igual de poco (exactitud del 54%, 53% y 54%). Conclusión de los autores: Thessaly no diagnostica la rotura meniscal mejor que las demás pruebas físicas, y ninguna prueba física rinde lo bastante para sustituir de rutina a la resonancia.',
+  },
+  'goossens-2015': {
+    id: 'goossens-2015',
+    pmid: '25420009',
+    doi: '10.2519/jospt.2015.5215',
+    authors: 'Goossens P, Keijsers E, van Geenen RJ, Zijta A, van den Broek M, Verhagen AP, Scholten-Peeters GG',
+    title:
+      'Validity of the Thessaly test in evaluating meniscal tears compared with arthroscopy: a diagnostic accuracy study',
+    edition: '',
+    publisher: 'J Orthop Sports Phys Ther',
+    year: 2015,
+    sample:
+      '593 pacientes con sospecha de rotura meniscal remitidos al hospital para artroscopia, 493 (83%) con rotura. La prueba la hicieron fisioterapeutas experimentados a 20° de flexión, cegados a la información del paciente, a la rodilla afectada y a la imagen previa',
+    standard: 'Artroscopia, hecha por un cirujano ortopédico cegado al resultado de la exploración del fisioterapeuta',
+    note:
+      'Thessaly sola: sensibilidad 64% (IC 95% 60-68) y especificidad 53% (43-63), valor predictivo positivo 87% y negativo 23%, razones de verosimilitud 1,37 y 0,68. Con Thessaly y McMurray positivas a la vez: 53% y 62%. Conclusión de los autores: ni sola ni combinada con McMurray parece útil para confirmar o descartar la rotura meniscal. La prevalencia del 83% es la de pacientes que ya iban a artroscopia.',
+  },
+  'harrison-2009': {
+    id: 'harrison-2009',
+    pmid: '19124977',
+    doi: '10.1097/JSM.0b013e31818f1689',
+    authors: 'Harrison BK, Abell BE, Gibson TW',
+    title:
+      'The Thessaly test for detection of meniscal tears: validation of a new physical examination technique for primary care medicine',
+    edition: '',
+    publisher: 'Clin J Sport Med',
+    year: 2009,
+    sample:
+      'Cohorte RETROSPECTIVA de 116 pacientes consecutivos operados por artroscopia por sospecha de lesión meniscal, explorados antes de la cirugía en el servicio de cirugía ortopédica de un hospital militar de referencia (atención especializada)',
+    standard: 'Artroscopia',
+    note:
+      'Thessaly a 20°, con el paciente de pie sobre el pie plano y sujeto de las manos: sensibilidad 90,3%, especificidad 97,7%, valor predictivo positivo 98,5% y negativo 86,0%, razones de verosimilitud 39,3 y 0,09, exactitud 88,8%; de 66 pruebas positivas, 65 tenían rotura en la artroscopia. El resumen no da intervalos de confianza. Los propios autores avisan de que, hecho en un centro de referencia, el resultado no se puede aplicar sin más a una población general.',
+  },
   'hegedus-2007': {
     id: 'hegedus-2007',
     pmid: '17939613',
@@ -690,7 +796,7 @@ export const REFERENCES: Record<string, Reference> = {
     standard:
       'Artroscopia en los sintomáticos; resonancia en los controles',
     note:
-      'La prueba de Thessaly a 20° de flexión alcanzó una EXACTITUD del 94% para el menisco medial y del 96% para el lateral, con pocos falsos positivos y negativos; el resto de pruebas tradicionales rindió peor, salvo el dolor en la interlínea para el menisco lateral (89% de exactitud). Dos cosas importan al usarla: las cifras son del grupo original de sus autores y los estudios posteriores en atención primaria NO las han reproducido; y la exactitud no es lo mismo que la sensibilidad o la especificidad, que están en las tablas del texto completo.',
+      'La prueba de Thessaly a 20° de flexión alcanzó una EXACTITUD del 94% para el menisco medial y del 96% para el lateral, con pocos falsos positivos y negativos; el resto de pruebas tradicionales rindió peor, salvo el dolor en la interlínea para el menisco lateral (89% de exactitud). Dos cosas importan al usarla. Primera, las cifras son del grupo original de sus autores: una serie retrospectiva independiente de un centro de referencia (Harrison 2009) dio cifras igual de altas, y dos estudios posteriores no las reprodujeron (Blyth 2015, con clínicos de atención primaria y musculoesqueléticos frente a resonancia, y Goossens 2015, con fisioterapeutas frente a artroscopia). Segunda, la exactitud no es lo mismo que la sensibilidad o la especificidad, que están en las tablas del texto completo.',
   },
   'malanga-2003': {
     id: 'malanga-2003',
@@ -748,7 +854,11 @@ export const REFERENCES: Record<string, Reference> = {
     doi: '10.1016/0363-5023(94)90193-7',
     sample: '32 pacientes (44 extremidades) y 33 controles sanos',
     standard: 'Síndrome del túnel cubital confirmado por electrodiagnóstico',
-    note: 'SENSIBILIDADES a los 30 segundos, y sólo sensibilidades: Tinel 0,70, flexión del codo aislada 0,32, compresión aislada 0,55, compresión + flexión 0,91. El resumen NO publica especificidad de ninguna de las cuatro; de los controles dice únicamente que "rara vez" dieron positivo. Cualquier especificidad numérica atribuida a este estudio (el 98% del Tinel, el 97% de la flexión-compresión) no está en la fuente.',
+    // Resumen (PMID 7806810, E-utilities, 23 nov): el Tinel no es una prueba de 30
+    // segundos ("The sensitivity of the Tinel sign was 0.70, and at 30 seconds, the
+    // sensitivities of the other provocative tests were..."). Los recuentos de las
+    // otras tres (33, 39 y 41 de 44) no dan sus cifras, asi que no se ponen al lado.
+    note: 'Sólo sensibilidades: Tinel 0,70 (31 de 44 extremidades); a los 30 segundos, flexión del codo aislada 0,32, compresión aislada 0,55, compresión + flexión 0,91. El resumen NO publica especificidad de ninguna de las cuatro; de los controles dice únicamente que "rara vez" dieron positivo. Cualquier especificidad numérica atribuida a este estudio (el 98% del Tinel, el 97% de la flexión-compresión) no está en la fuente.',
   },
   'saroja-2014': {
     id: 'saroja-2014',
@@ -766,10 +876,13 @@ export const REFERENCES: Record<string, Reference> = {
   'zwerus-2018': {
     id: 'zwerus-2018',
     pmid: '28249855',
-    authors: 'Zwerus EL, Somford MP, Nagels J, Nieuwenhuis JJ, van Noort A, Eygendaal D',
+    doi: '10.1136/bjsports-2016-096712',
+    // AUTORES SEGUN PUBMED (esummary del PMID, 15 nov). La lista anterior
+    // (Nagels, Nieuwenhuis, van Noort) no es la de este articulo.
+    authors: 'Zwerus EL, Somford MP, Maissan F, Heisen J, Eygendaal D, van den Bekerom MP',
     title: 'Physical examination of the elbow, what is the evidence? A systematic literature review',
     edition: '',
-    publisher: 'Br J Sports Med',
+    publisher: 'Br J Sports Med 2018;52(19):1253-1260',
     year: 2018,
     sample:
       'Revisión sistemática PRISMA: de 1144 referencias se incluyeron 10 artículos (6 de rotura distal del bíceps, 1 de insuficiencia del ligamento colateral medial, 2 de inestabilidad rotatoria posterolateral y 1 de epicondilalgia lateral); nueve de los diez con riesgo de sesgo alto o poco claro según QUADAS-2',
@@ -845,7 +958,9 @@ export const REFERENCES: Record<string, Reference> = {
     year: 2015,
     sample: 'Metanálisis de 9 estudios (de 21 localizados; sólo 1 de alta calidad)',
     standard: 'Pinzamiento femoroacetabular / rotura del labrum confirmados por imagen o artroscopia',
-    note: 'FADIR: sensibilidad agrupada 0,94 (IC 95% 0,90-0,97). Los autores concluyen que sólo sirve como CRIBADO, no para confirmar.',
+    // Resumen (PMID 25515771, E-utilities, 23 nov): "pooled SN ranging from 0.94
+    // (95% CI 0.90 to 0.97) to 0.99 (95% CI 0.98 to 1.00)". Antes solo daba el 0,94.
+    note: 'FADIR: sensibilidad agrupada entre 0,94 (IC 95% 0,90-0,97) y 0,99 (IC 95% 0,98-1,00), según el análisis. Los autores concluyen que sólo sirve como CRIBADO, no para confirmar.',
   },
 
   'maslowski-2010': {
@@ -900,7 +1015,9 @@ export const REFERENCES: Record<string, Reference> = {
     edition: '',
     publisher: 'Knee Surg Sports Traumatol Arthrosc',
     year: 2020,
-    sample: '81 pacientes (49% mujeres), dos exploradores experimentados',
+    // Texto completo (PMC7511272, Europe PMC, 23 nov): 81 incluidos, pero la
+    // exactitud se calculo en 63 (69 caderas, Tabla 4).
+    sample: '81 pacientes incluidos (49% mujeres), dos exploradores experimentados; la exactitud diagnóstica se calculó en 63 de ellos (69 caderas)',
     standard:
       'Tres criterios a la vez: síntomas, morfología CAM o pincer en imagen, y respuesta al bloqueo anestésico intraarticular',
     note: 'FADIR: sensibilidad 80%, especificidad 25%. Prueba de pinzamiento anterior (AIMT): 80% / 26%. Y el hallazgo que da la vuelta al razonamiento: la rotación interna PASIVA en posición neutra, 29% de sensibilidad y 94% de especificidad, es la única de la serie que sirve para confirmar. Nivel de evidencia II.',
@@ -918,6 +1035,112 @@ export const REFERENCES: Record<string, Reference> = {
     sample: 'Revisión narrativa; recopila los rangos publicados de otros estudios, no mide pacientes propios',
     standard: 'Variable y en su mayoría NO declarado por la revisión (es su propia advertencia)',
     note: 'Texto completo abierto. Da RANGOS, no cifras únicas: scour sensibilidad 50-100% y especificidad 29%; FABER 41-97% / 18-100%; FADIR 59-100% / 10-100%. Del log roll dice que se describe como una de las pruebas más específicas pero NO publica cifras. La propia revisión advierte que los números de cita de su tabla no siempre coinciden con el texto.',
+  },
+  // LAS CINCO SIGUIENTES entraron con la revision de las pruebas contra su
+  // fuente (15 nov). Autores, ano, revista y DOI comprobados con esummary de
+  // E-utilities; las cifras de cada nota, en el resumen o en el texto completo
+  // abierto que nombra la propia nota.
+  'willett-2016': {
+    id: 'willett-2016',
+    pmid: '26755689',
+    doi: '10.1177/0363546515621762',
+    authors: 'Willett GM, Keim SA, Shostrom VK, Lomneth CS',
+    title: 'An Anatomic Investigation of the Ober Test',
+    edition: '',
+    publisher: 'Am J Sports Med 2016;44(3):696-701',
+    year: 2016,
+    sample:
+      'Miembros inferiores de cadáveres ligeramente embalsamados; 18 pasaron por todas las secciones sucesivas (banda iliotibial a mitad del muslo, glúteo medio y menor, cápsula de la cadera)',
+    note: 'Estudio anatómico, no de exactitud diagnóstica: no da sensibilidad ni especificidad. Tras seccionar la banda iliotibial a mitad del muslo, la aducción no tuvo cambio significativo en ninguna de las dos versiones de la prueba (Ober y Ober modificado); con las secciones siguientes, sumadas a esa, del glúteo medio y menor y después de la cápsula, sí aumentó (P < 0,0001 frente a la banda intacta). Los autores concluyen que el resultado refuta que la banda limite la aducción en la prueba y pone en duda su validez para medir la retracción de la banda; sugieren que valora estructuras de la cadera como el glúteo medio y menor y la cápsula.',
+  },
+  'netterstromwedin-2022': {
+    id: 'netterstromwedin-2022',
+    pmid: '34286639',
+    doi: '10.1177/19417381211029953',
+    authors: 'Netterström-Wedin F, Matthews M, Bleakley C',
+    title:
+      'Diagnostic accuracy of clinical tests assessing ligamentous injury of the talocrural and subtalar joints: a systematic review with meta-analysis',
+    edition: '',
+    publisher: 'Sports Health 2022;14(3):336-347',
+    year: 2022,
+    sample:
+      'Revisión sistemática de 14 estudios (6.302 observaciones, 9 pruebas clínicas); el metaanálisis del cajón anterior agrupa 6 estudios y 885 observaciones',
+    standard: 'Artrografía, artroscopia o cirugía, resonancia magnética o ecografía, según el estudio',
+    note: 'Texto completo abierto (PMC9109591). Cajón anterior, metaanálisis de seis estudios (885 observaciones): sensibilidad 54% (IC 95% 35 a 71) y especificidad 87% (63 a 96); LR+ 3,97 (1,50 a 10,47) y LR- 0,54 (0,39 a 0,75). Heterogeneidad alta (I² 94,2% en la sensibilidad y 62,1% en la especificidad), que los autores atribuyen en parte al umbral con que se da por positiva la prueba; proponen un umbral alto. La mayoría de los estudios explora el cajón con la rodilla flexionada, en supino o sentado. Inclinación astragalina manual: cuatro estudios sin agrupar, sensibilidad 17 a 66% y especificidad 82 a 100%; confirma la lesión del calcaneoperoneo y falta una prueba sensible para ese ligamento. Palpación del LPAA: sensibilidad 95 a 100% y especificidad 0 a 32%. Conclusión: palpar para descartar y hacer el cajón para confirmar. Las cifras agrupadas del cajón y las de la palpación están en el resumen; las razones de verosimilitud, la heterogeneidad y las cifras de la inclinación astragalina, en el texto completo. Advierten de la baja calidad de los estudios y del mal registro del cegamiento.',
+  },
+  'croy-2013': {
+    id: 'croy-2013',
+    pmid: '24175608',
+    doi: '10.2519/jospt.2013.4679',
+    authors: 'Croy T, Koppenhaver S, Saliba S, Hertel J',
+    title: 'Anterior talocrural joint laxity: diagnostic accuracy of the anterior drawer test of the ankle',
+    edition: '',
+    publisher: 'J Orthop Sports Phys Ther 2013;43(12):911-919',
+    year: 2013,
+    sample: '66 personas con antecedente de esguince lateral de tobillo, y 20 controles con los que se fijó uno de los dos patrones',
+    standard:
+      'Laxitud medida con ecografía del intervalo entre astrágalo y peroné durante el cajón, con dos patrones: 2,3 mm o más, y 3,7 mm o más',
+    note: 'Estudio prospectivo y ciego del cajón aislado. Sensibilidad 0,74 (IC 95% 0,58 a 0,86) y 0,83 (0,64 a 0,93), especificidad 0,38 (0,24 a 0,56) y 0,40 (0,27 a 0,56), LR+ 1,2 y 1,4, LR- 0,66 y 0,41, con el patrón de 2,3 o de 3,7 mm. Los autores concluyen que la prueba detecta poco la laxitud excesiva, aunque puede servir comparando los dos tobillos y junto a otras exploraciones como la palpación. Es uno de los seis estudios del metaanálisis de Netterström-Wedin 2022.',
+  },
+  'rosen-2015': {
+    id: 'rosen-2015',
+    pmid: '24995627',
+    doi: '10.1111/sms.12288',
+    authors: 'Rosen AB, Ko J, Brown CN',
+    title: 'Diagnostic accuracy of instrumented and manual talar tilt tests in chronic ankle instability populations',
+    edition: '',
+    publisher: 'Scand J Med Sci Sports 2015;25(2):e214-e221',
+    year: 2015,
+    sample: '93 participantes y 88 analizados: 39 con inestabilidad crónica de tobillo, 17 copers de esguince de tobillo y 32 controles sanos',
+    standard: 'Cumberland Ankle Instability Tool (cuestionario autoinformado), no la rotura ligamentosa',
+    note: 'Inclinación medial del astrágalo manual: sensibilidad 0,49 (IC 95% 0,34 a 0,64) y especificidad 0,78 a 0,88; LR+ 2,23 a 4,14 y LR- 0,58 a 0,66. Con artrómetro: 0,36 (0,23 a 0,52) y 0,72 a 0,94. Los autores concluyen que, solas, las dos rinden poco para la inestabilidad crónica y que la laxitud solo serviría para confirmarla. La revisión de Netterström-Wedin 2022 lo excluye por su patrón de referencia.',
+  },
+  'kovaleski-2008': {
+    id: 'kovaleski-2008',
+    pmid: '18523573',
+    doi: '10.4085/1062-6050-43.3.242',
+    authors: 'Kovaleski JE, Norrell PM, Heitman RJ, Hollis JM, Pearsall AW',
+    title: 'Knee and ankle position, anterior drawer laxity, and stiffness of the ankle complex',
+    edition: '',
+    publisher: 'J Athl Train 2008;43(3):242-248',
+    year: 2008,
+    sample: 'Los dos tobillos de 20 deportistas universitarios (10 mujeres y 10 hombres)',
+    standard: 'Artrómetro de tobillo; no es un estudio de precisión diagnóstica',
+    note: 'Cuatro posiciones (rodilla a 0° o 90° de flexión, tobillo a 0° o 10° de flexión plantar): la laxitud anterior fue máxima con la rodilla a 90° y el tobillo a 10°, frente a la rodilla a 0° con el tobillo a 0° o a 10° (P < 0,001), y la rigidez fue máxima con la rodilla a 0° y el tobillo a 0°. Los autores concluyen que esa posición puede aislar mejor las estructuras capsuloligamentosas del tobillo. No publica sensibilidad ni especificidad. Leído el resumen; el registro de PMC (PMC2386430) no trae el texto completo.',
+  },
+  // Las dos fuentes de la rotacion externa (Kleiger) que cita ankle.ts.
+  // Verificadas por E-utilities (esummary y resumen de PMID 22381194 y 35508553,
+  // 23 nov); las cifras de Baltes por prueba, en su texto completo (PMC9568458,
+  // Tabla 3 y Tabla 5, Europe PMC fullTextXML).
+  'decesar-2011': {
+    id: 'decesar-2011',
+    pmid: '22381194',
+    doi: '10.3113/FAI.2011.1110',
+    authors: 'de César PC, Avila EM, de Abreu MR',
+    title:
+      'Comparison of magnetic resonance imaging to physical examination for syndesmotic injury after lateral ankle sprain',
+    edition: '',
+    publisher: 'Foot & Ankle International 2011;32(12):1110-1114',
+    year: 2011,
+    sample:
+      '56 pacientes con esguince lateral de tobillo; lesión sindesmal en la resonancia en el 17,8%',
+    standard: 'Resonancia magnética del tobillo',
+    note: 'Compara con la resonancia las dos pruebas sindesmales de rutina tras un esguince lateral: rotación externa, 20% de sensibilidad y 84,8% de especificidad; squeeze, 30% y 93,5%. El resumen no dice en qué posición del tobillo se hizo la rotación externa ni cuándo se exploró, y el texto completo no es de acceso abierto: no se ha leído.',
+  },
+  'baltes-2022': {
+    id: 'baltes-2022',
+    pmid: '35508553',
+    doi: '10.1007/s00167-022-06989-2',
+    authors:
+      "Baltes TPA, Al Sayrafi O, Arnáiz J, Al-Naimi MR, Geertsema C, Geertsema L, Holtzhausen L, D'Hooghe P, Kerkhoffs GMMJ, Tol JL",
+    title: 'Acute clinical evaluation for syndesmosis injury has high diagnostic value',
+    edition: '',
+    publisher: 'Knee Surgery, Sports Traumatology, Arthroscopy 2022;30(11):3871-3880',
+    year: 2022,
+    sample:
+      '150 lesiones agudas de tobillo en deportistas mayores de 18 años, exploradas en los 7 días siguientes (mediana 2 días); 26 con lesión sindesmal',
+    standard: 'Resonancia de 3 T en los 10 días siguientes a la lesión',
+    note: 'Texto completo abierto (PMC9568458). Tabla 3: la rotación externa en dorsiflexión sin carga da 58% de sensibilidad (IC 95% 37 a 76) y 52% de especificidad (42 a 61), con LR+ 1,19 y LR- 0,82; con carga, 69% y 34%. De las seis pruebas sindesmales, la única que quedó asociada a la lesión en el análisis multivariante fue el squeeze (LR+ 2,20; LR- 0,68). Las cifras de cada prueba están en las tablas del texto completo, no en el resumen.',
   },
 };
 

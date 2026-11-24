@@ -16,6 +16,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
 import {
+  demoHeldAngle,
   getBoneControl,
   resolveArmatureName,
   type GeomSide,
@@ -108,7 +109,8 @@ const ctrl = getBoneControl(demo.movementId) as
 if (ctrl?.kind === 'joint') {
   let bone: THREE.Object3D | null = null;
   armRoot.traverse((o) => { if (!bone && bs(o.name) === ctrl.bone) bone = o; });
-  (bone as THREE.Object3D | null)?.rotateOnAxis(AX[ctrl.axis], demo.angleDeg * D2R * ctrl.sign[SIDE]);
+  // La pose SOSTENIDA, como la aplicacion (boneMap.demoHeldAngle).
+  (bone as THREE.Object3D | null)?.rotateOnAxis(AX[ctrl.axis], demoHeldAngle(demo.movementId, demo.angleDeg) * D2R * ctrl.sign[SIDE]);
   console.log(`   drives:   bone ${ctrl.bone}, axis ${ctrl.axis}, sign ${ctrl.sign[SIDE]}`);
 } else {
   console.log(`   drives:   ${ctrl?.kind ?? 'nothing'} (not a single joint)`);
@@ -171,7 +173,7 @@ console.log(
     : '\nTHE TEST LIGHTS NOTHING (no highlightMuscleId): it poses the joint and emphasizes no structure',
 );
 for (const a of [...testGlow, ...acts]) {
-  const level = levelAt(a.curve, demo.angleDeg);
+  const level = levelAt(a.curve, demoHeldAngle(demo.movementId, demo.angleDeg));
   const meshNames = res.meshNamesByMuscleId.get(a.muscleId);
   const tag = testGlow.some((t) => t.muscleId === a.muscleId) ? '[TEST]      ' : '[movimiento]';
   console.log(`\n  ${tag} ${a.muscleId}  [${a.role}]  level ${(level * 100).toFixed(0)}%  -> ${meshNames?.length ?? 0} meshes`);

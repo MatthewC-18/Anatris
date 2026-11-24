@@ -278,12 +278,30 @@ export interface OrthopedicTest {
    *   - EL RIG GIRA ARTICULACIONES, NO TRASLADA. Una traccion cervical, un
    *     cajon, un empuje sacroiliaco o una compresion de la caja toracica no
    *     tienen angulo que reproducir.
-   *   - LOS SEIS MOVIMIENTOS DE CADERA COMPARTEN UN SOLO HUESO (`femur_base`),
-   *     y los cuatro del tobillo tambien (`foot_flex`). El modelo posa uno a la
-   *     vez, asi que FADIR, FABER, Gaenslen y Kleiger --que suman tres
-   *     direcciones en la misma articulacion-- no se pueden montar.
-   *   - HAY GESTOS QUE EL RIG NO CONDUCE: no existe extension ni aduccion
-   *     horizontal de hombro, ni falanges, ni respiracion.
+   *   - HAY POSES COMPUESTAS SIN MEDIR. Los seis movimientos de cadera mueven
+   *     un solo hueso (`femur_base`) y los cuatro del tobillo otro
+   *     (`foot_flex`), pero eso NO impide sumar direcciones: un componente
+   *     sobre el hueso de la base se compone con ella (`applyComponents` gira
+   *     sobre la pose de la base; el pivot shift y McMurray ya lo hacen en
+   *     `shin_flex`, y `demoComponents.test.ts` lo mide). FADIR y FABER siguen
+   *     sin demo porque nadie ha medido la pose compuesta (el banco de
+   *     trayectoria solo mira el antebrazo y la mano) y porque la variante del
+   *     FADIR esta pendiente de criterio clinico; Kleiger, porque ningun
+   *     movimiento conduce la rotacion del pie (el eje z de `foot_flex`).
+   *     Revision del 23 nov: antes decia que el modelo posa uno a la vez, y era
+   *     falso.
+   *   - UN DEMO POSA UN SOLO LADO. `TestDemoComponent` no lleva lado y RigModel
+   *     resuelve la base y los componentes con el `side` del demo. Cada cadera
+   *     tiene su propio `femur_base` (Leg_Armature_R y Leg_Armature_L), pero el
+   *     Gaenslen pide flexion maxima en una y extension en la contraria, y eso
+   *     no se puede declarar (revision del 15 nov: antes figuraba en la lista
+   *     de "mismo hueso", y son dos articulaciones con una direccion cada una).
+   *   - HAY GESTOS QUE EL RIG NO CONDUCE: no existe aduccion horizontal de
+   *     hombro, ni falanges, ni respiracion. La extension de hombro SI existe
+   *     (el tramo negativo de la cadena de flexion, hasta -60 en el
+   *     laboratorio), pero una cadena no vale de componente y como base la
+   *     auditoria solo acepta 0 a 180: por eso el lift-off, que la suma a la
+   *     rotacion interna con la mano en la espalda, sigue sin demo.
    *   - Y HAY HALLAZGOS QUE NO SON UNA POSTURA: un reflejo, un pulso que
    *     desaparece, un perimetro que no crece.
    *

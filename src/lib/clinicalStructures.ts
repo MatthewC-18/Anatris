@@ -191,7 +191,8 @@ export const CLINICAL_STRUCTURES: Record<string, ClinicalStructure> = {
   },
   // LAS DOS PUERTAS DEL DESFILADERO TORACICO.
   //
-  // Lo que se comprime son el plexo braquial y la arteria subclavia, y de eso
+  // Lo que se comprime son el plexo braquial y la arteria subclavia (bajo el
+  // pectoral menor ya es la axilar), y de eso
   // el laboratorio no puede encender nada: `layerForMaterial` devuelve null
   // para los nervios y los vasos. Pero las PAREDES del desfiladero si son
   // musculo, y son lo que el fisioterapeuta trata:
