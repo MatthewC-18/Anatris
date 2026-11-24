@@ -109,8 +109,13 @@ export const THORACIC_CASES: ClinicalCase[] = [
           { id: 'c', text: 'Descarta el desfiladero torácico', correct: false },
           { id: 'd', text: 'Indica compresión del nervio mediano en la muñeca', correct: false },
         ],
+        // SIN "SENSIBILIDAD ALTA" (revision del 23 nov, J15): la ficha que este
+        // paso enseña (showsTest) dice que no hay sensibilidad propia del EAST
+        // que se pueda comprobar; las fuentes abiertas solo miden sanos (Plewa
+        // 1998, PMID 9562199: parestesias en el 36%) o dan valores predictivos
+        // pobres en pacientes (Pesser 2022, PMID 35550394). Texto del verificador.
         explanation:
-          'Roos/EAST tiene sensibilidad alta y especificidad baja: muchos sujetos sanos refieren molestias al mantener la posición. Sirve sobre todo para DESCARTAR cuando es negativo y como pieza de un conjunto cuando es positivo. Compara siempre los dos lados: lo informativo es la asimetría.',
+          'Roos/EAST es poco específica con los criterios habituales: en voluntarios sanos aparecen parestesias en uno de cada tres al mantener la posición. Por eso un positivo apoya la sospecha como pieza de un conjunto, y pesa más si el paciente tiene que interrumpir la prueba. Usarla para descartar cuando es negativa es razonamiento clínico, no una cifra: no hay una sensibilidad propia de esta prueba que se pueda comprobar. Compara siempre los dos lados: lo informativo es la asimetría.',
       },
       {
         id: 'q3',
