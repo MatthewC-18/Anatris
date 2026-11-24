@@ -45,7 +45,7 @@ export const CERVICAL_CASES: ClinicalCase[] = [
           { id: 'd', text: 'Test de Sharp-Purser', correct: false },
         ],
         explanation:
-          'Spurling cierra el foramen (extensión + inclinación homolateral + compresión axial) y por eso REPRODUCE el dolor radicular: es muy específico, así que un Spurling positivo pesa. La distracción cervical hace lo contrario — abre el foramen y ALIVIA —, de modo que también apoya el origen radicular, pero no es la prueba que lo provoca. El ULNT mediano explora la mecanosensibilidad a lo largo del nervio y es sensible más que específico: sirve para descartar, no para confirmar un nivel. Y el Sharp-Purser no es una prueba radicular: busca inestabilidad atlantoaxial, otra pregunta y otra urgencia.',
+          'Spurling cierra el foramen (extensión + inclinación homolateral + compresión axial) y por eso REPRODUCE el dolor radicular: es muy específico, así que un Spurling positivo pesa. La distracción cervical hace lo contrario (abre el foramen y ALIVIA), de modo que también apoya el origen radicular, pero no es la prueba que lo provoca. El ULNT mediano explora la mecanosensibilidad a lo largo del nervio y es sensible más que específico: sirve para descartar, no para confirmar un nivel. Y el Sharp-Purser no es una prueba radicular: busca inestabilidad atlantoaxial, otra pregunta y otra urgencia.',
       },
     ],
     takeaway:
@@ -88,7 +88,7 @@ export const CERVICAL_CASES: ClinicalCase[] = [
           { id: 'd', text: 'Que tenga 34 años', correct: false },
         ],
         explanation:
-          'Una radiculopatía se define por su DISTRIBUCIÓN y por el déficit: dolor o parestesias que siguen un dermatoma más allá del codo, con debilidad o reflejo alterado. Sin eso, el cuadro es mecánico. Cuidado con la rotación limitada: es un ítem sensible del clúster de Wainner y aquí parece apoyar la radiculopatía, pero aislada vale poco — un cuello que duele se mueve menos, radicular o no. Un ítem no es el clúster.',
+          'Una radiculopatía se define por su DISTRIBUCIÓN y por el déficit: dolor o parestesias que siguen un dermatoma más allá del codo, con debilidad o reflejo alterado. Sin eso, el cuadro es mecánico. Cuidado con la rotación limitada: es un ítem sensible del clúster de Wainner y aquí parece apoyar la radiculopatía, pero aislada vale poco: un cuello que duele se mueve menos, radicular o no. Un ítem no es el clúster.',
       },
       {
         id: 'q2',

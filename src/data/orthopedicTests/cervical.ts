@@ -12,17 +12,27 @@
 // stays note-only or verified: false and the note states why.
 //
 // Sources (see references.ts): Wainner 2003 + Rubinstein 2007 + Tong 2002
-// (radiculopatía), Cook 2010 y Jiang 2024 (mielopatía), Uitvlugt 1988 y Hutting
-// 2013b (inestabilidad cervical alta), Hutting 2013 (insuficiencia vertebrobasilar).
+// (radiculopatía), Cook 2010, Jiang 2024 y Jiang 2024b (mielopatía; la 2024b
+// es la revision de sintomas, solo frecuencias, citada en Lhermitte),
+// Uitvlugt 1988 y Hutting 2013b (inestabilidad cervical alta), Hutting 2013
+// (insuficiencia vertebrobasilar).
 //
 // Reading the utility badge:
 //   rule-out (SnNout) = sensible: un NEGATIVO descarta.
 //   rule-in  (SpPin)  = específico: un POSITIVO confirma.
 //   weak              = poco valor aislado; interpretar en clúster/contexto.
 //
-// DEMO note: the cervical rig is a single spine armature; special tests that add
-// axial compression, distraction or upper-limb neural tension cannot be posed,
-// so those tests omit `demo` and explain the maneuver in prose instead.
+// NOTA DE LOS DEMOS: el cuello del rig se mueve con un control por plano,
+// repartido de C7 a C1, que gira y no traslada ni empuja. Las pruebas cuya
+// maniobra es una traslacion o un reflejo (distraccion, estres del ligamento
+// transverso, Hoffmann, supinador invertido, Babinski) no llevan `demo` y lo
+// explican en `noDemo`; Sharp-Purser si lo lleva porque su flexion ligera es
+// la posicion de partida. Las demas posan la posicion de la prueba, y su nota
+// dice lo que el modelo deja fuera: la compresion axial del Spurling, la
+// fuerza del explorador, la postura sentada o en supino. Decia que la
+// compresion axial y la tension neural del miembro superior no se podian
+// posar, y Spurling y el ULNT del mediano tienen demo desde la revision del
+// 14 nov.
 
 import type { OrthopedicTest } from '../../types/orthopedicTest';
 
@@ -58,14 +68,17 @@ const tests: OrthopedicTest[] = [
     // posaba 25 grados de extension, que el A no tiene. 30 grados es una
     // eleccion del rig, sin fuente para el angulo del A, y queda lejos de los 15
     // del ligamento alar, que usa el mismo control. El raquis del rig no lee
-    // `side`: la direccion es la fija del control.
+    // `side`: la direccion es la fija del control. La prueba se hace sentado y
+    // el modelo esta de pie (captura de la pose sostenida a 30 grados,
+    // despues2/cervical/test-de-spurling.png, 23 nov): la nota lo dice, como
+    // la de Sharp-Purser y la del ULNT.
     demo: {
       cannotShow:
         'La raíz nerviosa no se puede encender: el rig no trae raíces ni médula, y los nervios que sí trae vienen con un material que los deja en una capa que el laboratorio no muestra. Lo que se demuestra es la posición que cierra el foramen.',
       movementId: 'cervical-lateral-flexion',
       angleDeg: 30,
       side: 'R',
-      note: 'Inclinación hacia el lado sintomático, la posición del Spurling A que estrecha el foramen de ese lado. Falta la compresión axial de unos 7 kg: el modelo gira articulaciones, no empuja la cabeza.',
+      note: 'Inclinación hacia el lado sintomático, la posición del Spurling A que estrecha el foramen de ese lado, con el cuerpo de pie y no sentado. Falta la compresión axial de unos 7 kg: el modelo gira articulaciones, no empuja la cabeza.',
     },
     cite: [
       { ref: 'wainner-2003', verified: true, locator: 'Tabla 5 (frente a EMG)' },
@@ -188,13 +201,30 @@ const tests: OrthopedicTest[] = [
       'Sensible pero inespecífico: aporta como cribado dentro del clúster de Wainner, no como prueba única. Combínalo con Spurling, distracción y ULTT.',
     pearl:
       'Clúster de Wainner (ULTT + distracción + Spurling + rotación <60°): con 3/4 positivos LR+ 6.1 (prob. ~65%); con 4/4 LR+ 30.3 (IC muy amplio, 1.7-538). Usa el botón "Combinar" para verlo.',
+    // UN CORTE ABSOLUTO, NO UNA COMPARACION CON EL LADO SANO. La nota decia
+    // "se compara con el lado sano", que es otro criterio y contradecia el
+    // campo `positive`. Grondin 2026 (PMID 42070317, PMC13147772, abierto el 23
+    // nov) define el item del cluster de 2003 como rotacion menor de 60 grados
+    // hacia el lado sintomatico (nota de su Tabla 3), y en la Tabla 2 analiza
+    // aparte la comparacion con el otro lado, con cifras distintas: 63/50 el
+    // corte y 33/74 la comparacion. El demo se queda en 60, el umbral, y con
+    // "menor de 60" esa postura es un NEGATIVO: la nota lo dice para que no se
+    // lea como un positivo. Si es activa o pasiva y con que instrumento no
+    // consta en lo abierto: el resumen de Wainner 2003 (PMID 12544957) no
+    // describe el item y Grondin remite la descripcion de sus pruebas al
+    // material en linea.
+    //
+    // La nota no nombra lado: el raquis no lee `side` (signo fijo del control
+    // en boneMap), y en la captura de la pose sostenida, de frente
+    // (despues2/cervical, 23 nov), la cara gira hacia la IZQUIERDA del
+    // paciente aunque el dato diga 'R'. Es un limite del rig, no del texto.
     demo: {
       cannotShow:
         'Aquí no hay estructura que encender: lo que la prueba mide es una AMPLITUD, la rotación hacia el lado sintomático, y eso es exactamente lo que el modelo está haciendo.',
       movementId: 'cervical-rotation',
       angleDeg: 60,
       side: 'R',
-      note: 'Se compara la rotación hacia el lado sintomático (aquí ~60°) con el lado sano.',
+      note: 'Rotación justo hasta el corte de la prueba, 60°. El criterio es absoluto, no una comparación con el lado sano: la prueba es positiva si la rotación activa hacia el lado sintomático no llega a 60°. Un cuello que llega a 60°, como este, la da por negativa.',
     },
     cite: [{ ref: 'wainner-2003', verified: true, locator: 'Tabla 6 (clúster / CPR)' }],
   },
@@ -211,10 +241,29 @@ const tests: OrthopedicTest[] = [
     maneuver:
       'El explorador sostiene el dedo medio y flexiona/"chasquea" con rapidez la falange distal.',
     positive: 'Flexión-aducción refleja del pulgar y/o del índice.',
+    // 39/88 NO ERA EL HOFFMANN. Esas cifras son la fila "2 of 5 positive
+    // tests" del cluster (Cook 2010, Tabla 3: 0,39 / 0,88, LR+ 3,3). La fila
+    // del Hoffmann esta en la Tabla 2: sens 0,31 (0,25-0,35), esp 0,73
+    // (0,59-0,84), y es la que extrae Jiang 2024 (Tabla 5: 31/73, LR+ 1,15).
+    // Esa misma fila de Cook imprime LR+ 4,9 y LR- 0,74, que con 31/73 no
+    // cuadran; y con LR+ 1,15 el Hoffmann no estaria entre las 10 variables
+    // con LR+ > 2 o LR- < 0,5 que, segun el texto, entraron en la regresion
+    // (y sigue en el modelo final). Cuenta nuestra, no publicada: las dos LR
+    // impresas casan entre si con la sensibilidad de 0,31 y una especificidad
+    // cercana a 0,93, no a 0,73; por eso la nota senala la especificidad. Sin
+    // fe de erratas (ni en el registro MEDLINE de PMID 22131790 ni en la
+    // pagina de PMC) no se sabe que celda esta mal: se publica la
+    // especificidad impresa, no se publica otra, y la duda va en la nota. El
+    // rango 25-100 / 50-100 es literal de la discusion de Jiang 2024: los
+    // extremos de sensibilidad son de series sin grupo control (Tabla 6:
+    // El-ghandour 2020, 25%; Watson 1997, 100%); en los 8 estudios con
+    // control, 31-89 (Tabla 5). Abiertos el 23 nov: PMC3113267 (Cook 2010) y
+    // PMC11289551 (Jiang 2024). La etiqueta 'balanced' y la interpretacion
+    // quedan pendientes de criterio clinico.
     metrics: {
-      sensitivity: 39,
-      specificity: 88,
-      note: 'Muy variable entre estudios (sens 25-100%, esp 50-100%). Cook 2010: 39/88. Un Hoffmann aislado también aparece en sanos.',
+      sensitivity: 31,
+      specificity: 73,
+      note: 'Muy variable entre estudios (sens 25-100%, esp 50-100%). Cook 2010 (tabla 2): 31/73, aunque la misma fila publica LR+ 4,9 y LR− 0,74, que no cuadran con esas cifras: su especificidad es dudosa. Un Hoffmann aislado también aparece en sanos.',
     },
     utility: 'balanced',
     interpretation:
@@ -232,8 +281,16 @@ const tests: OrthopedicTest[] = [
     noDemo:
       'Es un reflejo de los dedos: el modelo no conduce las falanges, y la respuesta medular que la prueba busca no es una postura que se pueda posar.',
     cite: [
-      { ref: 'cook-2010', verified: true, locator: 'sens 0.39 / esp 0.88' },
-      { ref: 'jiang-2024', verified: true, locator: 'rango agrupado entre estudios' },
+      {
+        ref: 'cook-2010',
+        verified: true,
+        locator: 'Tabla 2: sens 0,31 / esp 0,73 (la misma fila publica LR+ 4,9 y LR− 0,74)',
+      },
+      {
+        ref: 'jiang-2024',
+        verified: true,
+        locator: 'Discusión: sens 25-100%, esp 50-100%; tabla 5: Cook 2010, 31/73',
+      },
     ],
   },
   {
@@ -246,22 +303,66 @@ const tests: OrthopedicTest[] = [
     purpose: 'Provocar el síntoma de descarga eléctrica de la irritación medular.',
     maneuver: 'Sentado, el explorador realiza una flexión cervical pasiva.',
     positive: 'Sensación de descarga eléctrica que desciende por la columna y/o las extremidades.',
+    // SIN CIFRAS DE PRECISION, Y ESTA ES LA RAZON. Llevaba 27/93 citando a
+    // Jiang 2024, que no las tiene: en su texto completo (PMC11289551, abierto
+    // el 23 nov) el fenomeno de Lhermitte sale una sola vez, en la
+    // introduccion, entre los sintomas, y no esta en su Tabla 5 de precision.
+    // Ninguna fuente abierta da el par: el 27% coincide con la frecuencia del
+    // signo ("affects 27% of cases") que Cervellini 2025 (PMC12090262)
+    // atribuye a Crandall y Batzdorf 1966 (PMID 5947048, sin resumen, no
+    // abierto): una frecuencia, no una precision. El 93% no aparece en
+    // ninguna. Lo unico con grupo control llega de segunda
+    // mano: Khare 2015 (PMC4445188, "Validity") da una sensibilidad del 3 al
+    // 17% y una especificidad del 97% citando a Uchihara 1994, cuyo resumen
+    // (PMID 7809749) no nombra el signo. Con 27/93 la fila pintaba "Confirma"
+    // y, desde el 30% por defecto, el panel calculaba un 62% si positivo (LR+
+    // 0,27/0,07). Lo comprobable es la frecuencia del sintoma (Jiang 2024b,
+    // PMC11289544, "Other Symptoms": 2-77% en cuatro estudios, media ponderada
+    // 25%), que respalda que un negativo no descarta.
     metrics: {
-      sensitivity: 27,
-      specificity: 93,
-      note: 'Estimación orientativa: los metaanálisis lo recogen como síntoma, sin datos agrupados de precisión. Poco sensible, específico; también aparece en esclerosis múltiple.',
+      note: 'Sin cifras de precisión que se puedan comprobar en una fuente abierta. Jiang 2024 solo lo nombra entre los síntomas de la mielopatía y no lo incluye en sus tablas de sensibilidad y especificidad. La revisión de síntomas de los mismos autores (Jiang 2024) da su frecuencia: lo refiere una cuarta parte de los pacientes con mielopatía cervical degenerativa (media ponderada del 25%, entre el 2 y el 77% en cuatro estudios), que es la frecuencia del síntoma y no la precisión de la maniobra. También aparece en la esclerosis múltiple.',
     },
-    utility: 'rule-in',
+    utility: 'weak',
     interpretation:
-      'Muy específico y poco sensible: un positivo apoya la irritación medular; un negativo no la descarta. Bandera para completar el examen neurológico.',
+      'Sin precisión diagnóstica comprobable: aislado no confirma ni descarta. Un positivo obliga a completar el examen neurológico (marcha, Hoffmann, supinador invertido, Babinski) y a valorar una prueba de imagen; un negativo no descarta la mielopatía, porque la mayoría de los pacientes no refiere este síntoma.',
+    // LA NOTA DICE QUIEN FLEXIONA, PORQUE EL MODELO NO PUEDE ENSENARLO. La
+    // maniobra escrita es una flexion PASIVA que hace el explorador con el
+    // paciente sentado. El rig esta de pie y no dibuja mano en el raquis
+    // (`RigOverlays.placeResistance` solo la pone en controles 'joint' o
+    // 'chain', y `cervical-flexion` es 'spine'). La nota vieja llamaba pasiva a
+    // una flexion que en pantalla se hace sola. 45 grados es el tope del
+    // control (clinicalRange.max en boneMap); captura de la pose sostenida:
+    // despues2/cervical/signo-de-lhermitte.png (23 nov).
+    //
+    // Sin `examinerForce`, aunque con `examinerHand: false` ya se puede
+    // declarar en el raquis: con 'applies' el panel imprime su bloque fijo de
+    // prueba pasiva (la fuerza "sobre el segmento distal", "una contraccion
+    // del paciente enmascara el hallazgo"), que ninguna fuente abierta
+    // respalda para este signo, y cerraria por otra via la pregunta de quien
+    // flexiona. Las fuentes abiertas no lo fijan: Khare 2015 (PMC4445188) y
+    // Sprowls 2026 (PMC13022657) hablan solo de flexion o movimiento del
+    // cuello. Si la maniobra pasa a admitir la flexion activa, esta nota
+    // cambia con ella.
     demo: {
       cannotShow:
         'La médula cervical y los cordones posteriores no están en el modelo. Lo que se reproduce es la flexión que provoca el síntoma.',
       movementId: 'cervical-flexion',
       angleDeg: 45,
-      note: 'La flexión cervical pasiva es el gesto que desencadena la descarga eléctrica descendente.',
+      note: 'Flexión cervical hasta 45°, el tope del modelo. Como describe la maniobra, la flexión la hace el explorador, de forma pasiva y con el paciente sentado; aquí, de pie, el cuello se flexiona solo, sin la mano del explorador, que en el raquis no se dibuja.',
     },
-    cite: [{ ref: 'jiang-2024', verified: false, locator: 'referido como síntoma (sin datos agrupados)' }],
+    cite: [
+      {
+        ref: 'jiang-2024',
+        verified: true,
+        locator: 'Solo lo nombra entre los síntomas (introducción); no figura en sus tablas de precisión',
+      },
+      {
+        ref: 'jiang-2024b',
+        verified: true,
+        locator:
+          'Fenómeno de Lhermitte: 2-77% en cuatro estudios, media ponderada 25% (IC 95% 23-29%); frecuencia, sin especificidad',
+      },
+    ],
   },
   {
     id: 'inverted-supinator',
@@ -280,10 +381,26 @@ const tests: OrthopedicTest[] = [
     // extension and/or finger flexion" (abierta en la revision del 14 nov).
     positive:
       'Ausencia de flexión del codo, con flexión refleja de los dedos y/o extensión del codo.',
+    // COOK 2010 PUBLICA 18/99 Y LR+ 29,1, NO 19/99. Tabla 2 de Cook 2010
+    // (PMID 22131790, PMC3113267, abierto el 23 nov), fila del supinador
+    // invertido: sens 0,18 (0,14-0,19), esp 0,99 (0,97-0,99), LR+ 29,1
+    // (5,1-171,5), LR- 0,82 (0,81-0,84), y el texto lo repite ("the single
+    // highest LR+"). El 0,19/0,99 era la fila "3 of 5" del cluster (Tabla 3).
+    // La LR+ va escrita porque el panel, sin el campo, la deriva de las cifras
+    // redondeadas: con 19/99 imprimia "LR+ 19.0 aprox." encima de una nota que
+    // decia 29, y con 18/99 imprimiria 18. Jiang 2024 (Tabla 5) da 14,64 para
+    // el mismo estudio. Reconstruccion nuestra, no recuento publicado: con los
+    // 88 pacientes con mielopatia y los 161 sin ella de Cook (Tabla 1), 16
+    // positivos y 2 falsos positivos dan las seis cifras de Jiang, y 1 falso
+    // positivo da las de Cook; la diferencia es un paciente, y por eso el
+    // intervalo es tan ancho. Cual de las dos LR usa el panel queda pendiente
+    // de criterio clinico: aqui va la que publica el estudio citado.
     metrics: {
-      sensitivity: 19,
+      sensitivity: 18,
       specificity: 99,
-      note: 'Cook 2010: 19/99, LR+ ≈ 29. Muy específico y poco sensible (sens 18-75% entre estudios).',
+      lrPositive: 29.1,
+      lrNegative: 0.82,
+      note: 'Cook 2010, tabla 2: 18/99 y LR+ 29,1 (IC 95% 5,1 a 171,5), un intervalo muy ancho. Con las cifras redondeadas a dos decimales, 18/99 daría una LR+ de 18; Jiang 2024 recalcula la de este estudio en 14,6. Muy específico y poco sensible (sens 18-75% entre estudios).',
     },
     utility: 'rule-in',
     interpretation:
@@ -298,8 +415,16 @@ const tests: OrthopedicTest[] = [
     noDemo:
       'Es un reflejo por percusión del tendón braquiorradial: el modelo no simula percusión ni respuestas reflejas.',
     cite: [
-      { ref: 'cook-2010', verified: true, locator: 'sens 0.19 / esp 0.99' },
-      { ref: 'jiang-2024', verified: true, locator: 'rango agrupado entre estudios' },
+      {
+        ref: 'cook-2010',
+        verified: true,
+        locator: 'Tabla 2: sens 0,18 / esp 0,99; LR+ 29,1 (IC 95% 5,1 a 171,5); LR− 0,82',
+      },
+      {
+        ref: 'jiang-2024',
+        verified: true,
+        locator: 'Tabla 5: sens 18-75% entre estudios; Cook 2010 recalculado en LR+ 14,64',
+      },
     ],
   },
   {
@@ -314,12 +439,26 @@ const tests: OrthopedicTest[] = [
       'Se estimula el borde lateral de la planta del pie hacia los metatarsianos (Babinski) y/o se busca clonus con dorsiflexión brusca del tobillo.',
     positive:
       'Extensión del primer dedo con apertura en abanico (Babinski) o clonus sostenido del tobillo.',
+    // SIN CIFRA PUNTUAL, Y ESTA ES LA RAZON. Decia 26/96 citando a Jiang 2024
+    // (PMID 37903098, texto completo PMC11289551, abierto el 23 nov), y esa
+    // pareja no es un resultado de la revision: su Tabla 5 da cada estudio con
+    // grupo control por separado y no agrupa la especificidad (Babinski:
+    // Chaiyamongkol 2017 36/100, Cook 2009 33/93, Cook 2010 7/100, Rhee 2009
+    // 13/100; clonus: Cook 2009 11/96, Cook 2010 7/99, Rhee 2009 13/100). El
+    // 96% solo sale en la introduccion, citando la revision de Cook 2011. Lo
+    // unico agrupado es la sensibilidad media ponderada de las cohortes de la
+    // Tabla 6 (Babinski 0,42, IC 0,41-0,44; clonus 0,31, IC 0,28-0,34),
+    // distinta para cada signo, y esta ficha junta los dos, asi que no hay una
+    // cifra que poner arriba. Con 26/96 el panel derivaba una LR+ de 6,5 que
+    // ninguna fuente publica. El techo del clonus es 100 (Rhee 2009), no 99.
+    // La salvedad de los controles es literal de la discusion de Jiang
+    // ("the values for specificity may be falsely elevated").
     metrics: {
-      sensitivity: 26,
-      specificity: 96,
-      note: 'Muy específico, poco sensible (Babinski sens 7-36%, esp 93-100%; clonus sens 7-13%, esp 96-99%).',
+      note: 'Muy específico y poco sensible, sin una cifra única de especificidad. En los estudios con grupo control que recoge Jiang 2024 (Tabla 5): Babinski sens 7-36% y esp 93-100% en cuatro estudios; clonus sens 7-13% y esp 96-100% en tres. Promediando las cohortes de pacientes con mielopatía (Tabla 6), la sensibilidad fue del 42% para el Babinski y del 31% para el clonus.',
     },
     utility: 'rule-in',
+    utilityBasis:
+      'Jiang 2024 no agrupa la especificidad, pero en los cuatro estudios con grupo control de su Tabla 5 la del Babinski va del 93 al 100%, y la del clonus del 96 al 100% en tres. Los controles eran personas sanas o pacientes cervicales sin compresión medular en la imagen, así que la especificidad puede estar inflada: el Babinski también aparece en otras lesiones de motoneurona superior.',
     interpretation:
       'Alta especificidad (SpPin): un positivo confirma afectación de motoneurona superior. Su ausencia no descarta mielopatía incipiente.',
     // SIN DEMO, Y ESTA ES LA RAZON.
@@ -331,7 +470,14 @@ const tests: OrthopedicTest[] = [
 
     noDemo:
       'Es un reflejo plantar: el modelo no conduce los dedos del pie ni simula el clonus.',
-    cite: [{ ref: 'jiang-2024', verified: true, locator: 'Babinski / clonus (rango agrupado)' }],
+    cite: [
+      {
+        ref: 'jiang-2024',
+        verified: true,
+        locator:
+          'Tabla 5 (cada estudio por separado, sin agrupar) y texto de la Tabla 6 (sensibilidad media ponderada)',
+      },
+    ],
   },
 
   // =================== INESTABILIDAD CRANEOCERVICAL ===================
@@ -357,12 +503,28 @@ const tests: OrthopedicTest[] = [
       'Muy específico: un positivo confirma inestabilidad atlantoaxial. Es una BANDERA ROJA: contraindica la manipulación cervical y obliga a derivación/imagen.',
     pearl:
       '⚠️ Prueba de precaución. Sospéchala en artritis reumatoide, síndrome de Down o traumatismo. Ejecútala con suavidad y detente ante mareo o síntomas neurológicos.',
+    // SOLO LA POSICION DE PARTIDA, Y SE DICE. La prueba es una presion
+    // posterior sobre la frente con la espinosa de C2 fijada, y el positivo es
+    // el deslizamiento posterior de la cabeza respecto al axis (Sung 2020,
+    // PMC7609854; Hariharan 2021, PMC8201716, Tabla 1; abiertos el 23 nov). El
+    // rig solo gira articulaciones (boneMap no tiene control que traslade) y
+    // la mano del explorador no se dibuja en el raquis
+    // (`RigOverlays.placeResistance` exige 'joint' o 'chain'). El texto decia
+    // "Se demuestra la maniobra" y la nota, que el panel imprime tras "En el
+    // modelo:", que se trasladaba la frente; la captura de la pose sostenida a
+    // 20 grados (despues2/cervical/test-de-sharp-purser.png, 23 nov) no tiene
+    // ni mano ni traslacion. La flexion ligera si es la posicion de partida
+    // (Sung 2020), asi que el demo se queda; y como la vuelta del bucle a
+    // neutro (`demoTimeline.loopAt`) echa la cabeza atras sin ser el empuje,
+    // la nota lo aclara. Sin `examinerForce`: con 'applies' el panel imprime
+    // su bloque fijo de prueba pasiva, cuyas frases nadie ha contrastado con
+    // esta prueba.
     demo: {
       cannotShow:
-        'El ligamento transverso del atlas no está en el rig; de hecho el modelo no trae ni un ligamento de raquis. Se demuestra la maniobra.',
+        'El ligamento transverso del atlas no está en el rig; el modelo no trae ni un ligamento de raquis.',
       movementId: 'cervical-flexion',
       angleDeg: 20,
-      note: 'Desde ligera flexión, se traslada la frente/occipucio en sentido posterior estabilizando C2.',
+      note: 'Se ve solo la posición de partida, el cuello en ligera flexión, con el cuerpo de pie y no sentado. La prueba en sí no se ve: la presión posterior sobre la frente con la apófisis espinosa de C2 estabilizada es una fuerza, y el deslizamiento posterior de la cabeza respecto al axis, que la hace positiva, es una traslación; el modelo solo gira articulaciones. Tampoco dibuja la mano del explorador sobre el raquis. Cuando la cabeza vuelve a neutro, el modelo solo deshace la flexión; no es el empuje.',
     },
     cite: [
       { ref: 'uitvlugt-1988', verified: true, locator: 'subluxación >4 mm' },
@@ -424,12 +586,33 @@ const tests: OrthopedicTest[] = [
       'Sin precisión diagnóstica firme. Aporta solo como parte de la evaluación de estabilidad craneocervical junto a la anamnesis y otras pruebas.',
     pearl:
       '⚠️ Prueba de precaución. Complementa a Sharp-Purser y al estrés del ligamento transverso en el descarte de inestabilidad alta.',
+    // EL DEMO NO ENSENA LA PRUEBA, Y LA FICHA LO TIENE QUE DECIR.
+    //
+    // `cervical-lateral-flexion` es un control 'spine' sin `weights`
+    // (boneMap), y `distributeSpineAngle` reparte el angulo por igual de C7 a
+    // C1: a 15 grados C2 se inclina con el resto del cuello, y la cabeza con el
+    // atlas gira sobre el lo mismo que cualquier otro nivel. La mano del
+    // explorador solo se dibuja en controles 'joint' y 'chain'
+    // (`RigOverlays.placeResistance`). Y la prueba mira justo eso: la cabeza y
+    // el atlas respecto al axis, y el tope (Osmotherly 2012, PMID 22267548,
+    // medidas referidas a la posicion del axis; Hidalgo-Garcia 2020, PMID
+    // 31989964, con C2 fijado: cortar un alar sube la inclinacion cervical
+    // alta 1,30 y 1,88 grados de media, una escala que una inclinacion del
+    // cuello entero no puede ensenar). Decia "se demuestra la maniobra y el
+    // tope que se busca", y en la captura de la pose sostenida a 15 grados
+    // (despues2/cervical/prueba-del-ligamento-alar.png, 23 nov) no hay C2 a
+    // la vista, ni mano, ni tope.
+    //
+    // Que version se ensena, la de estres (C2 sujeto, se valora el tope) o la
+    // de palpacion (el giro de C2 que se nota al inclinar), esta pendiente de
+    // criterio clinico: la maniobra de arriba mezcla las dos, y esta nota vale
+    // para ambas. Sin `examinerForce` por lo mismo que en Sharp-Purser.
     demo: {
       cannotShow:
-        'Los ligamentos alares no están en el rig (el modelo no trae ligamentos de raquis). Se demuestra la maniobra y el tope que se busca.',
+        'Los ligamentos alares no están en el rig: el modelo no trae ligamentos de raquis.',
       movementId: 'cervical-lateral-flexion',
       angleDeg: 15,
-      note: 'Con C2 estabilizado se induce inclinación/rotación de la cabeza; con el ligamento íntegro C2 rota de inmediato con ella.',
+      note: 'Se inclina el cuello entero, repartido por igual de C7 a C1, así que C2 se inclina con él y no hay mano del explorador sobre el raquis. No se ve lo que la prueba valora: cómo se mueven la cabeza y el atlas respecto al axis y cómo es el tope.',
     },
     cite: [{ ref: 'hutting-2013b', verified: true, locator: 'revisión de inestabilidad cervical alta' }],
   },
@@ -463,11 +646,13 @@ const tests: OrthopedicTest[] = [
       // cervical --otra prueba de esta misma lista-- y el boton de una
       // reproducia la otra (`npm run measure-test-poses`). La extension que la
       // maniobra suma no puede acompanarla: las cadenas de raquis no valen como
-      // componente, solo las articulaciones de un hueso.
+      // componente, solo las articulaciones de un hueso. La maniobra se hace
+      // sentado o en supino y el modelo esta de pie (captura de la pose
+      // sostenida a 80 grados, despues2/cervical, 23 nov): la nota lo dice.
       movementId: 'cervical-rotation',
       angleDeg: 80,
       side: 'R',
-      note: 'Rotación sostenida en el RANGO FINAL (80°, el tope del modelo). La maniobra real suma extensión, que este control no puede sostener a la vez.',
+      note: 'Rotación sostenida en el RANGO FINAL (80°, el tope del modelo), con el cuerpo de pie y no sentado ni en supino. La maniobra real suma extensión, que este control no puede sostener a la vez.',
     },
     cite: [{ ref: 'hutting-2013', verified: true, locator: 'sens 0-57% / esp 67-100%' }],
   },
