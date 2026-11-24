@@ -176,10 +176,15 @@ export const LUMBAR_CASES: ClinicalCase[] = [
           { id: 'd', text: 'Hay que repetirlas con más fuerza hasta reproducir el dolor', correct: false },
         ],
         explanation:
-          'Este es el extremo más útil del conjunto en consulta, y también está medido: con todas las pruebas de provocación negativas, la sacroilíaca queda descartada como origen del dolor. Un conjunto sensible sirve precisamente para eso — para cerrar una hipótesis — mientras una sola prueba positiva no la abre. Repetir con más fuerza no es explorar mejor: es cambiar la prueba por otra que ya no es la medida.',
+          'Este es el extremo más útil del conjunto en consulta, y también está medido: con todas las pruebas de provocación negativas, la sacroilíaca queda descartada como origen del dolor. Un conjunto sensible sirve precisamente para eso, para cerrar una hipótesis, mientras una sola prueba positiva no la abre. Repetir con más fuerza no es explorar mejor: es cambiar la prueba por otra que ya no es la medida.',
       },
     ],
+    // "Con todas negativas" y no "las cinco": el resumen de Laslett 2005 (PMID
+    // 16038856, E-utilities, 23 nov) dice que se descarta cuando las SEIS no
+    // provocan el dolor conocido, y la ficha lista cinco entradas. Por que son
+    // seis (el Gaenslen de los dos lados) solo sale de una copia no oficial del
+    // texto, asi que la cuenta no va en el texto visible.
     takeaway:
-      'La sacroilíaca se descarta mejor de lo que se confirma: tres o más pruebas de provocación positivas la apoyan, y las cinco negativas la cierran. Una sola prueba, en cualquier dirección, no decide.',
+      'La sacroilíaca se descarta mejor de lo que se confirma: tres o más pruebas de provocación positivas la apoyan, y con todas negativas queda descartada. Una sola prueba, en cualquier dirección, no decide.',
   },
 ];

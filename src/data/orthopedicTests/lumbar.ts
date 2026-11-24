@@ -13,7 +13,8 @@
 //
 // Sources (see references.ts): Devillé 2000 (SLR/Lasègue + cruzado), Majlesi
 // 2008 (Slump), Suri 2011 (tensión femoral / reverse SLR), Kasai 2006 (extensión
-// lumbar pasiva), Hicks 2005 (inestabilidad en prono), Laslett 2005 (clúster SI).
+// lumbar pasiva), Hicks 2005 (inestabilidad en prono) y Rabin 2014 (su
+// validación), Laslett 2005 (clúster SI).
 //
 // DEMO note: the lumbar rig drives the LUMBAR SPINE only (flexión/extensión/
 // inclinación/rotación). Neurodynamic tests are hip + nerve-tension maneuvers and
@@ -74,10 +75,32 @@ const tests: OrthopedicTest[] = [
       // y el raquis no se mueve. Esto ensenaba `lumbar-flexion@25`, con una
       // nota que admitia que el modelo "solo muestra el raquis lumbar", y
       // ademas era la MISMA pose que el Lasegue cruzado.
+      //
+      // LA NOTA DICE LO QUE EL MODELO ENSENA Y LA MANIOBRA NO (revision del 15
+      // nov contra la captura de la app, capturas/antes/lumbar/elevacion-de-la-
+      // pierna-recta-lasegue.png):
+      //   - la prueba es en SUPINO y el modelo esta de pie;
+      //   - la UNICA mano que dibuja el rig (RigOverlays.placeResistance: al 82%
+      //     del femur, en la cara hacia la que avanza el miembro y empujando
+      //     hacia el reposo) cae en la cara anterior del muslo distal. Es la
+      //     mano que mantiene la rodilla extendida (EBMConsult,
+      //     straight-leg-raising-test: una mano eleva desde el tobillo y la otra
+      //     se apoya en la cara anterior del muslo), asi que el contacto es real
+      //     y `examinerForce` se queda con su mano. La lectura dice "la fuerza la
+      //     aplicas tu donde se apoya la mano", y la fuerza que eleva va en el
+      //     tobillo: por eso la nota nombra las dos manos;
+      //   - el modelo de pie inclina el tronco HACIA DELANTE al flexionar la
+      //     cadera (RigModel, HIP_BALANCE_*, signo de lumbar-flexion): a 60
+      //     grados, 16 x (60-25)/(90-25) = 8,6 grados repartidos en L1-L5,
+      //     CALCULADO con esas constantes, no medido. En la prueba el raquis
+      //     lumbar y la pelvis no se mueven (la misma fuente: un cambio de la
+      //     curva invalida la prueba). Quitar esa inclinacion en los demos es
+      //     una decision de diseno del usuario, que la pidio y la calibro en el
+      //     laboratorio: aqui solo se dice.
       movementId: 'hip-flexion',
       angleDeg: 60,
       side: 'R',
-      note: 'La rodilla se mantiene extendida: el modelo parte del reposo, que ya lo está. La banda que interesa es 30-70°.',
+      note: 'La prueba se hace en SUPINO y el modelo la enseña de pie: mira la cadera a 60° con la rodilla extendida, no la postura global. La mano dibujada en la cara anterior del muslo es la que mantiene la rodilla en extensión; la que eleva la pierna sujeta el tobillo y no se dibuja. Al estar de pie, el modelo inclina un poco el tronco hacia delante: no es parte de la maniobra, en la que el raquis lumbar y la pelvis no se mueven. La banda que interesa es 30 a 70°.',
     },
     cite: [
       { ref: 'deville-2000', verified: true, locator: 'metaanálisis, SLR ipsilateral' },
@@ -120,10 +143,16 @@ const tests: OrthopedicTest[] = [
       // Lo que distingue al cruzado es QUE PIERNA se eleva: la sana. Por eso el
       // lado es el contrario al del Lasegue, y por eso las dos demostraciones
       // ya no son el mismo clip.
+      //
+      // Y lleva los mismos avisos que el Lasegue (ver alli el porque y la
+      // cifra calculada de la inclinacion): supino frente a de pie, la mano
+      // dibujada es la que mantiene la rodilla extendida y no la que eleva, y
+      // el tronco que se inclina no es parte de la maniobra. Captura de la app:
+      // capturas/antes/lumbar/elevacion-cruzada-de-la-pierna-recta.png.
       movementId: 'hip-flexion',
       angleDeg: 60,
       side: 'L',
-      note: 'Se eleva la pierna SANA (el modelo levanta la contraria a la del Lasègue); el positivo es el dolor en la pierna sintomática.',
+      note: 'Se eleva la pierna SANA (el modelo levanta la contraria a la del Lasègue); el positivo es el dolor en la pierna sintomática. La prueba se hace en SUPINO y el modelo la enseña de pie. La mano dibujada sobre la cara anterior del muslo es la que mantiene la rodilla extendida; la que eleva la pierna sujeta el tobillo y no se dibuja. Al estar de pie, el modelo inclina un poco el tronco hacia delante: no es parte de la maniobra, en la que el raquis lumbar y la pelvis no se mueven.',
     },
     cite: [{ ref: 'deville-2000', verified: true, locator: 'metaanálisis, SLR cruzado' }],
   },
@@ -147,12 +176,56 @@ const tests: OrthopedicTest[] = [
     utility: 'balanced',
     interpretation:
       'Sensibilidad y especificidad equilibradas y altas: aporta al cribado y a la confirmación. La modulación con la flexión cervical distingue el origen neural del musculoesquelético.',
+    // EL SLUMP ES UNA PIERNA RECTA EN SEDESTACION, no una flexion lumbar de pie
+    // (revision del 15 nov). Majlesi 2008 (PMID 18391677, resumen abierto por
+    // E-utilities) lo presenta como una variante en sedestacion del SLR que
+    // suma la flexion del raquis y de la cadera a la elevacion de la pierna. Lo
+    // que habia posaba solo la flexion lumbar a 40: el muslo seguia vertical, y
+    // con la cadera en 0 la rodilla extendida no tensa nada.
+    //
+    // La cadera y la flexion dorsal se sostienen encima de una base de raquis:
+    // applyComponents (RigModel) solo exige componentes 'joint' y los resuelve
+    // con el lado del demo. La rodilla queda recta porque los componentes no
+    // llevan acoplamientos (y el de la cadera profunda empieza pasados 90). NO
+    // poner knee-extension de componente: comparte hueso, eje y signo con la
+    // flexion, y RigModel no mira arcFrom, asi que la DOBLARIA. Torax y cuello
+    // no pueden acompanarla: un componente de raquis se descarta. Flexion dorsal
+    // a 20: todo el arco, como el miotoma L4 (neuro/lumbosacral.ts). Sin
+    // `order`: base-first lleva el tronco antes que la pierna, que es el orden
+    // de la maniobra. Sin `examinerForce`, como estaba: la base es de raquis.
+    //
+    // MEDIDO antes de publicarlo, porque es el primer demo con componentes
+    // sobre una base de raquis y ahi NO corre la holgura de brazos de los demos
+    // de pierna (los brazos van rigidos con T3). Banco sin navegador
+    // (scratchpad lumbar-aplicar/medir-slump*.mts: rigPose con base y
+    // componentes como RigModel, trazo base-first de demoTimeline en 17
+    // instantes):
+    //   - brazo derecho (humero a dedos) contra muslo, pierna y pie: la piel
+    //     mas cercana queda a 4,0 cm o mas en todo el trazo (9,8 cm en la
+    //     espera) y, mientras sube la pierna, ningun vertice del brazo cae
+    //     dentro del miembro;
+    //   - muslo (a mas de 12 cm de la cadera) contra la piel del abdomen y del
+    //     torax: ningun vertice del muslo dentro del tronco en los 17 instantes
+    //     (perfil polar del tronco posado), y la distancia minima baja a 1,0 cm
+    //     en la espera. Referencia en el mismo banco: la cadera a 90 de pie con
+    //     16 grados de flexion lumbar, que es lo que RigModel anade por
+    //     HIP_BALANCE (rigPose no lo hace; aqui va emulado con lumbar-flexion),
+    //     deja 2,0 cm, y la ingle se pliega igual que en esa pose (renders de
+    //     perfil desde la derecha);
+    //   - la punta del pie llega a z = 0,80 m (delante): el recorte por defecto
+    //     de render-test-demo (z hasta 0,75) la corta, usar BOX=-1,1,0,1.9.
+    // Queda mirarlo en el navegador (el guardian del encuadre con la pierna).
     demo: {
       cannotShow:
         'Es neurodinamia: el tracto neural no está en ninguna capa que el laboratorio pueda mostrar. Lo que se demuestra es la secuencia con la que se pone en tensión.',
       movementId: 'lumbar-flexion',
       angleDeg: 40,
-      note: 'El componente lumbar es la flexión ("slump"); la maniobra añade flexión cervical y extensión de rodilla con dorsiflexión.',
+      side: 'R',
+      components: [
+        { movementId: 'hip-flexion', angleDeg: 90 },
+        { movementId: 'ankle-dorsiflexion', angleDeg: 20 },
+      ],
+      note: 'La prueba se hace sentado y el modelo la enseña de pie: sobre la flexión lumbar quedan el muslo a 90°, la rodilla extendida y el tobillo en flexión dorsal, que es la posición final del miembro inferior. En la prueba la cadera está flexionada desde el principio y lo que se mueve es la rodilla al extenderse; el modelo no puede animar ese paso, así que la pierna sube ya recta. Faltan la flexión torácica y la cervical (el modelo solo posa una región del raquis a la vez), y por eso tampoco enseña lo que interpreta la prueba: que los síntomas cambien al soltar la flexión cervical.',
     },
     cite: [{ ref: 'majlesi-2008', verified: true, locator: 'Slump 0.84 / 0.83' }],
   },
@@ -164,9 +237,23 @@ const tests: OrthopedicTest[] = [
     category: 'Radiculopatía lumbar (hernia discal)',
     target: 'Raíces L2-L4 / nervio femoral',
     purpose: 'Detectar radiculopatía lumbar ALTA (L2-L4).',
+    // LA VERSION CON LA QUE SE MIDIERON LAS CIFRAS, y el criterio de positivo de
+    // esa misma fuente (revision del 15 nov). Suri 2011, PMID 20543768, texto
+    // completo PMC2978791 abierto por E-utilities, Metodos: en prono, el
+    // explorador sujeta el tobillo del lado sintomatico y facilita una flexion
+    // SUAVE de la rodilla; es positivo si reproduce el dolor HABITUAL del
+    // miembro inferior. El texto anterior contaba cualquier dolor en la cara
+    // anterior del muslo, y con ese criterio un recto femoral corto puntuaria
+    // como positivo: el 100% de especificidad no se midio asi. La extension de
+    // cadera y el decubito lateral no estan en esa version; se nombran como
+    // variantes, no se borran (si el demo las conserva lo decide un clinico).
+    // "Suele estar en la cara anterior del muslo": Tabla 2 del mismo texto, 17
+    // de 25 con compresion L2-L4 (L2 2 de 2, L3 10 de 10, L4 5 de 13; en L4
+    // domina la cara lateral del muslo, 8 de 13).
     maneuver:
-      'En prono (o decúbito lateral), el explorador flexiona la rodilla y/o extiende la cadera para tensar el nervio femoral.',
-    positive: 'Dolor en la cara anterior del muslo siguiendo el territorio femoral.',
+      'En prono, el explorador sujeta el tobillo del lado sintomático y flexiona suavemente la rodilla: es la versión con la que se midieron las cifras. Añadir extensión de cadera (como hace el modelo) o hacerla en decúbito lateral son variantes que esas cifras no cubren.',
+    positive:
+      'Reproduce el dolor habitual del paciente en el miembro inferior sintomático (en la compresión L2-L4 suele estar en la cara anterior del muslo). Una molestia en el muslo que no es su dolor habitual no cuenta como positivo.',
     metrics: {
       sensitivity: 50,
       specificity: 100,
@@ -179,14 +266,23 @@ const tests: OrthopedicTest[] = [
     utility: 'rule-in',
     interpretation:
       'Muy específico y moderadamente sensible: un positivo apoya con fuerza la radiculopatía lumbar alta. Útil cuando el dolor es anterior (muslo) y el SLR es negativo.',
+    // La lista de falsos positivos ya estaba y NO viene de Suri 2011, que no
+    // la trata; lo que si viene de alli es el criterio (su dolor habitual).
     pearl:
-      'Falsos positivos por acortamiento del recto femoral/psoas o patología de cadera: interpreta el dolor por su territorio anterior.',
-    // LA PRUEBA ES DE RODILLA Y CADERA, en prono.
+      'Falsos positivos por acortamiento del recto femoral o del psoas, o por patología de cadera: lo que cuenta es que reproduzca el dolor habitual del paciente, no cualquier molestia en la cara anterior del muslo.',
+    // LA PRUEBA ES DE RODILLA, en prono; la cadera es una variante.
     //
     // Lo que habia posaba una extension lumbar de 20 grados, de pie: no es la
-    // maniobra ni la posicion. La maniobra --flexion de rodilla con extension de
-    // cadera-- el rig la conduce entera, y son dos huesos distintos (shin_flex y
-    // femur_base), asi que se sostienen a la vez.
+    // maniobra ni la posicion. Ahora flexiona la rodilla (shin_flex) con 15
+    // grados de extension de cadera (femur_base): dos huesos distintos, asi que
+    // se sostienen a la vez.
+    //
+    // La version medida (Suri 2011, ver la maniobra) es solo la flexion de
+    // rodilla. La nota decia que la extension de cadera "es lo que tensa el
+    // nervio femoral" y la maniobra ya la presenta como variante: ahora la nota
+    // dice lo mismo. El demo no cambia, porque quitar la cadera o dejarla como
+    // variante es una decision clinica pendiente (revision del 15 nov). La mano
+    // del explorador no se dibuja: no hay `examinerForce`.
     demo: {
       cannotShow:
         'El nervio femoral y las raíces L2-L4 no están en el rig. Lo que se demuestra es la posición que los pone en tensión.',
@@ -194,14 +290,15 @@ const tests: OrthopedicTest[] = [
       movementId: 'knee-flexion',
       angleDeg: 90,
       side: 'R',
-      note: 'La rodilla se flexiona y la cadera se extiende, que es lo que tensa el nervio femoral. La prueba se hace en PRONO: el modelo lo muestra de pie, así que mira los ángulos, no la postura global.',
+      note: 'La prueba se hace en PRONO: el modelo la enseña de pie, así que mira los ángulos, no la postura global. La flexión de rodilla es el gesto de la versión con la que se midieron las cifras. Los 15° de extensión de cadera que añade el modelo son una variante que esas cifras no cubren.',
     },
 
     cite: [
       {
         ref: 'suri-2011',
         verified: true,
-        locator: 'Tabla 3: 50% (31-69) / 100% (88-100), LR+ infinito; Tabla 4: L3 70%/88%',
+        locator:
+          'Métodos: en prono, flexión suave de rodilla, positivo si reproduce el dolor habitual; Tabla 3: 50% (31-69) / 100% (88-100), LR+ infinito; Tabla 4: L3 70%/88%',
       },
     ],
   },
@@ -215,8 +312,16 @@ const tests: OrthopedicTest[] = [
     category: 'Inestabilidad lumbar',
     target: 'Inestabilidad segmentaria lumbar',
     purpose: 'Detectar inestabilidad lumbar (espondilolistesis, degenerativa).',
+    // LA MANIOBRA ES LA DE KASAI 2006, que es la fuente de las cifras. Su resumen
+    // (PMID 17033040) no la describe y el texto completo es de pago; la
+    // reproducen citandolo Ferrari 2015 (PMC4392873, tabla de pruebas, ref. 25)
+    // y Rathod 2019 (PMC6469328), los dos abiertos en Europe PMC con la misma
+    // frase: prono, las dos piernas a la vez a unos 30 cm de la camilla,
+    // rodillas extendidas "and gently pulling the legs". Faltaba ese tiron.
+    // "Por los tobillos" solo lo dice una ficha de Physiotutors, no esa
+    // descripcion, y no se escribe (revision del 15 nov, U28).
     maneuver:
-      'En prono, el explorador eleva ambas piernas juntas unos 30 cm manteniendo las rodillas extendidas, extendiendo pasivamente la columna lumbar.',
+      'En prono, el explorador eleva ambas piernas juntas unos 30 cm sobre la camilla, con las rodillas extendidas y tirando suavemente de las piernas, lo que extiende pasivamente la columna lumbar.',
     positive:
       'Dolor lumbar intenso, sensación de "que la espalda se sale" o pesadez que desaparece al bajar las piernas.',
     metrics: {
@@ -232,7 +337,22 @@ const tests: OrthopedicTest[] = [
         'La inestabilidad segmentaria no es una estructura: es un comportamiento del segmento. No hay nada que encender, y el rig tampoco traslada una vértebra sobre otra.',
       movementId: 'lumbar-extension',
       angleDeg: 30,
-      note: 'La elevación pasiva de las piernas en prono extiende la columna lumbar, que es lo que muestra el modelo.',
+      // EL MODELO ESTA DE PIE Y NO LEVANTA LAS PIERNAS: 'lumbar-extension' gira
+      // solo L5-L1 del Spine_Armature (boneMap.ts, LUMBAR_BONES), la pelvis no
+      // se posa (lumbarCoupling.ts, LUMBOPELVIC_PELVIS_POSED = false) y
+      // RigModel arrastra los hombros con el raquis, asi que el tronco se va
+      // hacia atras sobre unas piernas quietas. En la prueba es al reves: el
+      // tronco queda en la camilla y suben las piernas. La nota anterior decia
+      // que eso "es lo que muestra el modelo". Captura en la espera, a 30 grados
+      // ("Rango final"): capturas/despues2/lumbar/extension-lumbar-pasiva.png;
+      // es un plano lateral cerrado del tronco en el que las piernas no salen,
+      // asi que lo de las piernas lo establece el codigo, no la imagen. Se avisa
+      // igual que en la tension femoral. Los 30 grados no se nombran: no tienen
+      // fuente y estan pendientes de criterio clinico (J21). Sigue sin
+      // `examinerForce`: la revision (U28) solo corrige el texto. Con
+      // `examinerHand: false` podria declararse pasiva sin dibujar una mano,
+      // pero es otra decision y no se toma aqui.
+      note: 'La prueba se hace en PRONO y el modelo está de pie: solo extiende la columna lumbar, inclinando el tronco hacia atrás, y no levanta las piernas. En la prueba el paciente está relajado: el tronco se queda en la camilla y son las piernas las que suben.',
     },
     cite: [{ ref: 'kasai-2006', verified: true, locator: 'PLE 84.2 / 90.4' }],
   },
@@ -247,12 +367,32 @@ const tests: OrthopedicTest[] = [
     maneuver:
       'Con el tronco en la camilla y los pies apoyados en el suelo, se aplica presión posteroanterior sobre el segmento doloroso; luego el paciente levanta los pies (activa la musculatura) y se repite.',
     positive: 'Dolor con los pies apoyados que DISMINUYE al levantarlos y activar la musculatura.',
+    // DOS REGLAS, NO UNA, Y LA PIERNA RECTA NO ES EL LASEGUE (revision del 15
+    // nov, U27). El resumen de Hicks 2005 (PMID 16181938, E-utilities) habla de
+    // reglas preliminares en plural, una para el exito (LR+ 4,0) y otra para el
+    // fracaso (LR- 0,18), y de seis variables de peso entre las dos; la de la
+    // pierna recta es su amplitud media por encima de 91 grados (PMC8609735,
+    // Chatprem 2021, que cita a Hicks) en pacientes sin dolor radicular, no el
+    // signo que esta app llama Lasegue. La nota decia "una regla con seis
+    // variables", "Lasegue" y "0,18" sin decir que es negativa, y llevaba dos
+    // guiones dobles en texto visible. Las 72% / 58% no estan en el resumen,
+    // pero dos revisiones abiertas se las atribuyen a este estudio: PMC8351422
+    // lo nombra ("Hicks and colleagues", con LR+ 1,7 y LR- 0,48) y PMC11433180
+    // lo cita como su ref. 26. Cuadran con 13/18 y 21/36 sobre los 18 exitos
+    // de 54 (y con esas LR): si salen de ahi, miden si la prueba predice el
+    // exito, no un diagnostico. La validacion posterior es Rabin 2014 (PMID
+    // 24261926, resumen abierto): no valido la regla del exito y, por poca
+    // potencia, tampoco la descarto.
     metrics: {
-      note: 'SIN cifras de diagnóstico, y por un motivo de fondo: el estudio que se le cita (Hicks 2005, 54 pacientes con lumbalgia no radicular) no mide si la prueba acierta un diagnóstico, sino si predice la RESPUESTA a ocho semanas de ejercicio de estabilización. Las que circulaban (72% / 58%) no están en él. Lo que sí publica es una regla con seis variables -- edad, Lasègue, esta prueba, movimientos aberrantes, hipermovilidad lumbar y creencias de miedo-evitación -- con razón de verosimilitud 4,0 para predecir el éxito y 0,18 para el fracaso.',
+      note: 'SIN cifras de diagnóstico, y por un motivo de fondo: el estudio original (Hicks 2005, 54 pacientes con lumbalgia no radicular) no mide si la prueba acierta un diagnóstico, sino si predice la RESPUESTA a ocho semanas de ejercicio de estabilización. Las cifras que circulan (72% / 58%) se le atribuyen, pero no están en su resumen; si salen de su texto, miden si la prueba predice el éxito del tratamiento, no si acierta un diagnóstico. Lo que publica Hicks son dos reglas preliminares, una para predecir el éxito (razón de verosimilitud positiva 4,0) y otra para el fracaso (razón de verosimilitud negativa 0,18), y las variables que más pesaron fueron seis: edad, amplitud de la elevación de la pierna recta (no el signo de Lasègue: nadie tenía dolor radicular), esta prueba, movimientos aberrantes, hipermovilidad lumbar y creencias de miedo y evitación. Un ensayo posterior (Rabin 2014, 105 pacientes) no pudo validar la regla del éxito, aunque por su poca potencia tampoco pudo descartarla; una versión con solo esta prueba y los movimientos aberrantes parece predecir mejor, pero salió de un análisis a posteriori y está por confirmar.',
     },
     utility: 'weak',
+    // Ninguna de las dos fuentes citadas (Hicks 2005, Rabin 2014) mide
+    // precision diagnostica: las dos miden la respuesta al tratamiento. Por eso
+    // ni "precision moderada" (el panel pinta a la vez "poca precision aislado"
+    // por `weak`) ni "un positivo predice buena respuesta" a secas.
     interpretation:
-      'Precisión moderada aislado. Su valor real es pronóstico: un positivo predice buena respuesta a un programa de estabilización lumbar.',
+      'Ninguna de las fuentes citadas mide su precisión diagnóstica, así que, sola, la prueba no permite confirmar ni descartar una inestabilidad. Lo estudiado es su valor pronóstico, y dentro de una regla preliminar: es una de las variables con las que Hicks intentó predecir quién responde a un programa de estabilización lumbar, y el ensayo que después intentó validar esa regla no lo consiguió.',
     // SIN DEMO, Y ESTA ES LA RAZON.
     //
     // La prueba son dos presiones posteroanteriores sobre el mismo segmento, una
@@ -270,7 +410,18 @@ const tests: OrthopedicTest[] = [
       {
         ref: 'hicks-2005',
         verified: true,
-        locator: 'Regla de predicción de respuesta: LR+ 4,0 / LR− 0,18 (no es precisión diagnóstica)',
+        locator: 'Reglas de predicción de la respuesta (éxito y fracaso): LR+ 4,0 / LR− 0,18 (no es precisión diagnóstica)',
+      },
+      {
+        // La validacion de la regla de Hicks, con resumen abierto (PMID
+        // 24261926, E-utilities): ensayo aleatorizado de 105 pacientes; la regla
+        // de cuatro elementos no se valido ni, por poca potencia, se pudo
+        // descartar; la de dos (movimientos aberrantes y esta prueba positiva)
+        // mostro interaccion con el tratamiento, pero salio a posteriori.
+        ref: 'rabin-2014',
+        verified: true,
+        locator:
+          'Validación: la regla de cuatro elementos no se validó (ni se pudo descartar, por poca potencia); la de dos (esta prueba y movimientos aberrantes) salió a posteriori',
       },
     ],
   },
@@ -415,10 +566,30 @@ const tests: OrthopedicTest[] = [
     utility: 'weak',
     interpretation:
       'Precisión limitada aislada: interpreta solo dentro del clúster de Laslett. Comparte falsos positivos con la cadera y la columna lumbar.',
+    // LA CIFRA DEL CONJUNTO ES LA DE LA FUENTE QUE CITA ESTA FICHA. El resumen
+    // de Laslett 2005 (PMID 16038856, abierto por E-utilities) da 94% y 78%
+    // para tres o mas positivas de seis, y anade que si ninguna de las seis
+    // provoca el dolor familiar la sacroiliaca queda descartada como origen del
+    // dolor lumbar actual; es lo mismo que ensena Combinar (testClusters.ts,
+    // si-laslett). El 91% / 78% que habia aqui es el del resumen de la revision
+    // de Laslett 2008 (PMID 19119403), que esta ficha no cita: la tarjeta decia
+    // 91 en la perla y 94 en el localizador de su propia fuente, dos lineas mas
+    // abajo. "Thrust sacro" pasa a "empuje sacro", el nombre de su ficha. Por
+    // que cinco entradas son seis pruebas (el Gaenslen de cada lado) solo sale
+    // de una copia no oficial del texto completo: queda fuera del texto visible
+    // (revision del 15 nov, U26).
     pearl:
-      'Clúster de Laslett (distracción, empuje del muslo, compresión, thrust sacro, Gaenslen): con 3 o más positivos, sens ~91% y esp ~78%. Usa el botón "Combinar".',
+      'Conjunto de Laslett (distracción, empuje del muslo, compresión, empuje sacro y Gaenslen; en el estudio son seis pruebas): con 3 o más positivas, sensibilidad 94% y especificidad 78%, y si las seis son negativas la sacroilíaca queda descartada como origen del dolor. Usa el botón "Combinar".',
+    // LA RAZON ERA FALSA (revision del 15 nov): las dos caderas del modelo NO
+    // son el mismo hueso. Hay un Leg_Armature por lado, cada uno con su
+    // femur_base (boneMap: resolveArmatureName da Leg_Armature_R o _L). Lo que
+    // impide el demo es que un demo lleva un solo `side`, `TestDemoComponent`
+    // no tiene lado y RigModel resuelve la base y cada componente con ese mismo
+    // lado: la flexion de una cadera y la extension de la contraria no se
+    // pueden declarar. Tumbarse no es la razon: este fichero ensena de pie
+    // pruebas en supino y en prono, y lo avisa en su nota.
     noDemo:
-      'Pide las dos caderas a la vez en direcciones opuestas (una en flexión máxima, la otra colgando en extensión) y los seis movimientos de cadera del rig mueven el mismo hueso: solo se puede posar uno cada vez.',
+      'Pide las dos caderas a la vez en direcciones opuestas: una en flexión máxima sobre el pecho y la otra colgando en extensión al borde de la camilla. Cada cadera del modelo es un hueso distinto, pero un demo solo posa un lado a la vez, así que no puede sostener la flexión de una y la extensión de la otra.',
     cite: [{
         ref: 'laslett-2005',
         verified: false,

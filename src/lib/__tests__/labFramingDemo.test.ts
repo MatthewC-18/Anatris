@@ -51,11 +51,14 @@ describe('el encuadre de un demo fuera de su región', () => {
   // No es una restriccion, es un inventario -- lo que no puede pasar es que se
   // salga SIN que nadie amplie la caja, y de eso se encarga el mecanismo.
   //
-  // Los seis de hoy, y por qué cada uno se sale:
+  // Los siete de hoy, y por qué cada uno se sale:
   //  - cervical/ulnt-median: vive en el panel cervical y mueve el BRAZO.
   //  - lumbar/slr-lasegue y lumbar/crossed-slr: flexión de cadera a 60° con la
   //    rodilla extendida; el encuadre lumbar llega al sacro, no a la pierna.
   //  - lumbar/femoral-nerve-stretch: flexión de rodilla en prono.
+  //  - lumbar/slump: desde la revisión del 15 nov sostiene, sobre la flexión
+  //    lumbar, la cadera a 90° con la rodilla extendida y el tobillo en flexión
+  //    dorsal, que es la posición final del miembro inferior en la prueba.
   //  - thoracic/roos-east y thoracic/wright-hyperabduction: las dos pruebas del
   //    desfiladero torácico se posan con el BRAZO en alto, y el encuadre
   //    torácico son vértebras.
@@ -75,6 +78,7 @@ describe('el encuadre de un demo fuera de su región', () => {
       'lumbar/crossed-slr',
       'lumbar/femoral-nerve-stretch',
       'lumbar/slr-lasegue',
+      'lumbar/slump',
       'thoracic/roos-east',
       'thoracic/wright-hyperabduction',
     ]);
