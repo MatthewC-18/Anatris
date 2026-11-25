@@ -26,6 +26,7 @@ import { phaseLead } from '../../lib/phaseLead';
 import { phaseTrio, phaseWhyNote } from '../../lib/phaseTrio';
 import { phaseSeekTarget } from '../../lib/labArc';
 import { grados, sinRango } from '../../lib/phaseLabel';
+import { PHASE_CONT_GAP_REM, phaseContinuationLines } from '../../lib/phaseFit';
 import { labMotionChannel } from './labMotionChannel';
 import { ActivationStrip } from './ActivationStrip';
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from '../ui/Icons';
@@ -160,6 +161,14 @@ export function PhasePager({
  * ------------------------------------------------------------------------ */
 
 /**
+ * Cambios seguidos de la cuenta de lineas, en la misma fase, antes de cortar.
+ * Con la cuenta de lib/phaseFit lo medido es 1 (encuesta de 73 fases en cuatro
+ * clases de ventana); React corta a las 50 vueltas, asi que 4 deja margen sin
+ * acercarse.
+ */
+const MAX_VUELTAS_MEDIDA = 4;
+
+/**
  * LA CELDA DE LA FRASE MIDE SIEMPRE LO MISMO: lo que la fase mas alta (frase,
  * fuente y aviso). Asi, al cambiar de fase, al reproducir o al pausar, solo
  * cambia el texto y nada de lo de debajo se mueve. El sitio que le sobra a una
@@ -184,19 +193,50 @@ export function PhaseStack({
   const contRef = useRef<HTMLParagraphElement>(null);
   /** Lineas de continuacion que caben en la fase activa, y si queda texto sin ver. */
   const [fit, setFit] = useState<{ lines: number; truncated: boolean }>({ lines: 0, truncated: false });
+  // CINTURON. Esta medida depende de lo que ella misma pinta, y el 25 nov 2026
+  // una cuenta que daba 1 linea sin la continuacion y 0 con ella tumbo el
+  // laboratorio entero ("Maximum update depth exceeded" en la flexion del codo,
+  // ver lib/phaseFit). La cuenta ya no depende de eso, pero por si otra
+  // combinacion de fuente y ventana vuelve a oscilar: se cuentan los cambios
+  // SEGUIDOS de `lines` sin llegar a un punto fijo en la misma fase, y pasado el
+  // tope se queda con el menor, que seguro cabe. Lo normal es 1 cambio.
+  const vueltas = useRef<{ index: number; phases: RomPhase[] | null; open: boolean; n: number }>({
+    index: -1,
+    phases: null,
+    open: false,
+    n: 0,
+  });
 
   useLayoutEffect(() => {
     const cell = cellRef.current;
     if (!cell) return;
+    const v = vueltas.current;
+    if (v.index !== index || v.phases !== phases || v.open !== open) {
+      vueltas.current = { index, phases, open, n: 0 };
+    }
     const medir = () => {
       const blocks = [...cell.children] as HTMLElement[];
       const cont = contRef.current;
-      const contH = cont ? cont.getBoundingClientRect().height : 0;
-      const nucleo = blocks.map((b, i) => b.getBoundingClientRect().height - (i === index ? contH : 0));
-      const alto = Math.max(...nucleo);
-      const lh = cont ? parseFloat(getComputedStyle(cont).lineHeight) || 20 : 20;
-      // El margen de arriba de la continuacion (mt-1.5) tambien sale del sitio.
-      const lines = Math.max(0, Math.floor((alto - nucleo[index] - 6) / lh));
+      // El margen sale de la fuente raiz en las dos ramas (pintada o no): leer
+      // el marginTop pintado en una y una constante en la otra es el mismo
+      // fallo que se arregla aqui.
+      const raiz = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const medidas = phaseContinuationLines({
+        blockHeights: blocks.map((b) => b.getBoundingClientRect().height),
+        index,
+        contHeight: cont ? cont.getBoundingClientRect().height : 0,
+        contGapPx: PHASE_CONT_GAP_REM * raiz,
+      });
+      const r = vueltas.current;
+      let lines = medidas;
+      if (lines === fit.lines) {
+        r.n = 0;
+      } else if (++r.n > MAX_VUELTAS_MEDIDA) {
+        lines = Math.min(fit.lines, lines);
+        if (import.meta.env.DEV && r.n === MAX_VUELTAS_MEDIDA + 1) {
+          console.warn('[PhaseStack] la medida de la continuacion oscila; se queda en', lines, 'lineas');
+        }
+      }
       const truncated = cont ? cont.scrollHeight > cont.clientHeight + 1 : true;
       setFit((f) => (f.lines === lines && f.truncated === truncated ? f : { lines, truncated }));
     };
@@ -232,6 +272,9 @@ export function PhaseStack({
             {verCont && (
               <p
                 ref={contRef}
+                // mt-1.5 y text-[13px] leading-[1.55] van atados a
+                // PHASE_CONT_GAP_REM y PHASE_CONT_LINE_PX (lib/phaseFit): si
+                // cambian aqui, cambian alli.
                 className="mt-1.5 text-[13px] leading-[1.55] text-fg2"
                 style={
                   abierto
