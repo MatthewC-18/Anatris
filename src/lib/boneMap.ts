@@ -703,6 +703,12 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // the side) the forearm reaches the belly and the trunk blocks it at ~70 deg;
     // driving to 100 sweeps the forearm straight through the abdomen. The larger
     // true range stays taught in shoulderRom.ts.
+    // MEDIDO el 25 nov, cuando este tope paso a recortar tambien el arco del
+    // laboratorio (buildLabArc; antes recorria hasta 100): antebrazo y mano
+    // dentro del tronco, `audit-demo-path belly-press --angulo=N`, 0,0% a 5,
+    // 19,4% a 70 y 15,3% a 100 (22,0% en el peor punto del trazo, hacia 81). El
+    // 70 no deja el antebrazo fuera del tronco: es un tope sin cifra que lo
+    // defienda, pendiente de decidir.
     clinicalRange: { min: 0, max: 70 },
     posture: [ELBOW_AT_90, FOREARM_NEUTRAL],
   },
@@ -794,33 +800,49 @@ export const BONE_MAP: Record<string, BoneControl> = {
     clinicalRange: { min: 0, max: 80 },
   },
 
-  // --- KNEE (shin_flex flexion; patella couples)
-  // RANGE = 105 deg, NOT the 120-140 deg clinical maximum -- a MESH limit, not a
-  // biomechanical one. The rig folds the calf as a RIGID block about the knee with
-  // no soft-tissue compression, so past ~110 deg the calf/gastrocnemius mesh drives
-  // THROUGH the thigh (measured offline on the GLB: deep interpenetration is ~0 up
-  // to 105 deg, then climbs -- 0.5% of calf verts >3 cm inside the thigh at 120 deg,
-  // 2.3% at 140 deg). 105 deg is where this figure's calf first meets its thigh, so
-  // it reads as a real deep-flexion pose that stops at soft-tissue apposition rather
-  // than clipping. The arc now runs to the AAOS reference 135 deg; the deeper
-  // values (~140 hip-flexed, ~160 passive heel-to-buttock; Kapandji/Neumann) stay
-  // in kneeRom.ts's text, because past ~140 the overlap stops reading as flesh
-  // pressing together. knee-extension shares this arc and starts at its flexed
-  // extreme, so it opens on that same pose.
+  // --- RODILLA (flexion de shin_flex; la rotula acompana)
+  //
+  // TOPE DE LA MALLA: 105 GRADOS, NO LOS 135 DE LA NORMA. Es un limite del
+  // modelo, no de la biomecanica: el rig dobla la pantorrilla como un bloque
+  // RIGIDO alrededor de la rodilla, sin compresion de los tejidos blandos, y a
+  // partir de unos 105 grados el vientre de los gemelos se mete en los
+  // isquiotibiales. MEDIDO en la app (nov 2026, sobre window.__rigScene con todas
+  // las reparaciones de RigModel, numero de enrollamiento por malla, las dos
+  // piernas): el solape pantorrilla-isquiotibiales es de 19,8-20,2 cm3 con 12,8
+  // mm de profundidad a 105, 47 cm3 y 14,2 mm a 120, y 109-110 cm3 y 19,0 mm a
+  // 135. Lo que fija el 105 es lo que se VE: desde atras no hay costura hasta 105
+  // (0 mm) y asoma desde 110 (3 mm; 43-44 a 135); desde dentro, 4-6 mm a 100-105
+  // frente a 22-23 a 120 y 79-82 a 135; y la piel de cristal de la pantorrilla
+  // entra en la del muslo 2 vertices (7,5 mm) a 105 frente a 38 (51 mm) a 135.
+  // 105 es el mayor angulo que cumple las tres. Repetido con el tope puesto (25
+  // nov, mismo banco): 19,8-20,2 cm3 y 12,8 mm, 0 mm desde atras en las dos
+  // piernas, desde dentro 0-15 mm, piel 2 vertices (7,5-7,7 mm).
+  //
+  // HISTORIA, para que nadie lo vuelva a subir a ciegas. 105 en julio, puesto a
+  // ojo (el usuario ya se habia quejado a 140 y a 120: "se atraviesa"). El 3 nov
+  // se subio a 135, la referencia AAOS, con una medida SOLO de piel
+  // (scripts/measure-knee-fold.mts, con un banco sin `blendKneeSkin`: 11 de 972
+  // vertices y 2,8 cm a 135); el musculo no lo midio nadie. El 25 nov, de vuelta
+  // a 105 por el musculo ("en la parte de flexion los musculos se penetran").
+  //
+  // LA NORMA SIGUE EN EL TEXTO: kneeRom.ts publica 135 (y ~140 con la cadera
+  // flexionada, ~160 pasiva) y eso pintan Explorar y la ficha del paciente. El
+  // tope vive AQUI, en el codigo, y no en la ficha, porque la ficha viaja en el
+  // contenido de pago y en produccion es la ultima que se desplego: el
+  // laboratorio recorre min(ficha, este tope) (`buildLabArc`) y los demos se
+  // recortan a el (`demoWithinMesh`), asi que un contenido viejo que diga 135
+  // tampoco lo pasa.
+  //
+  // Lo que el tope NO arregla: el pellizco del hueco popliteo, que ya esta a 90
+  // grados (6,4-6,7 cm3 y 9,7 mm), porque el musculo que cruza la rodilla va al
+  // 100% al femur o a la tibia, sin la mezcla por alturas que la piel si tiene.
   'knee-flexion': {
     kind: 'joint',
     armatureBase: 'Leg_Armature',
     bone: 'shin_flex',
     axis: 'x',
     sign: { R: -1, L: 1 },
-    // RAISED 105 -> 135 on 2026-11-03, the AAOS reference value. 105 was a mesh
-    // limit displayed as if it were the clinical range. Two things let it go:
-    // the knee skin no longer tears (src/lib/rigSkinRepair.ts), and the calf's
-    // overlap with the thigh was measured rather than guessed -- at 135 deg it
-    // is 2,8 cm over 1,1% of the calf skin, in the popliteal region where real
-    // flesh presses together. See scripts/measure-knee-fold.mts and the header
-    // of src/data/kneeRom.ts.
-    clinicalRange: { min: 0, max: 135 },
+    clinicalRange: { min: 0, max: 105 },
     couplings: [patellarGlide, screwHomeUnwind],
   },
   'knee-extension': {
@@ -833,11 +855,13 @@ export const BONE_MAP: Record<string, BoneControl> = {
     // RETURN toward 0 (shown with the quadriceps and started from the flexed
     // end), NOT a rotation past 0, which would kick the shin up into an
     // impossible forward hyperextension.
-    // Max 135 deg, matching knee-flexion: extension starts at the AAOS reference
-    // flexion rather than at the old mesh limit. See knee-flexion for the
-    // interpenetration measurements that allowed the raise.
+    // EL MISMO TOPE QUE LA FLEXION (ver knee-flexion): la extension ABRE en este
+    // extremo (`arcFrom: 'max'`), y a 135 abria en la pose de mayor solape, con
+    // la camara cerca (0,706 m, medido): lo primero que se veia del gesto era la
+    // pantorrilla 19 mm dentro de los isquiotibiales ("empieza con los musculos
+    // muy metidos").
     sign: { R: -1, L: 1 },
-    clinicalRange: { min: 0, max: 135 },
+    clinicalRange: { min: 0, max: 105 },
     // El mismo tornillo, recorrido al reves: la extension lo vuelve a enroscar
     // en sus ultimos 30 grados, que es justo donde se ensena el bloqueo.
     couplings: [patellarGlide, screwHomeUnwind],
@@ -1254,6 +1278,60 @@ export function getBoneControl(movementId: string): BoneControl | undefined {
 export function demoHeldAngle(movementId: string, angleDeg: number): number {
   const c = BONE_MAP[movementId];
   return c?.kind === 'joint' && c.arcFrom === 'max' ? 0 : angleDeg;
+}
+
+/**
+ * EL TOPE DE LA MALLA DE UN MOVIMIENTO: el `clinicalRange.max` de su control, o
+ * undefined si el rig no lo conduce.
+ *
+ * No es la norma clinica (esa es `totalRangeDeg`, la ficha ROM que se ensena en
+ * el texto): es hasta donde la malla aguanta sin que un segmento atraviese a
+ * otro (ver clinicalAudit). Hoy queda por debajo de su ficha en tres gestos: la
+ * flexion y la extension de rodilla (105 frente a 135, la pantorrilla dentro de
+ * los isquiotibiales) y la rotacion interna del hombro (70 frente a 100; ver la
+ * medida junto a su control: a 70 el antebrazo ya roza el tronco). Lo leen el
+ * arco del laboratorio (`buildLabArc`), los demos (`demoWithinMesh`) y los
+ * bancos.
+ */
+export function meshMaxDeg(movementId: string): number | undefined {
+  const c = BONE_MAP[movementId];
+  return c && c.kind !== 'unsupported' ? c.clinicalRange.max : undefined;
+}
+
+/**
+ * EL DEMO QUE SE POSA, DENTRO DEL TOPE DE LA MALLA.
+ *
+ * Los demos de las pruebas llegan con el contenido de pago, y en produccion ese
+ * contenido es el ultimo que se desplego: un McMurray escrito a 135 seguiria
+ * llegando a 135 aunque el codigo ya diga que la rodilla para en 105, porque
+ * RigModel no recorta por `clinicalRange` (solo lo leen RigViewer, este mapa y
+ * las pruebas). Asi que el angulo base y cada componente se recortan aqui, en
+ * el camino del demo, y los dos paneles que los mueven (Tests y Neuro) lo
+ * aplican ANTES de calcular la tarjeta y el bucle: el rig, la "Posicion de
+ * prueba" y la duracion del trazo dicen el mismo angulo.
+ *
+ * Solo por arriba. El minimo de un control no es un suelo de la malla: el arco
+ * del hombro sigue por debajo de 0 hacia el gesto contrario (`labReverse`) con
+ * `clinicalRange.min` a 0. Con los datos de hoy no cambia ningun demo
+ * (testDemosDiffer y clinicalAudit ya exigen que esten dentro; lo fija
+ * meshCap.test.ts): es la red para el contenido que aun no se ha redesplegado.
+ */
+export function demoWithinMesh<C extends { movementId: string; angleDeg: number }>(demo: {
+  movementId: string;
+  angleDeg: number;
+  components?: readonly C[];
+}): { angleDeg: number; components: C[] | undefined } {
+  const within = (movementId: string, deg: number) => {
+    const max = meshMaxDeg(movementId);
+    return max !== undefined && deg > max ? max : deg;
+  };
+  return {
+    angleDeg: within(demo.movementId, demo.angleDeg),
+    components: demo.components?.map((c) => {
+      const deg = within(c.movementId, c.angleDeg);
+      return deg === c.angleDeg ? c : { ...c, angleDeg: deg };
+    }),
+  };
 }
 
 /** True when the movement can actually drive the rig. */

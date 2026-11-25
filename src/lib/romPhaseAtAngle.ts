@@ -7,6 +7,7 @@
 
 import type { RomMovement, RomPhase } from '../types/rom';
 import { musclesForRomLookup } from '../data/musclesByRegion';
+import { meshMaxDeg } from './boneMap';
 
 export interface PhaseAtAngle {
   phase: RomPhase;
@@ -36,9 +37,21 @@ export interface LabArc {
 
 export function buildLabArc(movement: RomMovement): LabArc {
   const rev = movement.labReverse;
-  const posMax = movement.totalRangeDeg.max;
+  // EL ARCO DEL LABORATORIO ACABA EN EL TOPE DE LA MALLA SI LLEGA ANTES QUE LA
+  // FICHA. `totalRangeDeg` es la norma clinica y se queda en el texto; el 3D no
+  // puede pasar del `clinicalRange.max` de su control sin que un segmento
+  // atraviese a otro. En la rodilla la ficha dice 135 y el tope es 105: a 135 la
+  // pantorrilla se metia 19 mm (110 cm3) en los isquiotibiales y la extension
+  // abria en esa pose (medido, ver boneMap). Se aplica AQUI, una vez, porque de
+  // este arco salen el deslizador, la reproduccion, el inicio de la extension,
+  // el paginador, la regla, las curvas del trio y el guardian de la camara. Y
+  // lee el tope del codigo, no de la ficha: en produccion la ficha llega con el
+  // contenido de pago, que puede ser anterior a este tope.
+  const tope = meshMaxDeg(movement.id);
+  const posMax =
+    tope !== undefined && tope < movement.totalRangeDeg.max ? tope : movement.totalRangeDeg.max;
   const min = rev ? rev.minDeg : movement.totalRangeDeg.min;
-  const phases = rev ? [...rev.phases, ...movement.phases] : movement.phases;
+  const phases = clipPhasesTo(rev ? [...rev.phases, ...movement.phases] : movement.phases, posMax);
   const bidirectional = min < 0 && posMax > 0;
   // A BIDIRECTIONAL ARC NOW OPENS AT NEUTRAL, NOT AT THE OPPOSITE EXTREME.
   //
@@ -60,6 +73,20 @@ export function buildLabArc(movement: RomMovement): LabArc {
   const startDeg =
     startAt === 'max' ? posMax : startAt === 'min' ? min : bidirectional ? 0 : min;
   return { min, max: posMax, phases, startDeg, bidirectional };
+}
+
+/**
+ * Las fases, recortadas al final del arco: la que lo cruza acaba en el tope y
+ * las que empiezan en el o despues desaparecen (en la rodilla, "Final" 90-135
+ * pasa a 90-105). Recorta COPIAS: las mismas fases las pinta Explorar con la
+ * norma entera. Y si no hay nada que recortar devuelve la MISMA lista, porque
+ * el margen compara las fases por identidad (PhaseStack).
+ */
+function clipPhasesTo(phases: RomPhase[], max: number): RomPhase[] {
+  if (phases.every((p) => p.endDeg <= max)) return phases;
+  return phases
+    .filter((p) => p.startDeg < max)
+    .map((p) => (p.endDeg > max ? { ...p, endDeg: max } : p));
 }
 
 /**

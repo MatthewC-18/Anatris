@@ -102,7 +102,9 @@ const CHECKS: Check[] = [
   { move: 'knee-flexion',   deg: 90,  landmark: 'Calcaneus', axis: 'y', want:  1, says: 'el talon SUBE hacia el gluteo' },
   // `arcFrom: 'max'` -- 0 deg is the straight knee and the arc is driven from the
   // flexed end back to it, so the movement is measured max -> 0 (see below).
-  { move: 'knee-extension', deg: 120, landmark: 'Calcaneus', axis: 'y', want: -1, says: 'el talon BAJA al estirarse la rodilla' },
+  // Desde 105, el tope de la malla y el grado en que la extension abre en el
+  // laboratorio (boneMap); a 120, `clampDeg` ya lo recortaba a 105.
+  { move: 'knee-extension', deg: 105, landmark: 'Calcaneus', axis: 'y', want: -1, says: 'el talon BAJA al estirarse la rodilla' },
   // Tibial rotation, shown with the knee at 90. A rotation displaces nothing on
   // average, so it has to be read as the toes turning past the heel.
   { move: 'knee-internal-rotation', deg: 25, landmark: TOE, vs: 'Calcaneus', axis: 'lateral', want: -1, says: 'la punta del pie gira HACIA DENTRO', floor: 0.2 },

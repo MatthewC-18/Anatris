@@ -25,6 +25,8 @@ con el token que ya tenía el CLI. `INACTIVE` → `COMING_UP` → `RESTORING` �
 `ACTIVE_HEALTHY` en unos 90 segundos. Las cuatro funciones (`content`,
 `create-checkout`, `billing-portal`, `stripe-webhook`) vuelven a estar `ACTIVE`, y
 `content` se redesplegó con los payloads nuevos (cadera 120°, rodilla 135°).
+*(25 nov: la ficha de la rodilla sigue en 135°, pero el modelo 3D vuelve a
+parar en 105°; el tope vive en el código, no en el payload. Ver §1.)*
 
 **La puerta de entitlement, comprobada en producción** (POST con la clave anon,
 sin sesión):
@@ -50,11 +52,23 @@ recogidos por Physiopedia. De 34, **33 estaban bien**. El que no:
 
 | | Anatris (antes) | Referencia | Ahora |
 |---|---|---|---|
-| Flexión de rodilla | 105° | **135°** | 135° |
+| Flexión de rodilla | 105° | **135°** | 135° en la ficha; el modelo 3D, 105° |
 
 105° no era un dato clínico: era el ángulo al que la malla de la pantorrilla
 empezaba a atravesar el muslo. Un fisio que lee *"arco 0° a 105°"* lee una norma
 30° corta. Corregido, y explicado abajo por qué ahora se puede.
+
+**Actualización del 25 nov: el modelo 3D vuelve a parar en 105°.** La subida a
+135° se apoyó en una medida solo de piel (§2), hecha en un banco sin la mezcla
+de la piel de la rodilla; el músculo no lo midió nadie, y es lo que se ve. El
+usuario lo vio: *"en la parte de flexión los músculos se penetran"*. Medido en la
+app: a 135° la pantorrilla entra 19 mm (110 cm³) en los isquiotibiales y la
+costura se ve desde atrás (43-44 mm); a 105°, 0 mm desde atrás. Ahora las dos
+cifras viven separadas: la **norma** (135°) sigue en la ficha, en Explorar, en la
+ficha del paciente y en los textos; el **tope de la malla** (105°) vive en el
+código (`boneMap`, `clinicalRange.max`), y el laboratorio recorre el menor de los
+dos. El texto de la fase final y el de la extensión dicen la norma, el tope del
+modelo y por qué, así que *"arco 0° a 105°"* ya no se presenta como la norma.
 
 **Dos valores que NO son errores aunque se separen de la AAOS**, y conviene
 saber por qué antes de que alguien los señale:
@@ -122,6 +136,12 @@ donde la carne de la pantorrilla y el isquiotibial se comprimen en una flexión
 profunda real. Pasados ~140° deja de parecer compresión y parece un fallo, así
 que los valores profundos (~140 con cadera flexionada, ~160 pasivo talón-glúteo)
 siguen contándose en texto.
+
+> **Esa tabla es solo de piel, y no bastaba (25 nov).** `measure-knee-fold` usa
+> un poser sin `blendKneeSkin` y no mira el músculo. Medido en la app con el
+> músculo, el solape pantorrilla-isquiotibiales es de 20 cm³ (12,8 mm) a 105° y
+> de 110 cm³ (19 mm) a 135°, con la costura visible desde atrás desde 110°. Por
+> eso el modelo 3D vuelve a 105°; ver §1.
 
 **Blender no hizo falta.** Era código.
 

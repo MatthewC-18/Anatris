@@ -75,7 +75,7 @@ import { rigChannel } from './RigModel';
 import { demoChannel, useActiveDemo } from './demoChannel';
 import { readPose } from './consolePoseStore';
 import { startDemoLoop } from '../../lib/demoTimeline';
-import { getBoneControl } from '../../lib/boneMap';
+import { demoWithinMesh, getBoneControl } from '../../lib/boneMap';
 import { EVENTS, track } from '../../lib/analytics';
 import { structureLabel } from '../../lib/clinicalStructures';
 import { examinerHandDrawn } from '../../lib/examinerHand';
@@ -1609,7 +1609,12 @@ export function OrthopedicTestsPanel({
     const d = test?.demo;
     if (!test || !d) return;
     const side = d.side ?? 'R';
-    const target = d.angleDeg;
+    // EL DEMO, DENTRO DEL TOPE DE LA MALLA (boneMap.demoWithinMesh), antes de
+    // nada: el demo llega con el contenido de pago, que en produccion puede ser
+    // anterior al tope (un McMurray a 135 con la rodilla parando en 105), y de
+    // aqui salen a la vez el bucle, la duracion del trazo y la tarjeta.
+    const posado = demoWithinMesh(d);
+    const target = posado.angleDeg;
     // EL ARCO COMPARTIDO: 0 GRADOS ES EL FINAL DEL MOVIMIENTO, NO SU INICIO.
     //
     // En el codo y en la rodilla, flexion y extension recorren UN SOLO arco: 0
@@ -1735,7 +1740,7 @@ export function OrthopedicTestsPanel({
     const stop = startDemoLoop({
       target,
       fromMax,
-      components: d.components,
+      components: posado.components,
       order: d.order,
       reduceMotion: reduce,
       push,

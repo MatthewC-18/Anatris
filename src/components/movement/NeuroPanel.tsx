@@ -79,7 +79,7 @@ import type { NerveRoot } from '../../types/neuro';
 import { DermatomeMap } from './DermatomeMap';
 import { NeuroScreenReadout } from './NeuroScreenReadout';
 import { rigChannel } from './RigModel';
-import { getBoneControl } from '../../lib/boneMap';
+import { demoWithinMesh, getBoneControl } from '../../lib/boneMap';
 import { demoChannel, useActiveDemo } from './demoChannel';
 import { EVENTS, track, trackChange } from '../../lib/analytics';
 import {
@@ -573,7 +573,10 @@ export function NeuroPanel({
     const d = root?.demo;
     if (!root || !d) return;
     const side = d.side ?? 'R';
-    const target = d.angleDeg;
+    // Dentro del tope de la malla (boneMap.demoWithinMesh), como en Tests: el
+    // bucle, la duracion del trazo y la tarjeta salen del mismo angulo.
+    const posado = demoWithinMesh(d);
+    const target = posado.angleDeg;
     // Movements that share one arc with their opposite (elbow/knee extension)
     // START bent and straighten: 0 deg IS the extended joint. Sweeping 0 -> target
     // and holding there showed a joint bent to the target under the label
@@ -672,7 +675,7 @@ export function NeuroPanel({
     const stop = startDemoLoop({
       target,
       fromMax,
-      components: d.components,
+      components: posado.components,
       order: d.order,
       reduceMotion: reduce,
       push,

@@ -2,8 +2,10 @@
 //
 // `npm run audit-direction` contesta HACIA DONDE va cada movimiento. Esta
 // contesta CUANTO, que es la otra mitad de "fiel a la realidad" y nadie habia
-// medido: el deslizador dice 135 grados de flexion de rodilla, y lo que hay que
-// comprobar es que la rodilla quede a 135 y no a 112.
+// medido: el deslizador dice 145 grados de flexion de codo, y lo que hay que
+// comprobar es que el codo quede a 145 y no a 122. (El ejemplo era la rodilla a
+// 135; hoy su deslizador acaba en 105, el tope de la malla, y la ficha sigue
+// publicando 135: ver mas abajo, LO QUE SE ACCIONA.)
 //
 // No se mide el hueso contra el mundo, se mide contra SU SEGMENTO PADRE, que es
 // lo que significa el numero clinico: la flexion de rodilla es la tibia
@@ -48,6 +50,8 @@ import { ANKLE_ROM_LIST } from '../src/data/ankleRom.ts';
 import { CERVICAL_ROM_LIST } from '../src/data/cervicalRom.ts';
 import { THORACIC_ROM_LIST } from '../src/data/thoracicRom.ts';
 import { LUMBAR_ROM_LIST } from '../src/data/lumbarRom.ts';
+import { buildLabArc } from '../src/lib/romPhaseAtAngle.ts';
+import type { RomMovement } from '../src/types/rom.ts';
 
 /** Un hueso, o el TORAX (que en este rig no se mueve solo). */
 type Ref = string | 'world';
@@ -253,13 +257,25 @@ let failures = 0;
 // escrito aparte. Cuando los dos discrepan, el banco daba verde y la pantalla
 // mentia: `glenohumeral-internal-rotation` publica 100 grados y el control
 // documentaba 70.
-const FICHAS = new Map<string, { totalRangeDeg: { min: number; max: number } }>(
+//
+// LO QUE SE ACCIONA, DESDE EL 25 NOV: lo que recorre el laboratorio, que es la
+// ficha recortada por el tope de la malla (`buildLabArc`, la MISMA funcion que
+// el panel). Ese tope es el `clinicalRange.max` del control, y cuando queda por
+// debajo de la ficha no es un desajuste: es un limite del modelo documentado
+// (rodilla 105 frente a 135, la pantorrilla dentro de los isquiotibiales;
+// rotacion interna del hombro 70 frente a 100, ver la medida junto a su
+// control en boneMap). La ficha sigue siendo la norma que se ensena en el texto; la cifra
+// del deslizador es la del arco, y es la que tiene que alcanzar el hueso. Lo que
+// sigue siendo un desajuste es lo contrario: un control que deja pasar de la
+// ficha.
+const FICHAS = new Map<string, RomMovement>(
   [
     ...SHOULDER_ROM_LIST, ...ELBOW_ROM_LIST, ...KNEE_ROM_LIST, ...HIP_ROM_LIST,
     ...ANKLE_ROM_LIST, ...CERVICAL_ROM_LIST, ...THORACIC_ROM_LIST, ...LUMBAR_ROM_LIST,
-  ].map((m) => [m.id, m as unknown as { totalRangeDeg: { min: number; max: number } }]),
+  ].map((m) => [m.id, m]),
 );
 const mismatches: string[] = [];
+const topesDeMalla: string[] = [];
 
 for (const c of CHECKS) {
   const ctrl = BONE_MAP[c.move] as {
@@ -270,9 +286,15 @@ for (const c of CHECKS) {
   if (!ctrl) { console.log(`  ?   ${c.move} no esta en el mapa de huesos`); continue; }
   const ficha = FICHAS.get(c.move);
   if (!ficha) { console.log(`  ?   ${c.move} no tiene ficha ROM`); continue; }
-  // Se acciona hasta donde PUBLICA LA FICHA, no hasta donde dice el control.
-  const deg = ficha.totalRangeDeg.max;
-  if (ctrl.clinicalRange.max !== deg) {
+  // Se acciona hasta donde LLEGA EL LABORATORIO: la ficha, recortada por el
+  // tope de la malla (ver LO QUE SE ACCIONA, arriba).
+  const deg = buildLabArc(ficha).max;
+  if (deg < ficha.totalRangeDeg.max) {
+    topesDeMalla.push(
+      `${c.move}: la ficha publica ${ficha.totalRangeDeg.max} y la malla para en ` +
+      `${ctrl.clinicalRange.max}; el laboratorio recorre ${deg}`,
+    );
+  } else if (ctrl.clinicalRange.max !== deg) {
     mismatches.push(
       `${c.move}: la ficha publica ${deg} y el control documenta ` +
       `${ctrl.clinicalRange.max}`,
@@ -348,9 +370,15 @@ for (const r of rows) {
 console.log('');
 console.log(
   failures === 0
-    ? '  Todos los movimientos alcanzan los grados que su ficha publica.'
-    : `  ${failures} movimiento(s) no llegan a los grados que publican.`,
+    ? '  Todos los movimientos alcanzan los grados de su arco (la ficha, o el tope de la malla si para antes).'
+    : `  ${failures} movimiento(s) no llegan a los grados de su arco.`,
 );
+if (topesDeMalla.length > 0) {
+  console.log('');
+  console.log('  TOPES DE LA MALLA DOCUMENTADOS (la ficha es la norma; el 3D para antes):');
+  for (const m of topesDeMalla) console.log(`    ${m}`);
+  console.log('    (se acciona hasta el tope, que es donde acaba el deslizador)');
+}
 if (mismatches.length > 0) {
   console.log('');
   console.log('  LA FICHA Y EL CONTROL NO DICEN EL MISMO TOPE:');

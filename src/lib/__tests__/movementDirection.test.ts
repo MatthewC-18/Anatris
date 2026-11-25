@@ -55,7 +55,7 @@ const MEASURED: MeasuredDirection[] = [
   { move: 'ankle-inversion', signR: -1, signL: 1, evidence: 'a 35 deg el 1er metatarsiano queda 2,4 cm por ENCIMA del 5o' },
   { move: 'ankle-eversion', signR: 1, signL: -1, evidence: 'a 15 deg el 1er metatarsiano queda 1,2 cm por DEBAJO del 5o' },
   { move: 'knee-flexion', signR: -1, signL: 1, evidence: 'a 90 deg el talon sube 40,1 cm hacia el gluteo en los dos lados' },
-  { move: 'knee-extension', signR: -1, signL: 1, evidence: 'de 120 a 0 deg el talon baja 60,0 cm' },
+  { move: 'knee-extension', signR: -1, signL: 1, evidence: 'de 105 a 0 deg (el tope de la malla) el talon baja 50,2 cm' },
   { move: 'knee-internal-rotation', signR: 1, signL: -1, evidence: 'a 25 deg la punta del pie gira 6,7 cm hacia DENTRO' },
   { move: 'knee-external-rotation', signR: -1, signL: 1, evidence: 'a 25 deg la punta del pie gira 6,6 cm hacia FUERA' },
   // Both sides the SAME: femur_base local X does not mirror. Measured.

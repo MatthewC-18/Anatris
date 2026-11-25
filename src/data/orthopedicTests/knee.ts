@@ -386,16 +386,17 @@ const tests: OrthopedicTest[] = [
       // de menisco.
       cannotShow:
         'Del objetivo doble solo está la mitad: el menisco medial sí está en el rig, el lateral no. Lo que se enciende es el medial, que está dentro de la articulación, en el compartimento INTERNO: con la vista de perfil por fuera con la que se abre el demo apenas se ve.',
-      // 135, EL TOPE DE knee-flexion. La maniobra parte de la flexion maxima
-      // (kneePhases.ts: "con la rodilla en flexion maxima") y el demo paraba a
-      // 90. 135 es el tope del modelo y la referencia AAOS, no la flexion
-      // pasiva maxima (unos 160, kneeRom.ts), y la nota lo dice asi. Visto de
-      // perfil con scripts/render-test-demo.mts a 90, 120 y 135 con la
-      // rotacion externa de 30 (revision del 15 nov): la pantorrilla apoya en
-      // el muslo solo en el hueco popliteo. El solape medido de kneeRom.ts
-      // (1,1%, 2,8 cm a 135) es SIN la rotacion; con ella, s/d.
+      // 105, EL TOPE DE knee-flexion (boneMap). La maniobra parte de la flexion
+      // maxima (kneePhases.ts: "con la rodilla en flexion maxima") y el demo
+      // paraba a 90. Estuvo a 135, el tope del 3 nov, hasta que se midio el
+      // MUSCULO en la app: a 135 la pantorrilla entra 19 mm (110 cm3) en los
+      // isquiotibiales y la costura se ve desde atras (43-44 mm); a 105, 0 mm
+      // desde atras. Medido sin la rotacion; con la rotacion externa de 30, s/d.
+      // 105 es el tope del modelo, no la flexion pasiva maxima (unos 160,
+      // kneeRom.ts), y la nota lo dice asi. Un contenido de pago anterior que
+      // aun diga 135 se posa igualmente en 105 (boneMap.demoWithinMesh).
       movementId: 'knee-flexion',
-      angleDeg: 135,
+      angleDeg: 105,
       // LA ROTACION TIBIAL SI SE CONDUCE (knee-external/internal-rotation,
       // eje Y de shin_flex). La nota que decia que no es anterior a que se
       // habilitara, y por culpa de eso las cinco pruebas de 90 grados eran el
@@ -411,7 +412,8 @@ const tests: OrthopedicTest[] = [
       // la pierna en rotacion externa y despues extiende despacio. El precio:
       // al empezar y al acabar cada ciclo la tibia gira con la rodilla recta,
       // que kneeRom.ts ensena bloqueada por el tornillo; con strokePlan son
-      // 1,19 s de un trazo de 5,94 s (el tramo minimo del 20%). La nota lo
+      // 0,96 s de un trazo de 4,79 s con la base a 105 (1,19 de 5,94 cuando era
+      // 135; el tramo minimo del 20%, calculado con strokePlan). La nota lo
       // dice. audit-demo-path no decide aqui: solo mide antebrazo y mano
       // contra el tronco, y en un demo de pierna los ordenes empatan.
       order: 'components-first',
@@ -420,7 +422,7 @@ const tests: OrthopedicTest[] = [
       // patient lies supine" (Maffulli 2010, PMID 24198542, PMC3781854), los dos
       // leidos en el texto completo de Europe PMC. Plural: el demo conduce
       // flexion y rotacion externa.
-      note: 'Se flexiona con la tibia en rotación EXTERNA (variante medial) y se extiende despacio sin soltarla. El modelo flexiona hasta 135°, su tope, y vuelve extendiendo con la rotación mantenida; al empezar y al acabar gira la tibia con la rodilla recta, que en realidad está bloqueada. El valgo/varo no se reproduce. La prueba se hace en SUPINO: el modelo lo muestra de pie, así que mira los ángulos, no la postura global.',
+      note: 'Se flexiona con la tibia en rotación EXTERNA (variante medial) y se extiende despacio sin soltarla. El modelo flexiona hasta 105°, su tope (más allá su pantorrilla atraviesa los isquiotibiales; la flexión real llega más lejos), y vuelve extendiendo con la rotación mantenida; al empezar y al acabar gira la tibia con la rodilla recta, que en realidad está bloqueada. El valgo/varo no se reproduce. La prueba se hace en SUPINO: el modelo lo muestra de pie, así que mira los ángulos, no la postura global.',
     },
     cite: [
       {

@@ -24,7 +24,7 @@ import {
   ALL_PATHOLOGIES as PATHOLOGIES,
 } from '../data/fullContent';
 import { REFERENCES } from '../data/references';
-import { BONE_MAP } from './boneMap';
+import { BONE_MAP, meshMaxDeg } from './boneMap';
 import type { RomMovement } from '../types/rom';
 import type { OrthopedicTest } from '../types/orthopedicTest';
 import type { Citation } from '../types/muscleContent';
@@ -305,10 +305,14 @@ export function runClinicalAudit(): AuditResult {
         err(at, `appliesTo '${mvId}' no es un movimiento de ningún ROM`);
         continue;
       }
-      if (p.rangeCapDeg != null && p.rangeCapDeg >= mv.totalRangeDeg.max) {
+      // Contra el arco que RECORRE el laboratorio, no contra la ficha: si el
+      // tope de la malla corta antes (rodilla 105 frente a 135, ver boneMap), un
+      // cuadro que tope en 120 tampoco se notaria y la ficha no lo diria.
+      const labMax = Math.min(mv.totalRangeDeg.max, meshMaxDeg(mvId) ?? Infinity);
+      if (p.rangeCapDeg != null && p.rangeCapDeg >= labMax) {
         warn(
           at,
-          `rangeCapDeg ${p.rangeCapDeg} >= max de '${mvId}' (${mv.totalRangeDeg.max}): el tope no se nota`,
+          `rangeCapDeg ${p.rangeCapDeg} >= max de '${mvId}' en el laboratorio (${labMax}): el tope no se nota`,
         );
       }
       if (p.rangeFloorDeg != null && p.rangeFloorDeg <= mv.totalRangeDeg.min) {

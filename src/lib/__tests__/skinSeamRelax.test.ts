@@ -247,7 +247,9 @@ describe('relaxSkinSeams', () => {
     // asi que `femur_base` se descartaba al escribir. Un nodo del muslo con femur
     // y algo de sacro salia 100% sacro (la cortina de piel colgando del muslo a
     // 90 grados de flexion de cadera), y un nodo todo pierna no se escribia: esas
-    // costuras ni se soldaban (13 cm abiertos detras de la rodilla a 135 grados).
+    // costuras ni se soldaban (13 cm abiertos detras de la rodilla a 135 grados,
+    // medido cuando el laboratorio llegaba ahi; hoy la rodilla para en 105, el
+    // tope de la malla en boneMap).
     const { scene, thigh, buttock } = buildLegScene();
     relaxSkinSeams(scene);
     // La costura se suelda: las dos copias del vertice compartido, iguales.

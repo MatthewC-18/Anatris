@@ -53,6 +53,12 @@ export const KNEE_SKIN_REACH_M = 0.14;
  * `scripts/diag-knee-skin-binding.mts`, reviewed with
  * `MOVE=knee-flexion DEG=0,45,90,105 VIEW=side LAYERS=skin scripts/render-pose.mts`.
  *
+ * OJO CON ESA MEDIDA: measure-knee-fold cuenta solo PIEL, y en un banco
+ * (scripts/lib/rigPose.mts) que no aplica esta mezcla. Con ella se subio la
+ * flexion de rodilla de 105 a 135 el 3 nov; el musculo no lo midio nadie, y al
+ * medirlo en la app (110 cm3 de pantorrilla dentro de los isquiotibiales a 135)
+ * volvio a 105 el 25 nov. Ver la cabecera de la rodilla en boneMap.
+ *
  * @returns true when the mesh was re-weighted.
  */
 export function blendKneeSkin(mesh: THREE.Mesh, kneeY: number): boolean {

@@ -44,25 +44,29 @@ import type { RomMovement, RomMovementIndex } from '../types/rom';
 /* ===========================================================================
  * FLEXION (femoro-tibial), 0 -> 135 deg, sagittal
  *
- * RAISED FROM 105 TO 135 on 2026-11-03. 105 was a mesh limit shown as if it were
- * the range, and a physio reading "arco 0 a 105" reads a norm that is 30 deg
- * short: 135 is the AAOS reference value for knee flexion.
+ * LA FICHA ES LA NORMA; EL MODELO 3D PARA EN 105. `totalRangeDeg` (135, la
+ * referencia AAOS) es lo que se ensena: lo pintan Explorar y la ficha del
+ * paciente ("Rango objetivo"), y lo cuentan los textos. El laboratorio recorre
+ * min(ficha, tope de la malla), y ese tope vive en el CODIGO (boneMap,
+ * `clinicalRange.max` de knee-flexion y knee-extension: 105), no aqui: este
+ * fichero viaja en el contenido de pago, y en produccion el contenido es el
+ * ultimo que se desplego.
  *
- * The cap existed because the calf used to drive through the thigh. Two things
- * changed. The knee skin no longer tears (src/lib/rigSkinRepair.ts: the anterior
- * patch used to ride the gliding PATELLA and detach), and the overlap was
- * finally measured instead of eyeballed -- scripts/measure-knee-fold.mts, calf
- * skin inside the thigh's own cross-section:
+ * HISTORIA. 105 en julio, a ojo. El 3 nov se subio a 135 ("arco 0 a 105" se
+ * leia como una norma 30 grados corta) con una medida SOLO de piel
+ * (scripts/measure-knee-fold.mts, en un banco sin `blendKneeSkin`: 4 de 972
+ * vertices y 1,2 cm a 105; 11 y 2,8 cm a 135). El musculo no lo midio nadie, y
+ * es lo que se ve: medido despues en la app, a 135 la pantorrilla entra 19 mm
+ * (110 cm3) en los isquiotibiales y la costura asoma desde atras (43-44 mm); a
+ * 105, 12,8 mm de solape en el hueco popliteo y 0 mm de costura desde atras. De
+ * vuelta a 105 el 25 nov; las cifras completas, en la cabecera de la rodilla de
+ * boneMap. Que la ficha diga 135 y el modelo 105 ya no se lee como una norma
+ * corta: el arco del laboratorio deja de presentarse como la norma, y el texto
+ * dice las dos cifras y por que.
  *
- *      105 deg ->  4 of 972 vertices (0,4%), deepest 1,2 cm
- *      120 deg ->  7 (0,7%), deepest 2,1 cm
- *      135 deg -> 11 (1,1%), deepest 2,8 cm
- *      150 deg -> 10 (1,0%), deepest 3,0 cm   <- reads as merged, not pressed
- *
- * At 135 the overlap is a 1% patch in the popliteal region, which is exactly
- * where calf and hamstring flesh press together in a real deep knee bend. Past
- * ~140 it stops looking like compression and starts looking like a bug, so the
- * deeper values (~140 hip-flexed, ~160 passive heel-to-buttock) stay in text.
+ * Las fases y las anclas de las curvas siguen hasta 135 porque describen la
+ * norma: el laboratorio recorta la fase "Final" a 90-105 (buildLabArc) y dibuja
+ * las curvas solo hasta su tope.
  * ======================================================================== */
 const flexion: RomMovement = {
   id: 'knee-flexion',
@@ -89,7 +93,7 @@ const flexion: RomMovement = {
     },
   ],
   overview:
-    'Flexión de la pierna sobre el muslo en el plano sagital. El arco llega a 135 grados, el valor de referencia de la AAOS. Con la cadera extendida la flexión activa se queda en ~120 porque el recto femoral, biarticular, la frena; con la cadera flexionada alcanza ~140, y de forma pasiva ~160 (talón al glúteo), un tramo final que el modelo no dibuja porque sin compresión de los tejidos blandos la pantorrilla atravesaría el muslo. El poplíteo "desbloquea" la rodilla extendida rotando la tibia internamente; luego los isquiotibiales lideran la flexión. El gastrocnemio asiste solo con el tobillo libre.',
+    'Flexión de la pierna sobre el muslo en el plano sagital. El valor de referencia de la AAOS es 135 grados. Con la cadera extendida la flexión activa se queda en ~120 porque el recto femoral, biarticular, la frena; con la cadera flexionada alcanza ~140, y de forma pasiva ~160 (talón al glúteo). El modelo 3D se detiene en 105 grados: no comprime los tejidos blandos, y más allá su pantorrilla atraviesa los isquiotibiales. El poplíteo "desbloquea" la rodilla extendida rotando la tibia internamente; luego los isquiotibiales lideran la flexión. El gastrocnemio asiste solo con el tobillo libre.',
   region: 'knee',
   rig: { axis: [1, 0, 0] },
   phases: [
@@ -155,7 +159,7 @@ const flexion: RomMovement = {
       endDeg: 135,
       label: 'Final',
       description:
-        'Cerca de este punto la pantorrilla contacta el muslo (el modelo se detiene aquí para no atravesarlo). De pie (cadera extendida), la flexión activa real se frena hacia los 120 grados por la tensión del recto femoral (insuficiencia pasiva) y los isquiotibiales trabajan acortados (insuficiencia activa creciente). Con la cadera flexionada el recto femoral se relaja y el arco continúa hasta ~140 grados, limitado entonces por el choque de la pantorrilla con el muslo.',
+        'El modelo 3D se detiene en 105 grados, cuando su pantorrilla ya toca el muslo: no comprime los tejidos blandos y, más allá, la pantorrilla atravesaría los isquiotibiales. De pie (cadera extendida), la flexión activa real se frena hacia los 120 grados por la tensión del recto femoral (insuficiencia pasiva) y los isquiotibiales trabajan acortados (insuficiencia activa creciente). Con la cadera flexionada el recto femoral se relaja y el arco continúa hasta ~140 grados (la referencia de la AAOS es 135), limitado entonces por el choque de la pantorrilla con el muslo.',
       muscles: [
         { muscleId: 'biceps-femoris', role: 'prime-mover' },
         { muscleId: 'semitendinosus', role: 'assistant' },
@@ -257,9 +261,12 @@ const flexion: RomMovement = {
 /* ===========================================================================
  * EXTENSION (return from flexion), 135 -> 0 deg, sagittal
  *
- * Shares the flexion arc and STARTS at its flexed extreme (labStartAt 'max'), so
- * it opens on the AAOS reference flexion rather than on a mesh limit. See the
- * FLEXION header for the interpenetration measurements.
+ * Comparte el arco de la flexion y ARRANCA en su extremo flexionado (labStartAt
+ * 'max'). En el laboratorio ese extremo es el tope de la malla, 105 (boneMap),
+ * no la ficha: a 135 abria en la pose de mayor solape, con la pantorrilla 19 mm
+ * dentro de los isquiotibiales y la camara cerca ("empieza con los musculos muy
+ * metidos"). La ficha sigue diciendo 135, la norma. Ver la cabecera de la
+ * FLEXION.
  * ======================================================================== */
 const extension: RomMovement = {
   id: 'knee-extension',
@@ -269,12 +276,13 @@ const extension: RomMovement = {
   totalRangeDeg: { min: 0, max: 135 },
   rangeCite: [{ ref: 'kapandji', pageVerified: false }],
   overview:
-    'Extensión de la pierna desde la flexión hasta la posición neutra (0 grados). El cuádriceps es el único extensor. En los últimos 30 grados aparece el mecanismo de tornillo: la tibia rota externamente de forma automática y bloquea la rodilla en bipedestación con bajo coste muscular. Un valor negativo indicaría genu recurvatum (hiperextensión). El recorrido parte de 135 grados, el valor de referencia de la AAOS; en la persona la flexión de partida va de ~120 grados (cadera extendida) a ~140 (cadera flexionada).',
+    'Extensión de la pierna desde la flexión hasta la posición neutra (0 grados). El cuádriceps es el único extensor. En los últimos 30 grados aparece el mecanismo de tornillo: la tibia rota externamente de forma automática y bloquea la rodilla en bipedestación con bajo coste muscular. Un valor negativo indicaría genu recurvatum (hiperextensión). En la persona la flexión de partida va de ~120 grados (cadera extendida) a ~140 (cadera flexionada), y la referencia de la AAOS es 135; el modelo 3D parte de 105 grados, su tope, porque más allá su pantorrilla atraviesa los isquiotibiales.',
   region: 'knee',
   rig: { axis: [1, 0, 0] },
   // Lab: la extension recorre el MISMO arco que la flexion (0 = rodilla recta,
   // max = flexionada), arrancando en el extremo FLEXIONADO y volviendo a 0. La
   // pierna no "sube" mas alla de la posicion recta (sin patada hacia adelante).
+  // Ese extremo es min(ficha, tope de la malla): 105 (buildLabArc).
   labStartAt: 'max',
   phases: [
     {
@@ -323,7 +331,7 @@ const extension: RomMovement = {
       endDeg: 135,
       label: 'Inicio (desde flexión máxima)',
       description:
-        'Al iniciar la extensión desde la flexión de partida (135 grados; ~120 de pie en la persona), el recto femoral está preestirado si la cadera está extendida; con la cadera flexionada sufre insuficiencia activa y pierde eficacia. Los vastos, monoarticulares, no dependen de la posición de la cadera.',
+        'Al iniciar la extensión desde la flexión de partida (en el modelo 3D, 105 grados, su tope: más allá su pantorrilla atraviesa los isquiotibiales; en la persona, ~120 de pie y ~140 con la cadera flexionada), el recto femoral está preestirado si la cadera está extendida; con la cadera flexionada sufre insuficiencia activa y pierde eficacia. Los vastos, monoarticulares, no dependen de la posición de la cadera.',
       muscles: [
         {
           muscleId: 'rectus-femoris',

@@ -10,6 +10,16 @@
 // or raised: every degree recovered is a degree of the true range the app can
 // show instead of print.
 //
+// LO QUE ESTE BANCO NO MIDE, Y COSTO UN TOPE EQUIVOCADO. Cuenta solo PIEL
+// (pantorrilla dentro del perfil del muslo, tolerancia de 1 cm), y su poser
+// (scripts/lib/rigPose.mts) no aplica `blendKneeSkin`, la mezcla de la piel de
+// la rodilla que si hace la app. Con su cifra (11 vertices y 2,8 cm a 135) se
+// subio el tope a 135 el 3 nov sin mirar el MUSCULO, que es lo que se ve: medido
+// despues en la app, a 135 la pantorrilla entra 19 mm (110 cm3) en los
+// isquiotibiales y la costura asoma desde atras. El tope volvio a 105 el 25 nov
+// (cifras completas en la cabecera de la rodilla de boneMap). Antes de subirlo,
+// medir el musculo en la app, no solo esto.
+//
 // Method: knee flexion rotates ONLY shin_flex (plus the patella), so the thigh
 // does not move. Take the thigh's skin at rest as a stack of 2 cm horizontal
 // slabs, each a circle fitted to its own skin; then pose the knee and ask how
